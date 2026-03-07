@@ -3,6 +3,8 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/kube-zen/zen-brain1/pkg/contracts"
 )
 
 // ZenProjectSpec defines the desired state of ZenProject
@@ -21,7 +23,7 @@ type ZenProjectSpec struct {
 	KBScopes []string `json:"kb_scopes,omitempty"`
 
 	// SREDTags are the SR&ED uncertainty categories for this project
-	SREDTags []string `json:"sred_tags,omitempty"`
+	SREDTags []contracts.SREDTag `json:"sred_tags,omitempty"`
 
 	// FundingPrograms are the funding programs this project participates in
 	FundingPrograms []string `json:"funding_programs,omitempty"`

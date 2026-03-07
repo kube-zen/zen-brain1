@@ -8,6 +8,8 @@ package funding
 import (
 	"context"
 	"time"
+
+	"github.com/kube-zen/zen-brain1/pkg/contracts"
 )
 
 // Program represents a funding program.
@@ -65,7 +67,7 @@ type Evidence struct {
 	Content map[string]interface{} `json:"content"`
 
 	// SREDTags are the SR&ED uncertainty tags
-	SREDTags []string `json:"sred_tags,omitempty"`
+	SREDTags []contracts.SREDTag `json:"sred_tags,omitempty"`
 
 	// Eligible indicates whether this evidence is eligible for funding
 	Eligible bool `json:"eligible"`

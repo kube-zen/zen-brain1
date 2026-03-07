@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/kube-zen/zen-brain1/pkg/contracts"
 	pkgoffice "github.com/kube-zen/zen-brain1/pkg/office"
 )
 
@@ -34,32 +35,32 @@ func NewBaseOffice(name, clusterID string, config map[string]interface{}) *BaseO
 }
 
 // Fetch implements ZenOffice.Fetch.
-func (b *BaseOffice) Fetch(ctx context.Context, clusterID, workItemID string) (*pkgoffice.WorkItem, error) {
+func (b *BaseOffice) Fetch(ctx context.Context, clusterID, workItemID string) (*contracts.WorkItem, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
 // FetchBySourceKey implements ZenOffice.FetchBySourceKey.
-func (b *BaseOffice) FetchBySourceKey(ctx context.Context, clusterID, sourceKey string) (*pkgoffice.WorkItem, error) {
+func (b *BaseOffice) FetchBySourceKey(ctx context.Context, clusterID, sourceKey string) (*contracts.WorkItem, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
 // UpdateStatus implements ZenOffice.UpdateStatus.
-func (b *BaseOffice) UpdateStatus(ctx context.Context, clusterID, workItemID string, status pkgoffice.WorkStatus) error {
+func (b *BaseOffice) UpdateStatus(ctx context.Context, clusterID, workItemID string, status contracts.WorkStatus) error {
 	return fmt.Errorf("not implemented")
 }
 
 // AddComment implements ZenOffice.AddComment.
-func (b *BaseOffice) AddComment(ctx context.Context, clusterID, workItemID string, comment *pkgoffice.Comment) error {
+func (b *BaseOffice) AddComment(ctx context.Context, clusterID, workItemID string, comment *contracts.Comment) error {
 	return fmt.Errorf("not implemented")
 }
 
 // AddAttachment implements ZenOffice.AddAttachment.
-func (b *BaseOffice) AddAttachment(ctx context.Context, clusterID, workItemID string, attachment *pkgoffice.Attachment, content []byte) error {
+func (b *BaseOffice) AddAttachment(ctx context.Context, clusterID, workItemID string, attachment *contracts.Attachment, content []byte) error {
 	return fmt.Errorf("not implemented")
 }
 
 // Search implements ZenOffice.Search.
-func (b *BaseOffice) Search(ctx context.Context, clusterID string, query string) ([]pkgoffice.WorkItem, error) {
+func (b *BaseOffice) Search(ctx context.Context, clusterID string, query string) ([]contracts.WorkItem, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
@@ -71,78 +72,78 @@ func (b *BaseOffice) Watch(ctx context.Context, clusterID string) (<-chan pkgoff
 // Helper functions for common transformations
 
 // MapPriority maps external priority strings to canonical Priority.
-func (b *BaseOffice) MapPriority(externalPriority string) pkgoffice.Priority {
+func (b *BaseOffice) MapPriority(externalPriority string) contracts.Priority {
 	switch externalPriority {
 	case "highest", "critical", "1":
-		return pkgoffice.PriorityCritical
+		return contracts.PriorityCritical
 	case "high", "2":
-		return pkgoffice.PriorityHigh
+		return contracts.PriorityHigh
 	case "medium", "3":
-		return pkgoffice.PriorityMedium
+		return contracts.PriorityMedium
 	case "low", "4":
-		return pkgoffice.PriorityLow
+		return contracts.PriorityLow
 	case "lowest", "5":
-		return pkgoffice.PriorityBackground
+		return contracts.PriorityBackground
 	default:
-		return pkgoffice.PriorityMedium
+		return contracts.PriorityMedium
 	}
 }
 
 // MapWorkType maps external issue types to canonical WorkType.
-func (b *BaseOffice) MapWorkType(externalType string) pkgoffice.WorkType {
+func (b *BaseOffice) MapWorkType(externalType string) contracts.WorkType {
 	switch externalType {
 	case "bug", "defect":
-		return pkgoffice.WorkTypeDebug
+		return contracts.WorkTypeDebug
 	case "task", "chore":
-		return pkgoffice.WorkTypeImplementation
+		return contracts.WorkTypeImplementation
 	case "story", "feature":
-		return pkgoffice.WorkTypeDesign
+		return contracts.WorkTypeDesign
 	case "epic", "initiative":
-		return pkgoffice.WorkTypeResearch
+		return contracts.WorkTypeResearch
 	case "spike", "investigation":
-		return pkgoffice.WorkTypeAnalysis
+		return contracts.WorkTypeAnalysis
 	case "documentation":
-		return pkgoffice.WorkTypeDocumentation
+		return contracts.WorkTypeDocumentation
 	case "refactor":
-		return pkgoffice.WorkTypeRefactor
+		return contracts.WorkTypeRefactor
 	case "security":
-		return pkgoffice.WorkTypeSecurity
+		return contracts.WorkTypeSecurity
 	case "test":
-		return pkgoffice.WorkTypeTesting
+		return contracts.WorkTypeTesting
 	case "operation", "ops":
-		return pkgoffice.WorkTypeOperations
+		return contracts.WorkTypeOperations
 	default:
-		return pkgoffice.WorkTypeImplementation
+		return contracts.WorkTypeImplementation
 	}
 }
 
 // MapWorkDomain maps external components to canonical WorkDomain.
-func (b *BaseOffice) MapWorkDomain(externalComponent string) pkgoffice.WorkDomain {
+func (b *BaseOffice) MapWorkDomain(externalComponent string) contracts.WorkDomain {
 	switch externalComponent {
 	case "office", "ui", "frontend":
-		return pkgoffice.DomainOffice
+		return contracts.DomainOffice
 	case "factory", "worker", "agent":
-		return pkgoffice.DomainFactory
+		return contracts.DomainFactory
 	case "sdk", "library", "lib":
-		return pkgoffice.DomainSDK
+		return contracts.DomainSDK
 	case "policy", "gate", "guardian":
-		return pkgoffice.DomainPolicy
+		return contracts.DomainPolicy
 	case "memory", "context", "kb":
-		return pkgoffice.DomainMemory
+		return contracts.DomainMemory
 	case "observability", "monitoring", "logs":
-		return pkgoffice.DomainObservability
+		return contracts.DomainObservability
 	case "infrastructure", "cluster", "k8s":
-		return pkgoffice.DomainInfrastructure
+		return contracts.DomainInfrastructure
 	case "integration", "api", "gateway":
-		return pkgoffice.DomainIntegration
+		return contracts.DomainIntegration
 	default:
-		return pkgoffice.DomainCore
+		return contracts.DomainCore
 	}
 }
 
 // CreateAIAttribution creates an AIAttribution struct for AI-generated content.
-func (b *BaseOffice) CreateAIAttribution(agentRole, modelUsed, sessionID, taskID string) *pkgoffice.AIAttribution {
-	return &pkgoffice.AIAttribution{
+func (b *BaseOffice) CreateAIAttribution(agentRole, modelUsed, sessionID, taskID string) *contracts.AIAttribution {
+	return &contracts.AIAttribution{
 		AgentRole: agentRole,
 		ModelUsed: modelUsed,
 		SessionID: sessionID,
@@ -152,7 +153,7 @@ func (b *BaseOffice) CreateAIAttribution(agentRole, modelUsed, sessionID, taskID
 }
 
 // FormatAIAttributionHeader formats AI attribution as a Jira comment header.
-func (b *BaseOffice) FormatAIAttributionHeader(attr *pkgoffice.AIAttribution) string {
+func (b *BaseOffice) FormatAIAttributionHeader(attr *contracts.AIAttribution) string {
 	return fmt.Sprintf(
 		"[zen-brain | agent: %s | model: %s | session: %s | task: %s | %s]",
 		attr.AgentRole,

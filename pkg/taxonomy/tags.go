@@ -2,6 +2,10 @@
 // Tags are organized into categories to prevent tag sprawl and ensure consistency.
 package taxonomy
 
+import (
+	"github.com/kube-zen/zen-brain1/pkg/contracts"
+)
+
 // TagCategory represents a category of tags.
 type TagCategory string
 
@@ -77,21 +81,21 @@ var AnalyticsTags = []string{
 }
 
 // SREDTags defines SR&ED uncertainty categories.
-var SREDTags = []string{
-	"u1_dynamic_provisioning",
-	"u2_security_gates",
-	"u3_deterministic_delivery",
-	"u4_backpressure",
-	"experimental_general",
+var SREDTags = []contracts.SREDTag{
+	contracts.SREDU1DynamicProvisioning,
+	contracts.SREDU2SecurityGates,
+	contracts.SREDU3DeterministicDelivery,
+	contracts.SREDU4Backpressure,
+	contracts.SREDExperimentalGeneral,
 }
 
 // SREDTagDescription maps SR&ED tags to descriptions.
-var SREDTagDescription = map[string]string{
-	"u1_dynamic_provisioning":   "Dynamic resource provisioning uncertainty",
-	"u2_security_gates":         "Security and access control uncertainty",
-	"u3_deterministic_delivery": "Deterministic output delivery uncertainty",
-	"u4_backpressure":           "Backpressure and flow control uncertainty",
-	"experimental_general":      "General experimental work not tied to specific uncertainty",
+var SREDTagDescription = map[contracts.SREDTag]string{
+	contracts.SREDU1DynamicProvisioning:   "Dynamic resource provisioning uncertainty",
+	contracts.SREDU2SecurityGates:         "Security and access control uncertainty",
+	contracts.SREDU3DeterministicDelivery: "Deterministic output delivery uncertainty",
+	contracts.SREDU4Backpressure:          "Backpressure and flow control uncertainty",
+	contracts.SREDExperimentalGeneral:     "General experimental work not tied to specific uncertainty",
 }
 
 // ValidateTag validates that a tag belongs to a known category.
@@ -106,7 +110,7 @@ func ValidateTag(category TagCategory, tag string) bool {
 	case Analytics:
 		return contains(AnalyticsTags, tag)
 	case SRED:
-		return contains(SREDTags, tag)
+		return containsSRED(tag)
 	default:
 		return false
 	}
@@ -126,7 +130,7 @@ func GetCategory(tag string) TagCategory {
 	if contains(AnalyticsTags, tag) {
 		return Analytics
 	}
-	if contains(SREDTags, tag) {
+	if containsSRED(tag) {
 		return SRED
 	}
 	return ""
@@ -135,6 +139,15 @@ func GetCategory(tag string) TagCategory {
 func contains(slice []string, item string) bool {
 	for _, s := range slice {
 		if s == item {
+			return true
+		}
+	}
+	return false
+}
+
+func containsSRED(tag string) bool {
+	for _, t := range SREDTags {
+		if string(t) == tag {
 			return true
 		}
 	}

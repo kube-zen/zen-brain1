@@ -10,6 +10,8 @@ package journal
 import (
 	"context"
 	"time"
+
+	"github.com/kube-zen/zen-brain1/pkg/contracts"
 )
 
 // EventType represents the type of journal event.
@@ -82,7 +84,7 @@ type Entry struct {
 	Payload interface{} `json:"payload,omitempty"`
 
 	// SREDTags for SR&ED categorization
-	SREDTags []string `json:"sred_tags,omitempty"`
+	SREDTags []contracts.SREDTag `json:"sred_tags,omitempty"`
 
 	// Timestamp is when the event occurred (defaults to now)
 	Timestamp time.Time `json:"timestamp"`
@@ -126,7 +128,7 @@ type QueryOptions struct {
 	ProjectID string `json:"project_id,omitempty"`
 
 	// SREDTag filters by SR&ED tag
-	SREDTag string `json:"sred_tag,omitempty"`
+	SREDTag contracts.SREDTag `json:"sred_tag,omitempty"`
 
 	// Start filters events after this time
 	Start time.Time `json:"start,omitempty"`
@@ -171,7 +173,7 @@ type ZenJournal interface {
 	QueryByTask(ctx context.Context, taskID string) ([]Receipt, error)
 
 	// QueryBySREDTag retrieves all events with a specific SR&ED tag.
-	QueryBySREDTag(ctx context.Context, tag string, start, end time.Time) ([]Receipt, error)
+	QueryBySREDTag(ctx context.Context, tag contracts.SREDTag, start, end time.Time) ([]Receipt, error)
 
 	// Verify verifies the chain integrity.
 	Verify(ctx context.Context) (int, error)
