@@ -1,0 +1,16 @@
+# Zen-Brain Home Directory
+
+This directory is created by zen-brain on first run.
+
+## Structure
+
+- `journal/` - ZenJournal event logs (immutable)
+- `context/` - Session state and work memory
+- `cache/` - Ephemeral data (safe to delete)
+- `config/` - Configuration files
+- `logs/` - Application logs
+
+## Build Artifacts (do not commit)
+
+bin/
+coverage.out
