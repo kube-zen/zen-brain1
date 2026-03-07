@@ -57,3 +57,34 @@ db-up: ## Start local database (CockroachDB via Docker)
 
 db-down: ## Stop local database
 	docker stop zen-brain-db && docker rm zen-brain-db
+
+db-migrate: ## Run database migrations (requires db-up)
+	@echo "TODO: implement database migrations"
+
+db-reset: db-down db-up ## Reset database (stop, remove, start)
+	@echo "Database reset complete"
+
+## k3d cluster development (Block 6)
+
+dev-up: ## Start k3d cluster and deploy dependencies
+	k3d cluster create zen-brain-dev \
+		-p "8080:80@loadbalancer" \
+		-p "26257:26257@loadbalancer" \
+		--registry-create zen-registry:5000
+	kubectl apply -f deployments/k3d/dependencies.yaml
+
+dev-down: ## Stop k3d cluster
+	k3d cluster delete zen-brain-dev
+
+dev-logs: ## Tail logs from all pods
+	kubectl logs -f --all-containers -l app.kubernetes.io/part-of=zen-brain --tail=100
+
+## Code generation
+
+generate: ## Generate code (CRDs, deepcopy)
+	@echo "TODO: implement controller-tools generation"
+
+## Repository management
+
+repo-sync: ## Sync knowledge base repositories
+	@echo "TODO: implement repo sync"
