@@ -58,3 +58,6 @@ tmp/
 # Log files
 *.log
 logs/
+
+# Zen-Brain runtime directories
+.zen/
