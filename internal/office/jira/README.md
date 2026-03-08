@@ -8,6 +8,8 @@ Implements the `ZenOffice` interface for Atlassian Jira, providing bidirectional
 - ✅ **Canonical Mapping**: Maps Jira issues to `contracts.WorkItem` with proper type conversion
 - ✅ **Status Synchronization**: Bidirectional status updates between Jira and Zen-Brain
 - ✅ **Comment Sync**: Comments flow both ways with AI attribution preserved
+- ✅ **Proof-of-Work Integration**: Complete workflow support for execution results and proof summaries
+- ✅ **Status Transitions**: Configurable workflow transitions with proper mapping
 - 🔄 **Webhook Support**: Real-time updates via Jira webhooks (TODO)
 - 🔄 **Attachment Support**: Evidence attachment synchronization (TODO)
 - 🔄 **JQL Search**: Advanced search capabilities (TODO)
@@ -97,6 +99,83 @@ if err != nil {
 for event := range events {
     fmt.Printf("Event: %s - %s\n", event.Type, event.WorkItem.Title)
 }
+```
+
+### Proof-of-Work Integration
+```go
+// Step 1: Fetch the issue (canonical work)
+workItem, err := connector.FetchBySourceKey(ctx, "cluster-1", "PROJ-123")
+if err != nil {
+    log.Fatal(err)
+}
+
+// Step 2: Factory executes task and generates proof-of-work
+// (factory internally calls ProofOfWorkManager.GenerateJiraComment)
+proofComment, err := factory.Execute(ctx, spec)
+if err != nil {
+    log.Fatal(err)
+}
+
+// Step 3: Add proof-of-work as Jira comment
+err = connector.AddComment(ctx, "cluster-1", "PROJ-123", proofComment)
+if err != nil {
+    log.Fatal(err)
+}
+
+// Step 4: Update issue status based on execution result
+var targetStatus contracts.WorkStatus
+if proofComment.RequiresApproval {
+    targetStatus = contracts.StatusRequested  // Needs human review
+} else {
+    targetStatus = contracts.StatusCompleted  // Ready to merge
+}
+
+err = connector.UpdateStatus(ctx, "cluster-1", "PROJ-123", targetStatus)
+if err != nil {
+    log.Fatal(err)
+}
+```
+
+**Complete Proof-of-Work Workflow:**
+1. **Fetch** issue → Get canonical work from Jira
+2. **Execute** task → Factory runs bounded execution in isolated workspace
+3. **Generate** proof → ProofOfWorkManager creates JSON/Markdown artifacts
+4. **Comment** → Jira receives execution summary with AI attribution
+5. **Update** status → Issue transitions based on execution outcome
+
+**Proof-of-Work Comment Format:**
+```markdown
+[zen-brain | agent:factory | model:factory-v1 | session:session-123 | task:task-456 | 2026-03-07 14:30:00 UTC]
+
+# Proof-of-Work: PROJ-123
+
+## Objective
+Implement feature as described in ticket
+
+## Execution Summary
+- **Status**: Success
+- **Duration**: 15m 23s
+- **Started**: 2026-03-07 14:15:00 UTC
+- **Completed**: 2026-03-07 14:30:23 UTC
+
+## Work Done
+- **Files Changed**: 5
+- **Tests Run**: 10
+- **Tests Passed**: 10
+- **Git Branch**: ai/PROJ-123
+- **Git Commit**: abc123def456...
+
+## Evidence Items
+- Implemented core feature logic
+- Added unit tests
+- Updated documentation
+
+## Unresolved Risks
+- RISK: Integration testing pending
+- RISK: Performance optimization needed
+
+## Recommended Action
+merge
 ```
 
 ## AI Attribution Format
