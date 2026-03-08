@@ -82,8 +82,8 @@ Choosing qmd allows us to **ship 1.0 faster** while keeping the door open to upg
 
 ## Related Decisions
 
-- [ADR‑0004](0004‑multi‑cluster‑crds.md) – Multi‑cluster topology (KB scopes align with projects).
-- [KB/QMD Strategy](../kb‑qmd.md) – detailed implementation plan.
+- [ADR‑0004](0004_MULTI_CLUSTER_CRDS.md) – Multi‑cluster topology (KB scopes align with projects).
+- [KB/QMD Strategy](../KB_QMD_STRATEGY.md) – detailed implementation plan.
 - Construction Plan V6.0, Section 3.6 – KB Ingestion Service Architecture.
 
 ## References

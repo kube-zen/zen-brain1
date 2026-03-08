@@ -301,9 +301,9 @@ k3d cluster create zen-brain-dev \
 
 ## Next Steps
 
-- Read the [Contributing Guide](../CONTRIBUTING.md) for coding standards.
-- Explore the [Architecture Decision Records](../architecture/adr/) to understand design decisions.
-- Run through the [Workflow Examples](../workflow‑examples.md) to see the system in action.
+- Read the [Contributing Guide](../../CONTRIBUTING.md) for coding standards.
+- Explore the [Architecture Decision Records](../01-ARCHITECTURE/ADR/) to understand design decisions.
+- Run through the [Workflow Examples](../06-EXAMPLES/WORKFLOW_EXAMPLES.md) to see the system in action.
 
 ---
 

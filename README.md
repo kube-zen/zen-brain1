@@ -1,10 +1,10 @@
-# Zen-Brain 1.0
+# Zen‑Brain 1.0
 
 A production AI agent orchestration system for the Zen ecosystem.
 
 ## Overview
 
-Zen-Brain provides intelligent task planning, execution, and evidence collection for AI‑assisted software development. It integrates with Jira for human workflows, Kubernetes for scalable execution, and a Git‑based knowledge base for contextual retrieval.
+Zen‑Brain provides intelligent task planning, execution, and evidence collection for AI‑assisted software development. It integrates with Jira for human workflows, Kubernetes for scalable execution, and a Git‑based knowledge base for contextual retrieval.
 
 ## Architecture
 
@@ -12,7 +12,7 @@ Zen-Brain provides intelligent task planning, execution, and evidence collection
 
 - **Jira is the human front door** – work originates in Jira, but the internal execution model uses canonical `WorkItem` types.
 - **ZenOffice is the abstraction boundary** – external system connectors live here; no Jira‑specific types leak into Factory or Planner.
-- **Git‑based knowledge base** – `zen‑docs` repository is the source of truth; qmd indexes it for search; Confluence is a one‑way published mirror.
+- **Git‑based knowledge base** – `zen‑docs` repository is the source of truth; qmd indexes it for search; Confluence is a one‑way published mirror (optional).
 - **SR&ED evidence collection default ON** – every action is recorded for funding‑ready audit trails.
 - **Multi‑cluster aware** – control plane, data plane agents, and workload placement across heterogeneous Kubernetes clusters.
 
@@ -50,22 +50,15 @@ Zen-Brain provides intelligent task planning, execution, and evidence collection
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### Knowledge Base / QMD Strategy (1.0)
-
-- **Source of truth**: `zen‑docs` Git repository
-- **Search/index**: qmd over `zen‑docs` (CLI with JSON output, no MCP required)
-- **Human publishing**: one‑way sync from `zen‑docs` → Confluence
-- **Jira integration**: tickets link to KB scopes and docs; planner uses scopes to narrow retrieval
-- **No CockroachDB for KB/QMD in 1.0** – CockroachDB holds structured runtime data (ZenLedger, session state, policies), not the document corpus.
-
 ## Quick Start
 
 ```bash
-# Build
-make build
+# Clone the repository
+git clone git@github.com:kube-zen/zen-brain1.git
+cd zen-brain1
 
-# Run tests
-make test
+# Build the binary
+make build
 
 # Run locally
 make run
@@ -82,22 +75,22 @@ Zen‑Brain uses a configurable home directory:
 
 Comprehensive documentation is available in the `docs/` directory:
 
-- **[Construction Plan](docs/architecture/CONSTRUCTION‑PLAN.md)** – Master build roadmap (V6.0)
+- **[Construction Plan](docs/01-ARCHITECTURE/CONSTRUCTION_PLAN.md)** – Master build roadmap (V6.0)
 - **[Architecture Decision Records (ADRs)](docs/01-ARCHITECTURE/ADR/)** – Key design decisions with context and consequences
-- **[Data Model](docs/data‑model.md)** – Canonical types and structured tags
-- **[Knowledge Base & QMD Strategy](docs/kb‑qmd.md)** – How documentation is stored, searched, and published
-- **[Project Structure](docs/project‑structure.md)** – Directory layout and package organization
-- **[Glossary](docs/glossary.md)** – Definitions of terms, components, and processes
-- **[Block 2 Office Design](docs/design/block2‑office.md)** – Detailed design for the Jira connector and AI attribution
-- **[Component Design Documents](docs/design/)** – Detailed specifications for core components:
-  - [ZenContext](docs/design/zen‑context.md) – Tiered memory system (Hot/Warm/Cold)
-  - [ZenJournal](docs/design/zen‑journal.md) – Immutable event ledger with cryptographic chain hashes
-  - [ZenLedger](docs/design/zen‑ledger.md) – Token and cost accounting with yield metrics
-  - [ZenGate & ZenPolicy](docs/design/zen‑gate‑policy.md) – Admission control and declarative policy engine
-  - [LLM Gateway](docs/design/llm‑gateway.md) – Provider‑agnostic LLM interface with intelligent routing
+- **[Data Model](docs/02-CONTRACTS/DATA_MODEL.md)** – Canonical types and structured tags
+- **[Knowledge Base & QMD Strategy](docs/01-ARCHITECTURE/KB_QMD_STRATEGY.md)** – How documentation is stored, searched, and published
+- **[Project Structure](docs/01-ARCHITECTURE/PROJECT_STRUCTURE.md)** – Directory layout and package organization
+- **[Glossary](docs/01-ARCHITECTURE/GLOSSARY.md)** – Definitions of terms, components, and processes
+- **[Block 2 Office Design](docs/03-DESIGN/BLOCK2_OFFICE.md)** – Detailed design for the Jira connector and AI attribution
+- **[Component Design Documents](docs/03-DESIGN/)** – Detailed specifications for core components:
+  - [ZenContext](docs/03-DESIGN/ZEN_CONTEXT.md) – Tiered memory system (Hot/Warm/Cold)
+  - [ZenJournal](docs/03-DESIGN/ZEN_JOURNAL.md) – Immutable event ledger with cryptographic chain hashes
+  - [ZenLedger](docs/03-DESIGN/ZEN_LEDGER.md) – Token and cost accounting with yield metrics
+  - [ZenGate & ZenPolicy](docs/03-DESIGN/ZEN_GATE_POLICY.md) – Admission control and declarative policy engine
+  - [LLM Gateway](docs/03-DESIGN/LLM_GATEWAY.md) – Provider‑agnostic LLM interface with intelligent routing
 - **[Configuration Reference](docs/04-DEVELOPMENT/CONFIGURATION.md)** – All configurable options across components
 - **[Development Setup](docs/04-DEVELOPMENT/SETUP.md)** – Step‑by‑step guide to set up a local development environment
-- **[Workflow Examples](docs/workflow‑examples.md)** – Illustrated end‑to‑end workflows (Jira → PR, incident response, documentation)
+- **[Workflow Examples](docs/06-EXAMPLES/WORKFLOW_EXAMPLES.md)** – Illustrated end‑to‑end workflows (Jira → PR, incident response, documentation)
 - **[Contributing Guide](CONTRIBUTING.md)** – Development workflow, coding standards, and testing
 
 ## Development Status
@@ -113,7 +106,7 @@ Comprehensive documentation is available in the `docs/` directory:
 - 📋 Block 5: Intelligence – QMD, ReMe, Funding Evidence Aggregator
 - 📋 Block 6: Developer Experience – k3d cluster, local‑first workflow
 
-See `docs/architecture/CONSTRUCTION‑PLAN.md` for the full build roadmap.
+See `docs/01-ARCHITECTURE/CONSTRUCTION_PLAN.md` for the full build roadmap.
 
 ## License
 

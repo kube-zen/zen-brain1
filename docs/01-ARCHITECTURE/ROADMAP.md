@@ -1,9 +1,17 @@
-# ROADMAP
+# ROADMAP - zen-brain1 Project
 
-## Validation Test
+## Validation Tasks
 
-- [ ] Create a simple validation test file at /tmp/zen-brain-roadmap-test.txt with timestamp
+### Consolidation Verification
+- [ ] Create validation file at /tmp/zen-brain-tickets-test.txt with timestamp
+- [ ] Write test message to confirm execution works
 
-## Project Structure
+### Quick Wins
+- [ ] Test basic file creation workflow
+- [ ] Verify ollama port responsiveness
 
-- [ ] Document the consolidated ollama Docker setup
+## Project Goals
+
+- Consolidate ollama to Docker-only setup
+- Validate task execution with qwen3.5:0.8b model
+- Test tickets mode workflow: request → planner → blueprint → execution

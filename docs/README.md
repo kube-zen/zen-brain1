@@ -84,4 +84,4 @@ This documentation is a **living collection** that evolves with the project. As 
 
 ---
 
-*For the latest updates, check the [GitHub repository](https://github.com/kube‑zen/zen‑brain1).*
+*For the latest updates, check the [GitHub repository](https://github.com/kube-zen/zen-brain1).*

@@ -80,8 +80,8 @@ The typed string enum provides a good balance of readability, type safety, and s
 
 ## Related Decisions
 
-- [ADR‑0001](0001‑structured‑tags.md) – Structured tags model (SRED is one category).
-- [ADR‑0003](0003‑contracts‑package.md) – Centralized canonical types.
+- [ADR‑0001](0001_STRUCTURED_TAGS.md) – Structured tags model (SRED is one category).
+- [ADR‑0003](0003_CONTRACTS_PACKAGE.md) – Centralized canonical types.
 
 ## References
 

@@ -29,9 +29,9 @@ What becomes easier or more difficult to do because of this change?
 
 ## Related Decisions
 
-- [ADR-xxx](link-to-adr) – Title
+<!-- Example: [ADR-xxx](0001_STRUCTURED_TAGS.md) – Title (optional) -->
 
 ## References
 
-- [Link to issue or discussion](url)
-- [Link to external documentation](url)
+<!-- Example: [Link to issue or discussion](https://github.com/kube-zen/zen-brain1/issues/XXX) (optional) -->
+<!-- Example: [Link to external documentation](https://example.com) (optional) -->

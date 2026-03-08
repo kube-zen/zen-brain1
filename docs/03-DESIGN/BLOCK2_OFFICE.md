@@ -28,7 +28,7 @@ type ZenOffice interface {
 }
 ```
 
-All methods accept a `clusterID` parameter, enabling multi‑cluster operation (see [ADR‑0004](../architecture/adr/0004‑multi‑cluster‑crds.md)).
+All methods accept a `clusterID` parameter, enabling multi‑cluster operation (see [ADR‑0004](../01-ARCHITECTURE/ADR/0004_MULTI_CLUSTER_CRDS.md)).
 
 ## Jira Connector Responsibilities
 
@@ -100,7 +100,7 @@ The mapping is stored in `config.yaml` under `jira.status_mapping` and can be ov
 
 ## AI Attribution Injection
 
-All AI‑generated content written to Jira must include a structured attribution header (see [ADR‑0005](../architecture/adr/0005‑ai‑attribution‑jira.md)).
+All AI‑generated content written to Jira must include a structured attribution header (see [ADR‑0005](../01-ARCHITECTURE/ADR/0005_AI_ATTRIBUTION_JIRA.md)).
 
 **Format:**
 ```

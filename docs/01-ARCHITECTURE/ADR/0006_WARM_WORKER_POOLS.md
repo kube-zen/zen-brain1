@@ -135,7 +135,7 @@ The warm pool + worktree approach balances latency, isolation, and git‑friendl
 
 ## Related Decisions
 
-- [ADR‑0004](0004‑multi‑cluster‑crds.md) – Multi‑cluster topology (worker pools are per‑cluster).
+- [ADR‑0004](0004_MULTI_CLUSTER_CRDS.md) – Multi‑cluster topology (worker pools are per‑cluster).
 - Construction Plan V6.0, Section 3.5 – Warm Worker Pool with Session Affinity (A+C Hybrid).
 
 ## References

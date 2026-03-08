@@ -25,23 +25,23 @@ We use a variant of the [MADR](https://adr.github.io/madr/) template. Each ADR i
 - **Related Decisions** – Links to other ADRs
 - **References** – Links to code, documentation, or external resources
 
-See [template.md](template.md) for the full template.
+See [TEMPLATE.md](TEMPLATE.md) for the full template.
 
 ## ADR Index
 
 | ADR | Title | Status | Date |
 |-----|-------|--------|------|
-| [0001](0001‑structured‑tags.md) | Use structured tags instead of flat labels | Accepted | 2026‑03‑07 |
-| [0002](0002‑sred‑taxonomy.md) | Define SR&ED uncertainty categories as a typed enum | Accepted | 2026‑03‑07 |
-| [0003](0003‑contracts‑package.md) | Create a neutral contracts package for canonical types | Accepted | 2026‑03‑07 |
-| [0004](0004‑multi‑cluster‑crds.md) | Design multi‑cluster topology with ZenProject and ZenCluster CRDs | Accepted | 2026‑03‑07 |
-| [0005](0005‑ai‑attribution‑jira.md) | Inject AI attribution headers in all Jira content | Accepted | 2026‑03‑07 |
-| [0006](0006‑warm‑worker‑pools.md) | Use warm worker pools with session affinity and git worktrees | Accepted | 2026‑03‑07 |
-| [0007](0007‑qmd‑for‑knowledge‑base.md) | Use qmd for knowledge base search with git as source of truth | Accepted | 2026‑03‑07 |
+| [0001](0001_STRUCTURED_TAGS.md) | Use structured tags instead of flat labels | Accepted | 2026‑03‑07 |
+| [0002](0002_SRED_TAXONOMY.md) | Define SR&ED uncertainty categories as a typed enum | Accepted | 2026‑03‑07 |
+| [0003](0003_CONTRACTS_PACKAGE.md) | Create a neutral contracts package for canonical types | Accepted | 2026‑03‑07 |
+| [0004](0004_MULTI_CLUSTER_CRDS.md) | Design multi‑cluster topology with ZenProject and ZenCluster CRDs | Accepted | 2026‑03‑07 |
+| [0005](0005_AI_ATTRIBUTION_JIRA.md) | Inject AI attribution headers in all Jira content | Accepted | 2026‑03‑07 |
+| [0006](0006_WARM_WORKER_POOLS.md) | Use warm worker pools with session affinity and git worktrees | Accepted | 2026‑03‑07 |
+| [0007](0007_QMD_FOR_KNOWLEDGE_BASE.md) | Use qmd for knowledge base search with git as source of truth | Accepted | 2026‑03‑07 |
 
 ## Creating a New ADR
 
-1. Copy `template.md` to a new file `XXXX‑short‑title.md` (where `XXXX` is the next sequential number).
+1. Copy `TEMPLATE.md` to a new file `XXXX‑short‑title.md` (where `XXXX` is the next sequential number).
 2. Fill in the sections with clear, concise prose.
 3. Set the status to **Proposed**.
 4. Open a pull request for discussion.

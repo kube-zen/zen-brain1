@@ -7,11 +7,11 @@ Thank you for your interest in contributing to Zen‑Brain! This document outlin
 Zen‑Brain follows the **Office + Factory** architectural pattern:
 - **Jira is the human front door** – work originates in Jira, but the internal execution model uses canonical `WorkItem` types.
 - **ZenOffice is the abstraction boundary** – external system connectors live here; no Jira‑specific types leak into Factory or Planner.
-- **Git‑based knowledge base** – `zen‑docs` repository is the source of truth; qmd indexes it for search; Confluence is a one‑way published mirror.
+- **Git‑based knowledge base** – `zen‑docs` repository is the source of truth; qmd indexes it for search; Confluence is a one‑way published mirror (optional).
 - **SR&ED evidence collection default ON** – every action is recorded for funding‑ready audit trails.
 - **Multi‑cluster aware** – control plane, data plane agents, and workload placement across heterogeneous Kubernetes clusters.
 
-Before making changes, familiarize yourself with the [architecture documentation](docs/architecture/CONSTRUCTION‑PLAN.md) and [data model](docs/data‑model.md).
+Before making changes, familiarize yourself with the [architecture documentation](docs/01-ARCHITECTURE/CONSTRUCTION_PLAN.md) and [data model](docs/02-CONTRACTS/DATA_MODEL.md).
 
 ## Development Environment
 
@@ -48,11 +48,13 @@ Before making changes, familiarize yourself with the [architecture documentation
 
 ### Building and Testing
 
-- **Build the binary**: `make build`
+- **Build binary**: `make build`
 - **Run unit tests**: `make test`
 - **Run tests with coverage**: `make coverage`
 - **Format code**: `make fmt`
 - **Run linter** (requires `golangci‑lint`): `make lint`
+- **Run repo hygiene checks**: `make repo-check`
+- **Install pre-commit hooks**: `make install-hooks`
 
 ### Database Operations
 
@@ -98,11 +100,14 @@ zen‑brain1/
 ├── internal/              # Private Go packages
 │   ├── config/            # Configuration and paths
 │   └── office/            # ZenOffice base implementation (for connectors)
-├── docs/                  # Documentation
+├── docs/                  # Documentation (numbered taxonomy)
 ├── configs/               # Configuration templates
 ├── deployments/           # Kubernetes manifests
-├── scripts/               # Utility scripts
-└── Makefile               # Build, test, dev tasks
+├── scripts/               # Utility scripts (Python only)
+├── .githooks/            # Pre-commit hooks
+├── AGENTS.md             # Advisory model-facing instructions
+├── WORKFLOW.md           # Advisory workflow overview
+└── INDEX.md              # Root repository index
 ```
 
 ## Coding Standards
@@ -139,6 +144,50 @@ Use structured logging via `zen‑sdk/pkg/logging`. Include correlation IDs (ses
 - If zen‑brain needs a new cross‑cutting capability, build it in zen‑sdk first, then import it here.
 - Keep domain logic in zen‑brain (LLM interfaces, agent types, work orders).
 
+## Repo Governance
+
+### Repo Hygiene Gates
+
+This repository uses strict repo governance enforced by pre-commit hooks:
+
+- **No shell scripts** – All scripts must be Python files under `scripts/`
+- **Python script placement** – Python scripts must live in `scripts/` (executables allowed)
+- **Repository layout** – Docs must use numbered directories and `UPPER_SNAKE_CASE.md` filenames
+- **No executable sprawl** – Executable files only in `scripts/` (allowlisted)
+- **No binaries** – No large/binary files in tracked files
+- **Docs link validation** – All internal markdown links must be valid
+
+### Installing Hooks
+
+Install pre-commit hooks to automatically run checks before each commit:
+
+```bash
+make install-hooks
+```
+
+### Manual Checks
+
+Run all repo hygiene checks manually:
+
+```bash
+make repo-check
+```
+
+### CI/CD Integration
+
+The `scripts/ci/run.py` script provides gate runner suites for CI/CD:
+- `default` – runs all gates
+- `governance` – runs only repo governance gates
+- `docs` – runs only docs-related gates
+- `binaries` – runs only binary checking gates
+- `all` – runs everything
+
+Example:
+
+```bash
+python3 scripts/ci/run.py default
+```
+
 ## Branching and Commits
 
 ### Trunk‑Based Development
@@ -164,11 +213,12 @@ Types:
 - `feat`: New feature
 - `fix`: Bug fix
 - `docs`: Documentation only
-- `style`: Changes that do not affect the meaning (formatting, missing semicolons, etc.)
+- `style`: Changes that do not affect meaning (formatting, missing semicolons, etc.)
 - `refactor`: Code change that neither fixes a bug nor adds a feature
 - `perf`: Performance improvement
 - `test`: Adding or correcting tests
 - `chore`: Changes to the build process, tooling, or dependencies
+- `governance`: Repo governance changes (gates, docs reorganization, etc.)
 
 Example:
 
@@ -187,10 +237,11 @@ Refs: ZEN‑42
 1. Create a branch from `main`.
 2. Implement your change with tests.
 3. Update documentation as needed.
-4. Run `make test` and `make lint` (if available).
-5. Push your branch and open a pull request.
-6. Ensure CI passes (if configured).
-7. Request review from maintainers.
+4. Run `make repo-check` to ensure repo hygiene.
+5. Run `make test` and `make lint` (if available).
+6. Push your branch and open a pull request.
+7. Ensure CI passes (if configured).
+8. Request review from maintainers.
 
 ## Testing
 
@@ -212,12 +263,36 @@ End‑to‑end tests are located in `tests/e2e/` and require a full k3d cluster 
 
 ## Documentation
 
+### Docs Taxonomy
+
+Documentation follows a numbered taxonomy:
+
+- **01-ARCHITECTURE/** – High‑level architecture, ADRs, glossary
+- **02-CONTRACTS/** – Canonical data models and interfaces
+- **03-DESIGN/** – Component design specifications
+- **04-DEVELOPMENT/** – Development guides, configuration, setup
+- **05-OPERATIONS/** – Operations and deployment guides
+- **06-EXAMPLES/** – Example workflows and use cases
+- **99-ARCHIVE/** – Deprecated or archived documentation
+
+### Filename Convention
+
+All doc files must use `UPPER_SNAKE_CASE.md` filenames (e.g., `CONSTRUCTION_PLAN.md`, `DATA_MODEL.md`).
+
 ### Updating Documentation
 
-- Architecture decisions go in `docs/architecture/`.
-- API and interface documentation go in the respective `pkg/` directories as Go doc comments.
-- User‑facing guides go in the `docs/` directory.
-- Update the `README.md` if the change affects the project overview.
+- Architecture decisions go in `docs/01-ARCHITECTURE/ADR/`
+- Component designs go in `docs/03-DESIGN/`
+- Development guides go in `docs/04-DEVELOPMENT/`
+- API and interface documentation go in respective `pkg/` directories as Go doc comments
+- Update `docs/INDEX.md` when adding new documents
+- Update `README.md` if changes affect the project overview
+
+### Model-Facing Files
+
+- `AGENTS.md` – Advisory model-facing instructions (not source of truth)
+- `WORKFLOW.md` – Advisory workflow overview (not source of truth)
+- These files are guidance only; canonical truth lives in code, config, and structured docs
 
 ### Generating Code Documentation
 
@@ -233,9 +308,9 @@ go doc ./pkg/office
 
 ## Getting Help
 
-- Check the [architecture documentation](docs/architecture/CONSTRUCTION‑PLAN.md) for design decisions.
+- Check the [architecture documentation](docs/01-ARCHITECTURE/CONSTRUCTION_PLAN.md) for design decisions.
 - Review existing issues and pull requests.
-- Contact the maintainers via GitHub Discussions or Slack (if available).
+- Contact maintainers via GitHub Discussions or Slack (if available).
 
 ## License
 

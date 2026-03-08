@@ -89,8 +89,8 @@ The `contracts` package is the clear winner for enforcing architectural boundari
 
 ## Related Decisions
 
-- [ADR‑0001](0001‑structured‑tags.md) – Structured tags are defined in `contracts.WorkTags`.
-- [ADR‑0002](0002‑sred‑taxonomy.md) – SREDTag enum is defined in `contracts`.
+- [ADR‑0001](0001_STRUCTURED_TAGS.md) – Structured tags are defined in `contracts.WorkTags`.
+- [ADR‑0002](0002_SRED_TAXONOMY.md) – SREDTag enum is defined in `contracts`.
 
 ## References
 

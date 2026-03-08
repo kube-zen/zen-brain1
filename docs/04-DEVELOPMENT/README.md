@@ -4,13 +4,13 @@ This directory contains practical guides for developers working on Zen‑Brain.
 
 ## Getting Started
 
-- **[Setup Guide](setup.md)** – Step‑by‑step instructions to set up a complete development environment (prerequisites, k3d cluster, configuration, testing).
+- **[Setup Guide](SETUP.md)** – Step‑by‑step instructions to set up a complete development environment (prerequisites, k3d cluster, configuration, testing).
 
 ## Reference
 
-- **[Contributing Guide](../CONTRIBUTING.md)** – Coding standards, commit conventions, pull request process.
-- **[Project Structure](../project‑structure.md)** – Directory layout and package organization.
-- **[Configuration Reference](../configuration.md)** (planned) – All configurable options across components.
+- **[Contributing Guide](../../CONTRIBUTING.md)** – Coding standards, commit conventions, pull request process.
+- **[Project Structure](../01-ARCHITECTURE/PROJECT_STRUCTURE.md)** – Directory layout and package organization.
+- **[Configuration Reference](CONFIGURATION.md)** – All configurable options across components.
 
 ## Testing
 
@@ -99,6 +99,7 @@ Enable Go modules, Kubernetes plugin.
 
 CI is configured via GitHub Actions (`.github/workflows/`). Runs on every pull request:
 
+- `make repo-check` – repo hygiene gates
 - `go test`
 - `go build`
 - `golangci‑lint` (if configured)
@@ -114,4 +115,4 @@ CI is configured via GitHub Actions (`.github/workflows/`). Runs on every pull r
 
 ---
 
-*For architectural documentation, see [Architecture](../architecture/).*
+*For architectural documentation, see [Architecture](../01-ARCHITECTURE/).*

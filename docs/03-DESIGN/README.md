@@ -6,28 +6,33 @@ This directory contains detailed design specifications for Zen‑Brain component
 
 | Document | Purpose | Status |
 |----------|---------|--------|
-| [Block 2 Office](block2‑office.md) | Design of the Office layer (Jira connector, intent analysis, planning) | **Complete** |
-| [ZenContext](zen‑context.md) | Tiered memory system (Hot/Warm/Cold) | **Draft** |
-| [ZenJournal](zen‑journal.md) | Immutable event ledger with cryptographic chain hashes | **Draft** |
-| [ZenLedger](zen‑ledger.md) | Token and cost accounting with yield metrics | **Draft** |
-| [ZenGate & ZenPolicy](zen‑gate‑policy.md) | Admission control and declarative policy engine | **Draft** |
-| [LLM Gateway](llm‑gateway.md) | Provider‑agnostic LLM interface with intelligent routing | **Draft** |
+| [Block 2 Office](BLOCK2_OFFICE.md) | Design of the Office layer (Jira connector, intent analysis, planning) | **Complete** |
+| [ZenContext](ZEN_CONTEXT.md) | Tiered memory system (Hot/Warm/Cold) | **Draft** |
+| [ZenJournal](ZEN_JOURNAL.md) | Immutable event ledger with cryptographic chain hashes | **Draft** |
+| [ZenLedger](ZEN_LEDGER.md) | Token and cost accounting with yield metrics | **Draft** |
+| [ZenGate & ZenPolicy](ZEN_GATE_POLICY.md) | Admission control and declarative policy engine | **Draft** |
+| [LLM Gateway](LLM_GATEWAY.md) | Provider‑agnostic LLM interface with intelligent routing | **Draft** |
+| [Bounded Orchestrator Loop](BOUNDED_ORCHESTRATOR_LOOP.md) | State machine for task execution with bounded retries and resume/recovery | **Draft** |
+| [Proof of Work](PROOF_OF_WORK.md) | Bundle format for AI work evidence (session IDs, intent, files, tests, logs) | **Draft** |
+| [Skills and Subagents](SKILLS_AND_SUBAGENTS.md) | Design for bounded execution helpers under RoleProfile and policies | **Draft** |
 
 ## Upcoming Designs
 
 - **ZenGuardian** – proactive monitoring and safety boundaries
 - **Factory Execution** – warm worker pools, session affinity, worktree isolation
-- **Knowledge Base Ingestion** – QMD integration, Confluence sync
+- **Knowledge Base Ingestion** – QMD integration, Confluence sync (optional)
 - **Funding Evidence Aggregator** – SR&ED/IRAP report generation
 - **Multi‑cluster Topology** – control plane / data plane communication
+- **Agent Sandbox** – non-destructive evaluation lane for 1.1 (planned)
+- **Role/Policy Framework** – `ZenRoleProfile`, `ZenExecutionPolicy`, `ZenHandoffPolicy`, `ZenTool`, `ZenToolBinding`, `ZenComplianceProfile` (1.1)
 
 ## Design Principles
 
-All components adhere to the architectural principles outlined in the [Construction Plan](../architecture/CONSTRUCTION‑PLAN.md):
+All components adhere to the architectural principles outlined in the [Construction Plan](../01-ARCHITECTURE/CONSTRUCTION_PLAN.md):
 
 1. **Jira is the human front door** – work originates in Jira, but the internal execution model uses canonical `WorkItem` types.
 2. **ZenOffice is the abstraction boundary** – external system connectors live here; no Jira‑specific types leak into Factory or Planner.
-3. **Git‑based knowledge base** – `zen‑docs` repository is the source of truth; qmd indexes it for search; Confluence is a one‑way published mirror.
+3. **Git‑based knowledge base** – `zen‑docs` repository is the source of truth; qmd indexes it for search; Confluence is a one‑way published mirror (optional).
 4. **SR&ED evidence collection default ON** – every action is recorded for funding‑ready audit trails.
 5. **Multi‑cluster aware** – control plane, data plane agents, and workload placement across heterogeneous Kubernetes clusters.
 
@@ -41,7 +46,7 @@ All components adhere to the architectural principles outlined in the [Construct
 
 When creating a new design document:
 
-1. Start from the [template](../architecture/adr/template.md) for ADRs, or copy an existing design doc structure.
+1. Start from the [ADR template](../01-ARCHITECTURE/ADR/TEMPLATE.md) for ADRs, or copy an existing design doc structure.
 2. Include:
    - Overview and purpose
    - Interface definitions

@@ -76,8 +76,8 @@ The structured `WorkTags` struct strikes a balance between explicitness, type sa
 
 ## Related Decisions
 
-- [ADR‑0002](0002‑sred‑taxonomy.md) – Define SR&ED uncertainty categories as a typed enum.
-- [ADR‑0003](0003‑contracts‑package.md) – Create a neutral `pkg/contracts` package for canonical types.
+- [ADR‑0002](0002_SRED_TAXONOMY.md) – Define SR&ED uncertainty categories as a typed enum.
+- [ADR‑0003](0003_CONTRACTS_PACKAGE.md) – Create a neutral `pkg/contracts` package for canonical types.
 
 ## References
 
