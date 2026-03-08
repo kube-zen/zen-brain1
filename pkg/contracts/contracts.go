@@ -290,3 +290,81 @@ type AnalysisResult struct {
 	RecommendedModel string         `json:"recommended_model,omitempty"`
 	EstimatedTotalCostUSD float64   `json:"estimated_total_cost_usd,omitempty"`
 }
+
+// SessionState represents the lifecycle state of a work session.
+type SessionState string
+
+const (
+	SessionStateCreated    SessionState = "created"
+	SessionStateAnalyzed   SessionState = "analyzed"
+	SessionStateScheduled  SessionState = "scheduled"
+	SessionStateInProgress SessionState = "in_progress"
+	SessionStateCompleted  SessionState = "completed"
+	SessionStateFailed     SessionState = "failed"
+	SessionStateBlocked    SessionState = "blocked"
+	SessionStateCanceled   SessionState = "canceled"
+)
+
+// Session represents a work execution session.
+// A session tracks the progress of a WorkItem through the Zen‑Brain pipeline.
+type Session struct {
+	// Identity
+	ID          string       `json:"id"`
+	WorkItemID  string       `json:"work_item_id"`
+	SourceKey   string       `json:"source_key"` // e.g., "PROJ-123"
+	
+	// State
+	State       SessionState `json:"state"`
+	StateHistory []StateTransition `json:"state_history,omitempty"`
+	
+	// Content
+	WorkItem       *WorkItem        `json:"work_item,omitempty"`
+	AnalysisResult *AnalysisResult  `json:"analysis_result,omitempty"`
+	BrainTaskSpecs []BrainTaskSpec  `json:"brain_task_specs,omitempty"`
+	
+	// Evidence (SR&ED)
+	EvidenceItems []EvidenceItem    `json:"evidence_items,omitempty"`
+	
+	// Execution
+	AssignedAgent  string           `json:"assigned_agent,omitempty"`
+	AssignedModel  string           `json:"assigned_model,omitempty"`
+	StartedAt      *time.Time       `json:"started_at,omitempty"`
+	CompletedAt    *time.Time       `json:"completed_at,omitempty"`
+	Error          string           `json:"error,omitempty"`
+	
+	// Metadata
+	CreatedAt      time.Time        `json:"created_at"`
+	UpdatedAt      time.Time        `json:"updated_at"`
+}
+
+// StateTransition records a state change in a session.
+type StateTransition struct {
+	FromState  SessionState `json:"from_state"`
+	ToState    SessionState `json:"to_state"`
+	Timestamp  time.Time    `json:"timestamp"`
+	Reason     string       `json:"reason,omitempty"`
+	Agent      string       `json:"agent,omitempty"` // Who triggered the transition
+}
+
+// EvidenceItem represents a piece of SR&ED evidence collected during a session.
+type EvidenceItem struct {
+	ID           string            `json:"id"`
+	SessionID    string            `json:"session_id"`
+	Type         EvidenceType      `json:"type"`
+	Content      string            `json:"content"` // Text, JSON, or reference
+	Metadata     map[string]string `json:"metadata,omitempty"`
+	CollectedAt  time.Time         `json:"collected_at"`
+	CollectedBy  string            `json:"collected_by"` // Agent/model
+}
+
+// EvidenceType categorizes SR&ED evidence.
+type EvidenceType string
+
+const (
+	EvidenceTypeHypothesis   EvidenceType = "hypothesis"
+	EvidenceTypeExperiment   EvidenceType = "experiment"
+	EvidenceTypeObservation  EvidenceType = "observation"
+	EvidenceTypeMeasurement  EvidenceType = "measurement"
+	EvidenceTypeAnalysis     EvidenceType = "analysis"
+	EvidenceTypeConclusion   EvidenceType = "conclusion"
+)
