@@ -87,6 +87,7 @@ Comprehensive documentation is available in the `docs/` directory:
 - **[Data Model](docs/data‑model.md)** – Canonical types and structured tags
 - **[Knowledge Base & QMD Strategy](docs/kb‑qmd.md)** – How documentation is stored, searched, and published
 - **[Project Structure](docs/project‑structure.md)** – Directory layout and package organization
+- **[Glossary](docs/glossary.md)** – Definitions of terms, components, and processes
 - **[Block 2 Office Design](docs/design/block2‑office.md)** – Detailed design for the Jira connector and AI attribution
 - **[Contributing Guide](CONTRIBUTING.md)** – Development workflow, coding standards, and testing
 
