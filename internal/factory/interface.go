@@ -2,6 +2,9 @@ package factory
 
 import (
 	"context"
+	"time"
+
+	"github.com/kube-zen/zen-brain1/pkg/contracts"
 )
 
 // Factory defines the interface for task execution.
@@ -78,4 +81,25 @@ type ProofOfWorkGenerator interface {
 
 	// SerializeToMarkdown converts proof-of-work to human-readable markdown.
 	SerializeToMarkdown(proof *ProofOfWorkSummary) (string, error)
+}
+
+// ProofOfWorkManager manages proof-of-work artifact generation and storage.
+// It creates structured evidence bundles for task execution.
+type ProofOfWorkManager interface {
+	// CreateProofOfWork creates a complete proof-of-work bundle.
+	// Generates both JSON and markdown formats for easy consumption.
+	CreateProofOfWork(ctx context.Context, result *ExecutionResult, spec *FactoryTaskSpec) (*ProofOfWorkArtifact, error)
+
+	// GenerateJiraComment creates a Jira comment from proof-of-work summary.
+	// Returns a contracts.Comment that can be posted to Jira via office connector.
+	GenerateJiraComment(ctx context.Context, artifact *ProofOfWorkArtifact) (*contracts.Comment, error)
+
+	// ListProofOfWorks returns all proof-of-work artifacts for a task.
+	ListProofOfWorks(ctx context.Context, taskID string) ([]*ProofOfWorkArtifact, error)
+
+	// GetProofOfWork retrieves a specific proof-of-work artifact.
+	GetProofOfWork(ctx context.Context, artifactDir string) (*ProofOfWorkArtifact, error)
+
+	// CleanupProofOfWorks removes old proof-of-work artifacts.
+	CleanupProofOfWorks(ctx context.Context, olderThan time.Duration) error
 }

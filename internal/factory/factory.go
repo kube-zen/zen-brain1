@@ -13,7 +13,8 @@ import (
 type FactoryImpl struct {
 	workspaceManager    WorkspaceManager
 	executor           Executor
-	proofOfWorkGenerator ProofOfWorkGenerator
+	proofOfWorkManager  ProofOfWorkManager
+	runtimeDir         string
 	tasks              map[string]*FactoryTaskSpec
 	tasksMutex         sync.RWMutex
 }
@@ -22,13 +23,15 @@ type FactoryImpl struct {
 func NewFactory(
 	workspaceManager WorkspaceManager,
 	executor Executor,
-	proofOfWorkGenerator ProofOfWorkGenerator,
+	proofOfWorkManager ProofOfWorkManager,
+	runtimeDir string,
 ) *FactoryImpl {
 	return &FactoryImpl{
-		workspaceManager:    workspaceManager,
-		executor:           executor,
-		proofOfWorkGenerator: proofOfWorkGenerator,
-		tasks:              make(map[string]*FactoryTaskSpec),
+		workspaceManager:   workspaceManager,
+		executor:          executor,
+		proofOfWorkManager: proofOfWorkManager,
+		runtimeDir:        runtimeDir,
+		tasks:             make(map[string]*FactoryTaskSpec),
 	}
 }
 
@@ -88,14 +91,14 @@ func (f *FactoryImpl) ExecuteTask(ctx context.Context, spec *FactoryTaskSpec) (*
 	result.Success = (result.Status == ExecutionStatusCompleted)
 
 	// Generate proof-of-work
-	proof, err := f.proofOfWorkGenerator.Generate(ctx, result)
+	artifact, err := f.proofOfWorkManager.CreateProofOfWork(ctx, result, spec)
 	if err != nil {
 		log.Printf("[Factory] Failed to generate proof-of-work: task_id=%s error=%v", spec.ID, err)
 	} else {
-		result.ProofOfWorkPath = proof.ArtifactPaths[0] // First artifact is the proof
+		result.ProofOfWorkPath = artifact.Directory
 	}
 
-	log.Printf("[Factory] Task execution completed: task_id=%s status=%s duration=%s", spec.ID, result.Status, result.Duration.String())
+	log.Printf("[Factory] Task execution completed: task_id=%s status=%s duration=%s proof=%s", spec.ID, result.Status, result.Duration.String(), artifact.Directory)
 
 	return result, nil
 }
@@ -118,7 +121,13 @@ func (f *FactoryImpl) GetWorkspaceMetadata(ctx context.Context, workspacePath st
 
 // GenerateProofOfWork creates a structured proof-of-work summary.
 func (f *FactoryImpl) GenerateProofOfWork(ctx context.Context, result *ExecutionResult) (*ProofOfWorkSummary, error) {
-	return f.proofOfWorkGenerator.Generate(ctx, result)
+	// This method is deprecated - use CreateProofOfWork instead
+	// Kept for backward compatibility with interface
+	artifact, err := f.proofOfWorkManager.CreateProofOfWork(ctx, result, nil)
+	if err != nil {
+		return nil, err
+	}
+	return artifact.Summary, nil
 }
 
 // ListTasks returns all tasks known to the Factory.

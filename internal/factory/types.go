@@ -161,6 +161,7 @@ type ProofOfWorkSummary struct {
 	SessionID   string    `json:"session_id"`
 	WorkItemID  string    `json:"work_item_id"`
 	SourceKey   string    `json:"source_key"` // e.g., "PROJ-123"
+	SourceSystem string   `json:"source_system,omitempty"` // e.g., "jira", "github"
 
 	// Work summary
 	Title       string    `json:"title"`
@@ -214,4 +215,14 @@ type ProofOfWorkSummary struct {
 
 	// Timestamps
 	GeneratedAt time.Time `json:"generated_at"`
+}
+
+// ProofOfWorkArtifact represents a complete proof-of-work artifact bundle.
+type ProofOfWorkArtifact struct {
+	Directory    string              `json:"directory"`
+	JSONPath     string              `json:"json_path"`
+	MarkdownPath string              `json:"markdown_path"`
+	LogPath      string              `json:"log_path"`
+	Summary      *ProofOfWorkSummary `json:"summary"`
+	CreatedAt    time.Time           `json:"created_at"`
 }

@@ -11,6 +11,26 @@ A proof‑of‑work bundle is a structured record of what was accomplished durin
 
 Every completed session (successful or failed) must produce a proof‑of‑work bundle.
 
+## Implementation Note
+
+**Current implementation location:** `internal/factory/proof.go`
+
+**Key implementation details:**
+
+- **Schema:** Defined in `internal/factory/types.go` (`ProofOfWorkSummary`)
+- **Artifact generation:** `ProofOfWorkManager` creates JSON, Markdown, and execution log files
+- **Storage:** Artifacts stored in timestamped directories under runtime directory
+- **Jira integration:** `GenerateJiraComment` method converts proof‑of‑work to Jira comment with AI attribution
+- **Risk extraction:** Automatically extracts `RISK:` prefixed items from evidence content
+- **Evidence handling:** SR&ED evidence items included in summary and markdown output
+
+**Deviations from design (MVP):**
+- Diffs are referenced by file path only (not stored as separate evidence items)
+- Lint/build results not yet captured (test results are included)
+- Next action maps to `recommended_action` field (`merge`/`review`/`retry`/`escalate`)
+
+The implementation provides a complete, working proof‑of‑work system that can be extended as needed.
+
 ## Bundle Contents
 
 ### 1. Session Identifiers

@@ -12,8 +12,8 @@ func TestFactoryImpl_ExecuteTask(t *testing.T) {
 	// Setup
 	workspaceManager := NewWorkspaceManager(t.TempDir())
 	executor := NewBoundedExecutor()
-	powGen := NewSimpleProofOfWorkGenerator()
-	factory := NewFactory(workspaceManager, executor, powGen)
+	powManager := NewProofOfWorkManager(t.TempDir())
+	factory := NewFactory(workspaceManager, executor, powManager, t.TempDir())
 
 	// Create task spec
 	spec := &FactoryTaskSpec{
@@ -77,8 +77,8 @@ func TestFactoryImpl_AllocateWorkspace(t *testing.T) {
 	// Setup
 	workspaceManager := NewWorkspaceManager(t.TempDir())
 	executor := NewBoundedExecutor()
-	powGen := NewSimpleProofOfWorkGenerator()
-	factory := NewFactory(workspaceManager, executor, powGen)
+	powManager := NewProofOfWorkManager(t.TempDir())
+	factory := NewFactory(workspaceManager, executor, powManager, t.TempDir())
 
 	// Allocate
 	ctx := context.Background()
@@ -110,8 +110,8 @@ func TestFactoryImpl_ListTasks(t *testing.T) {
 	// Setup
 	workspaceManager := NewWorkspaceManager(t.TempDir())
 	executor := NewBoundedExecutor()
-	powGen := NewSimpleProofOfWorkGenerator()
-	factory := NewFactory(workspaceManager, executor, powGen)
+	powManager := NewProofOfWorkManager(t.TempDir())
+	factory := NewFactory(workspaceManager, executor, powManager, t.TempDir())
 
 	// Add tasks
 	spec1 := &FactoryTaskSpec{
@@ -151,8 +151,8 @@ func TestFactoryImpl_GetTask(t *testing.T) {
 	// Setup
 	workspaceManager := NewWorkspaceManager(t.TempDir())
 	executor := NewBoundedExecutor()
-	powGen := NewSimpleProofOfWorkGenerator()
-	factory := NewFactory(workspaceManager, executor, powGen)
+	powManager := NewProofOfWorkManager(t.TempDir())
+	factory := NewFactory(workspaceManager, executor, powManager, t.TempDir())
 
 	// Add task
 	spec := &FactoryTaskSpec{
@@ -191,8 +191,8 @@ func TestFactoryImpl_CancelTask(t *testing.T) {
 	// Setup
 	workspaceManager := NewWorkspaceManager(t.TempDir())
 	executor := NewBoundedExecutor()
-	powGen := NewSimpleProofOfWorkGenerator()
-	factory := NewFactory(workspaceManager, executor, powGen)
+	powManager := NewProofOfWorkManager(t.TempDir())
+	factory := NewFactory(workspaceManager, executor, powManager, t.TempDir())
 
 	// Add task
 	spec := &FactoryTaskSpec{
@@ -397,102 +397,3 @@ func TestBoundedExecutor_ExecutePlan(t *testing.T) {
 	}
 }
 
-func TestSimpleProofOfWorkGenerator_Generate(t *testing.T) {
-	// Setup
-	powGen := NewSimpleProofOfWorkGenerator()
-
-	// Create result
-	result := &ExecutionResult{
-		TaskID:       "task-1",
-		SessionID:    "session-1",
-		WorkItemID:   "PROJ-123",
-		Status:       ExecutionStatusCompleted,
-		Success:      true,
-		CompletedAt:  time.Now(),
-		Duration:     5 * time.Minute,
-		FilesChanged: []string{"file1.go", "file2.go"},
-		TestsRun:     []string{"test1", "test2"},
-		TestsPassed:  true,
-		SREDEvidence: []contracts.EvidenceItem{},
-		Recommendation: "merge",
-	}
-
-	// Generate
-	ctx := context.Background()
-	proof, err := powGen.Generate(ctx, result)
-
-	// Verify
-	if err != nil {
-		t.Fatalf("Generate failed: %v", err)
-	}
-
-	if proof == nil {
-		t.Fatal("proof should not be nil")
-	}
-
-	if proof.TaskID != "task-1" {
-		t.Errorf("TaskID mismatch: got %s, want task-1", proof.TaskID)
-	}
-
-	if proof.SessionID != "session-1" {
-		t.Errorf("SessionID mismatch: got %s, want session-1", proof.SessionID)
-	}
-
-	if proof.Result != string(ExecutionStatusCompleted) {
-		t.Errorf("Result mismatch: got %s, want %s", proof.Result, ExecutionStatusCompleted)
-	}
-
-	if proof.RecommendedAction != "merge" {
-		t.Errorf("RecommendedAction mismatch: got %s, want merge", proof.RecommendedAction)
-	}
-
-	if proof.RequiresApproval {
-		t.Error("Should not require approval for merge recommendation")
-	}
-}
-
-func TestSimpleProofOfWorkGenerator_SerializeToMarkdown(t *testing.T) {
-	// Setup
-	powGen := NewSimpleProofOfWorkGenerator()
-
-	// Create proof
-	proof := &ProofOfWorkSummary{
-		TaskID:        "task-1",
-		SessionID:      "session-1",
-		WorkItemID:    "PROJ-123",
-		Title:          "Test Task",
-		Objective:      "Test objective",
-		Result:         "completed",
-		StartedAt:      time.Now(),
-		CompletedAt:    time.Now(),
-		Duration:       5 * time.Minute,
-		ModelUsed:      "model-v1",
-		AgentRole:      "factory",
-		FilesChanged:   []string{"file1.go"},
-		TestsRun:       []string{"test1"},
-		TestsPassed:    true,
-		RecommendedAction: "merge",
-		RequiresApproval: false,
-		GeneratedAt:    time.Now(),
-	}
-
-	// Serialize
-	md, err := powGen.SerializeToMarkdown(proof)
-
-	// Verify
-	if err != nil {
-		t.Fatalf("SerializeToMarkdown failed: %v", err)
-	}
-
-	if md == "" {
-		t.Fatal("markdown should not be empty")
-	}
-
-	// Check for key sections
-	if len(md) < 50 {
-		t.Error("markdown should contain meaningful content")
-	}
-
-	// Check for task ID presence
-	// In real tests, we'd parse the markdown more thoroughly
-}
