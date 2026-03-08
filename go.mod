@@ -5,13 +5,15 @@ go 1.25.0
 replace github.com/kube-zen/zen-sdk => ../zen-sdk
 
 require (
-	github.com/kube-zen/zen-sdk v0.2.14-alpha
+	github.com/kube-zen/zen-sdk v0.3.0
 	github.com/redis/go-redis/v9 v9.18.0
 	k8s.io/apimachinery v0.35.0
 	sigs.k8s.io/controller-runtime v0.19.0
 )
 
 require (
+	filippo.io/age v1.3.1 // indirect
+	filippo.io/hpke v0.4.0 // indirect
 	github.com/Masterminds/semver/v3 v3.4.0 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.41.3 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.6 // indirect
@@ -44,7 +46,9 @@ require (
 	github.com/x448/float16 v0.8.4 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.3 // indirect
+	golang.org/x/crypto v0.45.0 // indirect
 	golang.org/x/net v0.47.0 // indirect
+	golang.org/x/sys v0.39.0 // indirect
 	golang.org/x/text v0.32.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
