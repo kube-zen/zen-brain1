@@ -172,7 +172,7 @@ Different roles require different prompt tuning:
 
 - [ADR-0001](../01-ARCHITECTURE/ADR/0001_STRUCTURED_TAGS.md) – Structured tags define task classes for calibration
 - [ADR-0007](../01-ARCHITECTURE/ADR/0007_QMD_FOR_KNOWLEDGE_BASE.md) – QMD for KB retrieval provides context for prompts
-- [Bounded Orchestrator Loop](../../03-DESIGN/BOUNDED_ORCHESTRATOR_LOOP.md) – Escalation path integrates with orchestrator retry logic
+- [Bounded Orchestrator Loop](BOUNDED_ORCHESTRATOR_LOOP.md) – Escalation path integrates with orchestrator retry logic
 
 ## Future Work
 

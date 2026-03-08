@@ -9,10 +9,23 @@ This roadmap reflects the current architectural direction and prioritized work i
 - [x] Move ROADMAP.md to docs/01-ARCHITECTURE/
 - [x] AGENTS.md and WORKFLOW.md explicitly marked as advisory-only
 - [x] Skills/subagents documented under bounded execution model
-- [ ] Add small-model strategy design doc
-- [ ] Add Ops Department design doc
-- [ ] Add agent sandbox evaluation design doc
-- [ ] Write explicit repo policy for model-facing files
+- [x] Small-model strategy design doc (SMALL_MODEL_STRATEGY.md)
+- [x] Ops Department design doc (OPS_DEPARTMENT.md)
+- [x] Agent sandbox evaluation design doc (SANDBOX_AND_EVALUATION.md)
+- [x] Repo policy for model-facing files (MODEL_FACING_FILES_AND_SKILLS_POLICY.md)
+
+### Current Focus: First Trustworthy Vertical Slice
+
+**Goal:** Implement the end-to-end path from Jira intake to proof-of-work generation
+
+The highest-priority work is to complete one trustworthy vertical slice:
+1. Jira intake → analyze → plan → workspace execution → proof-of-work → status update
+2. Thin but real Factory implementation with bounded execution
+3. First real LLM/provider lane (local workers + planner)
+4. First real QMD adapter for knowledge retrieval
+5. Integration of all components into a working system
+
+**Principle:** Build one trustworthy internal vertical slice first. Breadth comes later.
 
 ---
 
@@ -63,7 +76,8 @@ This roadmap reflects the current architectural direction and prioritized work i
   - Fallback/escalation path to larger models or paid APIs
   - Token/yield tracking in ZenLedger
   - Benchmark suite for planner/implementer/ops roles
-- **Design:** docs/03-DESIGN/SMALL_MODEL_STRATEGY.md (pending)
+- **Design:** docs/03-DESIGN/SMALL_MODEL_STRATEGY.md (complete)
+- **Status:** Design complete, implementation pending
 - **Notes:**
   - Provider-agnostic approach
   - Qwen 0.8B as important baseline, not hard dependency
@@ -85,8 +99,8 @@ This roadmap reflects the current architectural direction and prioritized work i
   - Runbooks / KB linkage
   - Approval/gate hooks for deploy/change work
   - Safe automation for 1.0 (risky actions require approval)
-- **Design:** docs/03-DESIGN/OPS_DEPARTMENT.md (pending)
-- **Status:** Concept defined, design doc pending
+- **Design:** docs/03-DESIGN/OPS_DEPARTMENT.md (complete)
+- **Status:** Design complete, implementation pending
 
 #### Jira Connector Hardening
 - **Goal:** Stable human front door with AI attribution
@@ -173,6 +187,21 @@ This roadmap reflects the current architectural direction and prioritized work i
   - Namespace-scoped department/project boundaries
 - **Status:** Radar item
 
+### Multi-Level Queue (MLQ) and Escalation
+- **Goal:** Intelligent task routing and escalation based on complexity, urgency, and model capability
+- **Components:**
+  - Multi-level task queues (L1: simple, L2: moderate, L3: complex, L4: critical)
+  - Automatic escalation rules when tasks timeout or fail
+  - Worker pool assignment per queue level
+  - Model selection based on task class and queue level
+  - Escalation tracking and metrics
+- **Approach:**
+  - Start with 4-level queue system from zen-brain (zen-brain1 can adopt or adapt)
+  - Integrate with small-model strategy for L1/L2 worker allocation
+  - Reserve stronger models (cloud APIs) for L3/L4 critical tasks
+  - Build escalation metrics and dashboards
+- **Status:** Radar item – design pending, zen-brain has working implementation
+
 ### Future Control-Plane Vocabulary
 These concepts should be elevated to first-class architecture before implementation:
 
@@ -219,21 +248,21 @@ These concepts should be elevated to first-class architecture before implementat
 | Design Doc | Status | Notes |
 |-----------|--------|-------|
 | [CONSTRUCTION_PLAN.md](CONSTRUCTION_PLAN.md) | Complete | Master build roadmap (V6.0) |
-| [DATA_MODEL.md](../../02-CONTRACTS/DATA_MODEL.md) | Complete | Canonical types and structured tags |
+| [DATA_MODEL.md](../02-CONTRACTS/DATA_MODEL.md) | Complete | Canonical types and structured tags |
 | [CONTROL_PLANE_VOCABULARY.md](CONTROL_PLANE_VOCABULARY.md) | Complete | First-class control-plane objects |
-| [BLOCK2_OFFICE.md](../../03-DESIGN/BLOCK2_OFFICE.md) | Complete | Jira connector design |
-| [ZEN_CONTEXT.md](../../03-DESIGN/ZEN_CONTEXT.md) | Draft | Tiered memory system |
-| [ZEN_JOURNAL.md](../../03-DESIGN/ZEN_JOURNAL.md) | Draft | Immutable event ledger |
-| [ZEN_LEDGER.md](../../03-DESIGN/ZEN_LEDGER.md) | Draft | Token/cost accounting |
-| [ZEN_GATE_POLICY.md](../../03-DESIGN/ZEN_GATE_POLICY.md) | Draft | Admission control engine |
-| [LLM_GATEWAY.md](../../03-DESIGN/LLM_GATEWAY.md) | Draft | Provider-agnostic LLM interface |
-| [BOUNDED_ORCHESTRATOR_LOOP.md](../../03-DESIGN/BOUNDED_ORCHESTRATOR_LOOP.md) | Draft | Orchestrator state machine |
-| [PROOF_OF_WORK.md](../../03-DESIGN/PROOF_OF_WORK.md) | Draft | Proof-of-work bundle format |
-| [SKILLS_AND_SUBAGENTS.md](../../03-DESIGN/SKILLS_AND_SUBAGENTS.md) | Draft | Bounded execution helpers |
-| [SMALL_MODEL_STRATEGY.md](../../03-DESIGN/SMALL_MODEL_STRATEGY.md) | Complete | CPU-first local lane |
-| [OPS_DEPARTMENT.md](../../03-DESIGN/OPS_DEPARTMENT.md) | Complete | Jira-centric ops model |
-| [SANDBOX_AND_EVALUATION.md](../../03-DESIGN/SANDBOX_AND_EVALUATION.md) | Complete | Non-destructive evaluation lane |
-| [MODEL_FACING_FILES_AND_SKILLS_POLICY.md](../../03-DESIGN/MODEL_FACING_FILES_AND_SKILLS_POLICY.md) | Complete | Advisory-only policy |
+| [BLOCK2_OFFICE.md](../03-DESIGN/BLOCK2_OFFICE.md) | Complete | Jira connector design |
+| [ZEN_CONTEXT.md](../03-DESIGN/ZEN_CONTEXT.md) | Draft | Tiered memory system |
+| [ZEN_JOURNAL.md](../03-DESIGN/ZEN_JOURNAL.md) | Draft | Immutable event ledger |
+| [ZEN_LEDGER.md](../03-DESIGN/ZEN_LEDGER.md) | Draft | Token/cost accounting |
+| [ZEN_GATE_POLICY.md](../03-DESIGN/ZEN_GATE_POLICY.md) | Draft | Admission control engine |
+| [LLM_GATEWAY.md](../03-DESIGN/LLM_GATEWAY.md) | Draft | Provider-agnostic LLM interface |
+| [BOUNDED_ORCHESTRATOR_LOOP.md](../03-DESIGN/BOUNDED_ORCHESTRATOR_LOOP.md) | Draft | Orchestrator state machine |
+| [PROOF_OF_WORK.md](../03-DESIGN/PROOF_OF_WORK.md) | Draft | Proof-of-work bundle format |
+| [SKILLS_AND_SUBAGENTS.md](../03-DESIGN/SKILLS_AND_SUBAGENTS.md) | Draft | Bounded execution helpers |
+| [SMALL_MODEL_STRATEGY.md](../03-DESIGN/SMALL_MODEL_STRATEGY.md) | Complete | CPU-first local lane |
+| [OPS_DEPARTMENT.md](../03-DESIGN/OPS_DEPARTMENT.md) | Complete | Jira-centric ops model |
+| [SANDBOX_AND_EVALUATION.md](../03-DESIGN/SANDBOX_AND_EVALUATION.md) | Complete | Non-destructive evaluation lane |
+| [MODEL_FACING_FILES_AND_SKILLS_POLICY.md](../03-DESIGN/MODEL_FACING_FILES_AND_SKILLS_POLICY.md) | Complete | Advisory-only policy |
 
 ---
 

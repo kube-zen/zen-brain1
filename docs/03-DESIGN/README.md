@@ -12,13 +12,13 @@ This directory contains detailed design specifications for Zen‑Brain component
 | [ZenLedger](ZEN_LEDGER.md) | Token and cost accounting with yield metrics | **Draft** |
 | [ZenGate & ZenPolicy](ZEN_GATE_POLICY.md) | Admission control and declarative policy engine | **Draft** |
 | [LLM Gateway](LLM_GATEWAY.md) | Provider‑agnostic LLM interface with intelligent routing | **Draft** |
-| [Bounded Orchestrator Loop](../../03-DESIGN/BOUNDED_ORCHESTRATOR_LOOP.md) | State machine for task execution with bounded retries and resume/recovery | **Draft** |
-| [Proof of Work](../../03-DESIGN/PROOF_OF_WORK.md) | Bundle format for AI work evidence (session IDs, intent, files, tests, logs) | **Draft** |
-| [Skills and Subagents](../../03-DESIGN/SKILLS_AND_SUBAGENTS.md) | Design for bounded execution helpers under RoleProfile and policies | **Draft** |
+| [Bounded Orchestrator Loop](BOUNDED_ORCHESTRATOR_LOOP.md) | State machine for task execution with bounded retries and resume/recovery | **Draft** |
+| [Proof of Work](PROOF_OF_WORK.md) | Bundle format for AI work evidence (session IDs, intent, files, tests, logs) | **Draft** |
+| [Skills and Subagents](SKILLS_AND_SUBAGENTS.md) | Design for bounded execution helpers under RoleProfile and policies | **Draft** |
 | [Small Model Strategy](SMALL_MODEL_STRATEGY.md) | CPU-first local model lane (calibration, routing, benchmarking) | **Draft** |
-| [Ops Department](../../03-DESIGN/OPS_DEPARTMENT.md) | Jira-centric ops model (incidents, changes, deploys, approvals) | **Draft** |
+| [Ops Department](OPS_DEPARTMENT.md) | Jira-centric ops model (incidents, changes, deploys, approvals) | **Draft** |
 | [Agent Sandbox and Evaluation](SANDBOX_AND_EVALUATION.md) | Non-destructive evaluation lane for 1.1 (testing without production risk) | **Draft** |
-| [Model-Facing Files and Skills Policy](../../03-DESIGN/MODEL_FACING_FILES_AND_SKILLS_POLICY.md) | Policy for advisory-only AGENTS.md/WORKFLOW.md and bounded skills/subagents | **Draft** |
+| [Model-Facing Files and Skills Policy](MODEL_FACING_FILES_AND_SKILLS_POLICY.md) | Policy for advisory-only AGENTS.md/WORKFLOW.md and bounded skills/subagents | **Draft** |
 
 ## Upcoming Designs
 

@@ -192,9 +192,9 @@ The sandbox is **not a production tool** – it is a testing and evaluation envi
 
 ## Related Decisions
 
-- [Bounded Orchestrator Loop](../../03-DESIGN/BOUNDED_ORCHESTRATOR_LOOP.md) – Sandbox integrates with orchestrator stop conditions
-- [Small-Model Strategy](../../03-DESIGN/SMALL_MODEL_STRATEGY.md) – Sandbox used for model evaluation and calibration
-- [Proof of Work](../../03-DESIGN/PROOF_OF_WORK.md) – Sandbox generates proof-of-work bundles without external writes
+- [Bounded Orchestrator Loop](BOUNDED_ORCHESTRATOR_LOOP.md) – Sandbox integrates with orchestrator stop conditions
+- [Small-Model Strategy](SMALL_MODEL_STRATEGY.md) – Sandbox used for model evaluation and calibration
+- [Proof of Work](PROOF_OF_WORK.md) – Sandbox generates proof-of-work bundles without external writes
 - [ZenRoleProfile](../01-ARCHITECTURE/CONTROL_PLANE_VOCABULARY.md) – Policy profiles define sandbox constraints
 
 ## Future Work

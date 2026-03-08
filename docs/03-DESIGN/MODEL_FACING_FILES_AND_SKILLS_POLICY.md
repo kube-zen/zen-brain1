@@ -282,7 +282,7 @@ When reviewing changes to AGENTS.md or WORKFLOW.md:
 - [ADR-0004](../01-ARCHITECTURE/ADR/0004_MULTI_CLUSTER_CRDS.md) – CRDs as control-plane foundation
 - [Control Plane Vocabulary](../01-ARCHITECTURE/CONTROL_PLANE_VOCABULARY.md) – Policy objects as CRDs
 - [Bounded Orchestrator Loop](../03-DESIGN/BOUNDED_ORCHESTRATOR_LOOP.md) – Orchestrator enforces policies
-- [Skills and Subagents](../../03-DESIGN/SKILLS_AND_SUBAGENTS.md) – Design doc for execution helpers
+- [Skills and Subagents](SKILLS_AND_SUBAGENTS.md) – Design doc for execution helpers
 
 ## Implementation Status
 
@@ -300,8 +300,8 @@ When reviewing changes to AGENTS.md or WORKFLOW.md:
 
 ## References
 
-- AGENTS.md: [../../AGENTS.md](../AGENTS.md)
-- WORKFLOW.md: [../../WORKFLOW.md](../WORKFLOW.md)
-- Control Plane Vocabulary: [CONTROL_PLANE_VOCABULARY.md](CONTROL_PLANE_VOCABULARY.md)
-- Skills and Subagents: [../03-DESIGN/SKILLS_AND_SUBAGENTS.md](../03-DESIGN/SKILLS_AND_SUBAGENTS.md)
-- Bounded Orchestrator: [../03-DESIGN/BOUNDED_ORCHESTRATOR_LOOP.md](../03-DESIGN/BOUNDED_ORCHESTRATOR_LOOP.md)
+- AGENTS.md: [../../AGENTS.md](../../AGENTS.md)
+- WORKFLOW.md: [../../WORKFLOW.md](../../WORKFLOW.md)
+- Control Plane Vocabulary: [../01-ARCHITECTURE/CONTROL_PLANE_VOCABULARY.md](../01-ARCHITECTURE/CONTROL_PLANE_VOCABULARY.md)
+- Skills and Subagents: [SKILLS_AND_SUBAGENTS.md](SKILLS_AND_SUBAGENTS.md)
+- Bounded Orchestrator: [BOUNDED_ORCHESTRATOR_LOOP.md](BOUNDED_ORCHESTRATOR_LOOP.md)

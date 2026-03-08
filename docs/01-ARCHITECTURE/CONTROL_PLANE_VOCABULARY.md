@@ -297,9 +297,9 @@ approvalRules:
 
 - [ADR-0001](../01-ARCHITECTURE/ADR/0001_STRUCTURED_TAGS.md) – Structured tags define task types for policies
 - [ADR-0004](../01-ARCHITECTURE/ADR/0004_MULTI_CLUSTER_CRDS.md) – Multi-cluster CRDs provide control-plane foundation
-- [Bounded Orchestrator Loop](../../03-DESIGN/BOUNDED_ORCHESTRATOR_LOOP.md) – Orchestrator enforces control-plane policies
-- [Small-Model Strategy](../../03-DESIGN/SMALL_MODEL_STRATEGY.md) – Model preference in `ZenRoleProfile`
-- [Ops Department](../../03-DESIGN/OPS_DEPARTMENT.md) – Ops role and policies use control-plane vocabulary
+- [Bounded Orchestrator Loop](../03-DESIGN/BOUNDED_ORCHESTRATOR_LOOP.md) – Orchestrator enforces control-plane policies
+- [Small-Model Strategy](../03-DESIGN/SMALL_MODEL_STRATEGY.md) – Model preference in `ZenRoleProfile`
+- [Ops Department](../03-DESIGN/OPS_DEPARTMENT.md) – Ops role and policies use control-plane vocabulary
 
 ## Implementation Roadmap
 

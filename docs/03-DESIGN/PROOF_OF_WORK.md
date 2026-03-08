@@ -163,5 +163,5 @@ Human reviewers can scan the bundle for:
 ## Related Documents
 
 - [Session Manager](ZEN_JOURNAL.md) – evidence collection and storage.
-- [Bounded Orchestrator Loop](../../03-DESIGN/BOUNDED_ORCHESTRATOR_LOOP.md) – session lifecycle.
+- [Bounded Orchestrator Loop](BOUNDED_ORCHESTRATOR_LOOP.md) – session lifecycle.
 - [SR&ED Taxonomy](../01-ARCHITECTURE/ADR/0002_SRED_TAXONOMY.md) – evidence categories.

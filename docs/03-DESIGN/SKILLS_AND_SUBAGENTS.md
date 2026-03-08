@@ -131,6 +131,6 @@ subagent_strategies:
 
 ## Related Documents
 
-- [Bounded Orchestrator Loop](../../03-DESIGN/BOUNDED_ORCHESTRATOR_LOOP.md) – execution bounds and termination.
+- [Bounded Orchestrator Loop](BOUNDED_ORCHESTRATOR_LOOP.md) – execution bounds and termination.
 - [Proof‑of‑Work Bundle](PROOF_OF_WORK.md) – evidence aggregation.
 - [Repo Governance](../01-ARCHITECTURE/PROJECT_STRUCTURE.md) – hygiene rules that skills enforce.

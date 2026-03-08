@@ -221,7 +221,7 @@ For 1.1, consider:
 - [ADR-0005](../01-ARCHITECTURE/ADR/0005_AI_ATTRIBUTION_JIRA.md) – AI attribution on all Jira content
 - [ADR-0007](../01-ARCHITECTURE/ADR/0007_QMD_FOR_KNOWLEDGE_BASE.md) – QMD for KB search
 - [Block 2 Office](BLOCK2_OFFICE.md) – Jira connector design
-- [Bounded Orchestrator Loop](../../03-DESIGN/BOUNDED_ORCHESTRATOR_LOOP.md) – Approval gates integrate with orchestrator stop conditions
+- [Bounded Orchestrator Loop](BOUNDED_ORCHESTRATOR_LOOP.md) – Approval gates integrate with orchestrator stop conditions
 
 ## Future Work
 
