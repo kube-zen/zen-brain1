@@ -1,0 +1,6 @@
+# Allowlist for executable files outside scripts/ directory.
+# One path per line (relative to repo root).
+# Paths ending with '/' match all files under that directory.
+
+.githooks/pre-commit
+Makefile  # Makefile may be executable; allow it

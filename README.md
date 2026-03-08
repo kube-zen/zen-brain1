@@ -83,7 +83,7 @@ Zen‑Brain uses a configurable home directory:
 Comprehensive documentation is available in the `docs/` directory:
 
 - **[Construction Plan](docs/architecture/CONSTRUCTION‑PLAN.md)** – Master build roadmap (V6.0)
-- **[Architecture Decision Records (ADRs)](docs/architecture/adr/)** – Key design decisions with context and consequences
+- **[Architecture Decision Records (ADRs)](docs/01-ARCHITECTURE/ADR/)** – Key design decisions with context and consequences
 - **[Data Model](docs/data‑model.md)** – Canonical types and structured tags
 - **[Knowledge Base & QMD Strategy](docs/kb‑qmd.md)** – How documentation is stored, searched, and published
 - **[Project Structure](docs/project‑structure.md)** – Directory layout and package organization
@@ -95,8 +95,8 @@ Comprehensive documentation is available in the `docs/` directory:
   - [ZenLedger](docs/design/zen‑ledger.md) – Token and cost accounting with yield metrics
   - [ZenGate & ZenPolicy](docs/design/zen‑gate‑policy.md) – Admission control and declarative policy engine
   - [LLM Gateway](docs/design/llm‑gateway.md) – Provider‑agnostic LLM interface with intelligent routing
-- **[Configuration Reference](docs/configuration.md)** – All configurable options across components
-- **[Development Setup](docs/development/setup.md)** – Step‑by‑step guide to set up a local development environment
+- **[Configuration Reference](docs/04-DEVELOPMENT/CONFIGURATION.md)** – All configurable options across components
+- **[Development Setup](docs/04-DEVELOPMENT/SETUP.md)** – Step‑by‑step guide to set up a local development environment
 - **[Workflow Examples](docs/workflow‑examples.md)** – Illustrated end‑to‑end workflows (Jira → PR, incident response, documentation)
 - **[Contributing Guide](CONTRIBUTING.md)** – Development workflow, coding standards, and testing
 

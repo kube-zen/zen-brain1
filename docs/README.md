@@ -10,12 +10,12 @@ High‑level architecture and design decisions.
 
 | Document | Purpose |
 |----------|---------|
-| [Construction Plan](architecture/CONSTRUCTION‑PLAN.md) | Master build roadmap (V6.0) – the blueprint for Zen‑Brain 1.0 |
-| [Architecture Decision Records (ADRs)](architecture/adr/) | Key design decisions with context and consequences |
-| [Data Model](data‑model.md) | Canonical types and structured tags used across components |
-| [Knowledge Base & QMD Strategy](kb‑qmd.md) | How documentation is stored, searched, and published |
-| [Project Structure](project‑structure.md) | Directory layout and package organization |
-| [Glossary](glossary.md) | Definitions of terms, components, and processes |
+| [Construction Plan](01-ARCHITECTURE/CONSTRUCTION_PLAN.md) | Master build roadmap (V6.0) – the blueprint for Zen‑Brain 1.0 |
+| [Architecture Decision Records (ADRs)](01-ARCHITECTURE/ADR/) | Key design decisions with context and consequences |
+| [Data Model](02-CONTRACTS/DATA_MODEL.md) | Canonical types and structured tags used across components |
+| [Knowledge Base & QMD Strategy](01-ARCHITECTURE/KB_QMD_STRATEGY.md) | How documentation is stored, searched, and published |
+| [Project Structure](01-ARCHITECTURE/PROJECT_STRUCTURE.md) | Directory layout and package organization |
+| [Glossary](01-ARCHITECTURE/GLOSSARY.md) | Definitions of terms, components, and processes |
 
 ### 2. Design
 
@@ -23,12 +23,12 @@ Detailed design specifications for each component.
 
 | Document | Component | Description |
 |----------|-----------|-------------|
-| [Block 2 Office Design](design/block2‑office.md) | Office (Jira connector) | Detailed design for the Jira connector and AI attribution |
-| [ZenContext Design](design/zen‑context.md) | ZenContext | Tiered memory system (Hot/Warm/Cold) |
-| [ZenJournal Design](design/zen‑journal.md) | ZenJournal | Immutable event ledger with cryptographic chain hashes |
-| [ZenLedger Design](design/zen‑ledger.md) | ZenLedger | Token and cost accounting with yield metrics |
-| [ZenGate & ZenPolicy Design](design/zen‑gate‑policy.md) | ZenGate, ZenPolicy | Admission control and declarative policy engine |
-| [LLM Gateway Design](design/llm‑gateway.md) | LLM Gateway | Provider‑agnostic LLM interface with intelligent routing |
+| [Block 2 Office Design](03-DESIGN/BLOCK2_OFFICE.md) | Office (Jira connector) | Detailed design for the Jira connector and AI attribution |
+| [ZenContext Design](03-DESIGN/ZEN_CONTEXT.md) | ZenContext | Tiered memory system (Hot/Warm/Cold) |
+| [ZenJournal Design](03-DESIGN/ZEN_JOURNAL.md) | ZenJournal | Immutable event ledger with cryptographic chain hashes |
+| [ZenLedger Design](03-DESIGN/ZEN_LEDGER.md) | ZenLedger | Token and cost accounting with yield metrics |
+| [ZenGate & ZenPolicy Design](03-DESIGN/ZEN_GATE_POLICY.md) | ZenGate, ZenPolicy | Admission control and declarative policy engine |
+| [LLM Gateway Design](03-DESIGN/LLM_GATEWAY.md) | LLM Gateway | Provider‑agnostic LLM interface with intelligent routing |
 
 ### 3. Development
 
@@ -36,9 +36,9 @@ Practical guides for developers.
 
 | Document | Purpose |
 |----------|---------|
-| [Development Setup](development/setup.md) | Step‑by‑step guide to set up a local development environment |
-| [Configuration Reference](configuration.md) | All configurable options across components |
-| [Workflow Examples](workflow‑examples.md) | Illustrated end‑to‑end workflows (Jira → PR, incident response, documentation) |
+| [Development Setup](04-DEVELOPMENT/SETUP.md) | Step‑by‑step guide to set up a local development environment |
+| [Configuration Reference](04-DEVELOPMENT/CONFIGURATION.md) | All configurable options across components |
+| [Workflow Examples](06-EXAMPLES/WORKFLOW_EXAMPLES.md) | Illustrated end‑to‑end workflows (Jira → PR, incident response, documentation) |
 | [Contributing Guide](../CONTRIBUTING.md) | Development workflow, coding standards, and testing |
 
 ### 4. Operations (Future)
@@ -51,21 +51,21 @@ Guides for deploying, monitoring, and maintaining Zen‑Brain in production.
 
 ### For New Contributors
 
-1. Start with the [Construction Plan](architecture/CONSTRUCTION‑PLAN.md) to understand the overall architecture.
-2. Read the [Glossary](glossary.md) to familiarize yourself with terms.
-3. Follow the [Development Setup](development/setup.md) to get a local environment running.
-4. Explore [Workflow Examples](workflow‑examples.md) to see how components interact.
+1. Start with the [Construction Plan](01-ARCHITECTURE/CONSTRUCTION_PLAN.md) to understand the overall architecture.
+2. Read the [Glossary](01-ARCHITECTURE/GLOSSARY.md) to familiarize yourself with terms.
+3. Follow the [Development Setup](04-DEVELOPMENT/SETUP.md) to get a local environment running.
+4. Explore the [Workflow Examples](06-EXAMPLES/WORKFLOW_EXAMPLES.md) to see how components interact.
 
 ### For Implementors
 
-1. Study the relevant [Component Design](design/) document before implementing a component.
-2. Check [ADRs](architecture/adr/) for design decisions that affect your work.
-3. Refer to [Configuration Reference](configuration.md) for configurable options.
+1. Study the relevant [Component Design](03-DESIGN/) document before implementing a component.
+2. Check [ADRs](01-ARCHITECTURE/ADR/) for design decisions that affect your work.
+3. Refer to the [Configuration Reference](04-DEVELOPMENT/CONFIGURATION.md) for configurable options.
 4. Follow the [Contributing Guide](../CONTRIBUTING.md) for coding standards and pull‑request process.
 
 ### For Reviewers
 
-1. Ensure changes align with the [Construction Plan](architecture/CONSTRUCTION‑PLAN.md) and [ADRs](architecture/adr/).
+1. Ensure changes align with the [Construction Plan](01-ARCHITECTURE/CONSTRUCTION_PLAN.md) and [ADRs](01-ARCHITECTURE/ADR/).
 2. Verify that documentation is updated when behavior changes.
 
 ## Contributing to Documentation

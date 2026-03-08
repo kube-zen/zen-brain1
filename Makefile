@@ -88,3 +88,22 @@ generate: ## Generate code (CRDs, deepcopy)
 
 repo-sync: ## Sync knowledge base repositories
 	@echo "TODO: implement repo sync"
+
+## Repository hygiene
+
+install-hooks: ## Install Git hooks (.githooks/pre-commit)
+	@echo "Installing Git hooks..."
+	@mkdir -p .git/hooks
+	@cp .githooks/pre-commit .git/hooks/pre-commit
+	@chmod +x .git/hooks/pre-commit
+	@echo "✓ Pre‑commit hook installed."
+
+repo-check: ## Run all repository hygiene gates
+	@echo "Running repository hygiene gates..."
+	@python3 scripts/ci/no_shell_scripts_gate.py
+	@python3 scripts/ci/python_script_placement_gate.py
+	@python3 scripts/ci/repo_layout_gate.py
+	@python3 scripts/ci/no_executable_sprawl_gate.py
+	@python3 scripts/ci/no_binaries_gate.py
+	@python3 scripts/ci/docs_link_gate.py
+	@echo "✓ All repo hygiene gates passed."

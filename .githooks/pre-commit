@@ -1,0 +1,95 @@
+#!/usr/bin/env bash
+# Pre‑commit hook for Zen‑Brain repository hygiene.
+# Installs automatically via: make install-hooks
+#
+# Runs quick repo‑hygiene gates before allowing a commit.
+# Full CI gates run in CI via scripts/ci/*.py.
+
+set -euo pipefail
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m'
+
+# Get the directory of the script
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$SCRIPT_DIR" || exit 1
+
+# Track if any checks failed
+FAILED=0
+
+echo "🔍 Running Zen‑Brain pre‑commit checks..."
+echo ""
+
+# 1. No shell scripts anywhere
+echo "📜 Checking for shell scripts..."
+if python3 scripts/ci/no_shell_scripts_gate.py 2>/dev/null; then
+    echo -e "${GREEN}✅ No shell scripts${NC}"
+else
+    echo -e "${RED}❌ Shell scripts found${NC}"
+    FAILED=1
+fi
+echo ""
+
+# 2. Python script placement
+echo "🐍 Checking Python script placement..."
+if python3 scripts/ci/python_script_placement_gate.py 2>/dev/null; then
+    echo -e "${GREEN}✅ Python scripts placed correctly${NC}"
+else
+    echo -e "${RED}❌ Python script placement violation${NC}"
+    FAILED=1
+fi
+echo ""
+
+# 3. Repository layout (docs taxonomy, naming)
+echo "📁 Checking repository layout..."
+if python3 scripts/ci/repo_layout_gate.py 2>/dev/null; then
+    echo -e "${GREEN}✅ Repository layout OK${NC}"
+else
+    echo -e "${RED}❌ Repository layout violation${NC}"
+    FAILED=1
+fi
+echo ""
+
+# 4. No executable sprawl
+echo "🚫 Checking executable sprawl..."
+if python3 scripts/ci/no_executable_sprawl_gate.py 2>/dev/null; then
+    echo -e "${GREEN}✅ No executable sprawl${NC}"
+else
+    echo -e "${RED}❌ Executable sprawl violation${NC}"
+    FAILED=1
+fi
+echo ""
+
+# 5. No large/binary files (warning only)
+echo "📦 Checking for large/binary files..."
+if python3 scripts/ci/no_binaries_gate.py 2>/dev/null; then
+    echo -e "${GREEN}✅ No large/binary files${NC}"
+else
+    # This gate returns warnings but not errors; treat as warning
+    echo -e "${YELLOW}⚠️  Large/binary files detected (see output)${NC}"
+fi
+echo ""
+
+# 6. Internal markdown links
+echo "🔗 Checking internal markdown links..."
+if python3 scripts/ci/docs_link_gate.py 2>/dev/null; then
+    echo -e "${GREEN}✅ Internal links OK${NC}"
+else
+    echo -e "${RED}❌ Broken internal links${NC}"
+    FAILED=1
+fi
+echo ""
+
+if [[ $FAILED -eq 0 ]]; then
+    echo -e "${GREEN}✓ All pre‑commit checks passed.${NC}"
+    exit 0
+else
+    echo -e "${RED}✗ Pre‑commit checks failed. Fix the issues above before committing.${NC}"
+    echo ""
+    echo "To bypass temporarily (not recommended):"
+    echo "  git commit --no-verify"
+    exit 1
+fi
