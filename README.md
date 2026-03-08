@@ -78,6 +78,18 @@ Zen‑Brain uses a configurable home directory:
 - Default: `~/.zen‑brain/`
 - Override: Set `ZEN_BRAIN_HOME` environment variable
 
+## Documentation
+
+Comprehensive documentation is available in the `docs/` directory:
+
+- **[Construction Plan](docs/architecture/CONSTRUCTION‑PLAN.md)** – Master build roadmap (V6.0)
+- **[Architecture Decision Records (ADRs)](docs/architecture/adr/)** – Key design decisions with context and consequences
+- **[Data Model](docs/data‑model.md)** – Canonical types and structured tags
+- **[Knowledge Base & QMD Strategy](docs/kb‑qmd.md)** – How documentation is stored, searched, and published
+- **[Project Structure](docs/project‑structure.md)** – Directory layout and package organization
+- **[Block 2 Office Design](docs/design/block2‑office.md)** – Detailed design for the Jira connector and AI attribution
+- **[Contributing Guide](CONTRIBUTING.md)** – Development workflow, coding standards, and testing
+
 ## Development Status
 
 **Current Phase:** Block 1 – Schema Hardening Complete
