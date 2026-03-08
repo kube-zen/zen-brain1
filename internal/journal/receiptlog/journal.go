@@ -44,6 +44,7 @@ type Config struct {
 // receiptlogJournal implements journal.ZenJournal.
 type receiptlogJournal struct {
 	ledger receiptlog.Ledger
+	index *QueryIndex
 }
 
 // New creates a new ZenJournal backed by receiptlog.
@@ -77,7 +78,10 @@ func New(cfg *Config) (journal.ZenJournal, error) {
 		return nil, fmt.Errorf("failed to create receiptlog ledger: %w", err)
 	}
 
-	return &receiptlogJournal{ledger: ledger}, nil
+	return &receiptlogJournal{
+		ledger: ledger,
+		index:  NewQueryIndex(),
+	}, nil
 }
 
 // Record records a new journal entry and returns the receipt.
@@ -128,7 +132,12 @@ func (j *receiptlogJournal) Record(ctx context.Context, entry journal.Entry) (*j
 	}
 
 	// Convert receiptlog.Receipt to journal.Receipt
-	return toJournalReceipt(rlogReceipt, entry), nil
+	journalReceipt := toJournalReceipt(rlogReceipt, entry)
+
+	// Add to query index
+	j.index.Add(journalReceipt)
+
+	return journalReceipt, nil
 }
 
 // Get retrieves a receipt by sequence number.
@@ -151,29 +160,52 @@ func (j *receiptlogJournal) GetByHash(ctx context.Context, hash string) (*journa
 
 // Query searches for receipts matching the options.
 func (j *receiptlogJournal) Query(ctx context.Context, opts journal.QueryOptions) ([]journal.Receipt, error) {
-	// receiptlog does not support rich querying; we need to implement filtering ourselves.
-	// For now, we can iterate through a range of sequences (inefficient).
-	// This is a placeholder implementation.
-	// TODO: implement efficient querying using spool file indexes.
-	return nil, fmt.Errorf("Query not yet implemented")
+	// Get matching sequences from index
+	sequences := j.index.Query(opts)
+
+	if len(sequences) == 0 {
+		return []journal.Receipt{}, nil
+	}
+
+	// Fetch receipts by sequences
+	return FetchReceipts(ctx, sequences, j.Get)
 }
 
 // QueryByCorrelation retrieves all events for a correlation ID.
 func (j *receiptlogJournal) QueryByCorrelation(ctx context.Context, correlationID string) ([]journal.Receipt, error) {
-	// TODO: implement index on correlation ID
-	return nil, fmt.Errorf("QueryByCorrelation not yet implemented")
+	sequences := j.index.QueryByCorrelationID(correlationID)
+	if len(sequences) == 0 {
+		return []journal.Receipt{}, nil
+	}
+	return FetchReceipts(ctx, sequences, j.Get)
 }
 
 // QueryByTask retrieves all events for a task.
 func (j *receiptlogJournal) QueryByTask(ctx context.Context, taskID string) ([]journal.Receipt, error) {
-	// TODO: implement index on task ID
-	return nil, fmt.Errorf("QueryByTask not yet implemented")
+	sequences := j.index.QueryByTaskID(taskID)
+	if len(sequences) == 0 {
+		return []journal.Receipt{}, nil
+	}
+	return FetchReceipts(ctx, sequences, j.Get)
 }
 
 // QueryBySREDTag retrieves all events with a specific SR&ED tag.
 func (j *receiptlogJournal) QueryBySREDTag(ctx context.Context, tag contracts.SREDTag, start, end time.Time) ([]journal.Receipt, error) {
-	// TODO: implement index on SRED tags
-	return nil, fmt.Errorf("QueryBySREDTag not yet implemented")
+	sequences := j.index.QueryBySREDTag(tag)
+
+	// Filter by time range if specified
+	if !start.IsZero() || !end.IsZero() {
+		timeFilteredSequences := j.index.filterByTime(sequences, start, end)
+		if len(timeFilteredSequences) == 0 {
+			return []journal.Receipt{}, nil
+		}
+		return FetchReceipts(ctx, timeFilteredSequences, j.Get)
+	}
+
+	if len(sequences) == 0 {
+		return []journal.Receipt{}, nil
+	}
+	return FetchReceipts(ctx, sequences, j.Get)
 }
 
 // Verify verifies the chain integrity.
@@ -187,9 +219,18 @@ func (j *receiptlogJournal) Verify(ctx context.Context) (int, error) {
 
 // Stats returns journal statistics.
 func (j *receiptlogJournal) Stats() journal.Stats {
-	// receiptlog does not expose stats directly; we can compute from spool.
-	// For now, return empty stats.
-	return journal.Stats{}
+	// Get index statistics
+	indexStats := j.index.Stats()
+
+	// Get latest sequence and hash from receiptlog
+	// For simplicity, return empty stats for now
+	return journal.Stats{
+		TotalReceipts:   uint64(indexStats.TotalEntries),
+		LastSequence:    0, // TODO: get from ledger
+		LastHash:        "", // TODO: get from ledger
+		OldestTimestamp: time.Time{}, // TODO: compute from index
+		NewestTimestamp: time.Time{}, // TODO: compute from index
+	}
 }
 
 // Close closes the journal.
