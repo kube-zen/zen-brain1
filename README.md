@@ -89,6 +89,15 @@ Comprehensive documentation is available in the `docs/` directory:
 - **[Project Structure](docs/project‑structure.md)** – Directory layout and package organization
 - **[Glossary](docs/glossary.md)** – Definitions of terms, components, and processes
 - **[Block 2 Office Design](docs/design/block2‑office.md)** – Detailed design for the Jira connector and AI attribution
+- **[Component Design Documents](docs/design/)** – Detailed specifications for core components:
+  - [ZenContext](docs/design/zen‑context.md) – Tiered memory system (Hot/Warm/Cold)
+  - [ZenJournal](docs/design/zen‑journal.md) – Immutable event ledger with cryptographic chain hashes
+  - [ZenLedger](docs/design/zen‑ledger.md) – Token and cost accounting with yield metrics
+  - [ZenGate & ZenPolicy](docs/design/zen‑gate‑policy.md) – Admission control and declarative policy engine
+  - [LLM Gateway](docs/design/llm‑gateway.md) – Provider‑agnostic LLM interface with intelligent routing
+- **[Configuration Reference](docs/configuration.md)** – All configurable options across components
+- **[Development Setup](docs/development/setup.md)** – Step‑by‑step guide to set up a local development environment
+- **[Workflow Examples](docs/workflow‑examples.md)** – Illustrated end‑to‑end workflows (Jira → PR, incident response, documentation)
 - **[Contributing Guide](CONTRIBUTING.md)** – Development workflow, coding standards, and testing
 
 ## Development Status

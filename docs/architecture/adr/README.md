@@ -36,6 +36,8 @@ See [template.md](template.md) for the full template.
 | [0003](0003‑contracts‑package.md) | Create a neutral contracts package for canonical types | Accepted | 2026‑03‑07 |
 | [0004](0004‑multi‑cluster‑crds.md) | Design multi‑cluster topology with ZenProject and ZenCluster CRDs | Accepted | 2026‑03‑07 |
 | [0005](0005‑ai‑attribution‑jira.md) | Inject AI attribution headers in all Jira content | Accepted | 2026‑03‑07 |
+| [0006](0006‑warm‑worker‑pools.md) | Use warm worker pools with session affinity and git worktrees | Accepted | 2026‑03‑07 |
+| [0007](0007‑qmd‑for‑knowledge‑base.md) | Use qmd for knowledge base search with git as source of truth | Accepted | 2026‑03‑07 |
 
 ## Creating a New ADR
 
