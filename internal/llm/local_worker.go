@@ -48,9 +48,13 @@ func (p *LocalWorkerProvider) Chat(ctx context.Context, req llm.ChatRequest) (*l
 	log.Printf("[LocalWorker] Processing chat request: model=%s, messages=%d, tools=%d",
 		p.model, len(req.Messages), len(req.Tools))
 
-	// Simulate local model processing
+	// Simulate local model processing with context awareness
 	// In production, this would call Ollama, vLLM, or similar
-	time.Sleep(50 * time.Millisecond) // Simulate processing delay
+	select {
+	case <-time.After(50 * time.Millisecond): // Simulate processing delay
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
 
 	// Generate a simple response
 	content := generateLocalWorkerResponse(req)

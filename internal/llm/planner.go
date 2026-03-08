@@ -48,9 +48,13 @@ func (p *PlannerProvider) Chat(ctx context.Context, req llm.ChatRequest) (*llm.C
 	log.Printf("[Planner] Processing complex chat request: model=%s, messages=%d, tools=%d, task_id=%s",
 		p.model, len(req.Messages), len(req.Tools), req.TaskID)
 
-	// Simulate cloud model processing (slower but more capable)
+	// Simulate cloud model processing with context awareness
 	// In production, this would call OpenAI, Anthropic, or similar
-	time.Sleep(200 * time.Millisecond) // Simulate cloud latency
+	select {
+	case <-time.After(200 * time.Millisecond): // Simulate cloud latency
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
 
 	// Generate a comprehensive, planning-oriented response
 	content := generatePlannerResponse(req)

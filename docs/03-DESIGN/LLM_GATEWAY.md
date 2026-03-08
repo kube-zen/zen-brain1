@@ -257,13 +257,47 @@ llm:
 3. **Should we cache embeddings?** – Yes, with TTL; embedding generation can be expensive.
 4. **How to handle model deprecation/upgrades?** – Versioned model names; migration scripts for stored embeddings.
 
-## Next Steps
+## MVP Implementation (Batch D)
 
-1. Implement `internal/llm/openai.go`, `internal/llm/ollama.go`, etc.
-2. Implement `internal/llm/router.go` with cost‑aware routing.
-3. Integrate with ZenLedger for token recording.
-4. Write unit and integration tests (mock provider).
-5. Create provider health checks and fallback logic.
+**Current implementation location:** `internal/llm/`
+
+**Key MVP components implemented:**
+
+1. **`Gateway`** (`internal/llm/gateway.go`) - Unified implementation of `Provider`, `Router`, and `ProviderFactory` interfaces
+2. **`LocalWorkerProvider`** (`internal/llm/local_worker.go`) - Local worker lane using small CPU-efficient models (simulated as `qwen3.5:0.8b`)
+3. **`PlannerProvider`** (`internal/llm/planner.go`) - Planner/escalation lane using more powerful models (simulated as `glm-4.7`)
+4. **Configuration** - `GatewayConfig` with sensible defaults and routing policies
+
+**MVP Features:**
+
+- **Dual-lane routing**: Local worker vs planner escalation based on task complexity
+- **Routing policies**: `simple` (default), `cost_aware` (MVP basic implementation)
+- **Timeout handling**: Configurable per lane (local: 30s, planner: 60s, request: 120s)
+- **Tool support**: Both lanes support tool calling
+- **Statistics tracking**: Success rates, latencies, error counts
+- **Complex task detection**: Heuristics based on message length, keywords, task metadata
+- **Context-aware**: Respects context cancellation and timeouts
+
+**Integration ready:** The `Gateway` implements `llm.Provider` interface and can be injected anywhere a provider is needed (e.g., `analyzer.New(config, gateway, kbStore)`).
+
+**Configuration example:**
+```go
+config := llm.DefaultGatewayConfig()
+config.RoutingPolicy = "simple"
+config.AutoEscalateComplexTasks = true
+gateway, err := llm.NewGateway(config)
+```
+
+**Testing:** Comprehensive test suite (`internal/llm/gateway_test.go`) with 16 passing tests covering routing, timeouts, tool support, and statistics.
+
+## Next Steps (Post-MVP)
+
+1. Connect to real provider backends (Ollama for local, OpenAI/Anthropic/GLM for cloud)
+2. Integrate with ZenLedger for actual cost tracking
+3. Implement more sophisticated routing algorithms
+4. Add embedding support
+5. Add real streaming support
+6. Integrate with configuration management system
 
 ---
 
