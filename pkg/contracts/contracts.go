@@ -233,3 +233,60 @@ type Attachment struct {
 	Size        int64     `json:"size"`
 	CreatedAt   time.Time `json:"created_at"`
 }
+
+// BrainTaskSpec represents a specification for an AI task.
+// This is produced by the Intent Analyzer and consumed by the Factory
+// to create BrainTask CRDs.
+type BrainTaskSpec struct {
+	// Identity
+	ID          string `json:"id"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	
+	// Source reference
+	WorkItemID  string `json:"work_item_id"`
+	SourceKey   string `json:"source_key"` // e.g., "PROJ-123"
+	
+	// Classification
+	WorkType    WorkType    `json:"work_type"`
+	WorkDomain  WorkDomain  `json:"work_domain"`
+	Priority    Priority    `json:"priority"`
+	
+	// Requirements
+	Objective   string                `json:"objective"`   // What needs to be done
+	AcceptanceCriteria []string       `json:"acceptance_criteria,omitempty"`
+	Constraints []string              `json:"constraints,omitempty"`
+	
+	// Evidence requirements
+	EvidenceRequirement EvidenceRequirement `json:"evidence_requirement"`
+	
+	// SR&ED
+	SREDTags    []SREDTag `json:"sred_tags,omitempty"`
+	Hypothesis  string    `json:"hypothesis,omitempty"` // SR&ED hypothesis framing
+	
+	// Execution
+	EstimatedCostUSD float64 `json:"estimated_cost_usd,omitempty"`
+	TimeoutSeconds   int64   `json:"timeout_seconds,omitempty"`
+	MaxRetries       int     `json:"max_retries,omitempty"`
+	
+	// Dependencies
+	DependsOn   []string `json:"depends_on,omitempty"`
+	
+	// Knowledge
+	KBScopes    []string `json:"kb_scopes,omitempty"`
+	
+	// Metadata
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+// AnalysisResult represents the output of the Intent Analyzer.
+type AnalysisResult struct {
+	WorkItem       *WorkItem        `json:"work_item"`
+	BrainTaskSpecs []BrainTaskSpec  `json:"brain_task_specs"`
+	Confidence     float64          `json:"confidence"` // 0.0-1.0
+	AnalysisNotes  string           `json:"analysis_notes"`
+	RequiresApproval bool           `json:"requires_approval"`
+	RecommendedModel string         `json:"recommended_model,omitempty"`
+	EstimatedTotalCostUSD float64   `json:"estimated_total_cost_usd,omitempty"`
+}
