@@ -71,6 +71,48 @@ Zen‑Brain uses a configurable home directory:
 - Default: `~/.zen‑brain/`
 - Override: Set `ZEN_BRAIN_HOME` environment variable
 
+## Dependencies
+
+### zen-sdk (Required)
+
+Zen-Brain 1.0 depends on [zen-sdk](https://github.com/kube-zen/zen-sdk) v0.3.0 or later for cross-cutting concerns:
+
+| Package | Version | Purpose |
+|---------|---------|---------|
+| receiptlog | v0.3.0+ | Core for ZenJournal (immutable event ledger) |
+| scheduler | v0.3.0+ | KB ingestion scheduling |
+| dedup | v0.3.0+ | Message bus deduplication |
+| dlq | v0.3.0+ | Dead letter queue |
+| observability | v0.3.0+ | OpenTelemetry tracing |
+| retry | v0.3.0+ | Exponential backoff with jitter |
+| events | v0.3.0+ | Kubernetes event recording |
+| leader | v0.3.0+ | Leader election for HA components |
+| logging | v0.3.0+ | Structured logging |
+| health | v0.3.0+ | Health and readiness probes |
+| crypto | v0.3.0+ | Age encryption for secrets and credentials |
+
+**Installation:**
+
+```bash
+go get github.com/kube-zen/zen-sdk@v0.3.0
+```
+
+**Usage:**
+
+```go
+import (
+    "github.com/kube-zen/zen-sdk/pkg/receiptlog"
+    "github.com/kube-zen/zen-sdk/pkg/scheduler"
+    "github.com/kube-zen/zen-sdk/pkg/crypto"
+)
+```
+
+### External Dependencies
+
+- **Kubernetes client-go** (v0.35.0): For cluster operations and custom resources
+- **Redis** (v9.18.0): For Tier 1 hot memory (session context)
+- **Controller-runtime** (v0.19.0): For custom resource controllers
+
 ## Documentation
 
 Comprehensive documentation is available in the `docs/` directory:
