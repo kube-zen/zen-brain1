@@ -6,15 +6,19 @@ This directory contains detailed design specifications for Zen‑Brain component
 
 | Document | Purpose | Status |
 |----------|---------|--------|
-| [Block 2 Office](BLOCK2_OFFICE.md) | Design of the Office layer (Jira connector, intent analysis, planning) | **Complete** |
+| [Block 2 Office](BLOCK2_OFFICE.md) | Design of Office layer (Jira connector, intent analysis, planning) | **Complete** |
 | [ZenContext](ZEN_CONTEXT.md) | Tiered memory system (Hot/Warm/Cold) | **Draft** |
 | [ZenJournal](ZEN_JOURNAL.md) | Immutable event ledger with cryptographic chain hashes | **Draft** |
 | [ZenLedger](ZEN_LEDGER.md) | Token and cost accounting with yield metrics | **Draft** |
 | [ZenGate & ZenPolicy](ZEN_GATE_POLICY.md) | Admission control and declarative policy engine | **Draft** |
 | [LLM Gateway](LLM_GATEWAY.md) | Provider‑agnostic LLM interface with intelligent routing | **Draft** |
-| [Bounded Orchestrator Loop](BOUNDED_ORCHESTRATOR_LOOP.md) | State machine for task execution with bounded retries and resume/recovery | **Draft** |
-| [Proof of Work](PROOF_OF_WORK.md) | Bundle format for AI work evidence (session IDs, intent, files, tests, logs) | **Draft** |
-| [Skills and Subagents](SKILLS_AND_SUBAGENTS.md) | Design for bounded execution helpers under RoleProfile and policies | **Draft** |
+| [Bounded Orchestrator Loop](../../03-DESIGN/BOUNDED_ORCHESTRATOR_LOOP.md) | State machine for task execution with bounded retries and resume/recovery | **Draft** |
+| [Proof of Work](../../03-DESIGN/PROOF_OF_WORK.md) | Bundle format for AI work evidence (session IDs, intent, files, tests, logs) | **Draft** |
+| [Skills and Subagents](../../03-DESIGN/SKILLS_AND_SUBAGENTS.md) | Design for bounded execution helpers under RoleProfile and policies | **Draft** |
+| [Small Model Strategy](SMALL_MODEL_STRATEGY.md) | CPU-first local model lane (calibration, routing, benchmarking) | **Draft** |
+| [Ops Department](../../03-DESIGN/OPS_DEPARTMENT.md) | Jira-centric ops model (incidents, changes, deploys, approvals) | **Draft** |
+| [Agent Sandbox and Evaluation](SANDBOX_AND_EVALUATION.md) | Non-destructive evaluation lane for 1.1 (testing without production risk) | **Draft** |
+| [Model-Facing Files and Skills Policy](../../03-DESIGN/MODEL_FACING_FILES_AND_SKILLS_POLICY.md) | Policy for advisory-only AGENTS.md/WORKFLOW.md and bounded skills/subagents | **Draft** |
 
 ## Upcoming Designs
 
@@ -23,8 +27,6 @@ This directory contains detailed design specifications for Zen‑Brain component
 - **Knowledge Base Ingestion** – QMD integration, Confluence sync (optional)
 - **Funding Evidence Aggregator** – SR&ED/IRAP report generation
 - **Multi‑cluster Topology** – control plane / data plane communication
-- **Agent Sandbox** – non-destructive evaluation lane for 1.1 (planned)
-- **Role/Policy Framework** – `ZenRoleProfile`, `ZenExecutionPolicy`, `ZenHandoffPolicy`, `ZenTool`, `ZenToolBinding`, `ZenComplianceProfile` (1.1)
 
 ## Design Principles
 
@@ -39,7 +41,7 @@ All components adhere to the architectural principles outlined in the [Construct
 ## How to Use These Documents
 
 - **Implementors** – follow the interface definitions and implementation notes.
-- **Reviewers** – check for consistency with overall architecture and other components.
+- **Reviewers** – check for consistency with the overall architecture and other components.
 - **Contributors** – when extending a component, update the corresponding design document.
 
 ## Contributing
@@ -59,4 +61,4 @@ When creating a new design document:
 
 ---
 
-*These documents are living specs; update as implementation progresses.*
+*These documents are living specifications; update as implementation progresses.*
