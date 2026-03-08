@@ -1,0 +1,73 @@
+# Zen-Brain 1.0 development configuration
+# This file is a template for local development.
+
+# Home directory (overrides ZEN_BRAIN_HOME)
+home_dir: "~/.zen-brain"
+
+# Logging
+logging:
+  level: "debug"
+  format: "json"
+  output: "stdout"
+
+# Knowledge Base settings
+kb:
+  # Path to the zen-docs repository
+  docs_repo: "../zen-docs"
+  # Default search limit
+  search_limit: 10
+
+# QMD settings
+qmd:
+  # Path to qmd binary (if not in PATH)
+  binary_path: "qmd"
+  # Index refresh interval (seconds)
+  refresh_interval: 3600
+
+# Confluence publishing (optional)
+confluence:
+  enabled: false
+  base_url: "https://your-domain.atlassian.net/wiki"
+  space: "ZB"
+  # Authentication via environment variables:
+  # CONFLUENCE_USERNAME, CONFLUENCE_API_TOKEN
+
+# Jira connector (placeholder)
+jira:
+  enabled: false
+  base_url: "https://your-domain.atlassian.net"
+  project: "ZEN"
+  # Authentication via environment variables:
+  # JIRA_USERNAME, JIRA_API_TOKEN
+
+# Multi-cluster
+clusters:
+  - id: "cluster-1"
+    type: "k3d"
+    kubeconfig: "~/.kube/config"
+  - id: "cluster-2"
+    type: "k3d"
+    kubeconfig: "~/.kube/config2"
+
+# SR&ED evidence collection
+sred:
+  enabled: true
+  default_tags:
+    - "experimental_general"
+  evidence_requirement: "summary"
+
+# ZenLedger (CockroachDB) settings
+ledger:
+  enabled: false
+  # CockroachDB connection details (set via env vars in production)
+  host: "localhost"
+  port: 26257
+  database: "zenledger"
+  user: "zen"
+  ssl_mode: "disable"
+
+# Planner settings
+planner:
+  default_model: "glm-4.7"
+  max_cost_per_task: 10.0
+  require_approval: false

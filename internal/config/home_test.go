@@ -3,9 +3,8 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
-
-	"github.com/stretchr/testify/assert"
 )
 
 func TestHomeDir_Default(t *testing.T) {
@@ -14,7 +13,9 @@ func TestHomeDir_Default(t *testing.T) {
 
 	home := HomeDir()
 	expectedSuffix := filepath.FromSlash("/.zen-brain")
-	assert.Contains(t, home, expectedSuffix)
+	if !strings.Contains(home, expectedSuffix) {
+		t.Errorf("HomeDir() = %q, expected to contain %q", home, expectedSuffix)
+	}
 }
 
 func TestHomeDir_EnvOverride(t *testing.T) {
@@ -23,17 +24,32 @@ func TestHomeDir_EnvOverride(t *testing.T) {
 	defer os.Unsetenv(EnvHomeDir)
 
 	home := HomeDir()
-	assert.Equal(t, customPath, home)
+	if home != customPath {
+		t.Errorf("HomeDir() = %q, expected %q", home, customPath)
+	}
 }
 
 func TestDefaultPaths(t *testing.T) {
 	os.Unsetenv(EnvHomeDir)
 	paths := DefaultPaths()
 
-	assert.NotEmpty(t, paths.Root)
-	assert.Contains(t, paths.Journal, "journal")
-	assert.Contains(t, paths.Context, "context")
-	assert.Contains(t, paths.Cache, "cache")
-	assert.Contains(t, paths.Config, "config")
-	assert.Contains(t, paths.Logs, "logs")
+	if paths.Root == "" {
+		t.Error("Root should not be empty")
+	}
+	checkContains(t, paths.Journal, "journal")
+	checkContains(t, paths.Context, "context")
+	checkContains(t, paths.Cache, "cache")
+	checkContains(t, paths.Config, "config")
+	checkContains(t, paths.Logs, "logs")
+	checkContains(t, paths.Ledger, "ledger")
+	checkContains(t, paths.Evidence, "evidence")
+	checkContains(t, paths.KB, "kb")
+	checkContains(t, paths.QMD, "qmd")
+}
+
+func checkContains(t *testing.T, s, substr string) {
+	t.Helper()
+	if !strings.Contains(s, substr) {
+		t.Errorf("%q should contain %q", s, substr)
+	}
 }

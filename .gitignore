@@ -1,16 +1,60 @@
-# Zen-Brain Home Directory
-
-This directory is created by zen-brain on first run.
-
-## Structure
-
-- `journal/` - ZenJournal event logs (immutable)
-- `context/` - Session state and work memory
-- `cache/` - Ephemeral data (safe to delete)
-- `config/` - Configuration files
-- `logs/` - Application logs
-
-## Build Artifacts (do not commit)
-
+# Binaries for programs and plugins
 bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
 coverage.out
+
+# Dependency directories (remove the comment below to include it)
+# vendor/
+
+# Go workspace file
+go.work
+go.work.sum
+
+# Editor and IDE directories
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Kubernetes generated files
+kustomization.yaml
+kustomize/
+
+# Local development configuration
+config.dev.local.yaml
+*.local
+
+# Zen-Brain home directory (should not be committed)
+# This is created at runtime based on ZEN_BRAIN_HOME
+# The structure documentation is kept in README.md
+
+# Temporary and cache directories
+tmp/
+.cache/
+.env
+.env.local
+.env.*.local
+
+# Log files
+*.log
+logs/

@@ -4,34 +4,59 @@ A production AI agent orchestration system for the Zen ecosystem.
 
 ## Overview
 
-Zen-Brain provides intelligent task planning, execution, and evidence collection for AI-assisted software development. It integrates with Jira for human workflows and Kubernetes for scalable execution.
+Zen-Brain provides intelligent task planning, execution, and evidence collection for AI‑assisted software development. It integrates with Jira for human workflows, Kubernetes for scalable execution, and a Git‑based knowledge base for contextual retrieval.
 
 ## Architecture
 
+### Core Principles
+
+- **Jira is the human front door** – work originates in Jira, but the internal execution model uses canonical `WorkItem` types.
+- **ZenOffice is the abstraction boundary** – external system connectors live here; no Jira‑specific types leak into Factory or Planner.
+- **Git‑based knowledge base** – `zen‑docs` repository is the source of truth; qmd indexes it for search; Confluence is a one‑way published mirror.
+- **SR&ED evidence collection default ON** – every action is recorded for funding‑ready audit trails.
+- **Multi‑cluster aware** – control plane, data plane agents, and workload placement across heterogeneous Kubernetes clusters.
+
+### Component Map
+
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                        ZenOffice                             │
-│  (Jira Connector, Intent Analyzer, Planner, Gatekeeper)      │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                      ZenContext                              │
-│  (Session State, Work Memory, Task Tracking)                 │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                       Factory                                │
-│  (Kubernetes Execution, Worker Pools, Task Dispatch)         │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                      ZenJournal                              │
-│  (Immutable Event Log, SR&ED Evidence)                       │
-└─────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                         ZenOffice                                │
+│   (Jira connector, intent analyzer, planner, gatekeeper)         │
+│   Maps external issues → canonical WorkItem                      │
+└─────────────────────────────────────────────────────────────────┘
+                                   │
+                                   ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                         ZenContext                               │
+│   (Session state, work memory, task tracking)                    │
+└─────────────────────────────────────────────────────────────────┘
+                                   │
+                                   ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                          Factory                                 │
+│   (Kubernetes execution, worker pools, task dispatch)            │
+└─────────────────────────────────────────────────────────────────┘
+                                   │
+                                   ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                        ZenJournal                                │
+│   (Immutable event log, SR&ED evidence)                          │
+└─────────────────────────────────────────────────────────────────┘
+                                   │
+                                   ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                        ZenLedger                                 │
+│   (Token/cost accounting, value‑per‑token metrics)               │
+└─────────────────────────────────────────────────────────────────┘
 ```
+
+### Knowledge Base / QMD Strategy (1.0)
+
+- **Source of truth**: `zen‑docs` Git repository
+- **Search/index**: qmd over `zen‑docs` (CLI with JSON output, no MCP required)
+- **Human publishing**: one‑way sync from `zen‑docs` → Confluence
+- **Jira integration**: tickets link to KB scopes and docs; planner uses scopes to narrow retrieval
+- **No CockroachDB for KB/QMD in 1.0** – CockroachDB holds structured runtime data (ZenLedger, session state, policies), not the document corpus.
 
 ## Quick Start
 
@@ -48,17 +73,26 @@ make run
 
 ## Configuration
 
-Zen-Brain uses a configurable home directory:
+Zen‑Brain uses a configurable home directory:
 
-- Default: `~/.zen-brain/`
+- Default: `~/.zen‑brain/`
 - Override: Set `ZEN_BRAIN_HOME` environment variable
 
 ## Development Status
 
-**Current Phase:** Block 0 - Clean Foundation
+**Current Phase:** Block 1 – Schema Hardening Complete
 
-See `/docs/architecture/CONSTRUCTION-PLAN.md` for the full build roadmap.
+- ✅ Block 0: Clean foundation (scaffold, go.mod, Makefile, README)
+- ✅ Block 0.5: SDK package audit (26 reusable packages in `zen‑sdk`)
+- ✅ Block 1: Neuro‑Anatomy – canonical contracts, structured tags, SR&ED taxonomy, multi‑cluster CRDs
+- 🚧 Block 2: Office – Jira connector with AI attribution (in progress)
+- 📋 Block 3: Nervous System – message bus, ZenJournal, KB, ZenLedger, DB provisioning
+- 📋 Block 4: Factory – K8s execution, warm workers, multi‑cluster agent
+- 📋 Block 5: Intelligence – QMD, ReMe, Funding Evidence Aggregator
+- 📋 Block 6: Developer Experience – k3d cluster, local‑first workflow
+
+See `docs/architecture/CONSTRUCTION‑PLAN.md` for the full build roadmap.
 
 ## License
 
-Copyright 2026 Kube-Zen
+Copyright 2026 Kube‑Zen

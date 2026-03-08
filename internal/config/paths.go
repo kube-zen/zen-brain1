@@ -25,6 +25,18 @@ type Paths struct {
 
 	// Logs is for application logs.
 	Logs string
+
+	// Ledger is where ZenLedger stores token and cost records.
+	Ledger string
+
+	// Evidence is where evidence artifacts (logs, diffs, test results) are stored.
+	Evidence string
+
+	// KB is where knowledge base documents and indexes are stored.
+	KB string
+
+	// QMD is where qmd search indexes and embeddings are stored.
+	QMD string
 }
 
 // DefaultPaths returns the standard paths based on HomeDir().
@@ -37,6 +49,10 @@ func DefaultPaths() *Paths {
 		Cache:   filepath.Join(root, "cache"),
 		Config:  filepath.Join(root, "config"),
 		Logs:    filepath.Join(root, "logs"),
+		Ledger:  filepath.Join(root, "ledger"),
+		Evidence: filepath.Join(root, "evidence"),
+		KB:      filepath.Join(root, "kb"),
+		QMD:     filepath.Join(root, "qmd"),
 	}
 }
 
@@ -49,6 +65,10 @@ func (p *Paths) EnsureAll() error {
 		p.Cache,
 		p.Config,
 		p.Logs,
+		p.Ledger,
+		p.Evidence,
+		p.KB,
+		p.QMD,
 	}
 
 	for _, dir := range dirs {

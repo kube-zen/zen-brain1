@@ -1,0 +1,59 @@
+{
+  "id": "work-abc123",
+  "title": "Implement dynamic provisioning SR&ED experiment",
+  "summary": "Add ability to dynamically provision worker pods based on queue depth",
+  "body": "## Objective\nImprove resource utilization by dynamically scaling worker pods based on the pending task queue.\n\n## Technical Approach\n- Monitor ZenJournal for queue depth metrics.\n- Implement a controller that adjusts replica count of worker deployments.\n- Ensure backpressure signals are respected.\n\n## Success Criteria\n- Worker count scales between 1 and 10 based on queue depth.\n- Provisioning latency < 30 seconds.\n- No over‑provisioning when backpressure is active.",
+  "work_type": "implementation",
+  "work_domain": "factory",
+  "priority": "high",
+  "execution_mode": "autonomous",
+  "status": "approved",
+  "created_at": "2026-03-07T10:30:00Z",
+  "updated_at": "2026-03-07T11:15:00Z",
+  "cluster_id": "cluster-1",
+  "project_id": "zen-mesh",
+  "working_dir": "/workspace/zen-mesh",
+  "tags": {
+    "human_org": ["epic-dynamic-scaling", "team-platform", "q1-2026"],
+    "routing": ["factory", "controller"],
+    "policy": ["internal", "sred-eligible"],
+    "analytics": ["cost-optimization", "resource-utilization"],
+    "sred": ["u1_dynamic_provisioning", "u4_backpressure"]
+  },
+  "kb_scopes": ["factory/dynamic-scaling", "sred/u1-dynamic-provisioning"],
+  "evidence_requirement": "diff",
+  "sred_disabled": false,
+  "source": {
+    "system": "jira",
+    "issue_key": "ZEN-42",
+    "project": "ZEN",
+    "issue_type": "Story",
+    "parent_key": "ZEN-40",
+    "epic_key": "ZEN-10",
+    "reporter": "alice",
+    "assignee": "bob",
+    "sprint": "Sprint 2026‑03",
+    "created_at": "2026-03-07T10:00:00Z",
+    "updated_at": "2026-03-07T11:00:00Z"
+  },
+  "attribution": {
+    "agent_role": "planner-v1",
+    "model_used": "glm-4.7",
+    "session_id": "session-xyz789",
+    "task_id": "task-def456",
+    "timestamp": "2026-03-07T11:15:00Z"
+  },
+  "parent_id": "work-parent-xyz",
+  "depends_on": ["work-dep-1", "work-dep-2"],
+  "requested_by": "alice",
+  "approval_state": "approved",
+  "policy_class": "internal",
+  "evidence_refs": ["receipt-001", "receipt-002"],
+  "source_refs": ["ZEN-42", "ZEN-40"],
+  "execution_constraints": {
+    "max_cost_usd": 50.0,
+    "timeout_seconds": 3600,
+    "allowed_clusters": ["cluster-1", "cluster-2"],
+    "required_approval": false
+  }
+}

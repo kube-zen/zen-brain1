@@ -1,0 +1,58 @@
+# Example zen‑docs repository layout
+
+zen‑docs/
+├── README.md
+├── docs/
+│   ├── architecture/
+│   │   ├── 01-overview.md
+│   │   ├── 02-core-concepts.md
+│   │   ├── 03-data-model.md
+│   │   ├── 04-kb-qmd-strategy.md
+│   │   └── 05-multi-cluster.md
+│   ├── guides/
+│   │   ├── getting-started.md
+│   │   ├── jira-integration.md
+│   │   ├── srd-ed-evidence.md
+│   │   └── troubleshooting.md
+│   ├── runbooks/
+│   │   ├── incident-response.md
+│   │   ├── deployment.md
+│   │   └── backup-restore.md
+│   └── api/
+│       ├── rest-api.md
+│       └── crd-reference.md
+├── meta/
+│   ├── manifest.yaml          # Document metadata registry (future)
+│   └── tags.yaml              # Tag taxonomy definitions
+├── templates/
+│   ├── architecture-template.md
+│   ├── guide-template.md
+│   └── runbook-template.md
+└── .gitignore
+
+Each document should include frontmatter metadata (YAML) at the top:
+
+---
+id: KB-ARCH-0001
+title: Architecture Overview
+type: architecture
+domain: core
+tags:
+  human_org: [architecture, core]
+  routing: [planner, office]
+  policy: [internal]
+  analytics: [kb, core]
+owners: [platform]
+status: active
+source_of_truth: git
+jira_projects: [ZEN]
+jira_labels: [architecture, core]
+confluence_space: ZB
+confluence_parent: Architecture
+related_docs:
+  - KB-ARCH-0002
+  - KB-GUIDE-0010
+review_every_days: 90
+---
+
+# Content starts here...
