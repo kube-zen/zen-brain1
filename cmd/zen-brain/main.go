@@ -8,11 +8,9 @@ import (
 	"time"
 
 	"github.com/kube-zen/zen-brain1/internal/factory"
-	"github.com/kube-zen/zen-brain1/internal/integration"
 	llmgateway "github.com/kube-zen/zen-brain1/internal/llm"
 	"github.com/kube-zen/zen-brain1/internal/office"
 	"github.com/kube-zen/zen-brain1/internal/office/jira"
-	"github.com/kube-zen/zen-brain1/internal/session"
 	"github.com/kube-zen/zen-brain1/pkg/contracts"
 	"github.com/kube-zen/zen-brain1/pkg/llm"
 )
@@ -241,10 +239,33 @@ func runVerticalSlice() {
 	fmt.Printf("  Steps: %d\n", len(executionPlan.Steps))
 	fmt.Printf("  Estimated cost: $%.2f\n", executionPlan.EstimatedCost)
 
-	// Step 6: Simulate execution
-	fmt.Println("[6/7] Executing in isolated workspace...")
-	executionResult := simulateExecution(executionPlan)
-
+	// Step 6: Execute with Factory
+	fmt.Println("[6/7] Executing in isolated workspace with Factory...")
+	
+	// Create FactoryTaskSpec
+	sessionID := fmt.Sprintf("session-%s-%d", workItem.ID, time.Now().Unix())
+	taskSpec := createFactoryTaskSpec(workItem, analysisResult, sessionID)
+	
+	// Create runtime directory for Factory (Factory will store proof-of-work here)
+	runtimeDir, err := os.MkdirTemp("", "zen-brain-factory-*")
+	if err != nil {
+		log.Fatalf("Failed to create runtime directory: %v", err)
+	}
+	// Note: We don't delete runtimeDir immediately because Factory stores proof-of-work artifacts there
+	
+	// Execute with Factory
+	var executionResult *ExecutionResult
+	factoryResult, err := executeWithFactory(taskSpec, runtimeDir)
+	if err != nil {
+		log.Printf("Factory execution failed: %v. Falling back to simulated execution.", err)
+		executionResult = simulateExecution(executionPlan)
+	} else {
+		// Convert factory.ExecutionResult to local ExecutionResult
+		executionResult = convertFactoryResult(factoryResult)
+		// Factory generates its own proof-of-work, but we'll still generate our format for now
+		fmt.Printf("  ✓ Factory execution completed. Proof-of-work stored in: %s\n", runtimeDir)
+	}
+	
 	fmt.Println("✓ Execution complete")
 	fmt.Printf("  Duration: %s\n", executionResult.Duration)
 	fmt.Printf("  Files changed: %d\n", executionResult.FilesChanged)
@@ -324,6 +345,99 @@ type ProofOfWorkArtifact struct {
 	JSONPath         string `json:"json_path"`
 	MarkdownPath     string `json:"markdown_path"`
 	MarkdownContent  string `json:"markdown_content"`
+}
+
+// createFactoryTaskSpec converts work item and analysis to a FactoryTaskSpec
+func createFactoryTaskSpec(workItem *contracts.WorkItem, analysis *AnalysisResult, sessionID string) *factory.FactoryTaskSpec {
+	// Map work type
+	workType := contracts.WorkTypeDebug
+	if workItem.WorkType != "" {
+		workType = workItem.WorkType
+	}
+
+	// Map priority
+	priority := contracts.PriorityMedium
+	if workItem.Priority != "" {
+		priority = workItem.Priority
+	}
+
+	// Map domain
+	domain := contracts.DomainCore
+	if workItem.WorkDomain != "" {
+		domain = workItem.WorkDomain
+	}
+
+	// Create constraints from analysis risks
+	constraints := []string{}
+	if analysis != nil && len(analysis.Risks) > 0 {
+		constraints = analysis.Risks
+	}
+
+	// Create KB scopes from analysis dependencies
+	kbScopes := []string{}
+	if analysis != nil && len(analysis.Dependencies) > 0 {
+		kbScopes = analysis.Dependencies
+	}
+
+	return &factory.FactoryTaskSpec{
+		ID:          workItem.ID,
+		SessionID:   sessionID,
+		WorkItemID:  workItem.ID,
+		Title:       workItem.Title,
+		Objective:   analysis.RecommendedApproach,
+		Constraints: constraints,
+		WorkType:    workType,
+		WorkDomain:  domain,
+		Priority:    priority,
+		TimeoutSeconds: 300, // 5 minutes default
+		MaxRetries:     3,
+		KBScopes:       kbScopes,
+		CreatedAt:      time.Now(),
+		UpdatedAt:      time.Now(),
+	}
+}
+
+// executeWithFactory runs task execution using real Factory components
+func executeWithFactory(taskSpec *factory.FactoryTaskSpec, runtimeDir string) (*factory.ExecutionResult, error) {
+	ctx := context.Background()
+	
+	// Create Factory components
+	workspaceManager := factory.NewWorkspaceManager(runtimeDir)
+	executor := factory.NewBoundedExecutor()
+	powManager := factory.NewProofOfWorkManager(runtimeDir)
+	
+	// Create Factory instance
+	factoryInst := factory.NewFactory(workspaceManager, executor, powManager, runtimeDir)
+	
+	// Execute task
+	return factoryInst.ExecuteTask(ctx, taskSpec)
+}
+
+// convertFactoryResult converts factory.ExecutionResult to local ExecutionResult
+func convertFactoryResult(factoryResult *factory.ExecutionResult) *ExecutionResult {
+	duration := "unknown"
+	if factoryResult.Duration > 0 {
+		duration = factoryResult.Duration.String()
+	}
+	
+	// Calculate files changed from FilesChanged slice
+	filesChanged := len(factoryResult.FilesChanged)
+	
+	// For tests, check if TestsPassed is true (Factory uses boolean)
+	testsPassed := 0
+	testsTotal := 0
+	if factoryResult.TestsPassed {
+		testsPassed = 1
+		testsTotal = 1
+	}
+	
+	return &ExecutionResult{
+		Duration:      duration,
+		FilesChanged:  filesChanged,
+		TestsPassed:   testsPassed,
+		TestsTotal:    testsTotal,
+		Success:       factoryResult.Success,
+	}
 }
 
 func analyzeWorkItem(llmGateway *llmgateway.Gateway, workItem *contracts.WorkItem) *AnalysisResult {

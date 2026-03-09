@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/kube-zen/zen-brain1/internal/analyzer"
+	"github.com/kube-zen/zen-brain1/internal/factory"
 	"github.com/kube-zen/zen-brain1/internal/office"
 	"github.com/kube-zen/zen-brain1/internal/session"
 	zenctx "github.com/kube-zen/zen-brain1/pkg/context"
@@ -65,6 +66,7 @@ type Config struct {
 	SessionManager  session.Manager      `yaml:"-" json:"-"`
 	LedgerClient    ledger.ZenLedgerClient `yaml:"-" json:"-"`
 	ZenContext      zenctx.ZenContext    `yaml:"-" json:"-"`
+	Factory         factory.Factory      `yaml:"-" json:"-"`
 	
 	// Model selection
 	DefaultModel    string              `yaml:"default_model" json:"default_model"`
