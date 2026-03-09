@@ -168,6 +168,9 @@ type ProofOfWorkSummary struct {
 	Objective   string    `json:"objective"`
 	Result      string    `json:"result"` // "completed", "failed", "needs_review"
 
+	// Workspace information
+	WorkspacePath string    `json:"workspace_path,omitempty"` // Absolute path to workspace
+
 	// Execution details
 	StartedAt   time.Time     `json:"started_at"`
 	CompletedAt time.Time     `json:"completed_at"`

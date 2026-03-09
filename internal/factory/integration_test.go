@@ -67,6 +67,12 @@ func TestProofOfWork_JiraIntegration(t *testing.T) {
 	if artifact.Summary.TaskID != spec.ID {
 		t.Errorf("TaskID mismatch: got %s, want %s", artifact.Summary.TaskID, spec.ID)
 	}
+	if artifact.Summary.WorkspacePath == "" {
+		t.Error("WorkspacePath should be populated in proof-of-work")
+	}
+	if artifact.Summary.WorkspacePath != result.WorkspacePath {
+		t.Errorf("WorkspacePath mismatch: got %s, want %s", artifact.Summary.WorkspacePath, result.WorkspacePath)
+	}
 
 	// Step 2: Generate Jira comment
 	comment, err := powManager.GenerateJiraComment(ctx, artifact)
@@ -141,6 +147,7 @@ func TestProofOfWork_FieldAlignment(t *testing.T) {
 		Title:          "Test Task",
 		Objective:      "Test objective",
 		Result:         "completed",
+		WorkspacePath: "/tmp/test-workspace",
 		StartedAt:      time.Now(),
 		CompletedAt:    time.Now(),
 		Duration:       10 * time.Minute,
@@ -184,6 +191,7 @@ func TestProofOfWork_FieldAlignment(t *testing.T) {
 		{"title", summary.Title},
 		{"objective", summary.Objective},
 		{"result", summary.Result},
+		{"workspace_path", summary.WorkspacePath},
 		{"started_at", summary.StartedAt},
 		{"completed_at", summary.CompletedAt},
 		{"duration", summary.Duration},

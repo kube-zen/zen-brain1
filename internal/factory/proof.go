@@ -137,6 +137,7 @@ func (p *proofOfWorkManagerImpl) generateSummary(result *ExecutionResult, spec *
 		Title:             spec.Title,
 		Objective:         spec.Objective,
 		Result:            string(result.Status),
+		WorkspacePath:     result.WorkspacePath,
 		StartedAt:         result.CompletedAt.Add(-result.Duration),
 		CompletedAt:       result.CompletedAt,
 		Duration:          result.Duration,
