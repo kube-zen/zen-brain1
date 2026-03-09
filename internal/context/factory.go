@@ -259,6 +259,8 @@ func createTier3Store(config *ZenContextConfig) (Store, error) {
 	s3StoreConfig := &tier3.Config{
 		S3Client:      s3Client,
 		Bucket:        config.Tier3S3.Bucket,
+		KeyPrefix:     "",
+		ClusterID:     config.ClusterID,
 		EnableGzip:    true,
 		RetentionDays: 90,
 		Verbose:       config.Tier3S3.Verbose,
