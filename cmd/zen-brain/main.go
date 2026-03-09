@@ -7,9 +7,12 @@ import (
 	"os"
 	"time"
 
+	"github.com/kube-zen/zen-brain1/internal/factory"
+	"github.com/kube-zen/zen-brain1/internal/integration"
 	llmgateway "github.com/kube-zen/zen-brain1/internal/llm"
 	"github.com/kube-zen/zen-brain1/internal/office"
 	"github.com/kube-zen/zen-brain1/internal/office/jira"
+	"github.com/kube-zen/zen-brain1/internal/session"
 	"github.com/kube-zen/zen-brain1/pkg/contracts"
 	"github.com/kube-zen/zen-brain1/pkg/llm"
 )

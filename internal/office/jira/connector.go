@@ -123,29 +123,10 @@ func (j *JiraOffice) jiraRequest(method, path string, body io.Reader) (*http.Res
 }
 
 // formatAIAttribution formats an AI attribution header according to V6 spec.
-func formatAIAttribution(attribution *contracts.AIAttribution) string {
-	if attribution == nil {
-		return ""
-	}
-	
-	timestamp := attribution.Timestamp.Format("2006-01-02 15:04:05 MST")
-	return fmt.Sprintf("[zen-brain | agent:%s | model:%s | session:%s | task:%s | %s]",
-		attribution.AgentRole,
-		attribution.ModelUsed,
-		attribution.SessionID,
-		attribution.TaskID,
-		timestamp)
-}
+
 
 // injectAIAttribution injects AI attribution into comment body.
-func injectAIAttribution(body string, attribution *contracts.AIAttribution) string {
-	if attribution == nil {
-		return body
-	}
-	
-	header := formatAIAttribution(attribution)
-	return header + "\n\n" + body
-}
+
 
 // extractJiraKey extracts Jira issue key from sourceKey or workItemID.
 func extractJiraKey(sourceKey string) string {
