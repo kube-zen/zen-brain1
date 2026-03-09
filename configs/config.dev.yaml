@@ -111,6 +111,18 @@ zen_context:
   cluster_id: "default"
   verbose: false
 
+# Message bus settings (Redis Streams)
+message_bus:
+  enabled: false
+  # Redis connection URL (default: redis://localhost:6379)
+  redis_url: "redis://localhost:6379"
+  # Maximum pending entries per consumer group
+  max_pending: 1000
+  # Deduplication window (seconds)
+  dedup_window_seconds: 60
+  # Consumer name (auto-generated if empty)
+  consumer_name: ""
+
 # Planner settings
 planner:
   default_model: "glm-4.7"

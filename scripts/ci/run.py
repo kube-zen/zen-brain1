@@ -30,6 +30,7 @@ GATES = {
     "zen_sdk_ownership": "scripts/ci/zen_sdk_ownership_gate.py",
     "kb_qmd_direction": "scripts/ci/kb_qmd_direction_gate.py",
     "model_facing_policy": "scripts/ci/model_facing_policy_gate.py",
+    "vertical_slice_contract": "scripts/ci/vertical_slice_contract_gate.py",
 }
 
 SUITES = {

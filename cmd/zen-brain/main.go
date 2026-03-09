@@ -9,8 +9,9 @@ import (
 	"time"
 
 	"github.com/kube-zen/zen-brain1/internal/analyzer"
-	"github.com/kube-zen/zen-brain1/internal/config"
-	"github.com/kube-zen/zen-brain1/internal/context"
+	internalcontext "github.com/kube-zen/zen-brain1/internal/context"
+	"github.com/kube-zen/zen-brain1/internal/context/tier1"
+	"github.com/kube-zen/zen-brain1/internal/context/tier3"
 	"github.com/kube-zen/zen-brain1/internal/factory"
 	llmgateway "github.com/kube-zen/zen-brain1/internal/llm"
 	"github.com/kube-zen/zen-brain1/internal/office"
@@ -212,11 +213,17 @@ func runVerticalSlice() {
 	sessionConfig.StoreType = "memory"
 	sessionStore := session.NewMemoryStore()
 
-	// Create and wire mock ZenContext
+	// Create and wire real ZenContext (Redis + MinIO)
 	fmt.Println("  - Initializing ZenContext (tiered memory)...")
-	zenContext := newMockZenContext()
+	zenContext, err := createRealZenContext()
+	if err != nil {
+		log.Printf("Warning: failed to create real ZenContext: %v", err)
+		log.Printf("Falling back to mock ZenContext")
+		zenContext = newMockZenContext()
+	} else {
+		fmt.Println("  ✓ ZenContext initialized (Redis + MinIO)")
+	}
 	sessionConfig.ZenContext = zenContext
-	fmt.Println("  ✓ ZenContext initialized (mock implementation)")
 
 	sessionManager, err := session.New(sessionConfig, sessionStore)
 	if err != nil {
@@ -635,6 +642,52 @@ func (m *mockLedgerClient) GetCostBudgetStatus(ctx context.Context, projectID st
 
 func (m *mockLedgerClient) RecordPlannedModelSelection(ctx context.Context, sessionID, taskID, modelID, reason string) error {
 	return nil
+}
+
+// createRealZenContext creates a production ZenContext with Redis + MinIO
+func createRealZenContext() (zenctx.ZenContext, error) {
+	// Use local Docker containers (from docker-compose.zencontext.yml)
+	redisConfig := &tier1.RedisConfig{
+		Addr:         "localhost:6379",
+		Password:     "",
+		DB:           0,
+		PoolSize:     10,
+		MinIdleConns: 5,
+		DialTimeout:  5 * time.Second,
+		ReadTimeout:  3 * time.Second,
+		WriteTimeout: 3 * time.Second,
+	}
+
+	s3Config := &tier3.S3Config{
+		Bucket:           "zen-brain-context",
+		Region:           "us-east-1",
+		Endpoint:         "http://localhost:9000",
+		AccessKeyID:      "minioadmin",
+		SecretAccessKey:  "minioadmin",
+		SessionToken:     "",
+		UsePathStyle:     true,
+		DisableSSL:       true,
+		ForceRenameBucket: false,
+		MaxRetries:       3,
+		Timeout:          30 * time.Second,
+		PartSize:         5 * 1024 * 1024, // 5 MB
+		Concurrency:      5,
+		Verbose:          true,
+	}
+
+	zenCtxConfig := &internalcontext.ZenContextConfig{
+		Tier1Redis: redisConfig,
+		Tier2QMD: &internalcontext.QMDConfig{
+			RepoPath:      "./zen-docs",
+			QMDBinaryPath: "",
+			Verbose:       false,
+		},
+		Tier3S3:   s3Config,
+		ClusterID: "default",
+		Verbose:   true,
+	}
+
+	return internalcontext.NewZenContext(zenCtxConfig)
 }
 
 func createMockWorkItem() *contracts.WorkItem {

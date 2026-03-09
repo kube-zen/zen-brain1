@@ -4,15 +4,19 @@ package integration
 import (
 	"fmt"
 	"log"
+	"os"
+	"time"
 
 	"github.com/kube-zen/zen-brain1/internal/analyzer"
 	"github.com/kube-zen/zen-brain1/internal/gatekeeper"
 	"github.com/kube-zen/zen-brain1/internal/kb"
 	"github.com/kube-zen/zen-brain1/internal/ledger"
 	llmgateway "github.com/kube-zen/zen-brain1/internal/llm"
+	"github.com/kube-zen/zen-brain1/internal/messagebus/redis"
 	"github.com/kube-zen/zen-brain1/internal/office"
 	"github.com/kube-zen/zen-brain1/internal/planner"
 	"github.com/kube-zen/zen-brain1/internal/session"
+	"github.com/kube-zen/zen-brain1/pkg/messagebus"
 )
 
 // OfficePipeline holds all components of the Office lane.
@@ -22,6 +26,7 @@ type OfficePipeline struct {
 	SessionManager session.Manager
 	Planner       planner.Planner
 	Gatekeeper    gatekeeper.Gatekeeper
+	MessageBus    messagebus.MessageBus // Optional Redis message bus
 }
 
 // NewOfficePipeline creates a new Office pipeline with stub dependencies.
@@ -78,11 +83,33 @@ func NewOfficePipeline() (*OfficePipeline, error) {
 	log.Println("  - Ledger (stub)")
 	ledgerClient := ledger.NewStubLedgerClient()
 	
-	// 6. Office Manager
+	// 6. Message Bus (Redis)
+	log.Println("  - Message Bus (Redis)")
+	var msgBus messagebus.MessageBus
+	redisConfig := &redis.Config{
+		RedisURL:      "redis://localhost:6379",
+		MaxPending:    1000,
+		ConsumerName:  "",
+		BlockTimeout:  5 * time.Second,
+		ClaimTimeout:  30 * time.Second,
+	}
+	if os.Getenv("ZEN_BRAIN_REDIS_DISABLED") == "" {
+		bus, err := redis.New(redisConfig)
+		if err != nil {
+			log.Printf("    ! Redis message bus initialization failed: %v (continuing without message bus)", err)
+		} else {
+			msgBus = bus
+			log.Println("    ✓ Redis message bus initialized")
+		}
+	} else {
+		log.Println("    (Redis disabled by environment variable)")
+	}
+	
+	// 7. Office Manager
 	log.Println("  - Office Manager")
 	officeManager := office.NewManager()
 	
-	// 7. Planner
+	// 8. Planner
 	log.Println("  - Planner")
 	plannerConfig := &planner.Config{
 		OfficeManager:   officeManager,
@@ -104,7 +131,7 @@ func NewOfficePipeline() (*OfficePipeline, error) {
 		return nil, fmt.Errorf("failed to create Planner: %w", err)
 	}
 	
-	// 8. Gatekeeper
+	// 9. Gatekeeper
 	log.Println("  - Gatekeeper")
 	gatekeeperConfig := gatekeeper.DefaultConfig()
 	gatekeeperConfig.Planner = plannerAgent
@@ -122,5 +149,19 @@ func NewOfficePipeline() (*OfficePipeline, error) {
 		SessionManager: sessionManager,
 		Planner:       plannerAgent,
 		Gatekeeper:    gatekeeperAgent,
+		MessageBus:    msgBus,
 	}, nil
+}
+
+// Close closes all resources held by the pipeline.
+// Callers should call this when the pipeline is no longer needed.
+func (p *OfficePipeline) Close() error {
+	if p.MessageBus != nil {
+		if err := p.MessageBus.Close(); err != nil {
+			return fmt.Errorf("failed to close message bus: %w", err)
+		}
+	}
+	// Note: other components (Planner, Gatekeeper, SessionManager) have their own Close methods.
+	// Callers are responsible for closing them individually.
+	return nil
 }
