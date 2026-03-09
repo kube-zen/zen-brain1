@@ -83,6 +83,16 @@ func TestReceiptlogJournal_RecordAndGet(t *testing.T) {
 	if len(retrieved.SREDTags) != len(entry.SREDTags) {
 		t.Errorf("SREDTags length mismatch")
 	}
+
+	// Timestamp comparison: Use RecordedAt instead of Timestamp
+	// Timestamp may lose nanosecond precision during JSON serialization
+	// RecordedAt should be close to the original entry.Timestamp
+	if retrieved.RecordedAt.Before(entry.Timestamp.Add(-1*time.Second)) ||
+		retrieved.RecordedAt.After(entry.Timestamp.Add(1*time.Second)) {
+		t.Errorf("RecordedAt should be within 1 second of entry.Timestamp: got %v, expected close to %v",
+			retrieved.RecordedAt, entry.Timestamp)
+	}
+
 	// Payload is interface{}; we can compare JSON representation
 	// For simplicity, skip payload comparison
 
@@ -132,12 +142,14 @@ func TestReceiptlogJournal_MultipleEntries(t *testing.T) {
 			CorrelationID: "corr",
 			TaskID:        "task",
 			Payload:       i,
-			Timestamp:     time.Now(),
+			Timestamp:     time.Now().Add(time.Duration(i) * time.Millisecond),
 		}
 		_, err := j.Record(ctx, entry)
 		if err != nil {
 			t.Fatalf("Record %d failed: %v", i, err)
 		}
+		// Small delay to ensure timestamps are distinct
+		time.Sleep(time.Millisecond)
 	}
 
 	// Verify chain

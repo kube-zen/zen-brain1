@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	zenctx "github.com/kube-zen/zen-brain1/pkg/context"
 	"github.com/kube-zen/zen-brain1/pkg/contracts"
 )
 
@@ -15,6 +16,7 @@ import (
 type DefaultManager struct {
 	config *Config
 	store  Store
+	zenctx zenctx.ZenContext // Optional ZenContext integration
 	
 	// For session creation
 	sessionCounter uint64
@@ -43,6 +45,7 @@ func New(config *Config, store Store) (*DefaultManager, error) {
 	manager := &DefaultManager{
 		config:  config,
 		store:   store,
+		zenctx:  config.ZenContext,
 		cleanupDone: make(chan bool),
 	}
 	
@@ -100,23 +103,78 @@ func (m *DefaultManager) CreateSession(ctx context.Context, workItem *contracts.
 	}
 	
 	log.Printf("Created session %s for work item %s", session.ID, workItem.ID)
+	
+	// Create corresponding ZenContext SessionContext if ZenContext is configured
+	if m.zenctx != nil {
+		zenSession := &zenctx.SessionContext{
+			SessionID:       session.ID,
+			TaskID:          workItem.ID,
+			ClusterID:       "default", // TODO: make configurable
+			ProjectID:       workItem.Source.Project,
+			CreatedAt:       now,
+			LastAccessedAt:  now,
+			State:           nil, // Agent state will be populated later
+			RelevantKnowledge: nil,
+			Scratchpad:      nil,
+		}
+		err := m.zenctx.StoreSessionContext(ctx, zenSession.ClusterID, zenSession)
+		if err != nil {
+			// Log error but don't fail session creation
+			log.Printf("Warning: failed to create ZenContext for session %s: %v", session.ID, err)
+		} else {
+			log.Printf("Created ZenContext SessionContext for session %s", session.ID)
+		}
+	}
+	
 	return session, nil
+}
+
+// updateZenContextLastAccessed updates the LastAccessedAt timestamp in ZenContext.
+func (m *DefaultManager) updateZenContextLastAccessed(ctx context.Context, sessionID string) {
+	if m.zenctx == nil {
+		return
+	}
+	
+	clusterID := "default"
+	sessionCtx, err := m.zenctx.GetSessionContext(ctx, clusterID, sessionID)
+	if err != nil || sessionCtx == nil {
+		// SessionContext may not exist (e.g., created before ZenContext integration)
+		log.Printf("Warning: ZenContext SessionContext not found for session %s (cluster: %s)", sessionID, clusterID)
+		return
+	}
+	
+	sessionCtx.LastAccessedAt = time.Now()
+	if err := m.zenctx.StoreSessionContext(ctx, clusterID, sessionCtx); err != nil {
+		log.Printf("Warning: failed to update ZenContext LastAccessedAt for session %s: %v", sessionID, err)
+	}
 }
 
 // GetSession retrieves a session by ID.
 func (m *DefaultManager) GetSession(ctx context.Context, sessionID string) (*contracts.Session, error) {
-	return m.store.Get(ctx, sessionID)
+	session, err := m.store.Get(ctx, sessionID)
+	if err == nil && session != nil {
+		m.updateZenContextLastAccessed(ctx, sessionID)
+	}
+	return session, err
 }
 
 // GetSessionByWorkItem retrieves the active session for a work item.
 func (m *DefaultManager) GetSessionByWorkItem(ctx context.Context, workItemID string) (*contracts.Session, error) {
-	return m.store.GetByWorkItem(ctx, workItemID)
+	session, err := m.store.GetByWorkItem(ctx, workItemID)
+	if err == nil && session != nil {
+		m.updateZenContextLastAccessed(ctx, session.ID)
+	}
+	return session, err
 }
 
 // UpdateSession updates session content.
 func (m *DefaultManager) UpdateSession(ctx context.Context, session *contracts.Session) error {
 	session.UpdatedAt = time.Now()
-	return m.store.Update(ctx, session)
+	err := m.store.Update(ctx, session)
+	if err == nil {
+		m.updateZenContextLastAccessed(ctx, session.ID)
+	}
+	return err
 }
 
 // TransitionState transitions a session to a new state.
@@ -165,6 +223,9 @@ func (m *DefaultManager) TransitionState(ctx context.Context, sessionID string, 
 		return fmt.Errorf("failed to update session: %w", err)
 	}
 	
+	// Update ZenContext LastAccessedAt
+	m.updateZenContextLastAccessed(ctx, sessionID)
+	
 	log.Printf("Session %s transitioned: %s -> %s (reason: %s, agent: %s)", 
 		sessionID, oldState, newState, reason, agent)
 	return nil
@@ -193,6 +254,9 @@ func (m *DefaultManager) AddEvidence(ctx context.Context, sessionID string, evid
 	if err := m.store.Update(ctx, session); err != nil {
 		return fmt.Errorf("failed to update session: %w", err)
 	}
+	
+	// Update ZenContext LastAccessedAt
+	m.updateZenContextLastAccessed(ctx, sessionID)
 	
 	log.Printf("Added evidence %s to session %s (type: %s)", 
 		evidence.ID, sessionID, evidence.Type)

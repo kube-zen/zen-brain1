@@ -7,6 +7,7 @@ import (
 	"context"
 	"time"
 
+	zenctx "github.com/kube-zen/zen-brain1/pkg/context"
 	"github.com/kube-zen/zen-brain1/pkg/contracts"
 )
 
@@ -91,6 +92,9 @@ type Config struct {
 	// Cleanup
 	CleanupInterval time.Duration `yaml:"cleanup_interval" json:"cleanup_interval"`
 	StaleThreshold  time.Duration `yaml:"stale_threshold" json:"stale_threshold"`
+
+	// ZenContext integration (optional)
+	ZenContext     zenctx.ZenContext `yaml:"-" json:"-"`
 }
 
 // DefaultConfig returns the default configuration.

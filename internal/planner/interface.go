@@ -9,6 +9,7 @@ import (
 	"github.com/kube-zen/zen-brain1/internal/analyzer"
 	"github.com/kube-zen/zen-brain1/internal/office"
 	"github.com/kube-zen/zen-brain1/internal/session"
+	zenctx "github.com/kube-zen/zen-brain1/pkg/context"
 	"github.com/kube-zen/zen-brain1/pkg/contracts"
 	"github.com/kube-zen/zen-brain1/pkg/ledger"
 )
@@ -63,6 +64,7 @@ type Config struct {
 	Analyzer        analyzer.IntentAnalyzer `yaml:"-" json:"-"`
 	SessionManager  session.Manager      `yaml:"-" json:"-"`
 	LedgerClient    ledger.ZenLedgerClient `yaml:"-" json:"-"`
+	ZenContext      zenctx.ZenContext    `yaml:"-" json:"-"`
 	
 	// Model selection
 	DefaultModel    string              `yaml:"default_model" json:"default_model"`

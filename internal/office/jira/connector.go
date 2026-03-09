@@ -6,6 +6,10 @@ package jira
 import (
 	"bytes"
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"crypto/subtle"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,6 +17,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/kube-zen/zen-brain1/internal/office"
@@ -29,6 +34,8 @@ type Config struct {
 	FieldMappings map[string]string   `yaml:"field_mappings" json:"field_mappings"`
 	WebhookURL string                 `yaml:"webhook_url" json:"webhook_url"`
 	WebhookSecret string              `yaml:"webhook_secret" json:"webhook_secret"`
+	WebhookPort   int                 `yaml:"webhook_port" json:"webhook_port"`
+	WebhookPath   string              `yaml:"webhook_path" json:"webhook_path"`
 }
 
 // JiraOffice implements the ZenOffice interface for Atlassian Jira.
@@ -36,6 +43,12 @@ type JiraOffice struct {
 	*office.BaseOffice
 	config *Config
 	client *http.Client
+
+	// webhook server fields
+	mu         sync.RWMutex
+	server     *http.Server
+	eventChan  chan pkgoffice.WorkItemEvent
+	serverDone chan struct{}
 }
 
 // New creates a new JiraOffice connector.
@@ -58,6 +71,14 @@ func New(name, clusterID string, config *Config) (*JiraOffice, error) {
 	// Set default email if not provided
 	if config.Email == "" {
 		config.Email = "zen-brain@automation.local"
+	}
+	// Set default webhook port if not provided
+	if config.WebhookPort == 0 {
+		config.WebhookPort = 8080
+	}
+	// Set default webhook path if not provided
+	if config.WebhookPath == "" {
+		config.WebhookPath = "/webhook"
 	}
 	
 	base := office.NewBaseOffice(name, clusterID, nil) // No extra config needed
@@ -363,8 +384,159 @@ func (j *JiraOffice) Search(ctx context.Context, clusterID string, query string)
 
 // Watch returns a channel for receiving work item events.
 func (j *JiraOffice) Watch(ctx context.Context, clusterID string) (<-chan pkgoffice.WorkItemEvent, error) {
-	// TODO: Implement webhook listener
-	return nil, fmt.Errorf("not implemented: Watch")
+	j.mu.Lock()
+	defer j.mu.Unlock()
+
+	// If server already running, return existing channel
+	if j.eventChan != nil {
+		return j.eventChan, nil
+	}
+
+	// Create event channel
+	j.eventChan = make(chan pkgoffice.WorkItemEvent, 100)
+	j.serverDone = make(chan struct{})
+
+	// Create HTTP server
+	mux := http.NewServeMux()
+	mux.HandleFunc(j.config.WebhookPath, j.webhookHandler)
+	// Add health endpoint
+	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("ok"))
+	})
+
+	j.server = &http.Server{
+		Addr:    fmt.Sprintf(":%d", j.config.WebhookPort),
+		Handler: mux,
+		// Timeouts can be configured later
+	}
+
+	// Start server in goroutine
+	go func() {
+		if err := j.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			// Log error (TODO: add proper logging)
+			fmt.Printf("Jira webhook server error: %v\n", err)
+		}
+		close(j.serverDone)
+	}()
+
+	// Start goroutine to shutdown server when context is cancelled
+	go func() {
+		<-ctx.Done()
+		j.stopWebhookServer(context.Background()) // use background context for shutdown
+	}()
+
+	return j.eventChan, nil
+}
+
+// validateAtlassianSignature validates Jira webhook HMAC-SHA256 signature.
+func (j *JiraOffice) validateAtlassianSignature(r *http.Request, body []byte) bool {
+	signatureHeader := r.Header.Get("X-Atlassian-Webhook-Signature")
+	if signatureHeader == "" {
+		return false
+	}
+	mac := hmac.New(sha256.New, []byte(j.config.WebhookSecret))
+	mac.Write(body)
+	expectedSignature := hex.EncodeToString(mac.Sum(nil))
+	return subtle.ConstantTimeCompare([]byte(expectedSignature), []byte(signatureHeader)) == 1
+}
+
+// webhookHandler handles incoming Jira webhook events.
+func (j *JiraOffice) webhookHandler(w http.ResponseWriter, r *http.Request) {
+	// Only accept POST requests
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Read body for validation and parsing
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Failed to read body", http.StatusBadRequest)
+		return
+	}
+	defer r.Body.Close()
+
+	// Validate HMAC signature if secret is configured
+	if j.config.WebhookSecret != "" {
+		if !j.validateAtlassianSignature(r, body) {
+			http.Error(w, "Invalid signature", http.StatusUnauthorized)
+			return
+		}
+	}
+
+	// Parse Jira webhook event
+	var webhookEvent JiraWebhookEvent
+	if err := json.Unmarshal(body, &webhookEvent); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	// Map webhook event type to WorkEventType
+	var eventType pkgoffice.WorkEventType
+	switch webhookEvent.WebhookEvent {
+	case "jira:issue_created":
+		eventType = pkgoffice.WorkItemCreated
+	case "jira:issue_updated":
+		eventType = pkgoffice.WorkItemUpdated
+	case "comment_created":
+		eventType = pkgoffice.WorkItemCommented
+	default:
+		// Ignore other event types
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	// Convert Jira issue to WorkItem
+	workItem := j.convertToWorkItem(&webhookEvent.Issue)
+
+	// Create WorkItemEvent
+	event := pkgoffice.WorkItemEvent{
+		Type:      eventType,
+		WorkItem:  workItem,
+		Timestamp: time.Now(),
+	}
+
+	// Send event to channel (non-blocking)
+	select {
+	case j.eventChan <- event:
+		// Event delivered
+	default:
+		// Channel full, log warning (TODO: add logging)
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+// stopWebhookServer gracefully stops the HTTP server.
+func (j *JiraOffice) stopWebhookServer(ctx context.Context) error {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+
+	if j.server == nil {
+		return nil
+	}
+
+	// Shutdown server with timeout
+	shutdownCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	err := j.server.Shutdown(shutdownCtx)
+
+	// Wait for server goroutine to finish
+	select {
+	case <-j.serverDone:
+		// Server stopped
+	case <-shutdownCtx.Done():
+		// Timeout
+	}
+
+	// Clean up channels
+	close(j.eventChan)
+	j.eventChan = nil
+	j.server = nil
+
+	return err
 }
 
 // convertToWorkItem converts a JiraIssue to a canonical WorkItem.

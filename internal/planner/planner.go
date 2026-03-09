@@ -8,9 +8,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/kube-zen/zen-brain1/internal/agent"
 	"github.com/kube-zen/zen-brain1/internal/analyzer"
 	"github.com/kube-zen/zen-brain1/internal/office"
 	"github.com/kube-zen/zen-brain1/internal/session"
+	zenctx "github.com/kube-zen/zen-brain1/pkg/context"
 	"github.com/kube-zen/zen-brain1/pkg/contracts"
 	"github.com/kube-zen/zen-brain1/pkg/ledger"
 )
@@ -25,6 +27,8 @@ type DefaultPlanner struct {
 	analyzer        analyzer.IntentAnalyzer
 	sessionManager  session.Manager
 	ledgerClient    ledger.ZenLedgerClient
+	zenctx          zenctx.ZenContext
+	stateManager    *agent.StateManager
 	
 	// Internal state
 	activeSessions  map[string]*contracts.Session
@@ -55,12 +59,20 @@ func New(config *Config) (*DefaultPlanner, error) {
 		return nil, fmt.Errorf("LedgerClient is required")
 	}
 	
+	// Initialize StateManager if ZenContext is available
+	var stateManager *agent.StateManager
+	if config.ZenContext != nil {
+		stateManager = agent.NewStateManager(config.ZenContext, "default")
+	}
+	
 	planner := &DefaultPlanner{
 		config:         config,
 		officeManager:  config.OfficeManager,
 		analyzer:       config.Analyzer,
 		sessionManager: config.SessionManager,
 		ledgerClient:   config.LedgerClient,
+		zenctx:         config.ZenContext,
+		stateManager:   stateManager,
 		activeSessions: make(map[string]*contracts.Session),
 		approvalQueue:  make([]*contracts.Session, 0),
 		shutdownChan:   make(chan struct{}),
@@ -103,8 +115,88 @@ func (p *DefaultPlanner) ProcessBatch(ctx context.Context, workItems []*contract
 	return nil
 }
 
+// initializeAgentState creates or loads agent state for a session.
+// If no state exists, creates new planner agent state.
+// If state exists (e.g., from previous run), loads and updates it.
+func (p *DefaultPlanner) initializeAgentState(ctx context.Context, sessionID, taskID string) (*agent.AgentState, error) {
+	if p.stateManager == nil {
+		// ZenContext not configured, agent state not available
+		return nil, nil
+	}
+	
+	// Try to load existing agent state
+	agentState, err := p.stateManager.LoadAgentState(ctx, sessionID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load agent state: %w", err)
+	}
+	
+	if agentState == nil {
+		// No existing state, create new one
+		agentState = agent.NewAgentState("planner", agent.RolePlanner, sessionID, taskID)
+		agentState.UpdateStep("session_initialization")
+		
+		// Store initial state
+		if err := p.stateManager.StoreAgentState(ctx, agentState); err != nil {
+			return nil, fmt.Errorf("failed to store initial agent state: %w", err)
+		}
+		
+		log.Printf("Created new agent state for session %s", sessionID)
+	} else {
+		// Existing state found - agent is resuming work
+		agentState.UpdateHeartbeat()
+		agentState.UpdateStep("resuming_work")
+		
+		// Update state to reflect resumption
+		if err := p.stateManager.StoreAgentState(ctx, agentState); err != nil {
+			log.Printf("Warning: failed to update agent state on resume: %v", err)
+		}
+		
+		log.Printf("Resumed existing agent state for session %s (steps completed: %d)", 
+			sessionID, agentState.StepsCompleted)
+	}
+	
+	return agentState, nil
+}
+
+// updateAgentState stores updated agent state with current progress.
+func (p *DefaultPlanner) updateAgentState(ctx context.Context, agentState *agent.AgentState) error {
+	if p.stateManager == nil || agentState == nil {
+		return nil // No-op if ZenContext not configured or state is nil
+	}
+	
+	agentState.UpdateHeartbeat()
+	return p.stateManager.StoreAgentState(ctx, agentState)
+}
+
+// queryKnowledge queries knowledge base via ZenContext and records in agent state.
+func (p *DefaultPlanner) queryKnowledge(ctx context.Context, agentState *agent.AgentState, query string, scopes []string, limit int) ([]zenctx.KnowledgeChunk, error) {
+	if p.stateManager == nil || agentState == nil {
+		// Fallback: return empty result
+		return []zenctx.KnowledgeChunk{}, nil
+	}
+	
+	return p.stateManager.QueryKnowledge(ctx, agentState.SessionID, query, scopes, limit)
+}
+
 // analyzeAndPlan performs analysis and planning for a session.
 func (p *DefaultPlanner) analyzeAndPlan(ctx context.Context, sessionID string, workItem *contracts.WorkItem) {
+	// Initialize agent state for this session
+	agentState, err := p.initializeAgentState(ctx, sessionID, workItem.ID)
+	if err != nil {
+		log.Printf("Warning: failed to initialize agent state for session %s: %v", sessionID, err)
+		// Continue without agent state
+		agentState = nil
+	}
+	
+	// Update agent state: starting analysis
+	if agentState != nil {
+		agentState.UpdateStep("intent_analysis")
+		agentState.UpdateProgress(0.1)
+		if err := p.updateAgentState(ctx, agentState); err != nil {
+			log.Printf("Warning: failed to update agent state: %v", err)
+		}
+	}
+	
 	// Create timeout context for analysis
 	analysisCtx, cancel := context.WithTimeout(ctx, time.Duration(p.config.AnalysisTimeout)*time.Second)
 	defer cancel()
@@ -113,6 +205,14 @@ func (p *DefaultPlanner) analyzeAndPlan(ctx context.Context, sessionID string, w
 	analysisResult, err := p.analyzer.Analyze(analysisCtx, workItem)
 	if err != nil {
 		log.Printf("Analysis failed for session %s: %v", sessionID, err)
+		
+		// Update agent state: analysis failed
+		if agentState != nil {
+			agentState.AddError(fmt.Sprintf("Intent analysis failed: %v", err), "intent_analysis", false, "")
+			agentState.Complete("failed", "Intent analysis failed")
+			p.updateAgentState(ctx, agentState) // Best effort
+		}
+		
 		p.sessionManager.TransitionState(ctx, sessionID, contracts.SessionStateFailed, 
 			fmt.Sprintf("Intent analysis failed: %v", err), "planner")
 		return
