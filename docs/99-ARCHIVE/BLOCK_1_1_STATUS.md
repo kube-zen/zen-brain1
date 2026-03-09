@@ -8,7 +8,7 @@
 ## ✅ Completed
 
 ### 1. Schema Design Document
-**File:** `docs/01-ARCHITECTURE/BLOCK1.1_ZEN_JOURNAL_SCHEMA.md` (19.6 KB)
+**File:** `docs/01-ARCHITECTURE/BLOCK1_1_ZEN_JOURNAL_SCHEMA.md` (19.6 KB)
 
 **Contents:**
 - Protobuf schema for EventBlock
@@ -70,7 +70,7 @@
 
 **Files changed:**
 ```
-docs/01-ARCHITECTURE/BLOCK1.1_ZEN_JOURNAL_SCHEMA.md | 600 +++
+docs/01-ARCHITECTURE/BLOCK1_1_ZEN_JOURNAL_SCHEMA.md | 600 +++
 internal/journal/receiptlog/journal.go             | 73 ++-
 internal/journal/receiptlog/query_index.go         | 385 ++
 3 files changed, 1042 insertions(+), 16 deletions(-)
@@ -168,7 +168,7 @@ if retrieved.RecordedAt.Before(entry.Timestamp) || retrieved.RecordedAt.After(en
 ## Files Status
 
 ```
-docs/01-ARCHITECTURE/BLOCK1.1_ZEN_JOURNAL_SCHEMA.md    ✅ CREATED, PUSHED
+docs/01-ARCHITECTURE/BLOCK1_1_ZEN_JOURNAL_SCHEMA.md    ✅ CREATED, PUSHED
 internal/journal/receiptlog/query_index.go           ✅ CREATED, PUSHED
 internal/journal/receiptlog/journal.go              ✅ MODIFIED, PUSHED
 internal/journal/receiptlog/journal_test.go           🚧 NEEDS UPDATES

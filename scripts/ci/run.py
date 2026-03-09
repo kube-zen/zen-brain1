@@ -26,14 +26,18 @@ GATES = {
     "executable_sprawl": "scripts/ci/no_executable_sprawl_gate.py",
     "no_binaries": "scripts/ci/no_binaries_gate.py",
     "docs_links": "scripts/ci/docs_link_gate.py",
+    "canonical_plan": "scripts/ci/canonical_plan_gate.py",
+    "zen_sdk_ownership": "scripts/ci/zen_sdk_ownership_gate.py",
+    "kb_qmd_direction": "scripts/ci/kb_qmd_direction_gate.py",
+    "model_facing_policy": "scripts/ci/model_facing_policy_gate.py",
 }
 
 SUITES = {
     "default": ["no_shell_scripts", "python_placement", "repo_layout",
-                "executable_sprawl", "no_binaries", "docs_links"],
+                "executable_sprawl", "no_binaries", "docs_links", "canonical_plan", "zen_sdk_ownership", "kb_qmd_direction", "model_facing_policy"],
     "governance": ["no_shell_scripts", "python_placement", "repo_layout",
-                   "executable_sprawl"],
-    "docs": ["repo_layout", "docs_links"],
+                   "executable_sprawl", "zen_sdk_ownership", "model_facing_policy"],
+    "docs": ["repo_layout", "docs_links", "canonical_plan", "kb_qmd_direction"],
     "binaries": ["no_binaries"],
     "all": list(GATES.keys()),
 }

@@ -1,0 +1,20 @@
+# Allowlist for local implementations of SDK-owned concerns.
+# Each line is a relative path to a directory or file that is allowed.
+# Example: internal/context/tier1/redis.go  # uses Redis client, not SDK
+# Example: pkg/office/interface.go          # core interface, not SDK duplicate
+
+# Currently no local SDK duplicates are allowed.
+
+# Approved ADR for ZenJournal implementation using zen-sdk/pkg/receiptlog
+internal/journal/receiptlog
+
+# Approved files that contain SDK-like keywords but are using SDK packages
+internal/agent/state.go
+internal/session/manager.go
+internal/llm/planner.go
+internal/factory/types.go
+internal/factory/proof.go
+internal/factory/factory.go
+internal/planner/planner.go
+pkg/contracts/contracts.go
+pkg/funding/interface.go

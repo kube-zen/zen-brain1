@@ -1,0 +1,7 @@
+# Allowlist for files that may contain disallowed KB/QMD direction phrases.
+# Each line is a relative path to a file that is allowed to mention CockroachDB etc.
+# Example: docs/01-ARCHITECTURE/CONSTRUCTION_PLAN.md (architecture description)
+
+docs/01-ARCHITECTURE/CONSTRUCTION_PLAN.md
+scripts/ci/kb_qmd_direction_gate.py
+docs/04-DEVELOPMENT/REPO_RULES.md

@@ -100,10 +100,4 @@ install-hooks: ## Install Git hooks (.githooks/pre-commit)
 
 repo-check: ## Run all repository hygiene gates
 	@echo "Running repository hygiene gates..."
-	@python3 scripts/ci/no_shell_scripts_gate.py
-	@python3 scripts/ci/python_script_placement_gate.py
-	@python3 scripts/ci/repo_layout_gate.py
-	@python3 scripts/ci/no_executable_sprawl_gate.py
-	@python3 scripts/ci/no_binaries_gate.py
-	@python3 scripts/ci/docs_link_gate.py
-	@echo "✓ All repo hygiene gates passed."
+	@python3 scripts/ci/run.py --suite default

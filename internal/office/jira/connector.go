@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"os"
@@ -158,6 +159,17 @@ func extractJiraKey(sourceKey string) string {
 	return sourceKey
 }
 
+// extractCustomFields extracts custom fields from a Jira fields map.
+func (j *JiraOffice) extractCustomFields(fields map[string]interface{}) map[string]interface{} {
+	custom := make(map[string]interface{})
+	for key, value := range fields {
+		if strings.HasPrefix(key, "customfield_") {
+			custom[key] = value
+		}
+	}
+	return custom
+}
+
 // Fetch retrieves a work item by ID.
 func (j *JiraOffice) Fetch(ctx context.Context, clusterID, workItemID string) (*contracts.WorkItem, error) {
 	jiraKey := extractJiraKey(workItemID)
@@ -178,17 +190,38 @@ func (j *JiraOffice) fetchJiraIssue(ctx context.Context, jiraKey string) (*contr
 	}
 	defer resp.Body.Close()
 	
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("failed to fetch Jira issue (status %d): %s", resp.StatusCode, string(body))
+	// Read the entire response body
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
 	
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to fetch Jira issue (status %d): %s", resp.StatusCode, string(bodyBytes))
+	}
+	
+	// Decode into map to extract custom fields
+	var raw map[string]interface{}
+	if err := json.Unmarshal(bodyBytes, &raw); err != nil {
+		return nil, fmt.Errorf("failed to decode raw JSON: %w", err)
+	}
+	
+	// Extract fields map
+	fields, ok := raw["fields"].(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("missing fields in Jira response")
+	}
+	
+	// Extract custom fields
+	customFields := j.extractCustomFields(fields)
+	
+	// Decode into JiraIssue struct (for known fields)
 	var issue JiraIssue
-	if err := json.NewDecoder(resp.Body).Decode(&issue); err != nil {
+	if err := json.Unmarshal(bodyBytes, &issue); err != nil {
 		return nil, fmt.Errorf("failed to decode Jira issue: %w", err)
 	}
 	
-	return j.convertToWorkItem(&issue), nil
+	return j.convertToWorkItem(&issue, customFields), nil
 }
 
 // UpdateStatus updates the status of a work item.
@@ -343,8 +376,56 @@ func (j *JiraOffice) AddComment(ctx context.Context, clusterID, workItemID strin
 
 // AddAttachment attaches evidence to a work item.
 func (j *JiraOffice) AddAttachment(ctx context.Context, clusterID, workItemID string, attachment *contracts.Attachment, content []byte) error {
-	// TODO: Implement attachment upload
-	return fmt.Errorf("not implemented: AddAttachment")
+	jiraKey := extractJiraKey(workItemID)
+	
+	// Create multipart form data
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+	
+	// Create file part
+	part, err := writer.CreateFormFile("file", attachment.Filename)
+	if err != nil {
+		return fmt.Errorf("failed to create form file: %w", err)
+	}
+	
+	// Write content to part
+	if _, err := part.Write(content); err != nil {
+		return fmt.Errorf("failed to write attachment content: %w", err)
+	}
+	
+	// Close writer to finalize multipart message
+	if err := writer.Close(); err != nil {
+		return fmt.Errorf("failed to close multipart writer: %w", err)
+	}
+	
+	// Build request URL
+	path := fmt.Sprintf("/rest/api/3/issue/%s/attachments", url.PathEscape(jiraKey))
+	url := j.config.BaseURL + path
+	
+	req, err := http.NewRequestWithContext(ctx, "POST", url, &buf)
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+	
+	// Set required headers for Jira attachments
+	req.SetBasicAuth(j.config.Email, j.config.APIToken)
+	req.Header.Set("X-Atlassian-Token", "no-check")
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	req.Header.Set("Accept", "application/json")
+	
+	// Execute request
+	resp, err := j.client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to upload attachment: %w", err)
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("failed to upload attachment (status %d): %s", resp.StatusCode, string(body))
+	}
+	
+	return nil
 }
 
 // Search searches for work items matching criteria.
@@ -376,7 +457,7 @@ func (j *JiraOffice) Search(ctx context.Context, clusterID string, query string)
 	// Convert Jira issues to WorkItems
 	workItems := make([]contracts.WorkItem, 0, len(result.Issues))
 	for _, issue := range result.Issues {
-		workItems = append(workItems, *j.convertToWorkItem(&issue))
+		workItems = append(workItems, *j.convertToWorkItem(&issue, nil))
 	}
 	
 	return workItems, nil
@@ -472,6 +553,26 @@ func (j *JiraOffice) webhookHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Extract custom fields from webhook issue
+	var raw map[string]interface{}
+	if err := json.Unmarshal(body, &raw); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+	issueMap, ok := raw["issue"].(map[string]interface{})
+	if !ok {
+		// No issue in webhook? should not happen
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	fields, ok := issueMap["fields"].(map[string]interface{})
+	if !ok {
+		// No fields
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	customFields := j.extractCustomFields(fields)
+
 	// Map webhook event type to WorkEventType
 	var eventType pkgoffice.WorkEventType
 	switch webhookEvent.WebhookEvent {
@@ -488,7 +589,7 @@ func (j *JiraOffice) webhookHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Convert Jira issue to WorkItem
-	workItem := j.convertToWorkItem(&webhookEvent.Issue)
+	workItem := j.convertToWorkItem(&webhookEvent.Issue, customFields)
 
 	// Create WorkItemEvent
 	event := pkgoffice.WorkItemEvent{
@@ -540,7 +641,7 @@ func (j *JiraOffice) stopWebhookServer(ctx context.Context) error {
 }
 
 // convertToWorkItem converts a JiraIssue to a canonical WorkItem.
-func (j *JiraOffice) convertToWorkItem(issue *JiraIssue) *contracts.WorkItem {
+func (j *JiraOffice) convertToWorkItem(issue *JiraIssue, customFields map[string]interface{}) *contracts.WorkItem {
 	// Map Jira status to canonical WorkStatus
 	canonicalStatus := j.mapStatus(issue.Fields.Status.Name)
 	
@@ -570,6 +671,30 @@ func (j *JiraOffice) convertToWorkItem(issue *JiraIssue) *contracts.WorkItem {
 		Tags: contracts.WorkTags{
 			HumanOrg: issue.Fields.Labels,
 		},
+	}
+	
+	// Add custom fields as tags
+	if customFields != nil {
+		for key, value := range customFields {
+			// Format value as string
+			var strVal string
+			switch v := value.(type) {
+			case string:
+				strVal = v
+			case int, int64, float64:
+				strVal = fmt.Sprintf("%v", v)
+			case bool:
+				strVal = fmt.Sprintf("%t", v)
+			default:
+				// Try JSON marshal for complex objects
+				if bytes, err := json.Marshal(v); err == nil {
+					strVal = string(bytes)
+				} else {
+					strVal = fmt.Sprintf("%v", v)
+				}
+			}
+			workItem.Tags.HumanOrg = append(workItem.Tags.HumanOrg, fmt.Sprintf("%s:%s", key, strVal))
+		}
 	}
 	
 	return workItem

@@ -4,7 +4,7 @@ This directory contains architecture documentation.
 
 ## Key Documents
 
-- **[Construction Plan](CONSTRUCTION_PLAN.md)** – Master build roadmap (symlink to V6 plan)
+- **[Construction Plan](CONSTRUCTION_PLAN.md)** – Master build roadmap
 - **[Roadmap](ROADMAP.md)** – Prioritized roadmap with 1.0 must-have, 1.1 radar, and explicitly deferred items
 - **[Control Plane Vocabulary](CONTROL_PLANE_VOCABULARY.md)** – First-class control-plane objects: `ZenRoleProfile`, `ZenExecutionPolicy`, `ZenHandoffPolicy`, `ZenTool`, `ZenToolBinding`, `ZenComplianceProfile`, workspace classes, trust levels
 - **[Glossary](GLOSSARY.md)** – Definitions of terms, components, and processes

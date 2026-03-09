@@ -99,7 +99,7 @@ internal/context/composite.go            10,988 bytes
 internal/context/composite_test.go       12,141 bytes
 internal/context/journal_adapter.go       3,398 bytes
 internal/context/integration_test.go      9,432 bytes
-docs/01-ARCHITECTURE/BLOCK1.2_ZEN_CONTEXT_ARCHITECTURE.md 26,375 bytes
+docs/01-ARCHITECTURE/BLOCK1_2_ZEN_CONTEXT_ARCHITECTURE.md 26,375 bytes
 ```
 
 **Total:** 122,328 bytes (122 KB) of production-ready code
