@@ -137,64 +137,72 @@ func defaultSearchResults() map[string][]byte {
 	results := make(map[string][]byte)
 	
 	// Architecture queries
-	results["three tier architecture"] = []byte(`[
-		{
-			"path": "docs/architecture/three-tier.md",
-			"title": "Three‑Tier Memory Architecture",
-			"content": "Zen‑Brain uses a three‑tier memory architecture: Tier 1 (Hot) – Redis, Tier 2 (Warm) – QMD knowledge base, Tier 3 (Cold) – S3 archival.",
-			"score": 0.95,
-			"metadata": {
-				"type": "architecture",
-				"domain": "core",
-				"tags": ["memory", "architecture", "tiered"]
+	results["three tier architecture"] = []byte(`{
+		"results": [
+			{
+				"path": "docs/architecture/three-tier.md",
+				"title": "Three‑Tier Memory Architecture",
+				"content": "Zen‑Brain uses a three‑tier memory architecture: Tier 1 (Hot) – Redis, Tier 2 (Warm) – QMD knowledge base, Tier 3 (Cold) – S3 archival.",
+				"score": 0.95,
+				"metadata": {
+					"type": "architecture",
+					"domain": "core",
+					"tags": ["memory", "architecture", "tiered"]
+				}
 			}
-		}
-	]`)
+		]
+	}`)
 	
 	// Factory queries
-	results["factory execution bounded loop"] = []byte(`[
-		{
-			"path": "docs/design/factory.md",
-			"title": "Factory: Bounded Execution",
-			"content": "The Factory executes tasks in bounded loops with timeout and retry logic. Each task runs in an isolated workspace with proof‑of‑work generation.",
-			"score": 0.92,
-			"metadata": {
-				"type": "design",
-				"domain": "execution",
-				"tags": ["factory", "execution", "bounded"]
+	results["factory execution bounded loop"] = []byte(`{
+		"results": [
+			{
+				"path": "docs/design/factory.md",
+				"title": "Factory: Bounded Execution",
+				"content": "The Factory executes tasks in bounded loops with timeout and retry logic. Each task runs in an isolated workspace with proof‑of‑work generation.",
+				"score": 0.92,
+				"metadata": {
+					"type": "design",
+					"domain": "execution",
+					"tags": ["factory", "execution", "bounded"]
+				}
 			}
-		}
-	]`)
+		]
+	}`)
 	
 	// Jira queries
-	results["jira integration"] = []byte(`[
-		{
-			"path": "docs/integrations/jira.md",
-			"title": "Jira Integration",
-			"content": "Zen‑Brain integrates with Atlassian Jira for work item intake, status updates, and AI attribution headers.",
-			"score": 0.88,
-			"metadata": {
-				"type": "integration",
-				"domain": "office",
-				"tags": ["jira", "atlassian", "integration"]
+	results["jira integration"] = []byte(`{
+		"results": [
+			{
+				"path": "docs/integrations/jira.md",
+				"title": "Jira Integration",
+				"content": "Zen‑Brain integrates with Atlassian Jira for work item intake, status updates, and AI attribution headers.",
+				"score": 0.88,
+				"metadata": {
+					"type": "integration",
+					"domain": "office",
+					"tags": ["jira", "atlassian", "integration"]
+				}
 			}
-		}
-	]`)
+		]
+	}`)
 	
 	// Proof of work queries
-	results["proof of work"] = []byte(`[
-		{
-			"path": "docs/design/proof-of-work.md",
-			"title": "Proof of Work Artifacts",
-			"content": "Factory generates three proof‑of‑work artifacts: JSON (structured), Markdown (human‑readable), and Log (execution details).",
-			"score": 0.90,
-			"metadata": {
-				"type": "design",
-				"domain": "evidence",
-				"tags": ["proof-of-work", "artifacts", "evidence"]
+	results["proof of work"] = []byte(`{
+		"results": [
+			{
+				"path": "docs/design/proof-of-work.md",
+				"title": "Proof of Work Artifacts",
+				"content": "Factory generates three proof‑of‑work artifacts: JSON (structured), Markdown (human‑readable), and Log (execution details).",
+				"score": 0.90,
+				"metadata": {
+					"type": "design",
+					"domain": "evidence",
+					"tags": ["proof-of-work", "artifacts", "evidence"]
+				}
 			}
-		}
-	]`)
+		]
+	}`)
 	
 	return results
 }
@@ -235,7 +243,11 @@ func genericMockResults(query string, limit int) []byte {
 		results = results[:limit]
 	}
 	
-	data, _ := json.Marshal(results)
+	// Wrap in "results" object to match qmd JSON format
+	wrapped := map[string]interface{}{
+		"results": results,
+	}
+	data, _ := json.Marshal(wrapped)
 	return data
 }
 

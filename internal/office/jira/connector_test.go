@@ -33,7 +33,10 @@ func TestNewJiraOffice(t *testing.T) {
 
 
 func TestMapWorkType(t *testing.T) {
-	config := &Config{}
+	config := &Config{
+		BaseURL:  "https://test.atlassian.net",
+		APIToken: "test-token",
+	}
 	connector, _ := New("test", "cluster-1", config)
 
 	tests := []struct {
@@ -62,7 +65,10 @@ func TestMapWorkType(t *testing.T) {
 }
 
 func TestMapPriority(t *testing.T) {
-	config := &Config{}
+	config := &Config{
+		BaseURL:  "https://test.atlassian.net",
+		APIToken: "test-token",
+	}
 	connector, _ := New("test", "cluster-1", config)
 
 	tests := []struct {
@@ -92,7 +98,10 @@ func TestMapPriority(t *testing.T) {
 }
 
 func TestMapStatus(t *testing.T) {
-	config := &Config{}
+	config := &Config{
+		BaseURL:  "https://test.atlassian.net",
+		APIToken: "test-token",
+	}
 	connector, _ := New("test", "cluster-1", config)
 
 	tests := []struct {
