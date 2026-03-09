@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/kube-zen/zen-brain1/internal/analyzer"
+	"github.com/kube-zen/zen-brain1/internal/factory"
 	llmgateway "github.com/kube-zen/zen-brain1/internal/llm"
 	"github.com/kube-zen/zen-brain1/internal/office"
 	"github.com/kube-zen/zen-brain1/internal/office/jira"
@@ -57,7 +59,7 @@ func printUsage() {
 	fmt.Println()
 	fmt.Println("Commands:")
 	fmt.Println("  test           Run a simple LLM Gateway test query")
-	fmt.Println("  vertical-slice Run end-to-end vertical slice (Jira → plan → execute → update)")
+	fmt.Println("  vertical-slice Run end-to-end vertical slice (Jira → analyze → plan → execute → update)")
 	fmt.Println("  version        Print version information")
 	fmt.Println()
 	fmt.Println("For vertical-slice command:")
@@ -123,14 +125,15 @@ func runTestQuery() {
 func runVerticalSlice() {
 	fmt.Println("=== Zen-Brain Vertical Slice ===")
 	fmt.Println()
-	fmt.Println("This command demonstrates end-to-end pipeline using Planner:")
+	fmt.Println("This command demonstrates end-to-end pipeline using Planner + Factory:")
 	fmt.Println("  1. Fetch work item from Jira (or use mock)")
 	fmt.Println("  2. Analyze intent and complexity")
 	fmt.Println("  3. Plan execution steps")
-	fmt.Println("  4. Execute in isolated workspace")
-	fmt.Println("  5. Generate proof-of-work")
-	fmt.Println("  6. Update session state")
-	fmt.Println("  7. Update Jira with status and comments")
+	fmt.Println("  4. Create session")
+	fmt.Println("  5. Execute in isolated workspace (Factory)")
+	fmt.Println("  6. Generate proof-of-work artifacts")
+	fmt.Println("  7. Update session state")
+	fmt.Println("  8. Update Jira with status and comments")
 	fmt.Println()
 
 	// Parse arguments
@@ -233,8 +236,17 @@ func runVerticalSlice() {
 	}
 	fmt.Println("  ✓ Analyzer initialized")
 
-	// Step 5: Initialize Planner
-	fmt.Println("[5/7] Initializing Planner...")
+	// Step 5: Initialize Factory
+	fmt.Println("[5/7] Initializing Factory...")
+	runtimeDir := "/tmp/zen-brain-factory"
+	workspaceManager := factory.NewWorkspaceManager(runtimeDir)
+	executor := factory.NewBoundedExecutor()
+	powManager := factory.NewProofOfWorkManager(runtimeDir)
+	factoryImpl := factory.NewFactory(workspaceManager, executor, powManager, runtimeDir)
+	fmt.Println("  ✓ Factory initialized")
+
+	// Step 6: Initialize Planner
+	fmt.Println("[6/7] Initializing Planner...")
 	plannerConfig := planner.DefaultConfig()
 	plannerConfig.OfficeManager = officeManager
 	plannerConfig.Analyzer = intentAnalyzer
@@ -251,8 +263,8 @@ func runVerticalSlice() {
 	defer plannerAgent.Close()
 	fmt.Println("  ✓ Planner initialized")
 
-	// Step 6: Fetch and process work item
-	fmt.Println("[6/7] Fetching and processing work item...")
+	// Step 7: Fetch and process work item
+	fmt.Println("[7/8] Fetching and processing work item...")
 	ctx := context.Background()
 
 	var workItem *contracts.WorkItem
@@ -272,8 +284,8 @@ func runVerticalSlice() {
 	fmt.Printf("  Type: %s, Priority: %s\n", workItem.WorkType, workItem.Priority)
 	fmt.Println()
 
-	// Step 7: Process work item through Planner
-	fmt.Println("[7/7] Processing work item through Planner...")
+	// Step 8: Process work item through Planner + Factory
+	fmt.Println("[8/8] Processing work item through Planner + Factory...")
 
 	// Use synchronous processing for vertical slice (not async)
 	startTime := time.Now()
@@ -299,20 +311,6 @@ func runVerticalSlice() {
 		log.Printf("Warning: Failed to transition session to analyzed: %v", err)
 	}
 
-	// Update session with BrainTaskSpecs from analysis
-	if len(analysisResult.BrainTaskSpecs) > 0 {
-		// Retrieve the current session and update it with brain task specs
-		workSession.BrainTaskSpecs = analysisResult.BrainTaskSpecs
-		workSession.AnalysisResult = analysisResult
-		if err := sessionManager.UpdateSession(ctx, workSession); err != nil {
-			log.Printf("Warning: Failed to update session with BrainTaskSpecs: %v", err)
-		}
-	}
-
-	// Transition through proper state machine for vertical slice
-	// analyzed → scheduled → in_progress → completed
-	fmt.Println("  Transitioning session through state machine...")
-
 	// Step 1: analyzed → scheduled
 	if err := sessionManager.TransitionState(ctx, workSession.ID, contracts.SessionStateScheduled, "Ready for execution", "vertical-slice"); err != nil {
 		log.Printf("Warning: Failed to transition session to scheduled: %v", err)
@@ -321,6 +319,80 @@ func runVerticalSlice() {
 	// Step 2: scheduled → in_progress
 	if err := sessionManager.TransitionState(ctx, workSession.ID, contracts.SessionStateInProgress, "Execution in progress", "vertical-slice"); err != nil {
 		log.Printf("Warning: Failed to transition session to in_progress: %v", err)
+	}
+
+	// Update session with BrainTaskSpecs from analysis (after state transitions)
+	if len(analysisResult.BrainTaskSpecs) > 0 {
+		// Fetch the current session (after state transitions)
+		currentSession, err := sessionManager.GetSession(ctx, workSession.ID)
+		if err != nil {
+			log.Printf("Warning: Failed to fetch session for BrainTaskSpecs update: %v", err)
+		} else {
+			currentSession.BrainTaskSpecs = analysisResult.BrainTaskSpecs
+			currentSession.AnalysisResult = analysisResult
+			if err := sessionManager.UpdateSession(ctx, currentSession); err != nil {
+				log.Printf("Warning: Failed to update session with BrainTaskSpecs: %v", err)
+			}
+		}
+	}
+
+	// Execute tasks through Factory
+	fmt.Println()
+	fmt.Println("Executing tasks through Factory...")
+	if len(analysisResult.BrainTaskSpecs) > 0 {
+		for _, brainTask := range analysisResult.BrainTaskSpecs {
+			fmt.Printf("  Executing task: %s\n", brainTask.ID)
+
+			// Convert BrainTaskSpec to FactoryTaskSpec
+			factorySpec := convertToFactoryTaskSpec(brainTask, workSession.ID, workItem.ID)
+
+			// Execute task in Factory
+			executionResult, err := factoryImpl.ExecuteTask(ctx, factorySpec)
+			if err != nil {
+				log.Printf("  ! Factory execution failed: %v", err)
+				// Continue with next task (don't fail entire session)
+				continue
+			}
+
+			// Generate proof-of-work
+			powArtifact, err := powManager.CreateProofOfWork(ctx, executionResult, factorySpec)
+			if err != nil {
+				log.Printf("  ! Proof-of-work generation failed: %v", err)
+			} else {
+				fmt.Printf("  ✓ Proof-of-work generated: %s\n", powArtifact.JSONPath)
+
+				// Store proof-of-work artifacts as session evidence
+				for _, artifactPath := range []string{powArtifact.JSONPath, powArtifact.MarkdownPath, powArtifact.LogPath} {
+					if artifactPath != "" {
+						evidence := contracts.EvidenceItem{
+							ID:          fmt.Sprintf("pow-%s-%s", brainTask.ID, artifactPath[strings.LastIndex(artifactPath, "/")+1:]),
+							SessionID:   workSession.ID,
+							Type:        "proof_of_work",
+							Content:     artifactPath,
+							Metadata: map[string]string{
+								"task_id":     brainTask.ID,
+								"title":       brainTask.Title,
+								"artifact":    artifactPath[strings.LastIndex(artifactPath, "/")+1:],
+							},
+							CollectedAt: time.Now(),
+							CollectedBy: "factory",
+						}
+						if err := sessionManager.AddEvidence(ctx, workSession.ID, evidence); err != nil {
+							log.Printf("  ! Failed to add evidence: %v", err)
+						}
+					}
+				}
+			}
+
+			// Log execution result
+			if executionResult.Success {
+				fmt.Printf("  ✓ Task completed: %s (%d steps)\n", executionResult.TaskID, executionResult.CompletedSteps)
+			} else {
+				fmt.Printf("  ! Task failed: %s - %s\n", executionResult.TaskID, executionResult.Error)
+			}
+		}
+	} else {
+		fmt.Println("  ! No BrainTaskSpecs from analysis, skipping Factory execution")
 	}
 
 	// Update Jira if not in mock mode
@@ -335,6 +407,14 @@ func runVerticalSlice() {
 	}
 
 	// Step 3: in_progress → completed
+	// Fetch current session state before transitioning
+	currentSession, err := sessionManager.GetSession(ctx, workSession.ID)
+	if err != nil {
+		log.Printf("Warning: Failed to fetch current session state: %v", err)
+	} else {
+		workSession = currentSession
+	}
+
 	if err := sessionManager.TransitionState(ctx, workSession.ID, contracts.SessionStateCompleted, "Work item processed successfully", "vertical-slice"); err != nil {
 		log.Printf("Warning: Failed to transition session to completed: %v", err)
 	} else {
@@ -398,12 +478,26 @@ Format your response as JSON:
 		return nil, fmt.Errorf("analysis failed: %w", err)
 	}
 
-	// For MVP, return a simplified analysis
+	// Generate BrainTaskSpec for the work item
+	brainTaskSpec := contracts.BrainTaskSpec{
+		ID:           fmt.Sprintf("task-%s-1", workItem.ID),
+		Title:        workItem.Title,
+		Description:  workItem.Summary,
+		WorkItemID:   workItem.ID,
+		SourceKey:    workItem.ID,
+		WorkType:     workItem.WorkType,
+		WorkDomain:   workItem.WorkDomain,
+		Priority:     workItem.Priority,
+		Objective:    fmt.Sprintf("Complete work item %s: %s", workItem.ID, workItem.Title),
+		Constraints:  []string{"Use test-driven development", "Follow coding standards"},
+	}
+
+	// For MVP, return a simplified analysis with generated BrainTaskSpec
 	return &contracts.AnalysisResult{
 		WorkItem:            workItem,
-		BrainTaskSpecs:       []contracts.BrainTaskSpec{},
+		BrainTaskSpecs:       []contracts.BrainTaskSpec{brainTaskSpec},
 		Confidence:           0.8,
-		AnalysisNotes:        fmt.Sprintf("Complexity: medium, Effort: 2 hours, Approach: %s", resp.Content[:min(100, len(resp.Content))]),
+		AnalysisNotes:        fmt.Sprintf("Complexity: medium, Effort: 2 hours, Approach: %s", resp.Content[:min(200, len(resp.Content))]),
 		RequiresApproval:    false,
 		RecommendedModel:     "glm-4.7",
 		EstimatedTotalCostUSD: 0.05,
@@ -557,6 +651,27 @@ func createMockWorkItem() *contracts.WorkItem {
 		UpdatedAt:   now,
 		ClusterID:   "default",
 		ProjectID:   "MOCK",
+	}
+}
+
+// convertToFactoryTaskSpec converts a BrainTaskSpec to a FactoryTaskSpec
+func convertToFactoryTaskSpec(brainTask contracts.BrainTaskSpec, sessionID, workItemID string) *factory.FactoryTaskSpec {
+	now := time.Now()
+
+	return &factory.FactoryTaskSpec{
+		ID:          brainTask.ID,
+		SessionID:   sessionID,
+		WorkItemID:  workItemID,
+		Title:       brainTask.Title,
+		Objective:   brainTask.Objective,
+		Constraints: brainTask.Constraints,
+		WorkType:    brainTask.WorkType,
+		WorkDomain:  brainTask.WorkDomain,
+		Priority:    brainTask.Priority,
+		TimeoutSeconds: 300, // 5 minutes default timeout
+		MaxRetries:    3,     // 3 retries default
+		CreatedAt:      now,
+		UpdatedAt:      now,
 	}
 }
 
