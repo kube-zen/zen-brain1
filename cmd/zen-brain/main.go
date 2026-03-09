@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/kube-zen/zen-brain1/internal/factory"
@@ -255,14 +256,17 @@ func runVerticalSlice() {
 	
 	// Execute with Factory
 	var executionResult *ExecutionResult
-	factoryResult, err := executeWithFactory(taskSpec, runtimeDir)
+	var factoryProofOfWorkPath string
+	var factoryResult *factory.ExecutionResult
+	
+	factoryResult, err = executeWithFactory(taskSpec, runtimeDir)
 	if err != nil {
 		log.Printf("Factory execution failed: %v. Falling back to simulated execution.", err)
 		executionResult = simulateExecution(executionPlan)
 	} else {
 		// Convert factory.ExecutionResult to local ExecutionResult
 		executionResult = convertFactoryResult(factoryResult)
-		// Factory generates its own proof-of-work, but we'll still generate our format for now
+		factoryProofOfWorkPath = factoryResult.ProofOfWorkPath
 		fmt.Printf("  ✓ Factory execution completed. Proof-of-work stored in: %s\n", runtimeDir)
 	}
 	
@@ -271,9 +275,29 @@ func runVerticalSlice() {
 	fmt.Printf("  Files changed: %d\n", executionResult.FilesChanged)
 	fmt.Printf("  Tests passed: %d/%d\n", executionResult.TestsPassed, executionResult.TestsTotal)
 
-	// Step 7: Generate proof-of-work
+	// Step 7: Generate or use existing proof-of-work
 	fmt.Println("[7/7] Generating proof-of-work...")
-	powArtifact := generateProofOfWork(workItem, analysisResult, executionPlan, executionResult)
+	var powArtifact *ProofOfWorkArtifact
+	
+	if factoryProofOfWorkPath != "" {
+		// Use Factory's proof-of-work
+		markdownContent, err := readFactoryProofOfWorkMarkdown(factoryProofOfWorkPath)
+		if err != nil {
+			log.Printf("Warning: Failed to read Factory's proof-of-work: %v. Generating our own.", err)
+			powArtifact = generateProofOfWork(workItem, analysisResult, executionPlan, executionResult)
+		} else {
+			// Create artifact using Factory's markdown content
+			powArtifact = &ProofOfWorkArtifact{
+				JSONPath:        filepath.Join(factoryProofOfWorkPath, "proof-of-work.json"),
+				MarkdownPath:    filepath.Join(factoryProofOfWorkPath, "proof-of-work.md"),
+				MarkdownContent: markdownContent,
+			}
+			fmt.Println("  ✓ Using Factory's proof-of-work")
+		}
+	} else {
+		// Generate our own proof-of-work
+		powArtifact = generateProofOfWork(workItem, analysisResult, executionPlan, executionResult)
+	}
 
 	fmt.Println("✓ Proof-of-work generated")
 	fmt.Printf("  JSON: %s\n", powArtifact.JSONPath)
@@ -438,6 +462,22 @@ func convertFactoryResult(factoryResult *factory.ExecutionResult) *ExecutionResu
 		TestsTotal:    testsTotal,
 		Success:       factoryResult.Success,
 	}
+}
+
+// readFactoryProofOfWorkMarkdown reads the markdown content from Factory's proof-of-work artifact
+func readFactoryProofOfWorkMarkdown(proofOfWorkPath string) (string, error) {
+	if proofOfWorkPath == "" {
+		return "", fmt.Errorf("proof of work path is empty")
+	}
+	
+	// Factory stores proof-of-work.md in the artifact directory
+	mdPath := filepath.Join(proofOfWorkPath, "proof-of-work.md")
+	content, err := os.ReadFile(mdPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read proof-of-work markdown file %s: %w", mdPath, err)
+	}
+	
+	return string(content), nil
 }
 
 func analyzeWorkItem(llmGateway *llmgateway.Gateway, workItem *contracts.WorkItem) *AnalysisResult {
