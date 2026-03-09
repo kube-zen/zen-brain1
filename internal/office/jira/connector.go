@@ -419,7 +419,7 @@ func (j *JiraOffice) Search(ctx context.Context, clusterID string, query string)
 		jql = fmt.Sprintf("project = %s AND (%s)", j.config.ProjectKey, query)
 	}
 	
-	path := fmt.Sprintf("/rest/api/3/search?jql=%s&maxResults=50", url.QueryEscape(jql))
+	path := fmt.Sprintf("/rest/api/3/search/jql?jql=%s&maxResults=50", url.QueryEscape(jql))
 	resp, err := j.jiraRequest("GET", path, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to search Jira: %w", err)
