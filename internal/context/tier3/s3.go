@@ -153,6 +153,9 @@ func (s *Store) StoreSessionContext(ctx stdctx.Context, clusterID string, sessio
 
 	key := s.sessionKey(clusterID, session.SessionID)
 
+	// Always log for debugging (TODO: remove after fixing S3)
+	fmt.Printf("[S3Context DEBUG] StoreSessionContext: key='%s', sessionID='%s', clusterID='%s'\n", key, session.SessionID, clusterID)
+	
 	if s.config.Verbose {
 		fmt.Printf("[S3Context] StoreSessionContext: key=%s\n", key)
 	}
@@ -302,11 +305,11 @@ func (s *Store) Close() error {
 // --- Helper Methods ---
 
 // sessionKey returns the S3 key for a session context.
-// Format: sessions/{year}/{month}/session-{sessionID}-{date}.json[.gz]
+// Format: sessions/{clusterID}/{year}/{month}/session-{sessionID}-{date}.json[.gz]
 func (s *Store) sessionKey(clusterID, sessionID string) string {
 	now := time.Now()
 	key := fmt.Sprintf("sessions/%s/%04d/%02d/session-%s-%04d%02d%02d.json",
-		s.config.ClusterID,
+		clusterID,
 		now.Year(),
 		now.Month(),
 		sessionID,
@@ -328,11 +331,11 @@ func (s *Store) sessionKeyPrefix(clusterID string) string {
 }
 
 // scratchpadKey returns the S3 key for a scratchpad.
-// Format: scratchpads/{year}/{month}/scratchpad-{sessionID}-{date}.bin[.gz]
+// Format: scratchpads/{clusterID}/{year}/{month}/scratchpad-{sessionID}-{date}.bin[.gz]
 func (s *Store) scratchpadKey(clusterID, sessionID string) string {
 	now := time.Now()
 	key := fmt.Sprintf("scratchpads/%s/%04d/%02d/scratchpad-%s-%04d%02d%02d.bin",
-		s.config.ClusterID,
+		clusterID,
 		now.Year(),
 		now.Month(),
 		sessionID,
