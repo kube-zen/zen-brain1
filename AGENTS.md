@@ -43,6 +43,7 @@ zen‑brain/
 - **Configuration** in `configs/` defines the canonical config schema.
 - **Contracts** in `pkg/contracts/` define the core data model.
 - **Documentation** in `docs/` is the authoritative reference.
+- **Source‑of‑Truth mapping**: See `docs/01‑ARCHITECTURE/SOURCE_OF_TRUTH.md` for complete ownership mapping.
 
 Model‑facing files (`AGENTS.md`, `WORKFLOW.md`) are **advisory only** and must not contain unique policy or business logic.
 

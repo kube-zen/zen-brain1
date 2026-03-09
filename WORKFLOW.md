@@ -46,6 +46,7 @@ Proof‑of‑work bundles are stored as part of the session’s evidence and can
 - **Session management**: `docs/03‑DESIGN/ZEN_JOURNAL.md`
 - **Cost tracking**: `docs/03‑DESIGN/ZEN_LEDGER.md`
 - **Configuration**: `docs/04‑DEVELOPMENT/CONFIGURATION.md`
+- **Source of truth mapping**: `docs/01‑ARCHITECTURE/SOURCE_OF_TRUTH.md`
 
 ## Repo Hygiene Rules
 
