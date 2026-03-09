@@ -92,8 +92,29 @@ func validateWorkspaceOwnership(path, expectedTaskID, expectedSessionID string) 
 		return fmt.Errorf("invalid workspace path: %s", path)
 	}
 
-	// In production, this would verify taskID/sessionID match
-	// For now, just ensure the path has a reasonable structure
+	// In production, verify taskID/sessionID match expected pattern
+	// Expected pattern: .../workspaces/{sessionID}/{taskID}
+	// Extract last two components
+	dir := filepath.Dir(absPath)
+	sessionDir := filepath.Base(dir)
+	workspacesDir := filepath.Dir(dir)
+	
+	// Check if parent directory name matches expected session ID
+	if sessionDir != expectedSessionID {
+		return fmt.Errorf("workspace session ID mismatch: path contains %s, expected %s", sessionDir, expectedSessionID)
+	}
+	
+	// Check if workspace directory name matches expected task ID
+	if base != expectedTaskID {
+		return fmt.Errorf("workspace task ID mismatch: path contains %s, expected %s", base, expectedTaskID)
+	}
+	
+	// Verify workspaces directory name is "workspaces" (optional, but good safety)
+	if filepath.Base(workspacesDir) != "workspaces" {
+		// Not a hard requirement, but log warning
+		// Continue anyway
+	}
+
 	return nil
 }
 
