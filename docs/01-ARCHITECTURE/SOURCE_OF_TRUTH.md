@@ -6,6 +6,16 @@ This document defines where canonical truth resides in the Zen‑Brain project. 
 
 **Canonical truth is the artifact that must be changed to effect a permanent, correct change to the system.** Derived artifacts are generated from canonical sources and may be overwritten.
 
+## Non-Negotiable Truth Assignments
+
+| Data/Concern | Canonical Source | Rationale |
+|--------------|------------------|-----------|
+| **Declarative control, policy, topology** | CRDs (`api/v1alpha1/`) | Kubernetes-native declarative state, GitOps-friendly, policy-as-code |
+| **Durable versioned knowledge, docs, workflow specs** | Git (`zen-docs` repository) | Immutable history, reviewable, diffable, single source for all documentation |
+| **Organizational work visibility/coordination** | Jira | Human-facing, cross-team coordination, status tracking, approval workflows |
+| **Runtime state, transactional data, query-heavy analytics** | Database (CockroachDB, when justified) | Only for operational runtime state where DB is clearly required (tokens, costs, session logs) |
+| **Model-facing instructions** | Advisory markdown only (`AGENTS.md`, `WORKFLOW.md`) | Never authoritative; always derived from code and config |
+
 ## Hierarchy of Truth
 
 ### 1. Code (`internal/`, `pkg/`)
@@ -74,7 +84,32 @@ These files are **not** source of truth. They are derived, advisory summaries fo
 
 **Rule:** These files may be updated automatically by AI agents or manually by developers, but they must never contain unique policy or business logic. They should always point to the canonical sources listed above.
 
-### 7. Repository Governance Rules (`docs/04‑DEVELOPMENT/REPO_RULES.md`)
+### 7. Jira (`internal/office/jira/`)
+
+Jira is the canonical source for organizational work visibility and coordination.
+
+| Purpose | Canonical For |
+|---------|---------------|
+| Work items and task tracking | Organizational task state, assignments, priorities |
+| Human approval workflows | Gatekeeper decisions, cost/risk thresholds |
+| AI-generated comments and updates | Attribution headers, status changes, proof-of-work links |
+
+**Rule:** Jira owns the human-facing work coordination layer. Never make Jira the source of truth for system behavior, policy, or configuration. The Office connector pattern isolates Jira details from Factory and core contracts.
+
+### 8. Runtime Database (CockroachDB, when justified)
+
+Database is used **only** when clearly justified for runtime, transactional, or query-heavy state.
+
+| Purpose | When DB is Justified | When to Avoid |
+|---------|---------------------|---------------|
+| Token and cost accounting | High‑volume writes, complex queries for efficiency reports | Simple counters or logs that can go to files |
+| Session event logs | Time-series queries for debugging, SR&ED evidence export | Immutable event ledger that can be stored in files |
+| KB/QMD search index | Full-text search, similarity scoring | Use Git + QMD (no DB) |
+| Runtime state | Distributed state across services | In-memory or Redis for hot tier only |
+
+**Rule:** Database is a tool, not a default. Only use DB when Git + simple storage is insufficient for operational requirements. Never use DB as canonical source of truth for knowledge, documentation, or policies.
+
+### 9. Repository Governance Rules (`docs/04‑DEVELOPMENT/REPO_RULES.md`)
 
 The rules enforced by CI gates are canonical for repository structure and hygiene.
 

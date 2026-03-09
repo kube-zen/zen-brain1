@@ -17,6 +17,7 @@ Zen‑Brain documentation is organized into numbered directories:
 ## Key Documents
 
 ### Architecture
+- [SOURCE_OF_TRUTH.md](01-ARCHITECTURE/SOURCE_OF_TRUTH.md) – Where canonical truth resides (CRDs, Git, Jira, DB, model-facing docs)
 - [CONSTRUCTION_PLAN.md](01-ARCHITECTURE/CONSTRUCTION_PLAN.md) – Overall construction plan
 - [PROJECT_STRUCTURE.md](01-ARCHITECTURE/PROJECT_STRUCTURE.md) – Repository layout rules
 - [GLOSSARY.md](01-ARCHITECTURE/GLOSSARY.md) – Terminology
