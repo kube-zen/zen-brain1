@@ -90,9 +90,9 @@ type ProofOfWorkManager interface {
 	// Generates both JSON and markdown formats for easy consumption.
 	CreateProofOfWork(ctx context.Context, result *ExecutionResult, spec *FactoryTaskSpec) (*ProofOfWorkArtifact, error)
 
-	// GenerateJiraComment creates a Jira comment from proof-of-work summary.
-	// Returns a contracts.Comment that can be posted to Jira via office connector.
-	GenerateJiraComment(ctx context.Context, artifact *ProofOfWorkArtifact) (*contracts.Comment, error)
+	// GenerateComment creates a canonical comment from proof-of-work summary.
+	// Returns a contracts.Comment that can be posted to any office system via adapter.
+	GenerateComment(ctx context.Context, artifact *ProofOfWorkArtifact) (*contracts.Comment, error)
 
 	// ListProofOfWorks returns all proof-of-work artifacts for a task.
 	ListProofOfWorks(ctx context.Context, taskID string) ([]*ProofOfWorkArtifact, error)

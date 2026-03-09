@@ -618,7 +618,7 @@ func TestProofOfWorkManager_NoChanges(t *testing.T) {
 	}
 }
 
-func TestProofOfWorkManager_GenerateJiraComment(t *testing.T) {
+func TestProofOfWorkManager_GenerateComment(t *testing.T) {
 	// Setup
 	runtimeDir := t.TempDir()
 	powManager := NewProofOfWorkManager(runtimeDir)
@@ -655,10 +655,10 @@ func TestProofOfWorkManager_GenerateJiraComment(t *testing.T) {
 		t.Fatalf("CreateProofOfWork failed: %v", err)
 	}
 
-	// Generate Jira comment
-	comment, err := powManager.GenerateJiraComment(ctx, artifact)
+	// Generate canonical comment
+	comment, err := powManager.GenerateComment(ctx, artifact)
 	if err != nil {
-		t.Fatalf("GenerateJiraComment failed: %v", err)
+		t.Fatalf("GenerateComment failed: %v", err)
 	}
 
 	// Verify comment structure

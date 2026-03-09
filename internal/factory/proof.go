@@ -82,8 +82,8 @@ func (p *proofOfWorkManagerImpl) CreateProofOfWork(ctx context.Context, result *
 	return artifact, nil
 }
 
-// GenerateJiraComment creates a Jira comment from proof-of-work summary.
-func (p *proofOfWorkManagerImpl) GenerateJiraComment(ctx context.Context, artifact *ProofOfWorkArtifact) (*contracts.Comment, error) {
+// GenerateComment creates a canonical comment from proof-of-work summary.
+func (p *proofOfWorkManagerImpl) GenerateComment(ctx context.Context, artifact *ProofOfWorkArtifact) (*contracts.Comment, error) {
 	if artifact == nil {
 		return nil, fmt.Errorf("artifact cannot be nil")
 	}
@@ -97,16 +97,11 @@ func (p *proofOfWorkManagerImpl) GenerateJiraComment(ctx context.Context, artifa
 		return nil, fmt.Errorf("failed to read markdown file: %w", err)
 	}
 
-	// Convert markdown to plain text for Jira (simple conversion)
-	// For MVP, we'll just use the markdown as-is, Jira will render it as plain text
-	// In production, we'd use a proper markdown-to-plain-text converter
+	// Use markdown as-is - let the office adapter convert to appropriate format
 	body := string(mdContent)
 	
-	// Limit body length for Jira (optional)
-	const maxLength = 32767  // Jira comment field limit
-	if len(body) > maxLength {
-		body = body[:maxLength-100] + "\n\n...[truncated due to length limit]..."
-	}
+	// Note: Length limits are system-specific and should be enforced by the office adapter
+	// Factory returns the full canonical comment, adapter truncates if needed for target system
 
 	comment := &contracts.Comment{
 		ID:         artifact.Summary.TaskID,
@@ -133,7 +128,7 @@ func (p *proofOfWorkManagerImpl) generateSummary(result *ExecutionResult, spec *
 		SessionID:         result.SessionID,
 		WorkItemID:       result.WorkItemID,
 		SourceKey:         result.WorkItemID, // Same as WorkItemID for MVP
-		SourceSystem:      "jira",            // Default for MVP
+		SourceSystem:      "",                // Will be populated by office adapter if needed
 		Title:             spec.Title,
 		Objective:         spec.Objective,
 		Result:            string(result.Status),

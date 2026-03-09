@@ -74,10 +74,10 @@ func TestProofOfWork_JiraIntegration(t *testing.T) {
 		t.Errorf("WorkspacePath mismatch: got %s, want %s", artifact.Summary.WorkspacePath, result.WorkspacePath)
 	}
 
-	// Step 2: Generate Jira comment
-	comment, err := powManager.GenerateJiraComment(ctx, artifact)
+	// Step 2: Generate canonical comment
+	comment, err := powManager.GenerateComment(ctx, artifact)
 	if err != nil {
-		t.Fatalf("GenerateJiraComment failed: %v", err)
+		t.Fatalf("GenerateComment failed: %v", err)
 	}
 
 	// Verify comment structure
