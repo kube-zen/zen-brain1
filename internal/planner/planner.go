@@ -10,6 +10,7 @@ import (
 
 	"github.com/kube-zen/zen-brain1/internal/agent"
 	"github.com/kube-zen/zen-brain1/internal/analyzer"
+	"github.com/kube-zen/zen-brain1/internal/factory"
 	"github.com/kube-zen/zen-brain1/internal/office"
 	"github.com/kube-zen/zen-brain1/internal/session"
 	zenctx "github.com/kube-zen/zen-brain1/pkg/context"
@@ -28,6 +29,7 @@ type DefaultPlanner struct {
 	sessionManager  session.Manager
 	ledgerClient    ledger.ZenLedgerClient
 	zenctx          zenctx.ZenContext
+	factory         factory.Factory
 	stateManager    *agent.StateManager
 	
 	// Internal state
@@ -72,6 +74,7 @@ func New(config *Config) (*DefaultPlanner, error) {
 		sessionManager: config.SessionManager,
 		ledgerClient:   config.LedgerClient,
 		zenctx:         config.ZenContext,
+		factory:        config.Factory,
 		stateManager:   stateManager,
 		activeSessions: make(map[string]*contracts.Session),
 		approvalQueue:  make([]*contracts.Session, 0),
@@ -369,24 +372,74 @@ func (p *DefaultPlanner) selectOptimalModel(ctx context.Context, session *contra
 func (p *DefaultPlanner) autoApproveAndSchedule(ctx context.Context, sessionID string, 
 	modelSelection *ModelSelection) error {
 	
-	// Transition to approved
+	// Transition to scheduled
 	if err := p.sessionManager.TransitionState(ctx, sessionID, contracts.SessionStateScheduled,
 		fmt.Sprintf("Auto-approved (model: %s, cost: $%.2f)", 
 			modelSelection.ModelID, modelSelection.EstimatedCostUSD), "planner"); err != nil {
 		return fmt.Errorf("failed to schedule session: %w", err)
 	}
 	
-	// TODO: Schedule with Factory (Block 3)
-	// For now, just transition to in_progress
-	if err := p.sessionManager.TransitionState(ctx, sessionID, contracts.SessionStateInProgress,
-		"Scheduled for execution", "planner"); err != nil {
-		return fmt.Errorf("failed to start execution: %v", err)
+	// Get session to retrieve BrainTaskSpecs
+	session, err := p.sessionManager.GetSession(ctx, sessionID)
+	if err != nil {
+		return fmt.Errorf("failed to get session: %w", err)
 	}
 	
-	log.Printf("Session %s auto-approved and scheduled with model %s", 
+	// If Factory is not configured, skip execution (legacy mode)
+	if p.factory == nil {
+		log.Printf("Factory not configured, skipping execution (legacy mode)")
+		if err := p.sessionManager.TransitionState(ctx, sessionID, contracts.SessionStateInProgress,
+			"Scheduled for execution (no factory)", "planner"); err != nil {
+			return fmt.Errorf("failed to start execution: %v", err)
+		}
+		return nil
+	}
+	
+	// Execute each BrainTaskSpec
+	for _, brainSpec := range session.BrainTaskSpecs {
+		factorySpec := p.convertBrainTaskSpecToFactoryTaskSpec(session, &brainSpec)
+		result, err := p.factory.ExecuteTask(ctx, factorySpec)
+		if err != nil {
+			log.Printf("Factory task execution failed: task_id=%s error=%v", factorySpec.ID, err)
+			// Transition session to failed
+			p.sessionManager.TransitionState(ctx, sessionID, contracts.SessionStateFailed,
+				fmt.Sprintf("Factory execution failed: %v", err), "factory")
+			return fmt.Errorf("factory execution failed: %w", err)
+		}
+		log.Printf("Factory task completed: task_id=%s status=%s duration=%s", 
+			result.TaskID, result.Status, result.Duration)
+	}
+	
+	// All tasks completed successfully
+	if err := p.sessionManager.TransitionState(ctx, sessionID, contracts.SessionStateCompleted,
+		"All factory tasks completed successfully", "factory"); err != nil {
+		return fmt.Errorf("failed to transition to completed: %v", err)
+	}
+	
+	log.Printf("Session %s auto-approved and executed with model %s", 
 		sessionID, modelSelection.ModelID)
 	
 	return nil
+}
+
+// convertBrainTaskSpecToFactoryTaskSpec converts a BrainTaskSpec to a FactoryTaskSpec.
+func (p *DefaultPlanner) convertBrainTaskSpecToFactoryTaskSpec(session *contracts.Session, brainSpec *contracts.BrainTaskSpec) *factory.FactoryTaskSpec {
+	return &factory.FactoryTaskSpec{
+		ID:          brainSpec.ID,
+		SessionID:   session.ID,
+		WorkItemID:  session.WorkItemID,
+		Title:       brainSpec.Title,
+		Objective:   brainSpec.Objective,
+		Constraints: brainSpec.Constraints,
+		WorkType:    brainSpec.WorkType,
+		WorkDomain:  brainSpec.WorkDomain,
+		Priority:    brainSpec.Priority,
+		TimeoutSeconds: brainSpec.TimeoutSeconds,
+		MaxRetries:    brainSpec.MaxRetries,
+		KBScopes:     brainSpec.KBScopes,
+		CreatedAt:    brainSpec.CreatedAt,
+		UpdatedAt:    brainSpec.UpdatedAt,
+	}
 }
 
 // GetSessionStatus returns the current status of a session.
