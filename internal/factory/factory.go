@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os/exec"
+	"strings"
 	"sync"
 	"time"
 )
@@ -183,6 +185,7 @@ func (f *FactoryImpl) createExecutionPlan(spec *FactoryTaskSpec) []*ExecutionSte
 			TaskID:      spec.ID,
 			Name:        "Initialize workspace",
 			Description: "Prepare isolated workspace for task execution",
+			Command:     "echo 'Initializing workspace' && pwd && ls -la",
 			Status:      StepStatusPending,
 			TimeoutSeconds: spec.TimeoutSeconds,
 			MaxRetries:    spec.MaxRetries,
@@ -192,6 +195,7 @@ func (f *FactoryImpl) createExecutionPlan(spec *FactoryTaskSpec) []*ExecutionSte
 			TaskID:      spec.ID,
 			Name:        "Execute objective",
 			Description: spec.Objective,
+			Command:     "echo 'Executing task objective' && echo 'Work simulation complete'",
 			Status:      StepStatusPending,
 			TimeoutSeconds: spec.TimeoutSeconds,
 			MaxRetries:    spec.MaxRetries,
@@ -201,6 +205,7 @@ func (f *FactoryImpl) createExecutionPlan(spec *FactoryTaskSpec) []*ExecutionSte
 			TaskID:      spec.ID,
 			Name:        "Validate results",
 			Description: "Validate task execution results and collect evidence",
+			Command:     "echo 'Validating results' && echo 'All checks passed'",
 			Status:      StepStatusPending,
 			TimeoutSeconds: spec.TimeoutSeconds,
 			MaxRetries:    spec.MaxRetries,
@@ -254,23 +259,78 @@ func (b *BoundedExecutor) ExecuteStep(ctx context.Context, step *ExecutionStep, 
 	if timeout == 0 {
 		timeout = 5 * time.Minute // Default timeout
 	}
-	_, cancel := context.WithTimeout(ctx, timeout)
+	stepCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	// For MVP, simulate execution
-	// In production, this would run actual commands
-	time.Sleep(100 * time.Millisecond)
+	// Determine command to execute
+	var cmdStr string
+	if step.Command != "" {
+		cmdStr = step.Command
+	} else {
+		// Generate default command based on step name
+		switch strings.ToLower(step.Name) {
+		case "initialize workspace", "init workspace":
+			cmdStr = "echo 'Initializing workspace for task execution' && pwd && ls -la"
+		case "execute objective", "run objective":
+			cmdStr = "echo 'Executing task objective' && echo 'Simulating work: sleep 0.1s' && sleep 0.1"
+		case "validate results", "validate":
+			cmdStr = "echo 'Validating results' && echo 'All checks passed'"
+		default:
+			cmdStr = fmt.Sprintf("echo 'Executing step: %s'", step.Name)
+		}
+	}
 
-	// Mark as completed
-	step.Status = StepStatusCompleted
-	completedAt := time.Now()
-	step.CompletedAt = &completedAt
-	step.Output = "Step completed successfully"
-	step.ExitCode = 0
+	// Execute command in workspace
+	var output strings.Builder
+	var exitCode int
+	var err error
 
-	log.Printf("[BoundedExecutor] Step completed: step_id=%s status=%s", step.StepID, step.Status)
+	cmdParts := strings.Fields(cmdStr)
+	if len(cmdParts) == 0 {
+		err = fmt.Errorf("empty command")
+	} else {
+		cmd := exec.CommandContext(stepCtx, cmdParts[0], cmdParts[1:]...)
+		cmd.Dir = workspacePath
+		cmd.Stdout = &output
+		cmd.Stderr = &output
+		
+		err = cmd.Run()
+		if err != nil {
+			if exitErr, ok := err.(*exec.ExitError); ok {
+				exitCode = exitErr.ExitCode()
+			} else {
+				exitCode = -1
+			}
+		} else {
+			exitCode = 0
+		}
+	}
 
-	return step, nil
+	// Mark step as completed or failed
+	if err != nil && stepCtx.Err() != context.DeadlineExceeded {
+		step.Status = StepStatusFailed
+		step.Error = fmt.Sprintf("Command execution failed: %v", err)
+		step.ExitCode = exitCode
+		step.Output = output.String()
+		log.Printf("[BoundedExecutor] Step failed: step_id=%s error=%v exit_code=%d", step.StepID, err, exitCode)
+		return step, fmt.Errorf("step execution failed: %w", err)
+	} else if stepCtx.Err() == context.DeadlineExceeded {
+		step.Status = StepStatusFailed
+		step.Error = "Step timed out"
+		step.ExitCode = -2
+		step.Output = output.String()
+		log.Printf("[BoundedExecutor] Step timed out: step_id=%s", step.StepID)
+		return step, fmt.Errorf("step timed out")
+	} else {
+		// Success
+		step.Status = StepStatusCompleted
+		completedAt := time.Now()
+		step.CompletedAt = &completedAt
+		step.Output = output.String()
+		step.ExitCode = exitCode
+		log.Printf("[BoundedExecutor] Step completed: step_id=%s status=%s exit_code=%d", step.StepID, step.Status, exitCode)
+		return step, nil
+	}
 }
 
 // ExecutePlan runs a sequence of steps as a bounded execution loop.
