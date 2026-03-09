@@ -66,6 +66,51 @@ ledger:
   user: "zen"
   ssl_mode: "disable"
 
+# ZenContext settings (three-tier memory)
+zen_context:
+  # Tier 1: Hot storage (Redis)
+  tier1_redis:
+    addr: "localhost:6379"
+    password: ""
+    db: 0
+    pool_size: 10
+    min_idle_conns: 5
+    dial_timeout: 5s
+    read_timeout: 3s
+    write_timeout: 3s
+
+  # Tier 2: Warm storage (QMD knowledge base)
+  tier2_qmd:
+    repo_path: "../zen-docs"
+    qmd_binary_path: "qmd"
+    verbose: false
+
+  # Tier 3: Cold storage (S3 archival)
+  tier3_s3:
+    bucket: "zen-brain-context"
+    region: "us-east-1"
+    endpoint: ""  # Set to "http://localhost:9000" for MinIO
+    access_key_id: ""
+    secret_access_key: ""
+    session_token: ""
+    use_path_style: false
+    disable_ssl: false
+    force_rename_bucket: false
+    max_retries: 3
+    timeout: 30s
+    part_size: 5242880  # 5 MB
+    concurrency: 5
+    verbose: false
+
+  # Journal integration (optional)
+  journal:
+    journal_path: "./journal.db"
+    enable_query_index: true
+
+  # General settings
+  cluster_id: "default"
+  verbose: false
+
 # Planner settings
 planner:
   default_model: "glm-4.7"
