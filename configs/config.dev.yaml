@@ -85,16 +85,16 @@ zen_context:
     qmd_binary_path: "qmd"
     verbose: false
 
-  # Tier 3: Cold storage (S3 archival)
+  # Tier 3: Cold storage (S3 archival) - MinIO local emulator
   tier3_s3:
     bucket: "zen-brain-context"
     region: "us-east-1"
-    endpoint: ""  # Set to "http://localhost:9000" for MinIO
-    access_key_id: ""
-    secret_access_key: ""
+    endpoint: "http://localhost:9000"  # MinIO local emulator
+    access_key_id: "minioadmin"
+    secret_access_key: "minioadmin"
     session_token: ""
-    use_path_style: false
-    disable_ssl: false
+    use_path_style: true  # Required for MinIO
+    disable_ssl: true     # No SSL for local emulator
     force_rename_bucket: false
     max_retries: 3
     timeout: 30s
