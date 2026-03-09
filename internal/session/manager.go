@@ -5,6 +5,8 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -393,8 +395,12 @@ func createStore(config *Config) (Store, error) {
 	case "memory":
 		return NewMemoryStore(), nil
 	case "sqlite":
-		// TODO: Implement SQLite store
-		return NewMemoryStore(), nil // Fallback for now
+		// Ensure data directory exists
+		if err := os.MkdirAll(config.DataDir, 0755); err != nil {
+			return nil, fmt.Errorf("failed to create data directory: %w", err)
+		}
+		dbPath := filepath.Join(config.DataDir, "sessions.db")
+		return NewSQLiteStore(dbPath)
 	default:
 		return nil, fmt.Errorf("unsupported store type: %s", config.StoreType)
 	}

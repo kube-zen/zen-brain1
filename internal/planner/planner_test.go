@@ -8,6 +8,7 @@ import (
 
 	"github.com/kube-zen/zen-brain1/internal/office"
 	"github.com/kube-zen/zen-brain1/internal/session"
+	zenctx "github.com/kube-zen/zen-brain1/pkg/context"
 	"github.com/kube-zen/zen-brain1/pkg/contracts"
 	"github.com/kube-zen/zen-brain1/pkg/ledger"
 )
@@ -184,6 +185,78 @@ func (m *mockLedgerClient) GetCostBudgetStatus(ctx context.Context, projectID st
 }
 
 func (m *mockLedgerClient) RecordPlannedModelSelection(ctx context.Context, sessionID, taskID, modelID, reason string) error {
+	return nil
+}
+
+// mockZenContext is a mock ZenContext for testing.
+type mockZenContext struct {
+	sessions map[string]*zenctx.SessionContext
+}
+
+func newMockZenContext() *mockZenContext {
+	return &mockZenContext{
+		sessions: make(map[string]*zenctx.SessionContext),
+	}
+}
+
+func (m *mockZenContext) GetSessionContext(ctx context.Context, clusterID, sessionID string) (*zenctx.SessionContext, error) {
+	key := clusterID + ":" + sessionID
+	return m.sessions[key], nil
+}
+
+func (m *mockZenContext) StoreSessionContext(ctx context.Context, clusterID string, session *zenctx.SessionContext) error {
+	key := clusterID + ":" + session.SessionID
+	m.sessions[key] = session
+	return nil
+}
+
+func (m *mockZenContext) DeleteSessionContext(ctx context.Context, clusterID, sessionID string) error {
+	key := clusterID + ":" + sessionID
+	delete(m.sessions, key)
+	return nil
+}
+
+func (m *mockZenContext) QueryKnowledge(ctx context.Context, opts zenctx.QueryOptions) ([]zenctx.KnowledgeChunk, error) {
+	return nil, nil
+}
+
+func (m *mockZenContext) StoreKnowledge(ctx context.Context, chunks []zenctx.KnowledgeChunk) error {
+	return nil
+}
+
+func (m *mockZenContext) ArchiveSession(ctx context.Context, clusterID, sessionID string) error {
+	return nil
+}
+
+func (m *mockZenContext) ReconstructSession(ctx context.Context, req zenctx.ReMeRequest) (*zenctx.ReMeResponse, error) {
+	// Simple reconstruction
+	session, _ := m.GetSessionContext(ctx, req.ClusterID, req.SessionID)
+	if session == nil {
+		session = &zenctx.SessionContext{
+			SessionID:     req.SessionID,
+			TaskID:        req.TaskID,
+			ClusterID:     req.ClusterID,
+			ProjectID:     req.ProjectID,
+			CreatedAt:     time.Now(),
+			LastAccessedAt: time.Now(),
+		}
+	}
+	// Ensure RelevantKnowledge is not nil
+	if session.RelevantKnowledge == nil {
+		session.RelevantKnowledge = []zenctx.KnowledgeChunk{}
+	}
+	return &zenctx.ReMeResponse{
+		SessionContext: session,
+		JournalEntries: []interface{}{},
+		ReconstructedAt: time.Now(),
+	}, nil
+}
+
+func (m *mockZenContext) Stats(ctx context.Context) (map[zenctx.Tier]interface{}, error) {
+	return nil, nil
+}
+
+func (m *mockZenContext) Close() error {
 	return nil
 }
 
@@ -481,4 +554,61 @@ func TestDefaultPlanner_ApproveRejectSession(t *testing.T) {
 	}
 	
 	t.Logf("Session rejected and transitioned to %s", updated2.State)
+}
+
+func TestDefaultPlanner_ZenContextIntegration(t *testing.T) {
+	ctx := context.Background()
+	// Create mock ZenContext
+	mockZC := newMockZenContext()
+	// Create planner config with ZenContext
+	config := &Config{
+		OfficeManager: office.NewManager(),
+		Analyzer: &mockAnalyzer{},
+		SessionManager: newMockSessionManager(),
+		LedgerClient: &mockLedgerClient{},
+		ZenContext: mockZC,
+	}
+	planner, err := New(config)
+	if err != nil {
+		t.Fatalf("Failed to create planner: %v", err)
+	}
+	// Create work item
+	workItem := &contracts.WorkItem{
+		ID: "TEST-ZC-001",
+		Title: "Test ZenContext Integration",
+		Summary: "Test summary",
+		Body: "This is a test work item description.",
+		WorkType: contracts.WorkTypeImplementation,
+		WorkDomain: contracts.DomainCore,
+		Priority: contracts.PriorityMedium,
+		Status: contracts.StatusRequested,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+		Source: contracts.SourceMetadata{
+			System: "test",
+			IssueKey: "TEST-ZC-001",
+			IssueType: "Task",
+		},
+		EvidenceRequirement: contracts.EvidenceSummary,
+	}
+	// Process work item
+	err = planner.ProcessWorkItem(ctx, workItem)
+	if err != nil {
+		t.Fatalf("Failed to process work item: %v", err)
+	}
+	// Wait a bit for async processing (since analyzeAndPlan is goroutine)
+	time.Sleep(100 * time.Millisecond)
+	// Verify ZenContext stored agent state
+	sessionCtx, err := mockZC.GetSessionContext(ctx, "default", "session-TEST-ZC-001")
+	if err != nil {
+		t.Fatalf("Failed to get session context: %v", err)
+	}
+	if sessionCtx == nil {
+		t.Fatal("Expected session context to be stored")
+	}
+	if len(sessionCtx.State) == 0 {
+		t.Fatal("Expected agent state to be stored in session context")
+	}
+	// Optionally deserialize and verify agent state
+	t.Logf("ZenContext integration verified: agent state stored (%d bytes)", len(sessionCtx.State))
 }
