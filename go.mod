@@ -12,6 +12,7 @@ require (
 	github.com/aws/smithy-go v1.24.2
 	github.com/kube-zen/zen-sdk v0.3.0
 	github.com/redis/go-redis/v9 v9.18.0
+	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/apimachinery v0.35.0
 	sigs.k8s.io/controller-runtime v0.19.0
 )
@@ -52,6 +53,7 @@ require (
 	github.com/prometheus/common v0.66.1 // indirect
 	github.com/prometheus/procfs v0.16.1 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
+	github.com/robfig/cron/v3 v3.0.1 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.3 // indirect
