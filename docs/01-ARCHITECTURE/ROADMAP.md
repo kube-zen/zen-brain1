@@ -277,4 +277,99 @@ These concepts should be elevated to first-class architecture before implementat
 
 ---
 
-*Last updated: 2026-03-08*
+*Last updated: 2026-03-08*## 1.1 Status Updates
+
+### Block 1.1 - ZenJournal Schema Definition ✅ COMPLETE
+**Date:** 2026-03-09
+**Status:** Complete
+**Details:**
+- Schema design document created (BLOCK1.1_ZEN_JOURNAL_SCHEMA.md, 18.5 KB)
+- QueryIndex implementation created (internal/journal/receiptlog/query_index.go, 10.7 KB)
+- Journal integration updated to use QueryIndex
+- Tagged and pushed (commit acd7e53)
+
+### Block 1.2 - ZenContext Tier 1 (Hot) ✅ COMPLETE
+**Date:** 2026-03-09
+**Status:** Complete
+**Details:**
+- Redis backend implemented with full SessionContext CRUD
+- 11 passing tests (tier1/redis_test.go)
+- Scratchpad, tasks, heartbeat support
+- Stats tracking
+- Session reconstruction support
+- LastAccessedAt updates
+- Composite ZenContext integration
+
+### Block 1.2 - ZenContext Tier 2 (Warm) ✅ COMPLETE
+**Date:** 2026-03-09
+**Status:** Complete
+**Details:**
+- QMD adapter integrated (internal/qmd/adapter.go)
+- QMD store implementation for knowledge retrieval
+- StoreKnowledge for knowledge storage
+- 6 passing tests (tier2/qmd_store_test.go)
+- Composite ZenContext integration
+
+### Block 1.2 - ZenContext Tier 3 (Cold) ✅ COMPLETE
+**Date:** 2026-03-09
+**Status:** Complete
+**Details:**
+- S3 backend implemented with AWS SDK v2
+- Supports custom endpoints (MinIO)
+- Supports path-style addressing
+- Gzip compression, retention management
+- Global session index
+- Stats tracking
+- Composite ZenContext integration
+
+### Block 1.3 - SessionManager with ZenContext ✅ COMPLETE
+**Date:** 2026-03-09
+**Status:** Complete
+**Details:**
+- Updated SessionManager to integrate ZenContext
+- Automatic SessionContext creation on session creation
+- LastAccessedAt updates on all session operations
+- Backward compatibility maintained (ZenContext optional)
+- Integration tests pass
+
+### Block 1.4 - Agent State & Planner Integration ✅ COMPLETE
+**Date:** 2026-03-09
+**Status:** Complete
+**Details:**
+- Agent state management system created (internal/agent/state.go, 406 lines)
+- Role-based state, session tracking, task association
+- Planner ZenContext config, state manager integration
+- Agent state persistence and loading
+- ReMe protocol for session reconstruction
+- All 28+ agent/planner/session/context tests pass
+- Tagged and pushed (commit 292bfd1, tag block-1.4-agent-integration)
+
+### Block 1.5 - Wire Real Redis/S3 Clients ✅ COMPLETE
+**Date:** 2026-03-09
+**Status:** Complete
+**Details:**
+- Production Redis client with connection pooling (7,420 bytes)
+- Production S3 client with AWS SDK v2 (10,428 bytes)
+- ZenContext factory for all three tiers (9,447 bytes)
+- Provider fallback chain implementation (10,396 bytes)
+- All context tests pass (13 tests)
+- All routing tests pass (7 tests)
+- go mod tidy completes without errors
+- Configuration template created
+- Tagged and pushed (commit 770a590, tag block-1.5-redis-s3-clients)
+
+---
+
+## Notes
+
+- **System remains open to any model/provider** – Qwen 0.8B is important baseline, not hard dependency
+- **Aim is internal force multiplier**, not market product
+- **Design remains Jira-centric** – Office layer as human front door
+- **Worktree isolation is critical safety feature** – prevents uncontrolled cross-contamination
+- **Trust levels and change classes before dogfooding becomes dangerous**
+- **1.1 reserved for safety/sandbox features** – agent sandbox is evaluation-only, not production tool
+- **Local deployment uses k3d, not Docker Compose** – Aligns with CONSTRUCTION_PLAN.md V6 architecture
+
+---
+
+*Last updated: 2026-03-09*
