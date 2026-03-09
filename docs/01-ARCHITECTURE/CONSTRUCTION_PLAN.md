@@ -8,9 +8,9 @@
 
 EOF# Zen-Brain 1.0 Construction Plan
 
-**Version:** 6.0
+**Version:** 6.1
 **Date:** 2026-03-07
-**Status:** Ready for Execution
+**Status:** Ready for Execution (Patched)
 **Philosophy:** Build clean
 
 ## 0. What's New in V6
@@ -27,6 +27,17 @@ This version adds critical capabilities for IRAP/SR&ED alignment, multi-cluster 
 6. **Funding Evidence Aggregator** - Block 5.4 generates SR&ED T661 narratives and IRAP technical reports from accumulated evidence.
 7. **Experiment-Class Events** - ZenJournal now includes HypothesisFormulated, ApproachAttempted, ResultObserved, ApproachAbandoned, ExperimentConcluded event types.
 8. **Canonical Taxonomy Extended** - Added SR&ED tags (u1_dynamic_provisioning, u2_security_gates, u3_deterministic_delivery, u4_backpressure, experimental_general) and AIAttribution struct.
+
+## 0.1 What's New in V6.1
+
+This patch aligns V6 with the actual execution direction:
+
+1. **zen-sdk Reuse Tightened** — generic runtime concerns are no longer just “recommended imports”; they are explicit implementation requirements.
+2. **KB/QMD Direction Corrected** — Git remains the KB source of truth; qmd is the default indexing/search path; CockroachDB is not the default backend for KB/QMD.
+3. **Testing Strategy Corrected** — local integration uses k3d, and a first-class vertical-slice acceptance lane is added.
+4. **Control Model Extended** — future system vocabulary is made explicit: RoleProfile, ExecutionPolicy, HandoffPolicy, Tool, ToolBinding, ComplianceProfile, WorkspaceClass.
+5. **1.1 Radar Captured** — agent sandbox, small-model/MLQ strategy, Ops Department, and compliance overlays are recorded now to avoid drift.
+6. **Funding Evidence Aggregator Demoted** — still important, but no longer allowed to block the first trustworthy internal-use vertical slice.
 
 **New Architecture Principles:**
 - Architect first, implement second: All major schemas are designed in Block 1 before any implementation begins
@@ -1393,134 +1404,34 @@ gh repo rename kube-zen/zen-brain --new-name zen-brain-0.1-archived
 - Ready to begin Block 0.5
 ---
 
-### Block 0.5: Pre-requisite SDK Packages (NEW in V5)
+### Block 0.5: Pre-requisite SDK (MANDATORY REUSE CONTRACT)
 
-**Purpose:** Ensure zen-sdk has all packages needed by zen-brain before Block 1 begins. This follows the "Build in zen-sdk First" principle.
+**Purpose:** Ensure zen-brain 1.0 consumes zen-sdk for all generic cross-cutting runtime capabilities before implementing higher-level behavior.
 
-**Prerequisite:** Block 0 complete
+**Rule:** The following capabilities MUST be imported from zen-sdk and MUST NOT be reimplemented inside zen-brain unless a documented exception is approved:
 
-#### Block 0.5.1: Audit Existing zen-sdk Packages
+- `zen-sdk/pkg/receiptlog` → foundation for ZenJournal
+- `zen-sdk/pkg/dedup` → message bus deduplication
+- `zen-sdk/pkg/dlq` → failed task/message handling
+- `zen-sdk/pkg/retry` → LLM provider retries, KB/qmd retries, transient external errors
+- `zen-sdk/pkg/observability` → tracing/metrics wiring
+- `zen-sdk/pkg/health` → readiness/liveness endpoints
+- `zen-sdk/pkg/leader` → leader election for HA control-plane components
+- `zen-sdk/pkg/logging` → structured logging
+- `zen-sdk/pkg/events` → Kubernetes event recording
+- `zen-sdk/pkg/crypto` → encryption and secret-protection helpers
 
-**Goal:** Verify all claimed packages exist and are production-ready.
-
-**Steps:**
-1. Review zen-sdk/pkg/ for existing packages
-2. Check version compatibility (need v0.3.0+)
-3. Document any gaps or issues
-
-**Packages to Verify:**
-
-| Package | Status | Notes |
-|---------|--------|-------|
-| receiptlog | Verify | Core for ZenJournal |
-| scheduler | Verify | KB ingestion scheduling |
-| dedup | Verify | Message bus deduplication |
-| dlq | Verify | Dead letter queue |
-| observability | Verify | OpenTelemetry tracing |
-| retry | Verify | Exponential backoff |
-| events | Verify | K8s event recording |
-| leader | Verify | Leader election |
-| logging | Verify | Structured logging |
-| health | Verify | Health probes |
-| crypto | MISSING | Needs migration from zen-lock |
+**Implementation Rule:** If a new capability is generic and reusable across Zen projects, it must be added to zen-sdk first, then imported into zen-brain.
 
 **Acceptance Criteria:**
-- [ ] All packages listed above audited
-- [ ] Gaps documented
-- [ ] Version requirements confirmed
-
-#### Block 0.5.2: Migrate zen-lock/pkg/crypto to zen-sdk
-
-**Goal:** Move encryption utilities to zen-sdk for reuse across projects.
-
-**Steps:**
-1. Create zen-sdk/pkg/crypto/ directory
-2. Copy zen-lock/pkg/crypto/* to zen-sdk/pkg/crypto/
-3. Update import paths
-4. Add comprehensive tests
-5. Update zen-lock to import from zen-sdk
-6. Tag zen-sdk release v0.3.0
-
-**Package Structure:**
-
-```
-zen-sdk/pkg/crypto/
-|-- age.go              # Age encryption implementation
-|-- age_test.go
-|-- interface.go        # Encryptor interface
-|-- interface_test.go
-+-- README.md
-```
-
-**Interface:**
-
-```go
-package crypto
-
-// Encryptor defines the interface for encryption/decryption operations
-type Encryptor interface {
-    // Encrypt encrypts plaintext data using the provided recipients (public keys)
-    Encrypt(plaintext []byte, recipients []string) ([]byte, error)
-
-    // Decrypt decrypts ciphertext data using the provided identity (private key)
-    Decrypt(ciphertext []byte, identity string) ([]byte, error)
-
-    // DecryptMap decrypts a map of encrypted values
-    DecryptMap(encryptedData map[string]string, identity string) (map[string]string, error)
-}
-```
-
-**Acceptance Criteria:**
-- [ ] zen-sdk/pkg/crypto/ exists with age encryption
-- [ ] All tests pass
-- [ ] zen-lock updated to use zen-sdk/pkg/crypto
-- [ ] zen-sdk v0.3.0 tagged
-
-#### Block 0.5.3: Document zen-sdk Dependencies in zen-brain
-
-**Goal:** zen-brain go.mod imports correct zen-sdk packages.
-
-**Steps:**
-1. Add zen-sdk dependency to zen-brain go.mod
-2. Document required packages in README
-3. Create dependency update procedure
-
-**go.mod snippet:**
-
-```go
-require (
-    github.com/kube-zen/zen-sdk v0.3.0
-)
-```
-
-**Import pattern:**
-
-```go
-import (
-    "github.com/kube-zen/zen-sdk/pkg/receiptlog"
-    "github.com/kube-zen/zen-sdk/pkg/scheduler"
-    "github.com/kube-zen/zen-sdk/pkg/dedup"
-    "github.com/kube-zen/zen-sdk/pkg/dlq"
-    "github.com/kube-zen/zen-sdk/pkg/observability"
-    "github.com/kube-zen/zen-sdk/pkg/retry"
-    "github.com/kube-zen/zen-sdk/pkg/events"
-    "github.com/kube-zen/zen-sdk/pkg/leader"
-    "github.com/kube-zen/zen-sdk/pkg/logging"
-    "github.com/kube-zen/zen-sdk/pkg/health"
-    "github.com/kube-zen/zen-sdk/pkg/crypto"
-)
-```
-
-**Acceptance Criteria:**
-- [ ] zen-brain go.mod has zen-sdk v0.3.0
-- [ ] README documents zen-sdk dependency
-- [ ] go mod tidy succeeds
-
-**Checkpoint 0.5 (SDK Ready):**
-- All zen-sdk packages verified or created
-- zen-lock/crypto migrated to zen-sdk
-- zen-brain can import zen-sdk
-- Ready to begin Block 1
+- [ ] ZenJournal implementation is explicitly built on `zen-sdk/pkg/receiptlog`
+- [ ] Message bus implementation explicitly uses `zen-sdk/pkg/dedup`
+- [ ] Failed task/message handling explicitly uses `zen-sdk/pkg/dlq`
+- [ ] LLM/provider layer explicitly uses `zen-sdk/pkg/retry`
+- [ ] API/runtime health endpoints explicitly use `zen-sdk/pkg/health`
+- [ ] Runtime tracing/metrics explicitly use `zen-sdk/pkg/observability`
+- [ ] HA control-plane path explicitly uses `zen-sdk/pkg/leader`
+- [ ] No local replacement package for these concerns exists in zen-brain without an approved ADR
 
 ---
 
@@ -1654,6 +1565,20 @@ SourceMetadata:
 - Tag categories established
 - Test cases: sample Jira issues map correctly
 - Documented in `docs/data-model.md`
+
+### Block 1.4.1: Future Control-Model Vocabulary (NEW in V6.1)
+
+To support dynamic role creation with hard policy boundaries, the following concepts are defined now even if full implementation lands incrementally:
+
+- **ZenRoleProfile** — dynamic mission/behavior definition for an agent role
+- **ZenExecutionPolicy** — hard walls: allowed scopes, tools, budgets, approvals, forbidden actions
+- **ZenHandoffPolicy** — controls whether and how one area/role can trigger another
+- **ZenTool** — declarative tool definition
+- **ZenToolBinding** — controlled mapping of tools to roles/policies
+- **ZenComplianceProfile** — optional policy overlay for SR&ED, IRAP, SOC2, ISO 27k, FedRAMP-style futures
+- **WorkspaceClass / TrustLevel** — classifies how sensitive a task/run/workspace is and what protections apply
+
+**Rule:** Dynamic behavior is allowed to evolve quickly. Authority is enforced strictly through policy, scope, tool-binding, and infrastructure boundaries.
 
 **Block 1.6: Repository and Build Infrastructure.** Set up Makefile targets, Dockerfiles, and CI/CD. Port essential utilities from 0.1 (logging, error handling) - **reference only, do not copy**.
 
@@ -1811,7 +1736,31 @@ Task completed -> ExperimentConcluded event -> ZenJournal
 
 **Block 3.4: API Server.** Implement the REST/GraphQL API surface. Health and readiness endpoints using zen-sdk/pkg/health. Authentication and authorization. Add OpenTelemetry tracing via zen-sdk/pkg/observability.
 
-**Block 3.5: KB Ingestion Service.** Build the pipeline that aggregates knowledge from multiple repos into QMD. See Section 3.6 for full architecture.
+**Block 3.5: KB / QMD Adapter and Index Orchestration.**
+Build the default KB retrieval path around Git + qmd, not a custom database-backed ingestion service.
+
+**Source of Truth:**
+- Git repositories (for example `zen-docs`) are the canonical KB source of truth.
+- Confluence, if used later, is a view/publishing surface and not the canonical write path.
+
+**Default Runtime Path:**
+- qmd is the default indexing/search engine for 1.0
+- zen-brain implements a QMD adapter around qmd CLI/process execution and result parsing
+- index refresh is triggered by repo updates or explicit refresh commands
+- background/scheduled refresh may use `zen-sdk/pkg/scheduler`
+
+**Non-Goals for 1.0:**
+- No custom CockroachDB-backed KB/QMD implementation by default
+- No graph/relationship layer in 1.0
+- No requirement to sync KB into Confluence before internal usefulness
+
+**Acceptance Criteria:**
+- [ ] Git repo KB source-of-truth path documented
+- [ ] qmd adapter implemented behind a small interface
+- [ ] refresh/index orchestration implemented
+- [ ] analyzer/planner can query KB through the adapter
+- [ ] qmd failure path uses `zen-sdk/pkg/retry`
+- [ ] KB quality tested with golden queries
 
 **Block 3.6: ZenLedger Implementation (NEW in V6).** Build the token and cost accounting service. Implement TokenRecord schema in CockroachDB with indexes for all query patterns (model efficiency, project breakdown, SR&ED export). Implement TokenRecorder interface that worker agents call after every LLM call. Implement LocalInferenceCostCalculator for estimating local model costs. Create SQL views for required reports: model efficiency, task type cost profile, local vs API comparison, project cost breakdown, SR&ED cost export. Add ZenLedger dashboard to Grafana (see Section 3.14).
 
@@ -1881,7 +1830,10 @@ Task completed -> ExperimentConcluded event -> ZenJournal
 
 **Block 5.3: Agent-Context Binding.** Agents write intermediate thoughts to ZenContext. Implement context retrieval for continuation.
 
-**Block 5.4: Funding Evidence Aggregator (NEW in V6).** Implement the FundingReportRole that generates SR&ED T661 narratives and IRAP technical reports from accumulated evidence. Queries ZenJournal filtered by SR&ED tags (u1, u2, u3, u4, experimental_general). Queries ZenLedger for SR&ED-eligible cost data (filter by sred_eligible: true). Queries Evidence Vault for experiment artifacts (benchmark runs, failure cases, iteration records). Generates structured output: T661 technical narrative sections, IRAP technical summaries, quarterly progress reports. **Depends on Block 3.3 (ZenJournal), Block 3.6 (ZenLedger), Block 4.5 (Evidence Vault).**
+**Block 5.4: Funding Evidence Aggregator (OPTIONAL FOR 1.0 CUT).**
+Generate SR&ED/IRAP report material from accumulated evidence in ZenJournal and ZenLedger.
+
+**Important:** This block is valuable, but it must not block the first trustworthy internal-use vertical slice. If sequencing pressure exists, complete Blocks 2–4 and the first useful parts of Block 5 before implementing narrative/report-generation automation.
 
 **Checkpoint 5 (Fully Aware):** Agents have memory. QMD returns relevant knowledge in <100ms. Agents recover from failures via ReMe protocol. SR&ED reports can be generated from accumulated evidence with cost breakdowns.
 
@@ -1962,7 +1914,7 @@ Block 3: The Nervous System (depends on Block 1)
 |-- 3.2 State Synchronization
 |-- 3.3 ZenJournal Implementation (depends on 1.1) [includes experiment-class events]
 |-- 3.4 API Server
-|-- 3.5 KB Ingestion Service (depends on 1.7, 3.3, 3.7)
+|-- 3.5 KB / QMD Adapter and Index Orchestration (depends on 1.7, 3.3)
 |-- 3.6 ZenLedger Implementation (depends on 3.7) (NEW in V6)
 +-- 3.7 CockroachDB Provisioning and Migrations (NEW in V6)
 
@@ -2040,20 +1992,32 @@ When zen-brain needs a new cross-cutting capability:
 Test individual functions in isolation. Target 80% coverage for business logic.
 
 ### 7.2 Integration Tests
-Test component interactions with real Kubernetes API. Use local Kind/Minikube cluster.
+Test component interactions against a real Kubernetes API using local k3d as the default development/integration environment.
 
-### 7.3 End-to-End Tests
-Test complete workflows. Create test Jira instance. Run full pipeline.
+### 7.3 Vertical Slice Acceptance Tests (NEW in V6.1)
+The first trusted goal of zen-brain 1.0 is one complete internal-useful vertical slice:
 
-### 7.4 Chaos and Reliability Tests
-Test adverse conditions: pod failures, network partitions. Verify recovery via ReMe protocol.
+Office intake -> analyze -> plan -> session -> factory execution -> proof-of-work -> status update
 
-### 7.5 KB Quality Tests (NEW in V5)
-Test KB search quality with golden set queries (per Section 3.12). Target >80% precision, >70% recall.
+These tests are first-class and must pass before widening scope.
 
----
+### 7.4 End-to-End Tests
+Test complete workflows across multiple components. Include a test Jira instance or controlled Jira workspace. Run the full pipeline.
 
-## 8. Risk Assessment
+### 7.5 Chaos and Reliability Tests
+Test adverse conditions: pod failures, worker crashes, transient provider errors, and network partitions. Verify recovery through ZenJournal / ReMe-compatible reconstruction.
+
+### 7.6 KB Quality Tests
+Test KB search quality with golden set queries. Validate qmd-backed retrieval against known expected results.
+
+### 7.7 Flow/Policy Regression Tests (NEW in V6.1)
+Validate canonical policy and routing behavior:
+- tag/category interpretation
+- approval-required vs autonomous behavior
+- handoff policy
+- tool-binding enforcement
+- provider escalation paths
+- hidden-vs-visible runtime behavior where relevant## 8. Risk Assessment
 
 ### 8.1 Technical Risks
 - **LLM Provider Reliability:** Implement retry logic via zen-sdk/pkg/retry, caching, multiple providers
@@ -2068,7 +2032,7 @@ Test KB search quality with golden set queries (per Section 3.12). Target >80% p
 ### 8.3 Operational Risks
 - **Observability Gaps:** Implement observability from Block 1 via zen-sdk/pkg/observability
 - **Secrets Management:** Use Block 4.0 patterns with zen-sdk/pkg/crypto
-- **Data Loss:** CockroachDB backups (Section 3.7) + KB regeneration from git
+- **Data Loss:** CockroachDB backups for structured runtime data (for example ZenLedger) + KB regeneration from git/qmd refresh path
 
 ---
 
@@ -2079,13 +2043,13 @@ Test KB search quality with golden set queries (per Section 3.12). Target >80% p
 | Block | Name | Purpose | Depends On |
 |-------|------|---------|------------|
 | 0 | Clean Foundation | Fresh repo, configurable paths | Nothing |
-| 0.5 | Pre-requisite SDK | zen-sdk packages ready | Block 0 |
-| 1 | Neuro-Anatomy | All schemas, interfaces, SR&ED design, multi-cluster CRDs | Block 0, 0.5 |
-| 2 | Office | Intent capture via ZenOffice, AI attribution in Jira | Block 1 |
-| 3 | Nervous System | Message bus, ZenJournal, API, KB, ZenLedger, DB provisioning | Block 1 |
-| 4 | Factory | Kubernetes execution, warm workers, cluster-aware dispatch | Block 1, 2.1, 3 |
-| 5 | Intelligence | QMD population, ReMe, agent memory, funding reports | Block 4.4, 3.3, 3.5, 3.6 |
-| 6 | Developer Experience | k3d cluster setup, debugging, db scripts | Block 3 |
+| 0.5 | Pre-requisite SDK | zen-sdk packages ready and wired as mandatory dependencies | Block 0 |
+| 1 | Neuro-Anatomy | All schemas, interfaces, taxonomy, policy/gate design, multi-cluster CRDs | Block 0, 0.5 |
+| 2 | Office | Intent capture via ZenOffice, AI attribution in Jira, planning entrypoint | Block 1 |
+| 3 | Nervous System | Message bus, ZenJournal, API, KB/QMD adapter, ZenLedger, runtime plumbing | Block 1 |
+| 4 | Factory | Kubernetes execution, warm workers, cluster-aware dispatch, proof-of-work | Block 1, 2.1, 3 |
+| 5 | Intelligence | ReMe, agent memory, model routing, optional evidence/report generation | Block 4.4, 3.3, 3.5, 3.6 |
+| 6 | Developer Experience | k3d cluster setup, debugging, db scripts, local dev paths | Block 3 |
 
 ### zen-sdk Packages Used
 
@@ -2156,16 +2120,41 @@ make dev-logs
 make dev-down
 ```
 
+## 10. 1.1 Radar (Do Not Lose)
+
+These are intentionally not required to make 1.0 internally useful, but they are strategically important and must stay visible:
+
+1. **Agent Sandbox**
+   - Non-destructive evaluation lane
+   - Agents can plan, simulate, and score behavior without making real external changes
+   - Used for dogfooding, policy validation, and trust-building before granting higher authority
+
+2. **Small-Model / MLQ Strategy**
+   - CPU-first high-throughput worker lane
+   - Qwen 3.5 0.8B-style worker optimization
+   - model routing / escalation to stronger models
+   - warmup, calibration, memory shaping, ReMe optimization
+   - future fine-tuning/distillation research
+
+3. **Ops Department**
+   - Dedicated operational domain for incidents, problems, changes, deploy coordination, and launch-readiness work
+   - likely centered in one Jira space initially
+   - intended to reduce toil for Zen-Mesh and adjacent operations
+
+4. **Compliance Overlays**
+   - SOC 2-oriented controls
+   - ISO 27k-oriented controls
+   - FedRAMP-style future posture
+   - profile-driven, not bespoke project hacks
+
 ---
 
-**Document Status:** Ready for Execution (Version 6.0)
+**Document Status:** Ready for Execution (Version 6.1)
 **Last Updated:** 2026-03-07
-**Changes in V6.0:** 
-- SR&ED evidence collection as default behavior (explicit opt-out)
-- AI Attribution headers in all Jira writes
-- Multi-project, multi-cluster architecture with control/data plane separation
-- ZenLedger for token and cost accounting with yield metrics
-- Database provisioning (Block 3.7) fixes gap before KB/ZenLedger
-- Funding Evidence Aggregator (Block 5.4) for SR&ED/IRAP reports
-- Experiment-class events for ZenJournal
-- Cluster-aware Session Affinity Dispatcher
+**Changes in V6.1:**
+- Tightened mandatory zen-sdk reuse rules
+- Corrected KB/QMD direction to Git + qmd default path
+- Corrected testing strategy to k3d + vertical-slice acceptance
+- Added future control-model vocabulary
+- Added 1.1 radar items: agent sandbox, small-model strategy, Ops Department, compliance overlays
+- Demoted Funding Evidence Aggregator from blocking the first trustworthy vertical slice
