@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/kube-zen/zen-brain1/internal/llm/routing"
 	"github.com/kube-zen/zen-brain1/pkg/llm"
 	zenretry "github.com/kube-zen/zen-sdk/pkg/retry"
 )
@@ -38,6 +39,10 @@ type GatewayConfig struct {
 	// Routing policy
 	AutoEscalateComplexTasks bool   `yaml:"auto_escalate_complex_tasks" json:"auto_escalate_complex_tasks"`
 	RoutingPolicy            string `yaml:"routing_policy" json:"routing_policy"` // "simple", "cost_aware", "performance"
+
+	// Fallback chain configuration
+	EnableFallbackChain bool `yaml:"enable_fallback_chain" json:"enable_fallback_chain"`
+	StrictPreferred     bool `yaml:"strict_preferred" json:"strict_preferred"` // Only use preferred provider if true
 }
 
 // DefaultGatewayConfig returns the default gateway configuration.
@@ -55,6 +60,8 @@ func DefaultGatewayConfig() *GatewayConfig {
 		PlannerSupportsTools:     true,       // Cloud models support tools
 		AutoEscalateComplexTasks: true,       // Auto-escalate complex tasks
 		RoutingPolicy:            "simple",   // Simple routing policy
+		EnableFallbackChain:      true,       // Enable intelligent provider fallback
+		StrictPreferred:          false,     // Allow fallback to other providers
 	}
 }
 
@@ -72,6 +79,9 @@ type Gateway struct {
 
 	// Router for selecting providers
 	router llm.Router
+
+	// Fallback chain for intelligent provider selection
+	fallbackChain routing.FallbackChain
 
 	// Statistics
 	stats *GatewayStats
@@ -134,7 +144,7 @@ func (g *Gateway) retryWithRetryable(ctx context.Context, providerName string, f
 	}
 
 	// Execute with retry logic
-	attemptErr := zenretry.Do(ctx, retryConfig, func() error {
+	_ = zenretry.Do(ctx, retryConfig, func() error {
 		resp, err := fn()
 		if err != nil {
 			lastErr = err
@@ -194,8 +204,13 @@ func NewGateway(config *GatewayConfig) (*Gateway, error) {
 		return nil, fmt.Errorf("failed to register built-in providers: %w", err)
 	}
 
-	log.Printf("[LLM Gateway] Initialized with config: local_worker=%s planner=%s timeout=%ds",
-		config.LocalWorkerModel, config.PlannerModel, config.RequestTimeout)
+	// Initialize fallback chain if enabled
+	if config.EnableFallbackChain {
+		g.initializeFallbackChain()
+	}
+
+	log.Printf("[LLM Gateway] Initialized with config: local_worker=%s planner=%s timeout=%ds fallback=%v",
+		config.LocalWorkerModel, config.PlannerModel, config.RequestTimeout, config.EnableFallbackChain)
 
 	return g, nil
 }
@@ -221,6 +236,41 @@ func (g *Gateway) registerBuiltinProviders() error {
 	}
 
 	return nil
+}
+
+// initializeFallbackChain initializes the fallback chain for intelligent provider selection.
+func (g *Gateway) initializeFallbackChain() {
+	// Create fallback chain configuration with provider capabilities
+	fallbackConfig := &routing.FallbackConfig{
+		DefaultProvider: "local-worker",
+		FallbackOrder:   []string{"planner", "fallback"},
+		ProviderCapabilities: map[string]routing.ProviderCapability{
+			"local-worker": {
+				MaxContextTokens: 4000,
+				CostPerToken:     0.000001, // Very cheap (local)
+				SupportsTools:    g.config.LocalWorkerSupportsTools,
+			},
+			"planner": {
+				MaxContextTokens: 128000,
+				CostPerToken:     0.00002, // Cloud pricing
+				SupportsTools:    g.config.PlannerSupportsTools,
+			},
+			"fallback": {
+				MaxContextTokens: 128000,
+				CostPerToken:     0.00002,
+				SupportsTools:    g.config.PlannerSupportsTools,
+			},
+		},
+		EnableSmartRouting: true,
+	}
+
+	// Create fallback chain with provider checker
+	g.fallbackChain = routing.NewDefaultFallbackChain(fallbackConfig, func(name string) bool {
+		_, exists := g.GetProvider(name)
+		return exists
+	})
+
+	log.Printf("[LLM Gateway] Fallback chain initialized with smart routing")
 }
 
 // RegisterProvider registers a provider with the gateway.
@@ -293,45 +343,107 @@ func (g *Gateway) Chat(ctx context.Context, req llm.ChatRequest) (*llm.ChatRespo
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	// Route to appropriate provider
-	provider, reason, err := g.Route(ctx, req)
+	var resp *llm.ChatResponse
+	var err error
+	var providerName string
+	var reason string
+
+	// Use fallback chain for intelligent provider routing if enabled
+	if g.config.EnableFallbackChain && g.fallbackChain != nil {
+		// Use ExecuteWithFallback for automatic provider fallback
+		resp, err = routing.ExecuteWithFallback(
+			ctx,
+			g.fallbackChain,
+			g.providers,
+			req,
+			"", // No preferred provider
+			nil, // No session context
+			g.config.StrictPreferred,
+		)
+
+		// Determine which provider was used from the response or error
+		if err != nil {
+			providerName = "unknown"
+			reason = fmt.Sprintf("all providers failed: %v", err)
+		} else if resp != nil && resp.Model != "" {
+			providerName = g.extractProviderName(resp.Model)
+			reason = fmt.Sprintf("fallback chain selected provider: %s", providerName)
+		} else {
+			providerName = "unknown"
+			reason = "fallback chain completed"
+		}
+
+		// Track which lane was used
+		g.stats.mu.Lock()
+		switch providerName {
+		case "local-worker":
+			g.stats.LocalWorkerRequests++
+		case "planner":
+			g.stats.PlannerRequests++
+		case "fallback":
+			g.stats.FallbackRequests++
+		}
+		g.stats.mu.Unlock()
+	} else {
+		// Use legacy routing (simple policy)
+		provider, routeReason, routeErr := g.Route(ctx, req)
+		if routeErr != nil {
+			g.stats.mu.Lock()
+			g.stats.RoutingErrors++
+			g.stats.mu.Unlock()
+			return nil, fmt.Errorf("routing failed: %w", routeErr)
+		}
+
+		providerName = provider.Name()
+		reason = routeReason
+
+		// Track which lane was used
+		g.stats.mu.Lock()
+		switch providerName {
+		case "local-worker":
+			g.stats.LocalWorkerRequests++
+		case "planner":
+			g.stats.PlannerRequests++
+		case "fallback":
+			g.stats.FallbackRequests++
+		}
+		g.stats.mu.Unlock()
+
+		// Execute the chat request with retry logic
+		resp, err = g.retryWithRetryable(ctx, providerName, func() (*llm.ChatResponse, error) {
+			return provider.Chat(ctx, req)
+		})
+	}
+
 	if err != nil {
+		// Update stats for errors
 		g.stats.mu.Lock()
 		g.stats.RoutingErrors++
 		g.stats.mu.Unlock()
-		return nil, fmt.Errorf("routing failed: %w", err)
-	}
-
-	// Track which lane was used
-	providerName := provider.Name()
-	g.stats.mu.Lock()
-	switch providerName {
-	case "local-worker":
-		g.stats.LocalWorkerRequests++
-	case "planner":
-		g.stats.PlannerRequests++
-	case "fallback":
-		g.stats.FallbackRequests++
-	}
-	g.stats.mu.Unlock()
-
-	log.Printf("[LLM Gateway] Routing request to %s: %s", providerName, reason)
-
-	// Execute the chat request with retry logic
-	resp, err := g.retryWithRetryable(ctx, providerName, func() (*llm.ChatResponse, error) {
-		return provider.Chat(ctx, req)
-	})
-
-	if err != nil {
 		return nil, fmt.Errorf("chat request failed (provider=%s): %w", providerName, err)
 	}
 
-	// Log routing information (for MVP)
+	// Log routing information
 	latency := time.Since(startTime).Milliseconds()
 	log.Printf("[LLM Gateway] Request completed: provider=%s, reason=%s, latency=%dms",
 		providerName, reason, latency)
 
 	resp.LatencyMs = latency
+
+	// Accumulate latency into stats
+	g.stats.mu.Lock()
+	g.stats.TotalLatencyMs += latency
+	switch providerName {
+	case "local-worker":
+		g.stats.LocalWorkerSuccess++
+		g.stats.LocalWorkerLatencyMs += latency
+	case "planner":
+		g.stats.PlannerSuccess++
+		g.stats.PlannerLatencyMs += latency
+	case "fallback":
+		g.stats.FallbackSuccess++
+	}
+	g.stats.mu.Unlock()
 
 	return resp, nil
 }
@@ -554,4 +666,33 @@ func containsCaseInsensitive(s, substr string) bool {
 		}
 	}
 	return false
+}
+
+// extractProviderName extracts the provider name from the model name.
+// This is a simple heuristic for tracking purposes.
+func (g *Gateway) extractProviderName(modelName string) string {
+	// Check for known provider model names
+	modelName = strings.ToLower(modelName)
+
+	if strings.Contains(modelName, "qwen") || strings.Contains(modelName, "local") {
+		return "local-worker"
+	}
+	if strings.Contains(modelName, "glm") || strings.Contains(modelName, "planner") {
+		return "planner"
+	}
+
+	// Default: check which provider has this model registered
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+
+	for name, provider := range g.providers {
+		// Check if this provider would match the model
+		// This is a simplified check for MVP
+		if strings.Contains(strings.ToLower(provider.Name()), strings.ToLower(modelName)) {
+			return name
+		}
+	}
+
+	// Fallback to "fallback"
+	return "fallback"
 }

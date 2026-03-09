@@ -92,6 +92,7 @@ func TestGateway_Chat_PlannerRoute(t *testing.T) {
 	config := DefaultGatewayConfig()
 	config.RoutingPolicy = "simple"
 	config.AutoEscalateComplexTasks = true
+	config.EnableFallbackChain = false // Disable fallback chain to test legacy routing
 	gateway, _ := NewGateway(config)
 
 	// Create a complex request that should route to planner
