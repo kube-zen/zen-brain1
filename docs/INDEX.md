@@ -40,9 +40,11 @@ Zen‑Brain documentation is organized into numbered directories:
 
 ### Development
 - [VERTICAL_SLICE.md](04-DEVELOPMENT/VERTICAL_SLICE.md) – Complete vertical slice guide with examples
+- [TEST_COVERAGE.md](04-DEVELOPMENT/TEST_COVERAGE.md) – Test coverage summary and test categories
 - [SETUP.md](04-DEVELOPMENT/SETUP.md) – Development environment setup
 
-### Operations
+### Testing
+
 - [CUTOVER.md](05-OPERATIONS/CUTOVER.md) – Cutover/migration procedures
 
 ### Examples
