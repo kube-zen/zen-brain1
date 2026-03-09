@@ -410,8 +410,7 @@ After the vertical slice is working:
 
 ## See Also
 
-- [ROADMAP.md](docs/01-ARCHITECTURE/ROADMAP.md) - Project roadmap
-- [CONSTRUCTION_PLAN.md](docs/01-ARCHITECTURE/CONSTRUCTION_PLAN.md) - Build plan
-- [CONFIG.md](docs/03-DESIGN/CONFIG.md) - Configuration design
-- [BLOCK1.1_ZEN_JOURNAL_SCHEMA.md](docs/01-ARCHITECTURE/BLOCK1.1_ZEN_JOURNAL_SCHEMA.md) - Journal design
-- [ZEN_CONTEXT.md](docs/03-DESIGN/ZEN_CONTEXT.md) - Three-tier memory design
+- [../01-ARCHITECTURE/ROADMAP.md](../01-ARCHITECTURE/ROADMAP.md) - Project roadmap
+- [../01-ARCHITECTURE/CONSTRUCTION_PLAN.md](../01-ARCHITECTURE/CONSTRUCTION_PLAN.md) - Build plan
+- [../03-DESIGN/ZEN_CONTEXT.md](../03-DESIGN/ZEN_CONTEXT.md) - Three-tier memory design
+- [../01-ARCHITECTURE/BLOCK1_1_ZEN_JOURNAL_SCHEMA.md](../01-ARCHITECTURE/BLOCK1_1_ZEN_JOURNAL_SCHEMA.md) - Journal schema design

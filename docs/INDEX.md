@@ -36,10 +36,10 @@ Zen‑Brain documentation is organized into numbered directories:
 - [ZEN_LEDGER.md](03-DESIGN/ZEN_LEDGER.md) – Cost‑ledger design
 
 ### User Guides
-- [VERTICAL_SLICE.md](VERTICAL_SLICE.md) – Complete vertical slice guide with examples
+- [VERTICAL_SLICE.md](04-DEVELOPMENT/VERTICAL_SLICE.md) – Complete vertical slice guide with examples
 
 ### Development
-- [CONFIGURATION.md](04-DEVELOPMENT/CONFIGURATION.md) – Configuration reference
+- [VERTICAL_SLICE.md](04-DEVELOPMENT/VERTICAL_SLICE.md) – Complete vertical slice guide with examples
 - [SETUP.md](04-DEVELOPMENT/SETUP.md) – Development environment setup
 
 ### Operations
