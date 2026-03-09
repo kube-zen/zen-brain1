@@ -117,7 +117,7 @@ import (
 
 Comprehensive documentation is available in the `docs/` directory:
 
-- **[Construction Plan](docs/01-ARCHITECTURE/CONSTRUCTION_PLAN.md)** – Master build roadmap (V6.0)
+- **[Construction Plan](docs/01-ARCHITECTURE/CONSTRUCTION_PLAN.md)** – Master build roadmap (V6.1)
 - **[Architecture Decision Records (ADRs)](docs/01-ARCHITECTURE/ADR/)** – Key design decisions with context and consequences
 - **[Data Model](docs/02-CONTRACTS/DATA_MODEL.md)** – Canonical types and structured tags
 - **[Knowledge Base & QMD Strategy](docs/01-ARCHITECTURE/KB_QMD_STRATEGY.md)** – How documentation is stored, searched, and published

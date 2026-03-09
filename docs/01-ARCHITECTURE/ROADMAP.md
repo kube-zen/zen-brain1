@@ -247,7 +247,7 @@ These concepts should be elevated to first-class architecture before implementat
 
 | Design Doc | Status | Notes |
 |-----------|--------|-------|
-| [CONSTRUCTION_PLAN.md](CONSTRUCTION_PLAN.md) | Complete | Master build roadmap (V6.0) |
+| [CONSTRUCTION_PLAN.md](CONSTRUCTION_PLAN.md) | Complete | Master build roadmap (V6.1) |
 | [DATA_MODEL.md](../02-CONTRACTS/DATA_MODEL.md) | Complete | Canonical types and structured tags |
 | [CONTROL_PLANE_VOCABULARY.md](CONTROL_PLANE_VOCABULARY.md) | Complete | First-class control-plane objects |
 | [BLOCK2_OFFICE.md](../03-DESIGN/BLOCK2_OFFICE.md) | Complete | Jira connector design |

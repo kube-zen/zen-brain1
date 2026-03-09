@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/kube-zen/zen-brain1/pkg/llm"
+	zenretry "github.com/kube-zen/zen-sdk/pkg/retry"
 )
 
 // GatewayConfig holds configuration for the LLM Gateway.
@@ -98,6 +99,79 @@ type GatewayStats struct {
 	PlannerSuccess     int64 `json:"planner_success"`
 	FallbackSuccess    int64 `json:"fallback_success"`
 }
+
+// retryWithRetryable wraps a provider call with zen-sdk retry logic.
+// It provides exponential backoff, jitter, and configurable retry attempts.
+func (g *Gateway) retryWithRetryable(ctx context.Context, providerName string, fn func() (*llm.ChatResponse, error)) (*llm.ChatResponse, error) {
+	var lastResponse *llm.ChatResponse
+	var lastErr error
+
+	// Configure retry for LLM provider calls
+	retryConfig := zenretry.Config{
+		MaxAttempts:    3, // Retry up to 3 times
+		InitialDelay:   200 * time.Millisecond, // Start with 200ms
+		MaxDelay:       5 * time.Second, // Max 5s between retries
+		Multiplier:     2.0, // Exponential backoff (2x)
+		Jitter:         true, // Add jitter to prevent thundering herd
+		JitterPercent:   0.1, // 10% jitter
+		RetryableErrors: func(err error) bool {
+			// Retry on transient errors: timeouts, rate limits, server errors
+			if err == nil {
+				return false
+			}
+			// Check for timeout errors
+			if ctx.Err() == context.DeadlineExceeded || ctx.Err() == context.Canceled {
+				return false
+			}
+			// Retry on network-like errors (simplified check)
+			errStr := err.Error()
+			return strings.Contains(errStr, "timeout") ||
+				strings.Contains(errStr, "deadline") ||
+				strings.Contains(errStr, "rate limit") ||
+				strings.Contains(errStr, "server error") ||
+				strings.Contains(errStr, "connection refused")
+		},
+	}
+
+	// Execute with retry logic
+	attemptErr := zenretry.Do(ctx, retryConfig, func() error {
+		resp, err := fn()
+		if err != nil {
+			lastErr = err
+			return err
+		}
+		lastResponse = resp
+		return nil
+	})
+
+	// Check if we succeeded
+	if lastResponse != nil {
+		// Update success stats
+		g.stats.mu.Lock()
+		g.stats.TotalLatencyMs += lastResponse.LatencyMs
+		switch providerName {
+		case "local-worker":
+			g.stats.LocalWorkerSuccess++
+			g.stats.LocalWorkerLatencyMs += lastResponse.LatencyMs
+		case "planner":
+			g.stats.PlannerSuccess++
+			g.stats.PlannerLatencyMs += lastResponse.LatencyMs
+		case "fallback":
+			g.stats.FallbackSuccess++
+		}
+		g.stats.mu.Unlock()
+
+		return lastResponse, nil
+	}
+
+	// All retries failed, return last error
+	g.stats.mu.Lock()
+	g.stats.TimeoutErrors++
+	g.stats.mu.Unlock()
+
+	return nil, lastErr
+}
+
 
 // NewGateway creates a new LLM Gateway.
 func NewGateway(config *GatewayConfig) (*Gateway, error) {
@@ -243,42 +317,20 @@ func (g *Gateway) Chat(ctx context.Context, req llm.ChatRequest) (*llm.ChatRespo
 
 	log.Printf("[LLM Gateway] Routing request to %s: %s", providerName, reason)
 
-	// Execute the chat request
-	resp, err := provider.Chat(ctx, req)
-	latency := time.Since(startTime).Milliseconds()
-
-	g.stats.mu.Lock()
-	g.stats.TotalLatencyMs += latency
-
-	// Track success and latency per provider
-	if err == nil {
-		switch providerName {
-		case "local-worker":
-			g.stats.LocalWorkerSuccess++
-			g.stats.LocalWorkerLatencyMs += latency
-		case "planner":
-			g.stats.PlannerSuccess++
-			g.stats.PlannerLatencyMs += latency
-		case "fallback":
-			g.stats.FallbackSuccess++
-		}
-	} else {
-		// Check if it was a timeout
-		if ctx.Err() == context.DeadlineExceeded {
-			g.stats.TimeoutErrors++
-		}
-	}
-	g.stats.mu.Unlock()
+	// Execute the chat request with retry logic
+	resp, err := g.retryWithRetryable(ctx, providerName, func() (*llm.ChatResponse, error) {
+		return provider.Chat(ctx, req)
+	})
 
 	if err != nil {
 		return nil, fmt.Errorf("chat request failed (provider=%s): %w", providerName, err)
 	}
 
 	// Log routing information (for MVP)
-	// In production, we might add this to response metadata or evidence
+	latency := time.Since(startTime).Milliseconds()
 	log.Printf("[LLM Gateway] Request completed: provider=%s, reason=%s, latency=%dms",
 		providerName, reason, latency)
-	
+
 	resp.LatencyMs = latency
 
 	return resp, nil

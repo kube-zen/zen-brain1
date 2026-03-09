@@ -10,7 +10,7 @@ High‑level architecture and design decisions.
 
 | Document | Purpose |
 |----------|---------|
-| [Construction Plan](01-ARCHITECTURE/CONSTRUCTION_PLAN.md) | Master build roadmap (V6.0) – the blueprint for Zen‑Brain 1.0 |
+| [Construction Plan](01-ARCHITECTURE/CONSTRUCTION_PLAN.md) | Master build roadmap (V6.1) – the blueprint for Zen‑Brain 1.0 |
 | [Architecture Decision Records (ADRs)](01-ARCHITECTURE/ADR/) | Key design decisions with context and consequences |
 | [Data Model](02-CONTRACTS/DATA_MODEL.md) | Canonical types and structured tags used across components |
 | [Knowledge Base & QMD Strategy](01-ARCHITECTURE/KB_QMD_STRATEGY.md) | How documentation is stored, searched, and published |
