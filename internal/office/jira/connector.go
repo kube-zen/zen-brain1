@@ -332,7 +332,8 @@ func (j *JiraOffice) AddComment(ctx context.Context, clusterID, workItemID strin
 	// Inject AI attribution if present
 	body := comment.Body
 	if comment.Attribution != nil {
-		body = injectAIAttribution(body, comment.Attribution)
+		header := j.FormatAIAttributionHeader(comment.Attribution)
+		body = header + "\n\n" + body
 	}
 	
 	// Prepare Jira comment payload (Atlassian Document Format)
