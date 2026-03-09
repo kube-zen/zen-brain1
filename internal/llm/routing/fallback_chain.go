@@ -1,4 +1,6 @@
 // Package routing provides LLM provider routing and fallback logic.
+// This pattern is rescued from zen-brain 0.1, adapted for 1.0's clean boundaries.
+// Uses zen-sdk/pkg/retry for exponential backoff with jitter.
 package routing
 
 import (

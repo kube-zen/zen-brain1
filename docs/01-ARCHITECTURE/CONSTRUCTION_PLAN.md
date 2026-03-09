@@ -255,67 +255,29 @@ This section documents the research findings for specific features requested dur
 
 ### 3.2 Knowledge Base with QMD
 
-**Purpose:** Enable fast retrieval of relevant knowledge and procedures by AI agents. QMD (Question-Answer Memory Database) is a vector-optimized store for semantic search.
+**Purpose:** Enable fast retrieval of relevant knowledge and procedures by AI agents.
 
-**Implementation:** Store procedural knowledge, policy documents, and historical solutions as embeddings in CockroachDB with C-SPANN vector index. This provides:
-- Distributed, fault-tolerant storage
-- Automatic sharding and replication
-- Prefix columns for scope isolation (company/general/project)
-- RaBitQ compression (94% smaller vectors)
-- Real-time incremental index updates (no rebuilds needed)
-- PostgreSQL wire compatibility (pgx driver)
+**Architecture:**
+- **Source of Truth:** Git repositories (zen-docs, zen-sdk, project repos)
+- **Indexing/Search:** qmd CLI tool (Question-Answer Memory Database)
+- **Storage:** qmd manages its own vector index (not CockroachDB)
 
-#### 3.2.1 Embedding Model Selection
+**Implementation:** zen-brain wraps qmd CLI as a subprocess adapter (internal/qmd/adapter.go) that:
+- Runs `qmd refresh` to update index from git repositories
+- Runs `qmd search` to query the vector index
+- Parses JSON output into structured results
+- Provides clean QMD interface abstraction for internal consumption
 
-**Recommended: nomic-embed-text (via Ollama)**
+**Key Points:**
+- Git remains the authoritative source of truth for all KB content
+- qmd handles vector indexing and search semantics
+- zen-brain does not manage KB storage directly
+- Adapter pattern allows future qmd backend changes without zen-brain code changes
+- CockroachDB is NOT used for KB/QMD (see V6.1 correction)
 
-| Property | Value |
-|----------|-------|
-| Dimension | 768 |
-| Inference | Local (no API) |
-| Performance | Good on code + prose |
-| Latency | ~50ms on CPU |
+**Embedding Model:** qmd tool uses configured embedding model (typically nomic-embed-text via Ollama for local inference)
 
-**Alternative: text-embedding-3-small (OpenAI)**
-
-| Property | Value |
-|----------|-------|
-| Dimension | 1536 |
-| Inference | API required |
-| Performance | Better for general text |
-| Latency | ~100ms + network |
-
-**Schema (nomic-embed-text):**
-
-```sql
-CREATE TABLE kb_chunks (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    
-    -- PREFIX COLUMNS (automatically partitioned by C-SPANN)
-    scope TEXT NOT NULL,           -- 'company', 'general', 'zen-brain', etc.
-    repo TEXT NOT NULL,            -- 'zen-docs', 'zen-sdk', etc.
-    
-    -- CONTENT
-    path TEXT NOT NULL,
-    chunk_index INT NOT NULL,
-    content TEXT NOT NULL,
-    embedding VECTOR(768),         -- nomic-embed-text dimension
-    
-    -- METADATA
-    heading_path TEXT[],           -- ['Section', 'Subsection']
-    token_count INT,
-    file_type TEXT,                -- 'markdown', 'go', 'yaml', etc.
-    language TEXT,                 -- Programming language (if code)
-    
-    created_at TIMESTAMPTZ DEFAULT now(),
-    updated_at TIMESTAMPTZ DEFAULT now(),
-    
-    -- DISTRIBUTED VECTOR INDEX (C-SPANN)
-    VECTOR INDEX (scope, repo, embedding),
-    
-    UNIQUE (scope, repo, path, chunk_index)
-);
-```
+**Scope Isolation:** qmd supports repository-level and path-based scoping for multi-repo knowledge bases
 
 **Decision Criteria:**
 - If CPU-only inference: nomic-embed-text (768d)
@@ -562,7 +524,7 @@ Total cold start: 10-40 seconds per task
 |   +-- wt-task-002/
 |       +-- code/                   # -> different repo worktree
 |
-|-- kb/                             # PROCESSED KNOWLEDGE BASE (stored in CockroachDB)
+|   `-- kb/                             # qmd vector index (managed by qmd CLI, not CockroachDB)
 |
 +-- cache/                          # Shared model cache
 ```

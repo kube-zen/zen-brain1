@@ -1,6 +1,7 @@
 // Package llm provides LLM Gateway implementation for zen-brain.
 // This package implements the Provider, Router, and ProviderFactory interfaces
 // to provide a complete LLM gateway with local worker and planner escalation lanes.
+// Uses zen-sdk/pkg/retry for exponential backoff with jitter.
 package llm
 
 import (
