@@ -12,6 +12,9 @@ import (
 	"github.com/kube-zen/zen-brain1/pkg/contracts"
 )
 
+// ProofOfWorkVersion defines the schema version of proof-of-work artifacts.
+const ProofOfWorkVersion = "1.0.0"
+
 // proofOfWorkManagerImpl implements ProofOfWorkManager interface.
 // It manages proof-of-work artifact generation and storage.
 type proofOfWorkManagerImpl struct {
@@ -124,6 +127,7 @@ func (p *proofOfWorkManagerImpl) GenerateComment(ctx context.Context, artifact *
 // generateSummary creates a proof-of-work summary from execution result.
 func (p *proofOfWorkManagerImpl) generateSummary(result *ExecutionResult, spec *FactoryTaskSpec) *ProofOfWorkSummary {
 	summary := &ProofOfWorkSummary{
+	Version:           ProofOfWorkVersion,
 		TaskID:           result.TaskID,
 		SessionID:         result.SessionID,
 		WorkItemID:       result.WorkItemID,

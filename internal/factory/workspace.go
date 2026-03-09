@@ -6,9 +6,16 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 )
+
+// staleLockThreshold defines how old a lock file can be before considered stale.
+const staleLockThreshold = 1 * time.Hour
+
+// staleWorkspaceThreshold defines how old a workspace directory can be before considered stale.
+const staleWorkspaceThreshold = 24 * time.Hour
 
 // WorkspaceManagerImpl implements WorkspaceManager.
 type WorkspaceManagerImpl struct {
@@ -91,11 +98,41 @@ func (w *WorkspaceManagerImpl) LockWorkspace(ctx context.Context, path string) e
 		w.lockMap[path] = &sync.Mutex{}
 	}
 	w.lockMap[path].Lock()
+	
 	lockPath := filepath.Join(path, ".zen-lock")
-	if err := os.WriteFile(lockPath, []byte(time.Now().Format(time.RFC3339)), 0644); err != nil {
-		w.lockMap[path].Unlock()
-		return fmt.Errorf("failed to create lock marker: %w", err)
+	
+	// Check for existing lock file
+	if info, err := os.Stat(lockPath); err == nil {
+		// Lock file exists, check if stale
+		if time.Since(info.ModTime()) > staleLockThreshold {
+			log.Printf("[WorkspaceManager] Removing stale lock file: path=%s age=%v", lockPath, time.Since(info.ModTime()))
+			if err := os.Remove(lockPath); err != nil {
+				w.lockMap[path].Unlock()
+				return fmt.Errorf("failed to remove stale lock file: %w", err)
+			}
+		} else {
+			// Lock is still valid, workspace is locked
+			w.lockMap[path].Unlock()
+			return fmt.Errorf("workspace is locked: %s (locked at %v)", lockPath, info.ModTime().Format(time.RFC3339))
+		}
 	}
+	
+	// Create lock file atomically to prevent race conditions between processes
+	file, err := os.OpenFile(lockPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
+	if err != nil {
+		w.lockMap[path].Unlock()
+		return fmt.Errorf("failed to create lock file (possibly race condition): %w", err)
+	}
+	// Write timestamp
+	timestamp := time.Now().Format(time.RFC3339)
+	if _, err := file.Write([]byte(timestamp)); err != nil {
+		file.Close()
+		os.Remove(lockPath)
+		w.lockMap[path].Unlock()
+		return fmt.Errorf("failed to write lock timestamp: %w", err)
+	}
+	file.Close()
+	
 	log.Printf("[WorkspaceManager] Workspace locked: path=%s", path)
 	return nil
 }
@@ -179,6 +216,65 @@ func (w *WorkspaceManagerImpl) DeleteWorkspace(ctx context.Context, path string)
 	log.Printf("[WorkspaceManager] Workspace deleted successfully: path=%s", path)
 
 	return nil
+}
+
+// CleanupStaleWorkspaces removes workspace directories that are older than staleWorkspaceThreshold.
+// It skips directories that are currently locked.
+func (w *WorkspaceManagerImpl) CleanupStaleWorkspaces(ctx context.Context) (int, error) {
+	cleaned := 0
+	err := filepath.WalkDir(w.workspacesDir, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			// Skip errors for individual entries
+			return nil
+		}
+		if !d.IsDir() {
+			return nil
+		}
+		// Check if this is a task directory (two levels deep from workspacesDir)
+		relPath, err := filepath.Rel(w.workspacesDir, path)
+		if err != nil {
+			return nil
+		}
+		parts := strings.Split(relPath, string(filepath.Separator))
+		if len(parts) != 2 {
+			// Not a task directory (session level or deeper)
+			return nil
+		}
+		// Check directory age
+		info, err := d.Info()
+		if err != nil {
+			return nil
+		}
+		if time.Since(info.ModTime()) <= staleWorkspaceThreshold {
+			return nil
+		}
+		// Check for lock file
+		lockPath := filepath.Join(path, ".zen-lock")
+		if lockInfo, err := os.Stat(lockPath); err == nil {
+			// Lock file exists, check if stale
+			if time.Since(lockInfo.ModTime()) > staleLockThreshold {
+				// Stale lock, remove it
+				os.Remove(lockPath)
+				log.Printf("[WorkspaceManager] Removed stale lock: %s", lockPath)
+			} else {
+				// Still locked, skip deletion
+				log.Printf("[WorkspaceManager] Skipping locked workspace: %s", path)
+				return nil
+			}
+		}
+		// Delete workspace directory
+		if err := w.DeleteWorkspace(ctx, path); err != nil {
+			log.Printf("[WorkspaceManager] Failed to delete stale workspace %s: %v", path, err)
+			return nil
+		}
+		cleaned++
+		log.Printf("[WorkspaceManager] Deleted stale workspace: %s", path)
+		return nil
+	})
+	if err != nil {
+		return cleaned, fmt.Errorf("error walking workspaces directory: %w", err)
+	}
+	return cleaned, nil
 }
 
 // GitWorkspaceManager integrates with zen-brain's worktree manager.

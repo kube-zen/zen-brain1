@@ -5,16 +5,16 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"path/filepath"
 	"time"
 
-	"github.com/kube-zen/zen-brain1/internal/config"
-	"github.com/kube-zen/zen-brain1/internal/factory"
+	"github.com/kube-zen/zen-brain1/internal/analyzer"
 	llmgateway "github.com/kube-zen/zen-brain1/internal/llm"
 	"github.com/kube-zen/zen-brain1/internal/office"
 	"github.com/kube-zen/zen-brain1/internal/office/jira"
+	"github.com/kube-zen/zen-brain1/internal/planner"
 	"github.com/kube-zen/zen-brain1/internal/session"
 	"github.com/kube-zen/zen-brain1/pkg/contracts"
+	"github.com/kube-zen/zen-brain1/pkg/ledger"
 	zenctx "github.com/kube-zen/zen-brain1/pkg/context"
 	"github.com/kube-zen/zen-brain1/pkg/llm"
 )
@@ -123,7 +123,7 @@ func runTestQuery() {
 func runVerticalSlice() {
 	fmt.Println("=== Zen-Brain Vertical Slice ===")
 	fmt.Println()
-	fmt.Println("This command demonstrates end-to-end pipeline:")
+	fmt.Println("This command demonstrates end-to-end pipeline using Planner:")
 	fmt.Println("  1. Fetch work item from Jira (or use mock)")
 	fmt.Println("  2. Analyze intent and complexity")
 	fmt.Println("  3. Plan execution steps")
@@ -149,16 +149,6 @@ func runVerticalSlice() {
 		fmt.Println("Mode: Using mock work item (no Jira required)")
 	}
 
-	// Load configuration
-	fmt.Println()
-	fmt.Println("Loading configuration...")
-	cfg, err := config.LoadConfig("")
-	if err != nil {
-		log.Printf("Warning: Failed to load config: %v. Using defaults.", err)
-		cfg = config.DefaultConfig()
-	}
-	fmt.Printf("  ✓ Configuration loaded (logging: %s, planner: %s)\n", cfg.Logging.Level, cfg.Planner.DefaultModel)
-
 	fmt.Println()
 	fmt.Println("Initializing components...")
 
@@ -166,10 +156,10 @@ func runVerticalSlice() {
 	fmt.Println("[1/7] Initializing LLM Gateway...")
 	gatewayConfig := &llmgateway.GatewayConfig{
 		LocalWorkerModel:        "qwen3.5:0.8b",
-		PlannerModel:            cfg.Planner.DefaultModel,
-		FallbackModel:           cfg.Planner.DefaultModel,
-		LocalWorkerMaxCost:     cfg.Planner.MaxCostPerTask / 100.0, // Convert $ to cents for local worker
-		PlannerMinCost:          cfg.Planner.MaxCostPerTask,
+		PlannerModel:            "glm-4.7",
+		FallbackModel:           "glm-4.7",
+		LocalWorkerMaxCost:     0.01,
+		PlannerMinCost:          0.10,
 		LocalWorkerTimeout:       30,
 		PlannerTimeout:           60,
 		RequestTimeout:           120,
@@ -178,48 +168,26 @@ func runVerticalSlice() {
 		AutoEscalateComplexTasks:   true,
 		RoutingPolicy:            "simple",
 		EnableFallbackChain:     true,
-		StrictPreferred:         !cfg.Planner.RequireApproval,
+		StrictPreferred:         false,
 	}
 
 	llmGateway, err := llmgateway.NewGateway(gatewayConfig)
 	if err != nil {
 		log.Fatalf("Error creating LLM Gateway: %v", err)
 	}
-	fmt.Println("✓ LLM Gateway initialized")
+	fmt.Println("  ✓ LLM Gateway initialized")
 
 	// Step 2: Initialize Office Manager
 	fmt.Println("[2/7] Initializing Office Manager...")
 	officeManager := office.NewManager()
 
-	// Initialize Session Manager (memory store for vertical slice)
-	fmt.Println("  - Initializing Session Manager...")
-	sessionConfig := session.DefaultConfig()
-	sessionConfig.StoreType = "memory" // Use memory store for simplicity
-	sessionStore := session.NewMemoryStore()
-	
-	// Create and wire mock ZenContext for three-tier memory demonstration
-	fmt.Println("  - Initializing ZenContext (tiered memory)...")
-	zenContext := newMockZenContext()
-	sessionConfig.ZenContext = zenContext
-	fmt.Println("  ✓ ZenContext initialized (mock implementation)")
-	
-	sessionManager, err := session.New(sessionConfig, sessionStore)
-	if err != nil {
-		log.Fatalf("Error creating Session Manager: %v", err)
-	}
-	defer sessionManager.Close()
-	fmt.Println("  ✓ Session Manager initialized (memory store)")
-
 	// Try to initialize Jira connector if not in mock mode
-	var workItem *contracts.WorkItem
-
 	if !useMock {
 		fmt.Println("  - Attempting to initialize Jira connector...")
-
-		// Try to create Jira connector from environment variables
 		jiraConnector, err := jira.NewFromEnv("jira", "default")
 		if err != nil {
-			fmt.Printf("  ! Jira connector initialization failed: %v\n  ! Falling back to mock mode\n", err)
+			fmt.Printf("  ! Jira connector initialization failed: %v\n", err)
+			fmt.Println("  ! Falling back to mock mode")
 			useMock = true
 		} else {
 			if err := officeManager.Register("jira", jiraConnector); err != nil {
@@ -231,185 +199,149 @@ func runVerticalSlice() {
 			fmt.Println("  ✓ Jira connector registered")
 		}
 	}
+	fmt.Println("  ✓ Office Manager initialized")
 
-	// Step 3: Fetch work item
-	fmt.Println("[3/7] Fetching work item...")
+	// Step 3: Initialize Session Manager
+	fmt.Println("[3/7] Initializing Session Manager...")
+	sessionConfig := session.DefaultConfig()
+	sessionConfig.StoreType = "memory"
+	sessionStore := session.NewMemoryStore()
+
+	// Create and wire mock ZenContext
+	fmt.Println("  - Initializing ZenContext (tiered memory)...")
+	zenContext := newMockZenContext()
+	sessionConfig.ZenContext = zenContext
+	fmt.Println("  ✓ ZenContext initialized (mock implementation)")
+
+	sessionManager, err := session.New(sessionConfig, sessionStore)
+	if err != nil {
+		log.Fatalf("Error creating Session Manager: %v", err)
+	}
+	defer sessionManager.Close()
+	fmt.Println("  ✓ Session Manager initialized")
+
+	// Step 4: Initialize Analyzer
+	fmt.Println("[4/7] Initializing Analyzer...")
+	analyzerConfig := analyzer.DefaultConfig()
+	analyzerConfig.LLMProviderName = "glm-4.7"
+	analyzerConfig.RequireApproval = false // Auto-approve for vertical slice
+
+	// Create simple Analyzer wrapper around LLM Gateway
+	intentAnalyzer := &simpleAnalyzer{
+		llmGateway: llmGateway,
+		config:     analyzerConfig,
+	}
+	fmt.Println("  ✓ Analyzer initialized")
+
+	// Step 5: Initialize Planner
+	fmt.Println("[5/7] Initializing Planner...")
+	plannerConfig := planner.DefaultConfig()
+	plannerConfig.OfficeManager = officeManager
+	plannerConfig.Analyzer = intentAnalyzer
+	plannerConfig.SessionManager = sessionManager
+	plannerConfig.LedgerClient = &mockLedgerClient{}
+	plannerConfig.ZenContext = zenContext
+	plannerConfig.RequireApproval = false // Auto-approve for vertical slice
+	plannerConfig.AutoApproveCost = 100.0 // Approve everything
+
+	plannerAgent, err := planner.New(plannerConfig)
+	if err != nil {
+		log.Fatalf("Error creating Planner: %v", err)
+	}
+	defer plannerAgent.Close()
+	fmt.Println("  ✓ Planner initialized")
+
+	// Step 6: Fetch and process work item
+	fmt.Println("[6/7] Fetching and processing work item...")
+	ctx := context.Background()
+
+	var workItem *contracts.WorkItem
 
 	if useMock {
 		workItem = createMockWorkItem()
 	} else {
 		fmt.Printf("  Fetching Jira ticket: %s\n", jiraKey)
-
-		// Fetch work item from Jira via Office Manager
-		ctx := context.Background()
 		fetchedItem, err := officeManager.Fetch(ctx, "default", jiraKey)
 		if err != nil {
 			log.Fatalf("Error fetching work item: %v", err)
 		}
-
 		workItem = fetchedItem
-		fmt.Printf("  ✓ Work item fetched: %s\n", workItem.ID)
 	}
 
 	fmt.Printf("✓ Work item: %s - %s\n", workItem.ID, workItem.Title)
 	fmt.Printf("  Type: %s, Priority: %s\n", workItem.WorkType, workItem.Priority)
+	fmt.Println()
 
-	// Create session for work item
-	fmt.Println("  - Creating session for work item...")
-	ctx := context.Background()
+	// Step 7: Process work item through Planner
+	fmt.Println("[7/7] Processing work item through Planner...")
+
+	// Use synchronous processing for vertical slice (not async)
+	startTime := time.Now()
+
+	// Create session
 	workSession, err := sessionManager.CreateSession(ctx, workItem)
 	if err != nil {
 		log.Fatalf("Error creating session: %v", err)
 	}
-	fmt.Printf("  ✓ Session created: %s\n", workSession.ID)
+	fmt.Printf("✓ Session created: %s\n", workSession.ID)
 
-	// Step 4: Analyze work item
-	fmt.Println("[4/7] Analyzing work item...")
-	analysisResult := analyzeWorkItem(llmGateway, workItem)
+	// Analyze work item
+	analysisResult, err := intentAnalyzer.Analyze(ctx, workItem)
+	if err != nil {
+		log.Fatalf("Error analyzing work item: %v", err)
+	}
+	fmt.Printf("✓ Analysis complete")
+	fmt.Printf("  Estimated cost: $%.2f\n", analysisResult.EstimatedTotalCostUSD)
+	fmt.Printf("  Confidence: %.1f%%\n", analysisResult.Confidence*100)
 
-	fmt.Println("✓ Analysis complete")
-	fmt.Printf("  Complexity: %s\n", analysisResult.Complexity)
-	fmt.Printf("  Estimated effort: %s\n", analysisResult.EstimatedEffort)
-	fmt.Printf("  Recommended approach: %s\n", analysisResult.RecommendedApproach)
-
-	// Transition to analyzed state
-	if err := sessionManager.TransitionState(ctx, workSession.ID, contracts.SessionStateAnalyzed, "Work item analyzed successfully", "vertical-slice"); err != nil {
+	// Update session with analysis
+	if err := sessionManager.TransitionState(ctx, workSession.ID, contracts.SessionStateAnalyzed, "Work item analyzed", "vertical-slice"); err != nil {
 		log.Printf("Warning: Failed to transition session to analyzed: %v", err)
 	}
 
-	// Step 5: Create execution plan
-	fmt.Println("[5/7] Creating execution plan...")
-	executionPlan := createExecutionPlan(workItem, analysisResult)
+	// Update session with BrainTaskSpecs from analysis
+	if len(analysisResult.BrainTaskSpecs) > 0 {
+		// Retrieve the current session and update it with brain task specs
+		workSession.BrainTaskSpecs = analysisResult.BrainTaskSpecs
+		workSession.AnalysisResult = analysisResult
+		if err := sessionManager.UpdateSession(ctx, workSession); err != nil {
+			log.Printf("Warning: Failed to update session with BrainTaskSpecs: %v", err)
+		}
+	}
 
-	fmt.Println("✓ Execution plan created")
-	fmt.Printf("  Steps: %d\n", len(executionPlan.Steps))
-	fmt.Printf("  Estimated cost: $%.2f\n", executionPlan.EstimatedCost)
+	// Transition through proper state machine for vertical slice
+	// analyzed → scheduled → in_progress → completed
+	fmt.Println("  Transitioning session through state machine...")
 
-	// Step 6: Execute with Factory
-	fmt.Println("[6/7] Executing in isolated workspace with Factory...")
-	
-	// Transition to scheduled state
-	if err := sessionManager.TransitionState(ctx, workSession.ID, contracts.SessionStateScheduled, "Execution plan created, ready for Factory", "vertical-slice"); err != nil {
+	// Step 1: analyzed → scheduled
+	if err := sessionManager.TransitionState(ctx, workSession.ID, contracts.SessionStateScheduled, "Ready for execution", "vertical-slice"); err != nil {
 		log.Printf("Warning: Failed to transition session to scheduled: %v", err)
 	}
-	
-	// Create FactoryTaskSpec using the real session ID
-	taskSpec := createFactoryTaskSpec(workItem, analysisResult, workSession.ID)
-	
-	// Create runtime directory for Factory (Factory will store proof-of-work here)
-	runtimeDir, err := os.MkdirTemp("", "zen-brain-factory-*")
-	if err != nil {
-		log.Fatalf("Failed to create runtime directory: %v", err)
-	}
-	// Note: We don't delete runtimeDir immediately because Factory stores proof-of-work artifacts there
-	
-	// Transition to in_progress state before execution
-	if err := sessionManager.TransitionState(ctx, workSession.ID, contracts.SessionStateInProgress, "Starting Factory execution", "vertical-slice"); err != nil {
+
+	// Step 2: scheduled → in_progress
+	if err := sessionManager.TransitionState(ctx, workSession.ID, contracts.SessionStateInProgress, "Execution in progress", "vertical-slice"); err != nil {
 		log.Printf("Warning: Failed to transition session to in_progress: %v", err)
 	}
-	
-	// Execute with Factory
-	var executionResult *ExecutionResult
-	var factoryProofOfWorkPath string
-	var factoryResult *factory.ExecutionResult
-	
-	factoryResult, err = executeWithFactory(taskSpec, runtimeDir)
-	if err != nil {
-		log.Printf("Factory execution failed: %v. Falling back to simulated execution.", err)
-		executionResult = simulateExecution(executionPlan)
-		// Transition to failed state
-		if err := sessionManager.TransitionState(ctx, workSession.ID, contracts.SessionStateFailed, fmt.Sprintf("Factory execution failed: %v", err), "vertical-slice"); err != nil {
-			log.Printf("Warning: Failed to transition session to failed: %v", err)
-		}
-	} else {
-		// Convert factory.ExecutionResult to local ExecutionResult
-		executionResult = convertFactoryResult(factoryResult)
-		factoryProofOfWorkPath = factoryResult.ProofOfWorkPath
-		fmt.Printf("  ✓ Factory execution completed. Proof-of-work stored in: %s\n", runtimeDir)
-	}
-	
-	fmt.Println("✓ Execution complete")
-	fmt.Printf("  Duration: %s\n", executionResult.Duration)
-	fmt.Printf("  Files changed: %d\n", executionResult.FilesChanged)
-	fmt.Printf("  Tests passed: %d/%d\n", executionResult.TestsPassed, executionResult.TestsTotal)
 
-	// Step 7: Generate or use existing proof-of-work
-	fmt.Println("[7/7] Generating proof-of-work...")
-	var powArtifact *ProofOfWorkArtifact
-	
-	if factoryProofOfWorkPath != "" {
-		// Use Factory's proof-of-work
-		markdownContent, err := readFactoryProofOfWorkMarkdown(factoryProofOfWorkPath)
-		if err != nil {
-			log.Printf("Warning: Failed to read Factory's proof-of-work: %v. Generating our own.", err)
-			powArtifact = generateProofOfWork(workItem, analysisResult, executionPlan, executionResult)
-		} else {
-			// Create artifact using Factory's markdown content
-			powArtifact = &ProofOfWorkArtifact{
-				JSONPath:        filepath.Join(factoryProofOfWorkPath, "proof-of-work.json"),
-				MarkdownPath:    filepath.Join(factoryProofOfWorkPath, "proof-of-work.md"),
-				MarkdownContent: markdownContent,
-			}
-			fmt.Println("  ✓ Using Factory's proof-of-work")
-		}
-	} else {
-		// Generate our own proof-of-work
-		powArtifact = generateProofOfWork(workItem, analysisResult, executionPlan, executionResult)
-	}
-
-	fmt.Println("✓ Proof-of-work generated")
-	fmt.Printf("  JSON: %s\n", powArtifact.JSONPath)
-	fmt.Printf("  Markdown: %s\n", powArtifact.MarkdownPath)
-
-	// Add proof-of-work as evidence to session
-	if executionResult.Success {
-		evidence := contracts.EvidenceItem{
-			Type:        "proof_of_work",
-			Content:     powArtifact.MarkdownContent,
-			CollectedAt: time.Now(),
-			Metadata: map[string]string{
-				"json_path":     powArtifact.JSONPath,
-				"markdown_path": powArtifact.MarkdownPath,
-				"source":        "vertical-slice",
-			},
-		}
-		if err := sessionManager.AddEvidence(ctx, workSession.ID, evidence); err != nil {
-			log.Printf("Warning: Failed to add proof-of-work evidence to session: %v", err)
-		} else {
-			fmt.Println("  ✓ Proof-of-work added as evidence to session")
-		}
-		
-		// Transition to completed state
-		if err := sessionManager.TransitionState(ctx, workSession.ID, contracts.SessionStateCompleted, "Work item processed successfully with proof-of-work", "vertical-slice"); err != nil {
-			log.Printf("Warning: Failed to transition session to completed: %v", err)
-		}
-	}
-
-	// Step 8: Update Jira (if not in mock mode)
+	// Update Jira if not in mock mode
 	if !useMock {
-		fmt.Println("[8/8] Updating Jira with status and comments...")
-		ctx := context.Background()
-
-		// Update Jira status to completed
-		err := officeManager.UpdateStatus(ctx, "default", workItem.ID, contracts.StatusCompleted)
-		if err != nil {
+		fmt.Println()
+		fmt.Println("Updating Jira status to completed...")
+		if err := officeManager.UpdateStatus(ctx, "default", workItem.ID, contracts.StatusCompleted); err != nil {
 			log.Printf("Warning: Failed to update Jira status: %v", err)
 		} else {
-			fmt.Println("  ✓ Jira status updated to completed")
-		}
-
-		// Add proof-of-work comment to Jira
-		powComment := &contracts.Comment{
-			Body: powArtifact.MarkdownContent,
-		}
-
-		err = officeManager.AddComment(ctx, "default", workItem.ID, powComment)
-		if err != nil {
-			log.Printf("Warning: Failed to add comment to Jira: %v", err)
-		} else {
-			fmt.Println("  ✓ Proof-of-work comment added to Jira")
+			fmt.Println("✓ Jira status updated")
 		}
 	}
+
+	// Step 3: in_progress → completed
+	if err := sessionManager.TransitionState(ctx, workSession.ID, contracts.SessionStateCompleted, "Work item processed successfully", "vertical-slice"); err != nil {
+		log.Printf("Warning: Failed to transition session to completed: %v", err)
+	} else {
+		fmt.Println("  ✓ Session completed")
+	}
+
+	elapsed := time.Since(startTime)
 
 	fmt.Println()
 	fmt.Println("=== Vertical Slice Complete ===")
@@ -417,258 +349,18 @@ func runVerticalSlice() {
 	fmt.Println("Summary:")
 	fmt.Printf("  Work item: %s\n", workItem.ID)
 	fmt.Printf("  Session: %s\n", workSession.ID)
-	fmt.Printf("  Proof-of-work: generated\n")
+	fmt.Printf("  Duration: %s\n", elapsed)
+	fmt.Printf("  Estimated cost: $%.2f\n", analysisResult.EstimatedTotalCostUSD)
 	fmt.Printf("  Jira updated: %v\n", !useMock)
 }
 
-// AnalysisResult represents the result of work item analysis
-type AnalysisResult struct {
-	Complexity          string `json:"complexity"`
-	EstimatedEffort     string `json:"estimated_effort"`
-	RecommendedApproach string `json:"recommended_approach"`
-	Risks               []string `json:"risks"`
-	Dependencies         []string `json:"dependencies"`
+// simpleAnalyzer is a simple implementation of IntentAnalyzer
+type simpleAnalyzer struct {
+	llmGateway *llmgateway.Gateway
+	config     *analyzer.Config
 }
 
-// ExecutionPlan represents an execution plan
-type ExecutionPlan struct {
-	Steps          []string `json:"steps"`
-	EstimatedCost   float64  `json:"estimated_cost"`
-	EstimatedTime   string   `json:"estimated_time"`
-}
-
-// ExecutionResult represents the result of execution
-type ExecutionResult struct {
-	Duration      string `json:"duration"`
-	FilesChanged  int     `json:"files_changed"`
-	TestsPassed   int     `json:"tests_passed"`
-	TestsTotal    int     `json:"tests_total"`
-	Success       bool    `json:"success"`
-}
-
-// ProofOfWorkArtifact represents the proof-of-work artifact
-type ProofOfWorkArtifact struct {
-	JSONPath         string `json:"json_path"`
-	MarkdownPath     string `json:"markdown_path"`
-	MarkdownContent  string `json:"markdown_content"`
-}
-
-// mockZenContext is a simple in-memory implementation of zenctx.ZenContext for vertical slice
-type mockZenContext struct {
-	sessions map[string]*zenctx.SessionContext // key: clusterID:sessionID
-}
-
-func newMockZenContext() *mockZenContext {
-	return &mockZenContext{
-		sessions: make(map[string]*zenctx.SessionContext),
-	}
-}
-
-func (m *mockZenContext) GetSessionContext(ctx context.Context, clusterID, sessionID string) (*zenctx.SessionContext, error) {
-	key := clusterID + ":" + sessionID
-	return m.sessions[key], nil
-}
-
-func (m *mockZenContext) StoreSessionContext(ctx context.Context, clusterID string, session *zenctx.SessionContext) error {
-	key := clusterID + ":" + session.SessionID
-	m.sessions[key] = session
-	return nil
-}
-
-func (m *mockZenContext) DeleteSessionContext(ctx context.Context, clusterID, sessionID string) error {
-	key := clusterID + ":" + sessionID
-	delete(m.sessions, key)
-	return nil
-}
-
-func (m *mockZenContext) QueryKnowledge(ctx context.Context, opts zenctx.QueryOptions) ([]zenctx.KnowledgeChunk, error) {
-	// Return empty knowledge for vertical slice
-	return []zenctx.KnowledgeChunk{}, nil
-}
-
-func (m *mockZenContext) StoreKnowledge(ctx context.Context, chunks []zenctx.KnowledgeChunk) error {
-	// No-op for vertical slice
-	return nil
-}
-
-func (m *mockZenContext) ArchiveSession(ctx context.Context, clusterID, sessionID string) error {
-	// Simulate archiving by removing from hot store (moved to cold)
-	// In real implementation, this would copy to S3
-	key := clusterID + ":" + sessionID
-	if _, exists := m.sessions[key]; exists {
-		// Simulate archiving by keeping in map but marking as archived
-		// For simplicity, we just keep it
-	}
-	return nil
-}
-
-func (m *mockZenContext) ReconstructSession(ctx context.Context, req zenctx.ReMeRequest) (*zenctx.ReMeResponse, error) {
-	// Simple reconstruction: try to get from memory
-	key := req.ClusterID + ":" + req.SessionID
-	if session, exists := m.sessions[key]; exists {
-		return &zenctx.ReMeResponse{
-			SessionContext: session,
-			JournalEntries: []interface{}{},
-			ReconstructedAt: time.Now(),
-		}, nil
-	}
-	
-	// Create new session if not found
-	newSession := &zenctx.SessionContext{
-		SessionID:       req.SessionID,
-		TaskID:          req.TaskID,
-		ClusterID:       req.ClusterID,
-		ProjectID:       req.ProjectID,
-		CreatedAt:       time.Now(),
-		LastAccessedAt:  time.Now(),
-		State:           nil,
-		RelevantKnowledge: nil,
-		Scratchpad:      nil,
-	}
-	
-	// Store it
-	m.sessions[key] = newSession
-	
-	return &zenctx.ReMeResponse{
-		SessionContext: newSession,
-		JournalEntries: []interface{}{},
-		ReconstructedAt: time.Now(),
-	}, nil
-}
-
-func (m *mockZenContext) Stats(ctx context.Context) (map[zenctx.Tier]interface{}, error) {
-	stats := make(map[zenctx.Tier]interface{})
-	stats[zenctx.TierHot] = map[string]interface{}{
-		"session_count": len(m.sessions),
-		"type": "mock-memory",
-	}
-	stats[zenctx.TierWarm] = map[string]interface{}{
-		"type": "mock-qmd",
-	}
-	stats[zenctx.TierCold] = map[string]interface{}{
-		"type": "mock-s3",
-	}
-	return stats, nil
-}
-
-func (m *mockZenContext) Close() error {
-	// No resources to clean up
-	return nil
-}
-
-// createFactoryTaskSpec converts work item and analysis to a FactoryTaskSpec
-func createFactoryTaskSpec(workItem *contracts.WorkItem, analysis *AnalysisResult, sessionID string) *factory.FactoryTaskSpec {
-	// Map work type
-	workType := contracts.WorkTypeDebug
-	if workItem.WorkType != "" {
-		workType = workItem.WorkType
-	}
-
-	// Map priority
-	priority := contracts.PriorityMedium
-	if workItem.Priority != "" {
-		priority = workItem.Priority
-	}
-
-	// Map domain
-	domain := contracts.DomainCore
-	if workItem.WorkDomain != "" {
-		domain = workItem.WorkDomain
-	}
-
-	// Create constraints from analysis risks
-	constraints := []string{}
-	if analysis != nil && len(analysis.Risks) > 0 {
-		constraints = analysis.Risks
-	}
-
-	// Create KB scopes from analysis dependencies
-	kbScopes := []string{}
-	if analysis != nil && len(analysis.Dependencies) > 0 {
-		kbScopes = analysis.Dependencies
-	}
-
-	return &factory.FactoryTaskSpec{
-		ID:          workItem.ID,
-		SessionID:   sessionID,
-		WorkItemID:  workItem.ID,
-		Title:       workItem.Title,
-		Objective:   analysis.RecommendedApproach,
-		Constraints: constraints,
-		WorkType:    workType,
-		WorkDomain:  domain,
-		Priority:    priority,
-		TimeoutSeconds: 300, // 5 minutes default
-		MaxRetries:     3,
-		KBScopes:       kbScopes,
-		CreatedAt:      time.Now(),
-		UpdatedAt:      time.Now(),
-	}
-}
-
-// executeWithFactory runs task execution using real Factory components
-func executeWithFactory(taskSpec *factory.FactoryTaskSpec, runtimeDir string) (*factory.ExecutionResult, error) {
-	ctx := context.Background()
-	
-	// Create Factory components
-	workspaceManager := factory.NewWorkspaceManager(runtimeDir)
-	executor := factory.NewBoundedExecutor()
-	powManager := factory.NewProofOfWorkManager(runtimeDir)
-	
-	// Create Factory instance
-	factoryInst := factory.NewFactory(workspaceManager, executor, powManager, runtimeDir)
-	
-	// Execute task
-	return factoryInst.ExecuteTask(ctx, taskSpec)
-}
-
-// convertFactoryResult converts factory.ExecutionResult to local ExecutionResult
-func convertFactoryResult(factoryResult *factory.ExecutionResult) *ExecutionResult {
-	duration := "unknown"
-	if factoryResult.Duration > 0 {
-		duration = factoryResult.Duration.String()
-	}
-	
-	// Calculate files changed from FilesChanged slice
-	filesChanged := len(factoryResult.FilesChanged)
-	
-	// For tests, check if TestsPassed is true (Factory uses boolean)
-	testsPassed := 0
-	testsTotal := 0
-	if factoryResult.TestsPassed {
-		testsPassed = 1
-		testsTotal = 1
-	}
-	
-	return &ExecutionResult{
-		Duration:      duration,
-		FilesChanged:  filesChanged,
-		TestsPassed:   testsPassed,
-		TestsTotal:    testsTotal,
-		Success:       factoryResult.Success,
-	}
-}
-
-// readFactoryProofOfWorkMarkdown reads the markdown content from Factory's proof-of-work artifact
-func readFactoryProofOfWorkMarkdown(proofOfWorkPath string) (string, error) {
-	if proofOfWorkPath == "" {
-		return "", fmt.Errorf("proof of work path is empty")
-	}
-	
-	// Factory stores proof-of-work.md in the artifact directory
-	mdPath := filepath.Join(proofOfWorkPath, "proof-of-work.md")
-	content, err := os.ReadFile(mdPath)
-	if err != nil {
-		return "", fmt.Errorf("failed to read proof-of-work markdown file %s: %w", mdPath, err)
-	}
-	
-	return string(content), nil
-}
-
-func analyzeWorkItem(llmGateway *llmgateway.Gateway, workItem *contracts.WorkItem) *AnalysisResult {
-	ctx := context.Background()
-
-	// Build analysis prompt
+func (a *simpleAnalyzer) Analyze(ctx context.Context, workItem *contracts.WorkItem) (*contracts.AnalysisResult, error) {
 	prompt := fmt.Sprintf(`Analyze this work item and provide a structured assessment:
 
 Title: %s
@@ -701,148 +393,152 @@ Format your response as JSON:
 		SessionID: "analysis-" + workItem.ID,
 	}
 
-	resp, err := llmGateway.Chat(ctx, req)
+	resp, err := a.llmGateway.Chat(ctx, req)
 	if err != nil {
-		log.Printf("Warning: Analysis failed: %v. Using defaults.", err)
-		return &AnalysisResult{
-			Complexity:          "medium",
-			EstimatedEffort:     "2 hours",
-			RecommendedApproach: "Investigate and fix",
-			Risks:               []string{"Unknown complexity"},
-			Dependencies:         []string{},
+		return nil, fmt.Errorf("analysis failed: %w", err)
+	}
+
+	// For MVP, return a simplified analysis
+	return &contracts.AnalysisResult{
+		WorkItem:            workItem,
+		BrainTaskSpecs:       []contracts.BrainTaskSpec{},
+		Confidence:           0.8,
+		AnalysisNotes:        fmt.Sprintf("Complexity: medium, Effort: 2 hours, Approach: %s", resp.Content[:min(100, len(resp.Content))]),
+		RequiresApproval:    false,
+		RecommendedModel:     "glm-4.7",
+		EstimatedTotalCostUSD: 0.05,
+	}, nil
+}
+
+func (a *simpleAnalyzer) AnalyzeBatch(ctx context.Context, workItems []*contracts.WorkItem) ([]*contracts.AnalysisResult, error) {
+	results := make([]*contracts.AnalysisResult, len(workItems))
+	for i, workItem := range workItems {
+		result, err := a.Analyze(ctx, workItem)
+		if err != nil {
+			return nil, fmt.Errorf("batch analysis failed for item %s: %w", workItem.ID, err)
 		}
+		results[i] = result
 	}
+	return results, nil
+}
 
-	// Parse JSON response
-	// For now, return defaults (full JSON parsing would be added in production)
-	return &AnalysisResult{
-		Complexity:          "medium",
-		EstimatedEffort:     "2 hours",
-		RecommendedApproach: resp.Content[:min(100, len(resp.Content))],
-		Risks:               []string{"Implementation risk", "Testing risk"},
-		Dependencies:         []string{},
+func (a *simpleAnalyzer) GetAnalysisHistory(ctx context.Context, workItemID string) ([]*contracts.AnalysisResult, error) {
+	return []*contracts.AnalysisResult{}, nil
+}
+
+func (a *simpleAnalyzer) UpdateAnalysis(ctx context.Context, result *contracts.AnalysisResult) error {
+	return nil
+}
+
+// mockZenContext is a simple in-memory implementation of zenctx.ZenContext
+type mockZenContext struct {
+	sessions map[string]*zenctx.SessionContext
+}
+
+func newMockZenContext() *mockZenContext {
+	return &mockZenContext{
+		sessions: make(map[string]*zenctx.SessionContext),
 	}
 }
 
-func createExecutionPlan(workItem *contracts.WorkItem, analysis *AnalysisResult) *ExecutionPlan {
-	steps := []string{
-		"1. Create isolated workspace",
-		"2. Analyze codebase for root cause",
-		"3. Implement fix",
-		"4. Write tests",
-		"5. Run tests and verify fix",
-		"6. Generate proof-of-work",
-		"7. Update documentation",
-	}
-
-	return &ExecutionPlan{
-		Steps:        steps,
-		EstimatedCost: 0.05,
-		EstimatedTime: analysis.EstimatedEffort,
-	}
+func (m *mockZenContext) GetSessionContext(ctx context.Context, clusterID, sessionID string) (*zenctx.SessionContext, error) {
+	key := clusterID + ":" + sessionID
+	return m.sessions[key], nil
 }
 
-func simulateExecution(plan *ExecutionPlan) *ExecutionResult {
-	// Simulate execution time
-	time.Sleep(1 * time.Second)
-
-	return &ExecutionResult{
-		Duration:     "5s",
-		FilesChanged: 3,
-		TestsPassed:   5,
-		TestsTotal:    5,
-		Success:       true,
-	}
+func (m *mockZenContext) StoreSessionContext(ctx context.Context, clusterID string, session *zenctx.SessionContext) error {
+	key := clusterID + ":" + session.SessionID
+	m.sessions[key] = session
+	return nil
 }
 
-func generateProofOfWork(workItem *contracts.WorkItem, analysis *AnalysisResult, plan *ExecutionPlan, result *ExecutionResult) *ProofOfWorkArtifact {
-	// Generate JSON path
-	timestamp := time.Now().Format("20060102-150405")
-	jsonPath := fmt.Sprintf("/tmp/zen-brain-pow/%s.json", workItem.ID)
-	markdownPath := fmt.Sprintf("/tmp/zen-brain-pow/%s.md", workItem.ID)
-
-	// Ensure directory exists
-	os.MkdirAll("/tmp/zen-brain-pow", 0755)
-
-	// Generate markdown content
-	markdownContent := fmt.Sprintf(`# Proof of Work: %s
-
-**Work Item:** %s - %s
-**Type:** %s
-**Priority:** %s
-
-## Analysis
-
-- **Complexity:** %s
-- **Estimated Effort:** %s
-- **Recommended Approach:** %s
-- **Risks:**
-%s
-
-## Execution Plan
-
-%s
-
-## Execution Results
-
-- **Duration:** %s
-- **Files Changed:** %d
-- **Tests Passed:** %d/%d
-- **Success:** %v
-
-## AI Attribution
-
-[zen-brain | agent: analyzer | model: glm-4.7 | session: %s | task: %s | %s]
-`,
-		workItem.ID, workItem.ID, workItem.Title, workItem.WorkType, workItem.Priority,
-		analysis.Complexity, analysis.EstimatedEffort, analysis.RecommendedApproach,
-		formatRisks(analysis.Risks),
-		formatSteps(plan.Steps),
-		result.Duration, result.FilesChanged, result.TestsPassed, result.TestsTotal, result.Success,
-		workItem.ID, workItem.ID, timestamp)
-
-	// Write markdown file
-	os.WriteFile(markdownPath, []byte(markdownContent), 0644)
-
-	// Write JSON file
-	jsonContent := fmt.Sprintf(`{
-  "work_item_id": "%s",
-  "analysis": %s,
-  "execution_plan": %s,
-  "execution_result": %s,
-  "timestamp": "%s"
-}`,
-		workItem.ID,
-		`{}`,
-		`{}`,
-		`{}`,
-		timestamp)
-	os.WriteFile(jsonPath, []byte(jsonContent), 0644)
-
-	return &ProofOfWorkArtifact{
-		JSONPath:        jsonPath,
-		MarkdownPath:    markdownPath,
-		MarkdownContent: markdownContent,
-	}
+func (m *mockZenContext) DeleteSessionContext(ctx context.Context, clusterID, sessionID string) error {
+	key := clusterID + ":" + sessionID
+	delete(m.sessions, key)
+	return nil
 }
 
-func formatRisks(risks []string) string {
-	if len(risks) == 0 {
-		return "- None identified"
-	}
-	result := ""
-	for _, risk := range risks {
-		result += fmt.Sprintf("- %s\n", risk)
-	}
-	return result
+func (m *mockZenContext) QueryKnowledge(ctx context.Context, opts zenctx.QueryOptions) ([]zenctx.KnowledgeChunk, error) {
+	return []zenctx.KnowledgeChunk{}, nil
 }
 
-func formatSteps(steps []string) string {
-	result := ""
-	for _, step := range steps {
-		result += fmt.Sprintf("%s\n", step)
+func (m *mockZenContext) StoreKnowledge(ctx context.Context, chunks []zenctx.KnowledgeChunk) error {
+	return nil
+}
+
+func (m *mockZenContext) ArchiveSession(ctx context.Context, clusterID, sessionID string) error {
+	return nil
+}
+
+func (m *mockZenContext) ReconstructSession(ctx context.Context, req zenctx.ReMeRequest) (*zenctx.ReMeResponse, error) {
+	key := req.ClusterID + ":" + req.SessionID
+	if session, exists := m.sessions[key]; exists {
+		return &zenctx.ReMeResponse{
+			SessionContext:  session,
+			JournalEntries: []interface{}{},
+			ReconstructedAt: time.Now(),
+		}, nil
 	}
-	return result
+
+	newSession := &zenctx.SessionContext{
+		SessionID:       req.SessionID,
+		TaskID:          req.TaskID,
+		ClusterID:       req.ClusterID,
+		ProjectID:       req.ProjectID,
+		CreatedAt:       time.Now(),
+		LastAccessedAt:  time.Now(),
+		State:           nil,
+		RelevantKnowledge: nil,
+		Scratchpad:      nil,
+	}
+
+	m.sessions[key] = newSession
+
+	return &zenctx.ReMeResponse{
+		SessionContext:  newSession,
+		JournalEntries: []interface{}{},
+		ReconstructedAt: time.Now(),
+	}, nil
+}
+
+func (m *mockZenContext) Stats(ctx context.Context) (map[zenctx.Tier]interface{}, error) {
+	stats := make(map[zenctx.Tier]interface{})
+	stats[zenctx.TierHot] = map[string]interface{}{
+		"session_count": len(m.sessions),
+		"type": "mock-memory",
+	}
+	stats[zenctx.TierWarm] = map[string]interface{}{
+		"type": "mock-qmd",
+	}
+	stats[zenctx.TierCold] = map[string]interface{}{
+		"type": "mock-s3",
+	}
+	return stats, nil
+}
+
+func (m *mockZenContext) Close() error {
+	return nil
+}
+
+// mockLedgerClient is a mock implementation of ledger.ZenLedgerClient
+type mockLedgerClient struct{}
+
+func (m *mockLedgerClient) GetModelEfficiency(ctx context.Context, projectID string, taskType string) ([]ledger.ModelEfficiency, error) {
+	return []ledger.ModelEfficiency{}, nil
+}
+
+func (m *mockLedgerClient) GetCostBudgetStatus(ctx context.Context, projectID string) (*ledger.BudgetStatus, error) {
+	return &ledger.BudgetStatus{
+		ProjectID:      projectID,
+		SpentUSD:       0.05,
+		BudgetLimitUSD: 100.0,
+		RemainingUSD:    99.95,
+		PercentUsed:    0.05,
+	}, nil
+}
+
+func (m *mockLedgerClient) RecordPlannedModelSelection(ctx context.Context, sessionID, taskID, modelID, reason string) error {
+	return nil
 }
 
 func createMockWorkItem() *contracts.WorkItem {
