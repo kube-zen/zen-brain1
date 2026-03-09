@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/kube-zen/zen-brain1/pkg/qmd"
@@ -253,9 +254,30 @@ func genericMockResults(query string, limit int) []byte {
 
 // containsQuery checks if the query contains the pattern (case-insensitive).
 func containsQuery(query, pattern string) bool {
-	// Simple implementation - check if query contains pattern
-	// In a real mock, you might use more sophisticated matching
-	return len(pattern) > 3 && len(query) > len(pattern)/2
+	// Simple substring matching
+	queryLower := strings.ToLower(query)
+	patternLower := strings.ToLower(pattern)
+	
+	// First check if pattern is a substring of query
+	if strings.Contains(queryLower, patternLower) {
+		return true
+	}
+	
+	// Also check if query is a substring of pattern (for reversed matches)
+	if strings.Contains(patternLower, queryLower) {
+		return true
+	}
+	
+	// For queries with scope suffixes like "(scope: design OR execution)",
+	// try to match the main part before the scope
+	if idx := strings.Index(queryLower, " (scope:"); idx > 0 {
+		mainQuery := queryLower[:idx]
+		if strings.Contains(mainQuery, patternLower) || strings.Contains(patternLower, mainQuery) {
+			return true
+		}
+	}
+	
+	return false
 }
 
 // SetSearchResult adds or updates a mock search result.
