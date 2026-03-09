@@ -14,6 +14,7 @@ import (
 	"github.com/kube-zen/zen-brain1/internal/office/jira"
 	"github.com/kube-zen/zen-brain1/internal/session"
 	"github.com/kube-zen/zen-brain1/pkg/contracts"
+	zenctx "github.com/kube-zen/zen-brain1/pkg/context"
 	"github.com/kube-zen/zen-brain1/pkg/llm"
 )
 
@@ -184,6 +185,13 @@ func runVerticalSlice() {
 	sessionConfig := session.DefaultConfig()
 	sessionConfig.StoreType = "memory" // Use memory store for simplicity
 	sessionStore := session.NewMemoryStore()
+	
+	// Create and wire mock ZenContext for three-tier memory demonstration
+	fmt.Println("  - Initializing ZenContext (tiered memory)...")
+	zenContext := newMockZenContext()
+	sessionConfig.ZenContext = zenContext
+	fmt.Println("  ✓ ZenContext initialized (mock implementation)")
+	
 	sessionManager, err := session.New(sessionConfig, sessionStore)
 	if err != nil {
 		log.Fatalf("Error creating Session Manager: %v", err)
@@ -433,6 +441,109 @@ type ProofOfWorkArtifact struct {
 	JSONPath         string `json:"json_path"`
 	MarkdownPath     string `json:"markdown_path"`
 	MarkdownContent  string `json:"markdown_content"`
+}
+
+// mockZenContext is a simple in-memory implementation of zenctx.ZenContext for vertical slice
+type mockZenContext struct {
+	sessions map[string]*zenctx.SessionContext // key: clusterID:sessionID
+}
+
+func newMockZenContext() *mockZenContext {
+	return &mockZenContext{
+		sessions: make(map[string]*zenctx.SessionContext),
+	}
+}
+
+func (m *mockZenContext) GetSessionContext(ctx context.Context, clusterID, sessionID string) (*zenctx.SessionContext, error) {
+	key := clusterID + ":" + sessionID
+	return m.sessions[key], nil
+}
+
+func (m *mockZenContext) StoreSessionContext(ctx context.Context, clusterID string, session *zenctx.SessionContext) error {
+	key := clusterID + ":" + session.SessionID
+	m.sessions[key] = session
+	return nil
+}
+
+func (m *mockZenContext) DeleteSessionContext(ctx context.Context, clusterID, sessionID string) error {
+	key := clusterID + ":" + sessionID
+	delete(m.sessions, key)
+	return nil
+}
+
+func (m *mockZenContext) QueryKnowledge(ctx context.Context, opts zenctx.QueryOptions) ([]zenctx.KnowledgeChunk, error) {
+	// Return empty knowledge for vertical slice
+	return []zenctx.KnowledgeChunk{}, nil
+}
+
+func (m *mockZenContext) StoreKnowledge(ctx context.Context, chunks []zenctx.KnowledgeChunk) error {
+	// No-op for vertical slice
+	return nil
+}
+
+func (m *mockZenContext) ArchiveSession(ctx context.Context, clusterID, sessionID string) error {
+	// Simulate archiving by removing from hot store (moved to cold)
+	// In real implementation, this would copy to S3
+	key := clusterID + ":" + sessionID
+	if _, exists := m.sessions[key]; exists {
+		// Simulate archiving by keeping in map but marking as archived
+		// For simplicity, we just keep it
+	}
+	return nil
+}
+
+func (m *mockZenContext) ReconstructSession(ctx context.Context, req zenctx.ReMeRequest) (*zenctx.ReMeResponse, error) {
+	// Simple reconstruction: try to get from memory
+	key := req.ClusterID + ":" + req.SessionID
+	if session, exists := m.sessions[key]; exists {
+		return &zenctx.ReMeResponse{
+			SessionContext: session,
+			JournalEntries: []interface{}{},
+			ReconstructedAt: time.Now(),
+		}, nil
+	}
+	
+	// Create new session if not found
+	newSession := &zenctx.SessionContext{
+		SessionID:       req.SessionID,
+		TaskID:          req.TaskID,
+		ClusterID:       req.ClusterID,
+		ProjectID:       req.ProjectID,
+		CreatedAt:       time.Now(),
+		LastAccessedAt:  time.Now(),
+		State:           nil,
+		RelevantKnowledge: nil,
+		Scratchpad:      nil,
+	}
+	
+	// Store it
+	m.sessions[key] = newSession
+	
+	return &zenctx.ReMeResponse{
+		SessionContext: newSession,
+		JournalEntries: []interface{}{},
+		ReconstructedAt: time.Now(),
+	}, nil
+}
+
+func (m *mockZenContext) Stats(ctx context.Context) (map[zenctx.Tier]interface{}, error) {
+	stats := make(map[zenctx.Tier]interface{})
+	stats[zenctx.TierHot] = map[string]interface{}{
+		"session_count": len(m.sessions),
+		"type": "mock-memory",
+	}
+	stats[zenctx.TierWarm] = map[string]interface{}{
+		"type": "mock-qmd",
+	}
+	stats[zenctx.TierCold] = map[string]interface{}{
+		"type": "mock-s3",
+	}
+	return stats, nil
+}
+
+func (m *mockZenContext) Close() error {
+	// No resources to clean up
+	return nil
 }
 
 // createFactoryTaskSpec converts work item and analysis to a FactoryTaskSpec
