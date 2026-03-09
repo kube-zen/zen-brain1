@@ -1,0 +1,58 @@
+# Zen-Brain 1.0 Minimal Configuration Example
+# This is a minimal config for local development and testing
+
+# Home directory (overrides ZEN_BRAIN_HOME)
+home_dir: "~/.zen-brain"
+
+# Logging
+logging:
+  level: "info"  # debug, info, warn, error
+  format: "json"  # json or text
+  output: "stdout"  # stdout or file path
+
+# Knowledge Base settings
+kb:
+  docs_repo: "../zen-docs"
+  search_limit: 10
+
+# QMD settings (knowledge retrieval)
+qmd:
+  binary_path: "qmd"
+  refresh_interval: 3600  # 1 hour in seconds
+
+# Jira connector (optional - for real Jira integration)
+jira:
+  enabled: false  # Set to true for real Jira
+  base_url: "https://your-domain.atlassian.net"
+  project: "ZEN"
+  # Authentication via environment variables:
+  # JIRA_USERNAME, JIRA_API_TOKEN
+
+# ZenContext settings (three-tier memory)
+# For minimal setup, ZenContext uses mock in-memory implementation
+# Comment out these sections if using mock ZenContext
+
+# Tier 1: Hot storage (Redis)
+# tier1_redis:
+#   addr: "localhost:6379"
+#   password: ""
+#   db: 0
+
+# Tier 3: Cold storage (S3 archival)
+# tier3_s3:
+#   bucket: "zen-brain-context"
+#   region: "us-east-1"
+#   endpoint: ""  # Set to "http://localhost:9000" for MinIO
+
+# Planner settings
+planner:
+  default_model: "glm-4.7"  # Model for analysis and planning
+  max_cost_per_task: 10.0   # Maximum cost per task in dollars
+  require_approval: false  # Require manual approval for high-cost tasks
+
+# SR&ED evidence collection
+sred:
+  enabled: false  # Enable for production SR&ED tracking
+  default_tags:
+    - "experimental_general"
+  evidence_requirement: "summary"

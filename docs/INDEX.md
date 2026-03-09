@@ -35,6 +35,9 @@ Zen‑Brain documentation is organized into numbered directories:
 - [ZEN_JOURNAL.md](03-DESIGN/ZEN_JOURNAL.md) – Journal/evidence design
 - [ZEN_LEDGER.md](03-DESIGN/ZEN_LEDGER.md) – Cost‑ledger design
 
+### User Guides
+- [VERTICAL_SLICE.md](VERTICAL_SLICE.md) – Complete vertical slice guide with examples
+
 ### Development
 - [CONFIGURATION.md](04-DEVELOPMENT/CONFIGURATION.md) – Configuration reference
 - [SETUP.md](04-DEVELOPMENT/SETUP.md) – Development environment setup
