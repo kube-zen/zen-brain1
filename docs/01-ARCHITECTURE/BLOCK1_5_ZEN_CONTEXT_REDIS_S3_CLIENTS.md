@@ -247,7 +247,7 @@ ok  	github.com/kube-zen/zen-brain1/internal/llm/routing	(cached)
 - `internal/context/factory.go` (9,447 bytes)
 - `internal/llm/routing/fallback_chain.go` (10,396 bytes)
 - `internal/llm/routing/fallback_chain_test.go` (7,325 bytes)
-- `BLOCK_1.5_COMPLETION.md` (this file)
+- `BLOCK1_5_ZEN_CONTEXT_REDIS_S3_CLIENTS.md` (this file)
 
 ### Files Modified
 - `configs/config.dev.yaml` - Added ZenContext configuration
