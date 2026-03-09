@@ -12,6 +12,7 @@ import (
 	llmgateway "github.com/kube-zen/zen-brain1/internal/llm"
 	"github.com/kube-zen/zen-brain1/internal/office"
 	"github.com/kube-zen/zen-brain1/internal/office/jira"
+	"github.com/kube-zen/zen-brain1/internal/session"
 	"github.com/kube-zen/zen-brain1/pkg/contracts"
 	"github.com/kube-zen/zen-brain1/pkg/llm"
 )
@@ -178,6 +179,18 @@ func runVerticalSlice() {
 	fmt.Println("[2/7] Initializing Office Manager...")
 	officeManager := office.NewManager()
 
+	// Initialize Session Manager (memory store for vertical slice)
+	fmt.Println("  - Initializing Session Manager...")
+	sessionConfig := session.DefaultConfig()
+	sessionConfig.StoreType = "memory" // Use memory store for simplicity
+	sessionStore := session.NewMemoryStore()
+	sessionManager, err := session.New(sessionConfig, sessionStore)
+	if err != nil {
+		log.Fatalf("Error creating Session Manager: %v", err)
+	}
+	defer sessionManager.Close()
+	fmt.Println("  ✓ Session Manager initialized (memory store)")
+
 	// Try to initialize Jira connector if not in mock mode
 	var workItem *contracts.WorkItem
 
@@ -223,6 +236,15 @@ func runVerticalSlice() {
 	fmt.Printf("✓ Work item: %s - %s\n", workItem.ID, workItem.Title)
 	fmt.Printf("  Type: %s, Priority: %s\n", workItem.WorkType, workItem.Priority)
 
+	// Create session for work item
+	fmt.Println("  - Creating session for work item...")
+	ctx := context.Background()
+	workSession, err := sessionManager.CreateSession(ctx, workItem)
+	if err != nil {
+		log.Fatalf("Error creating session: %v", err)
+	}
+	fmt.Printf("  ✓ Session created: %s\n", workSession.ID)
+
 	// Step 4: Analyze work item
 	fmt.Println("[4/7] Analyzing work item...")
 	analysisResult := analyzeWorkItem(llmGateway, workItem)
@@ -231,6 +253,11 @@ func runVerticalSlice() {
 	fmt.Printf("  Complexity: %s\n", analysisResult.Complexity)
 	fmt.Printf("  Estimated effort: %s\n", analysisResult.EstimatedEffort)
 	fmt.Printf("  Recommended approach: %s\n", analysisResult.RecommendedApproach)
+
+	// Transition to analyzed state
+	if err := sessionManager.TransitionState(ctx, workSession.ID, contracts.SessionStateAnalyzed, "Work item analyzed successfully", "vertical-slice"); err != nil {
+		log.Printf("Warning: Failed to transition session to analyzed: %v", err)
+	}
 
 	// Step 5: Create execution plan
 	fmt.Println("[5/7] Creating execution plan...")
@@ -243,9 +270,13 @@ func runVerticalSlice() {
 	// Step 6: Execute with Factory
 	fmt.Println("[6/7] Executing in isolated workspace with Factory...")
 	
-	// Create FactoryTaskSpec
-	sessionID := fmt.Sprintf("session-%s-%d", workItem.ID, time.Now().Unix())
-	taskSpec := createFactoryTaskSpec(workItem, analysisResult, sessionID)
+	// Transition to scheduled state
+	if err := sessionManager.TransitionState(ctx, workSession.ID, contracts.SessionStateScheduled, "Execution plan created, ready for Factory", "vertical-slice"); err != nil {
+		log.Printf("Warning: Failed to transition session to scheduled: %v", err)
+	}
+	
+	// Create FactoryTaskSpec using the real session ID
+	taskSpec := createFactoryTaskSpec(workItem, analysisResult, workSession.ID)
 	
 	// Create runtime directory for Factory (Factory will store proof-of-work here)
 	runtimeDir, err := os.MkdirTemp("", "zen-brain-factory-*")
@@ -253,6 +284,11 @@ func runVerticalSlice() {
 		log.Fatalf("Failed to create runtime directory: %v", err)
 	}
 	// Note: We don't delete runtimeDir immediately because Factory stores proof-of-work artifacts there
+	
+	// Transition to in_progress state before execution
+	if err := sessionManager.TransitionState(ctx, workSession.ID, contracts.SessionStateInProgress, "Starting Factory execution", "vertical-slice"); err != nil {
+		log.Printf("Warning: Failed to transition session to in_progress: %v", err)
+	}
 	
 	// Execute with Factory
 	var executionResult *ExecutionResult
@@ -263,6 +299,10 @@ func runVerticalSlice() {
 	if err != nil {
 		log.Printf("Factory execution failed: %v. Falling back to simulated execution.", err)
 		executionResult = simulateExecution(executionPlan)
+		// Transition to failed state
+		if err := sessionManager.TransitionState(ctx, workSession.ID, contracts.SessionStateFailed, fmt.Sprintf("Factory execution failed: %v", err), "vertical-slice"); err != nil {
+			log.Printf("Warning: Failed to transition session to failed: %v", err)
+		}
 	} else {
 		// Convert factory.ExecutionResult to local ExecutionResult
 		executionResult = convertFactoryResult(factoryResult)
@@ -303,6 +343,30 @@ func runVerticalSlice() {
 	fmt.Printf("  JSON: %s\n", powArtifact.JSONPath)
 	fmt.Printf("  Markdown: %s\n", powArtifact.MarkdownPath)
 
+	// Add proof-of-work as evidence to session
+	if executionResult.Success {
+		evidence := contracts.EvidenceItem{
+			Type:        "proof_of_work",
+			Content:     powArtifact.MarkdownContent,
+			CollectedAt: time.Now(),
+			Metadata: map[string]string{
+				"json_path":     powArtifact.JSONPath,
+				"markdown_path": powArtifact.MarkdownPath,
+				"source":        "vertical-slice",
+			},
+		}
+		if err := sessionManager.AddEvidence(ctx, workSession.ID, evidence); err != nil {
+			log.Printf("Warning: Failed to add proof-of-work evidence to session: %v", err)
+		} else {
+			fmt.Println("  ✓ Proof-of-work added as evidence to session")
+		}
+		
+		// Transition to completed state
+		if err := sessionManager.TransitionState(ctx, workSession.ID, contracts.SessionStateCompleted, "Work item processed successfully with proof-of-work", "vertical-slice"); err != nil {
+			log.Printf("Warning: Failed to transition session to completed: %v", err)
+		}
+	}
+
 	// Step 8: Update Jira (if not in mock mode)
 	if !useMock {
 		fmt.Println("[8/8] Updating Jira with status and comments...")
@@ -334,7 +398,7 @@ func runVerticalSlice() {
 	fmt.Println()
 	fmt.Println("Summary:")
 	fmt.Printf("  Work item: %s\n", workItem.ID)
-	fmt.Printf("  Status: completed\n")
+	fmt.Printf("  Session: %s\n", workSession.ID)
 	fmt.Printf("  Proof-of-work: generated\n")
 	fmt.Printf("  Jira updated: %v\n", !useMock)
 }
