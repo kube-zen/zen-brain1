@@ -39,7 +39,7 @@ Practical guides for developers.
 | [Development Setup](../04-DEVELOPMENT/SETUP.md) | Step‑by‑step guide to set up a local development environment |
 | [Configuration Reference](../04-DEVELOPMENT/CONFIGURATION.md) | All configurable options across components |
 | [Workflow Examples](../06-EXAMPLES/WORKFLOW_EXAMPLES.md) | Illustrated end‑to‑end workflows (Jira → PR, incident response, documentation) |
-| [Contributing Guide](../../CONTRIBUTING.md) | Development workflow, coding standards, and testing |
+| [Contributing Guide](../CONTRIBUTING.md) | Development workflow, coding standards, and testing |
 
 ### 4. Operations (Future)
 
@@ -61,7 +61,7 @@ Guides for deploying, monitoring, and maintaining Zen‑Brain in production.
 1. Study the relevant [Component Design](../03-DESIGN/) document before implementing a component.
 2. Check [ADRs](../01-ARCHITECTURE/ADR/) for design decisions that affect your work.
 3. Refer to the [Configuration Reference](../04-DEVELOPMENT/CONFIGURATION.md) for configurable options.
-4. Follow the [Contributing Guide](../../CONTRIBUTING.md) for coding standards and pull‑request process.
+4. Follow the [Contributing Guide](../CONTRIBUTING.md) for coding standards and pull‑request process.
 
 ### For Reviewers
 

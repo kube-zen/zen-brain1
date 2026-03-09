@@ -18,3 +18,6 @@ internal/factory/factory.go
 internal/planner/planner.go
 pkg/contracts/contracts.go
 pkg/funding/interface.go
+internal/llm/gateway.go
+internal/llm/routing/fallback_chain.go
+internal/qmd/orchestrator.go

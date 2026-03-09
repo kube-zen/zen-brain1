@@ -5,3 +5,4 @@
 docs/01-ARCHITECTURE/CONSTRUCTION_PLAN.md
 scripts/ci/kb_qmd_direction_gate.py
 docs/04-DEVELOPMENT/REPO_RULES.md
+docs/01-ARCHITECTURE/SOURCE_OF_TRUTH.md
