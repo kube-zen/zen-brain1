@@ -24,9 +24,32 @@ qmd:
 jira:
   enabled: false  # Set to true for real Jira
   base_url: "https://your-domain.atlassian.net"
-  project: "ZEN"
-  # Authentication via environment variables:
-  # JIRA_USERNAME, JIRA_API_TOKEN
+  email: "zen-brain@automation.local"
+  api_token: "${JIRA_TOKEN}"  # Environment variable
+  project_key: "ZEN"
+  # Field mappings (optional)
+  field_mappings: {}  # Not yet used
+  status_mapping:
+    "To Do": "requested"
+    "In Progress": "running"
+    "Done": "completed"
+    "Blocked": "blocked"
+  worktype_mapping:
+    "Bug": "debug"
+    "Task": "implementation"
+    "Story": "design"
+    "Epic": "research"
+  priority_mapping:
+    "Highest": "critical"
+    "High": "high"
+    "Medium": "medium"
+    "Low": "low"
+    "Lowest": "background"
+  custom_field_mapping: {}  # Map customfield_XXXXX to canonical field
+  webhook_url: "https://your-zen-brain.example.com/webhook"
+  webhook_secret: "${JIRA_WEBHOOK_SECRET}"
+  webhook_port: 8080
+  webhook_path: "/webhook"
 
 # ZenContext settings (three-tier memory)
 # For minimal setup, ZenContext uses mock in-memory implementation

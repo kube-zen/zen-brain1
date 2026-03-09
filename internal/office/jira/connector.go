@@ -33,6 +33,10 @@ type Config struct {
 	APIToken   string                 `yaml:"api_token" json:"api_token"`
 	ProjectKey string                 `yaml:"project_key" json:"project_key"`
 	FieldMappings map[string]string   `yaml:"field_mappings" json:"field_mappings"`
+	StatusMapping map[string]string   `yaml:"status_mapping" json:"status_mapping"`
+	WorkTypeMapping map[string]string `yaml:"worktype_mapping" json:"worktype_mapping"`
+	PriorityMapping map[string]string `yaml:"priority_mapping" json:"priority_mapping"`
+	CustomFieldMapping map[string]string `yaml:"custom_field_mapping" json:"custom_field_mapping"`
 	WebhookURL string                 `yaml:"webhook_url" json:"webhook_url"`
 	WebhookSecret string              `yaml:"webhook_secret" json:"webhook_secret"`
 	WebhookPort   int                 `yaml:"webhook_port" json:"webhook_port"`
@@ -72,6 +76,58 @@ func New(name, clusterID string, config *Config) (*JiraOffice, error) {
 	// Set default email if not provided
 	if config.Email == "" {
 		config.Email = "zen-brain@automation.local"
+	}
+	// Set default status mapping if not provided
+	if config.StatusMapping == nil {
+		config.StatusMapping = map[string]string{
+			"To Do":       "requested",
+			"Backlog":     "requested",
+			"Selected":    "requested",
+			"In Progress": "running",
+			"Done":        "completed",
+			"Closed":      "completed",
+			"Resolved":    "completed",
+			"Reopened":    "blocked",
+			"Blocked":     "blocked",
+			"On Hold":     "blocked",
+			"Paused":      "blocked",
+		}
+	}
+	// Set default worktype mapping if not provided
+	if config.WorkTypeMapping == nil {
+		config.WorkTypeMapping = map[string]string{
+			"Bug":         "debug",
+			"Defect":      "debug",
+			"Task":        "implementation",
+			"Chore":       "implementation",
+			"Story":       "design",
+			"Feature":     "design",
+			"Epic":        "research",
+			"Initiative":  "research",
+			"Spike":       "research",
+			"Investigation": "analysis",
+			"Documentation": "documentation",
+			"Refactor":    "refactor",
+			"Security":    "security",
+			"Test":        "testing",
+			"Operation":   "operations",
+			"Ops":         "operations",
+		}
+	}
+	// Set default priority mapping if not provided
+	if config.PriorityMapping == nil {
+		config.PriorityMapping = map[string]string{
+			"Highest":     "critical",
+			"Critical":    "critical",
+			"High":        "high",
+			"Medium":      "medium",
+			"Low":         "low",
+			"Lowest":      "background",
+		}
+	}
+	// Initialize custom field mapping if nil
+	if config.CustomFieldMapping == nil {
+		config.CustomFieldMapping = make(map[string]string)
 	}
 	// Set default webhook port if not provided
 	if config.WebhookPort == 0 {
@@ -682,8 +738,90 @@ func (j *JiraOffice) convertToWorkItem(issue *JiraIssue, customFields map[string
 	return workItem
 }
 
+func (j *JiraOffice) workTypeFromString(s string) contracts.WorkType {
+	switch s {
+	case "debug":
+		return contracts.WorkTypeDebug
+	case "implementation":
+		return contracts.WorkTypeImplementation
+	case "design":
+		return contracts.WorkTypeDesign
+	case "research":
+		return contracts.WorkTypeResearch
+	case "analysis":
+		return contracts.WorkTypeAnalysis
+	case "documentation":
+		return contracts.WorkTypeDocumentation
+	case "refactor":
+		return contracts.WorkTypeRefactor
+	case "security":
+		return contracts.WorkTypeSecurity
+	case "testing":
+		return contracts.WorkTypeTesting
+	case "operations":
+		return contracts.WorkTypeOperations
+	default:
+		return contracts.WorkTypeImplementation
+	}
+}
+
+func (j *JiraOffice) priorityFromString(s string) contracts.Priority {
+	switch s {
+	case "critical":
+		return contracts.PriorityCritical
+	case "high":
+		return contracts.PriorityHigh
+	case "medium":
+		return contracts.PriorityMedium
+	case "low":
+		return contracts.PriorityLow
+	case "background":
+		return contracts.PriorityBackground
+	default:
+		return contracts.PriorityMedium
+	}
+}
+
+func (j *JiraOffice) workStatusFromString(s string) contracts.WorkStatus {
+	switch s {
+	case "requested":
+		return contracts.StatusRequested
+	case "analyzing":
+		return contracts.StatusAnalyzing
+	case "analyzed":
+		return contracts.StatusAnalyzed
+	case "planning":
+		return contracts.StatusPlanning
+	case "planned":
+		return contracts.StatusPlanned
+	case "pending_approval":
+		return contracts.StatusPendingApproval
+	case "approved":
+		return contracts.StatusApproved
+	case "queued":
+		return contracts.StatusQueued
+	case "running":
+		return contracts.StatusRunning
+	case "blocked":
+		return contracts.StatusBlocked
+	case "completed":
+		return contracts.StatusCompleted
+	case "failed":
+		return contracts.StatusFailed
+	case "canceled":
+		return contracts.StatusCanceled
+	default:
+		return contracts.StatusRequested
+	}
+}
+
 // mapWorkType maps Jira issue type to canonical WorkType.
 func (j *JiraOffice) mapWorkType(jiraType string) contracts.WorkType {
+	// Check config mapping first (exact match)
+	if mapped, ok := j.config.WorkTypeMapping[jiraType]; ok {
+		return j.workTypeFromString(mapped)
+	}
+	// Fallback to hardcoded mapping (case-insensitive)
 	switch strings.ToLower(jiraType) {
 	case "bug", "defect":
 		return contracts.WorkTypeDebug
@@ -704,6 +842,11 @@ func (j *JiraOffice) mapWorkType(jiraType string) contracts.WorkType {
 
 // mapPriority maps Jira priority to canonical Priority.
 func (j *JiraOffice) mapPriority(jiraPriority string) contracts.Priority {
+	// Check config mapping first (exact match)
+	if mapped, ok := j.config.PriorityMapping[jiraPriority]; ok {
+		return j.priorityFromString(mapped)
+	}
+	// Fallback to hardcoded mapping (case-insensitive)
 	switch strings.ToLower(jiraPriority) {
 	case "highest", "critical", "1":
 		return contracts.PriorityCritical
@@ -722,6 +865,11 @@ func (j *JiraOffice) mapPriority(jiraPriority string) contracts.Priority {
 
 // mapStatus maps Jira status to canonical WorkStatus.
 func (j *JiraOffice) mapStatus(jiraStatus string) contracts.WorkStatus {
+	// Check config mapping first (exact match)
+	if mapped, ok := j.config.StatusMapping[jiraStatus]; ok {
+		return j.workStatusFromString(mapped)
+	}
+	// Fallback to hardcoded mapping (case-insensitive)
 	lower := strings.ToLower(jiraStatus)
 	
 	switch {
