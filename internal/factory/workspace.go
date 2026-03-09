@@ -32,10 +32,37 @@ func NewWorkspaceManager(homeDir string) *WorkspaceManagerImpl {
 }
 
 func (w *WorkspaceManagerImpl) CreateWorkspace(ctx context.Context, taskID, sessionID string) (*WorkspaceMetadata, error) {
+	// Validate task ID and session ID
+	if taskID == "" {
+		return nil, fmt.Errorf("task ID cannot be empty")
+	}
+	if sessionID == "" {
+		return nil, fmt.Errorf("session ID cannot be empty")
+	}
+
+	// Build workspace path
 	workspacePath := filepath.Join(w.workspacesDir, sessionID, taskID)
+
+	// Safety check 1: Canonicalized path validation before creation
+	if err := validatePathCanonical(workspacePath, w.workspacesDir); err != nil {
+		return nil, fmt.Errorf("workspace safety check failed: %w", err)
+	}
+
+	// Safety check 2: Ensure workspaces directory exists and is safe
+	if err := os.MkdirAll(w.workspacesDir, 0755); err != nil {
+		return nil, fmt.Errorf("failed to create workspaces root directory %s: %w", w.workspacesDir, err)
+	}
+
+	// Safety check 3: Create workspace directory with safe permissions
 	if err := os.MkdirAll(workspacePath, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create workspace directory %s: %w", workspacePath, err)
 	}
+
+	// Safety check 4: Validate workspace ownership
+	if err := validateWorkspaceOwnership(workspacePath, taskID, sessionID); err != nil {
+		return nil, fmt.Errorf("workspace ownership validation failed: %w", err)
+	}
+
 	metadata := &WorkspaceMetadata{
 		TaskID:      taskID,
 		SessionID:   sessionID,
@@ -105,18 +132,34 @@ func (w *WorkspaceManagerImpl) GetWorkspaceMetadata(ctx context.Context, path st
 }
 
 func (w *WorkspaceManagerImpl) DeleteWorkspace(ctx context.Context, path string) error {
-	absPath, err := filepath.Abs(path)
+	// Safety check 1: Canonicalized path validation
+	if err := validatePathCanonical(path, w.workspacesDir); err != nil {
+		return fmt.Errorf("workspace safety check failed: %w", err)
+	}
+
+	// Safety check 2: Verify path is within workspaces directory
+	absPath, err := filepath.Abs(filepath.Clean(path))
 	if err != nil {
 		return fmt.Errorf("failed to get absolute path: %w", err)
 	}
-	absWorkspacesDir, err := filepath.Abs(w.workspacesDir)
+	absWorkspacesDir, err := filepath.Abs(filepath.Clean(w.workspacesDir))
 	if err != nil {
 		return fmt.Errorf("failed to get absolute workspaces dir: %w", err)
 	}
-	relPath, err := filepath.Rel(absWorkspacesDir, absPath)
-	if err != nil || relPath == ".." {
+	withinRoot, err := isPathWithinRoot(absPath, absWorkspacesDir)
+	if err != nil {
+		return fmt.Errorf("failed to check path containment: %w", err)
+	}
+	if !withinRoot {
 		return fmt.Errorf("refusing to delete workspace outside workspaces dir: %s", path)
 	}
+
+	// Safety check 3: Prevent deleting entire workspaces directory
+	if absPath == absWorkspacesDir {
+		return fmt.Errorf("refusing to delete workspaces root directory: %s", path)
+	}
+
+	// Safety check 4: Release workspace lock before deletion
 	w.lockMapMutex.RLock()
 	mutex, exists := w.lockMap[path]
 	w.lockMapMutex.RUnlock()
@@ -124,10 +167,17 @@ func (w *WorkspaceManagerImpl) DeleteWorkspace(ctx context.Context, path string)
 		mutex.Lock()
 		defer mutex.Unlock()
 	}
+
+	// Safety check 5: Log destructive action before execution
+	log.Printf("[WorkspaceManager] Deleting workspace: path=%s canonical=%s", path, absPath)
+
+	// Safety check 6: RemoveAll is the only destructive operation (no shell commands)
 	if err := os.RemoveAll(path); err != nil {
 		return fmt.Errorf("failed to delete workspace %s: %w", path, err)
 	}
-	log.Printf("[WorkspaceManager] Workspace deleted: path=%s", path)
+
+	log.Printf("[WorkspaceManager] Workspace deleted successfully: path=%s", path)
+
 	return nil
 }
 
