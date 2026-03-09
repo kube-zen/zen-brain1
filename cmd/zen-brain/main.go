@@ -219,8 +219,7 @@ func runVerticalSlice() {
 		// Try to create Jira connector from environment variables
 		jiraConnector, err := jira.NewFromEnv("jira", "default")
 		if err != nil {
-			fmt.Printf("  ! Jira connector initialization failed: %v\n", err)
-			fmt.Println("  ! Falling back to mock mode\n")
+			fmt.Printf("  ! Jira connector initialization failed: %v\n  ! Falling back to mock mode\n", err)
 			useMock = true
 		} else {
 			if err := officeManager.Register("jira", jiraConnector); err != nil {
