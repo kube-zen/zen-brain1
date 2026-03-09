@@ -28,14 +28,21 @@ func TestDefaultConfig(t *testing.T) {
 func TestNewClient_WithNilConfig(t *testing.T) {
 	config := DefaultConfig()
 	config.SkipAvailabilityCheck = true
-	client, err := NewClient(config)
+	config.FallbackToMock = false // Don't use mock in tests
+	clientInterface, err := NewClient(config)
 
 	if err != nil {
 		t.Fatalf("NewClient with nil config should succeed, got: %v", err)
 	}
 
-	if client == nil {
+	if clientInterface == nil {
 		t.Fatal("Client should not be nil")
+	}
+
+	// Type assert to get concrete client for field checks
+	client, ok := clientInterface.(*Client)
+	if !ok {
+		t.Fatal("Expected *Client type when SkipAvailabilityCheck=true")
 	}
 
 	if client.qmdPath != "qmd" {
@@ -49,12 +56,19 @@ func TestNewClient_WithCustomConfig(t *testing.T) {
 		Timeout: 10 * time.Second,
 		Verbose: true,
 		SkipAvailabilityCheck: true,
+		FallbackToMock: false, // Don't use mock in tests
 	}
 
-	client, err := NewClient(config)
+	clientInterface, err := NewClient(config)
 
 	if err != nil {
 		t.Fatalf("NewClient failed: %v", err)
+	}
+
+	// Type assert to get concrete client for field checks
+	client, ok := clientInterface.(*Client)
+	if !ok {
+		t.Fatal("Expected *Client type when SkipAvailabilityCheck=true")
 	}
 
 	if client.qmdPath != "/usr/local/bin/qmd" {
@@ -74,6 +88,7 @@ func TestNewClient_WithInvalidQMDPath(t *testing.T) {
 	config := &Config{
 		QMDPath: "/nonexistent/path/to/qmd",
 		Timeout: 5 * time.Second,
+		FallbackToMock: false, // Don't use mock - we want error
 	}
 
 	_, err := NewClient(config)
