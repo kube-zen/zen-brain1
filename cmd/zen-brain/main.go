@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/kube-zen/zen-brain1/internal/config"
 	"github.com/kube-zen/zen-brain1/internal/factory"
 	llmgateway "github.com/kube-zen/zen-brain1/internal/llm"
 	"github.com/kube-zen/zen-brain1/internal/office"
@@ -148,6 +149,16 @@ func runVerticalSlice() {
 		fmt.Println("Mode: Using mock work item (no Jira required)")
 	}
 
+	// Load configuration
+	fmt.Println()
+	fmt.Println("Loading configuration...")
+	cfg, err := config.LoadConfig("")
+	if err != nil {
+		log.Printf("Warning: Failed to load config: %v. Using defaults.", err)
+		cfg = config.DefaultConfig()
+	}
+	fmt.Printf("  ✓ Configuration loaded (logging: %s, planner: %s)\n", cfg.Logging.Level, cfg.Planner.DefaultModel)
+
 	fmt.Println()
 	fmt.Println("Initializing components...")
 
@@ -155,10 +166,10 @@ func runVerticalSlice() {
 	fmt.Println("[1/7] Initializing LLM Gateway...")
 	gatewayConfig := &llmgateway.GatewayConfig{
 		LocalWorkerModel:        "qwen3.5:0.8b",
-		PlannerModel:            "glm-4.7",
-		FallbackModel:           "glm-4.7",
-		LocalWorkerMaxCost:     0.01,
-		PlannerMinCost:          0.10,
+		PlannerModel:            cfg.Planner.DefaultModel,
+		FallbackModel:           cfg.Planner.DefaultModel,
+		LocalWorkerMaxCost:     cfg.Planner.MaxCostPerTask / 100.0, // Convert $ to cents for local worker
+		PlannerMinCost:          cfg.Planner.MaxCostPerTask,
 		LocalWorkerTimeout:       30,
 		PlannerTimeout:           60,
 		RequestTimeout:           120,
@@ -167,7 +178,7 @@ func runVerticalSlice() {
 		AutoEscalateComplexTasks:   true,
 		RoutingPolicy:            "simple",
 		EnableFallbackChain:     true,
-		StrictPreferred:         false,
+		StrictPreferred:         !cfg.Planner.RequireApproval,
 	}
 
 	llmGateway, err := llmgateway.NewGateway(gatewayConfig)
