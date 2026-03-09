@@ -18,6 +18,7 @@ type Config struct {
 	KB      KBConfig      `yaml:"kb"`
 	QMD     QMDConfig     `yaml:"qmd"`
 	Jira    JiraConfig    `yaml:"jira"`
+	Confluence ConfluenceConfig `yaml:"confluence"`
 	Clusters []ClusterConfig `yaml:"clusters"`
 	SRED    SREDConfig    `yaml:"sred"`
 	Ledger  LedgerConfig  `yaml:"ledger"`
@@ -51,6 +52,15 @@ type JiraConfig struct {
 	Enabled  bool   `yaml:"enabled"`
 	BaseURL  string `yaml:"base_url"`
 	Project  string `yaml:"project"`
+	Username string `yaml:"-"` // From env var
+	APIToken string `yaml:"-"` // From env var
+}
+
+// ConfluenceConfig holds Confluence integration configuration.
+type ConfluenceConfig struct {
+	Enabled  bool   `yaml:"enabled"`
+	BaseURL  string `yaml:"base_url"`
+	Space    string `yaml:"space"`
 	Username string `yaml:"-"` // From env var
 	APIToken string `yaml:"-"` // From env var
 }
@@ -201,6 +211,10 @@ func findConfigPath() string {
 func (c *Config) loadFromEnv() {
 	c.Jira.Username = os.Getenv("JIRA_USERNAME")
 	c.Jira.APIToken = os.Getenv("JIRA_API_TOKEN")
+	
+	// Confluence credentials
+	c.Confluence.Username = os.Getenv("CONFLUENCE_USERNAME")
+	c.Confluence.APIToken = os.Getenv("CONFLUENCE_API_TOKEN")
 
 	// AWS credentials for S3
 	if c.ZenContext.Tier3S3.AccessKeyID == "" {
