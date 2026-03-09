@@ -45,27 +45,28 @@ type Config struct {
 	// SkipAvailabilityCheck skips the qmd availability check on initialization.
 	// This is useful for testing when qmd is not installed.
 	SkipAvailabilityCheck bool
+
+	// FallbackToMock creates a mock client when qmd is not available.
+	// When true, if qmd CLI is not found, NewClient returns a MockClient
+	// instead of returning an error.
+	FallbackToMock bool
 }
 
 // DefaultConfig returns a default configuration for the qmd client.
 func DefaultConfig() *Config {
 	return &Config{
-		QMDPath: "qmd", // assumes qmd is in PATH
-		Timeout: DefaultTimeout,
-		Verbose: false,
+		QMDPath:               "qmd", // assumes qmd is in PATH
+		Timeout:               DefaultTimeout,
+		Verbose:               false,
+		SkipAvailabilityCheck: false,
+		FallbackToMock:        true, // Default to mock fallback for better dev experience
 	}
 }
 
 // NewClient creates a new qmd client with the given configuration.
-func NewClient(config *Config) (*Client, error) {
+func NewClient(config *Config) (qmd.Client, error) {
 	if config == nil {
 		config = DefaultConfig()
-	}
-
-	client := &Client{
-		qmdPath: config.QMDPath,
-		timeout: config.Timeout,
-		verbose: config.Verbose,
 	}
 
 	// Verify qmd is available (unless skipped)
@@ -73,9 +74,32 @@ func NewClient(config *Config) (*Client, error) {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		if err := client.checkQmdAvailable(ctx); err != nil {
+		// Create a temporary client to check availability
+		tempClient := &Client{
+			qmdPath: config.QMDPath,
+			timeout: config.Timeout,
+			verbose: config.Verbose,
+		}
+
+		if err := tempClient.checkQmdAvailable(ctx); err != nil {
+			if config.FallbackToMock {
+				// Return mock client instead of error
+				if config.Verbose {
+					log.Printf("[QMD] qmd not available, falling back to mock client: %v", err)
+				}
+				return NewMockClient(&MockConfig{
+					Verbose:         config.Verbose,
+					SimulateLatency: 100 * time.Millisecond,
+				})
+			}
 			return nil, fmt.Errorf("qmd not available: %w", err)
 		}
+	}
+
+	client := &Client{
+		qmdPath: config.QMDPath,
+		timeout: config.Timeout,
+		verbose: config.Verbose,
 	}
 
 	return client, nil
