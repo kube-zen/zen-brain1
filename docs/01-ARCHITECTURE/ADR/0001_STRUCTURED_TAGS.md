@@ -81,6 +81,6 @@ The structured `WorkTags` struct strikes a balance between explicitness, type sa
 
 ## References
 
-- Construction Plan V6.0, Section “Canonical Work Taxonomy and Jira Mapping”
+- Construction Plan, Section “Canonical Work Taxonomy and Jira Mapping”
 - `pkg/contracts/contracts.go` – `WorkTags` definition
 - `pkg/taxonomy/tags.go` – Tag categories and validation

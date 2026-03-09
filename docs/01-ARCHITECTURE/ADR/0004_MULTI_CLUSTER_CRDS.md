@@ -103,7 +103,7 @@ The dual‑CRD approach provides the right balance of flexibility, Kubernetes‑
 
 - [ADR‑0002](0002_SRED_TAXONOMY.md) – SREDTag enum used in `ZenProject.SREDTags`.
 - [ADR‑0003](0003_CONTRACTS_PACKAGE.md) – `contracts` package provides `SREDTag` type.
-- Construction Plan V6.0, Section “Multi‑Project, Multi‑Cluster Architecture”
+- Construction Plan, Section “Multi‑Project, Multi‑Cluster Architecture”
 
 ## References
 

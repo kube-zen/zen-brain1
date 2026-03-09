@@ -94,6 +94,6 @@ The `contracts` package is the clear winner for enforcing architectural boundari
 
 ## References
 
-- Construction Plan V6.0, Section “Block 1: The Neuro‑Anatomy”
+- Construction Plan, Section “Block 1: The Neuro‑Anatomy”
 - `pkg/contracts/contracts.go` – canonical type definitions
 - `go.mod` – no internal dependencies

@@ -136,10 +136,10 @@ The warm pool + worktree approach balances latency, isolation, and git‑friendl
 ## Related Decisions
 
 - [ADR‑0004](0004_MULTI_CLUSTER_CRDS.md) – Multi‑cluster topology (worker pools are per‑cluster).
-- Construction Plan V6.0, Section 3.5 – Warm Worker Pool with Session Affinity (A+C Hybrid).
+- Construction Plan, Section 3.5 – Warm Worker Pool with Session Affinity (A+C Hybrid).
 
 ## References
 
-- Construction Plan V6.0, Section 3.5 – detailed architecture diagram and implementation notes.
+- Construction Plan, Section 3.5 – detailed architecture diagram and implementation notes.
 - `git‑worktree` documentation – https://git‑scm.com/docs/git‑worktree
 - Kubernetes `emptyDir` with `medium: Memory` – for `/dev/shm` scratch.

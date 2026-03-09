@@ -164,6 +164,6 @@ Redis Streams provides the right balance of durability, ordering, and operationa
 
 ## References
 
-- Construction Plan V6.0, Block 3.1: “Message Bus. Implement pub/sub for event distribution. Use zen‑sdk/pkg/dedup for event deduplication.”
+- Construction Plan, Block 3.1: “Message Bus. Implement pub/sub for event distribution. Use zen‑sdk/pkg/dedup for event deduplication.”
 - Redis Streams documentation: https://redis.io/docs/data-types/streams/
 - `zen-sdk/pkg/dedup` package for deduplication logic.

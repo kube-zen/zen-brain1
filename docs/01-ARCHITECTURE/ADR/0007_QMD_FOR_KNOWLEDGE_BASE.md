@@ -84,10 +84,10 @@ Choosing qmd allows us to **ship 1.0 faster** while keeping the door open to upg
 
 - [ADR‑0004](0004_MULTI_CLUSTER_CRDS.md) – Multi‑cluster topology (KB scopes align with projects).
 - [KB/QMD Strategy](../KB_QMD_STRATEGY.md) – detailed implementation plan.
-- Construction Plan V6.0, Section 3.6 – KB Ingestion Service Architecture.
+- Construction Plan, Section 3.6 – KB Ingestion Service Architecture.
 
 ## References
 
 - qmd documentation – https://github.com/kube‑zen/qmd
 - `nomic‑embed‑text` model card – https://ollama.com/library/nomic‑embed‑text
-- Construction Plan V6.0, Section 3.2 – Knowledge Base with QMD.
+- Construction Plan, Section 3.2 – Knowledge Base with QMD.

@@ -85,6 +85,6 @@ The typed string enum provides a good balance of readability, type safety, and s
 
 ## References
 
-- Construction Plan V6.0, Section “SR&ED/IRAP Alignment Design”
+- Construction Plan, Section “SR&ED/IRAP Alignment Design”
 - `pkg/contracts/contracts.go` – `SREDTag` definition
 - `pkg/taxonomy/tags.go` – `SREDTagDescription` mapping

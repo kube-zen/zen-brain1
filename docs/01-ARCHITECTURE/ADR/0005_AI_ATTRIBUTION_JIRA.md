@@ -104,7 +104,7 @@ The explicit header strikes the right balance between visibility, portability, a
 ## Related Decisions
 
 - [ADR‑0003](0003_CONTRACTS_PACKAGE.md) – `AIAttribution` struct defined in `pkg/contracts`.
-- Construction Plan V6.0, Section “AI Attribution in Jira”.
+- Construction Plan, Section “AI Attribution in Jira”.
 
 ## References
 
