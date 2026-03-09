@@ -194,5 +194,5 @@ When replacing existing systems:
 
 - [SOURCE_OF_TRUTH.md](./SOURCE_OF_TRUTH.md) - Data ownership and canonical sources
 - [CONSTRUCTION_PLAN.md](./CONSTRUCTION_PLAN.md) - Overall build sequence
-- [ADR/](../ADR/) - Architecture decision records
+- [ADR/](ADR/) - Architecture decision records
 - Design documents in `docs/03-DESIGN/` - Component-specific design

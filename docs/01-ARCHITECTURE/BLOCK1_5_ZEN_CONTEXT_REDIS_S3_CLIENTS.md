@@ -214,7 +214,7 @@ ok  	github.com/kube-zen/zen-brain1/internal/llm/routing	(cached)
 ### Next Steps (Post-Block 1.5)
 
 1. **Create production deployment example**
-   - Docker Compose file with Redis + MinIO
+   - k3d Cluster Setup with Redis + MinIO dependencies
    - Environment variable configuration
    - Documentation for production setup
 
