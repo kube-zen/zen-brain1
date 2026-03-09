@@ -153,9 +153,6 @@ func (s *Store) StoreSessionContext(ctx stdctx.Context, clusterID string, sessio
 
 	key := s.sessionKey(clusterID, session.SessionID)
 
-	// Always log for debugging (TODO: remove after fixing S3)
-	fmt.Printf("[S3Context DEBUG] StoreSessionContext: key='%s', sessionID='%s', clusterID='%s'\n", key, session.SessionID, clusterID)
-	
 	if s.config.Verbose {
 		fmt.Printf("[S3Context] StoreSessionContext: key=%s\n", key)
 	}

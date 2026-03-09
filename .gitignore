@@ -62,3 +62,6 @@ logs/
 # Zen-Brain runtime directories
 .zen/
 zen-brain
+
+# Temporary test binaries and scripts
+test_zencontext*
