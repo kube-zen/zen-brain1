@@ -97,52 +97,30 @@ zen‑context:{clusterID}:{sessionID} → SessionContext (JSON)
 
 **Scratchpad synchronization:** The agent writes scratchpad state to tmpfs; a background goroutine periodically syncs it to Redis (debounced) to survive pod restarts.
 
-### Tier 2: Warm Memory (Vector Database)
+### Tier 2: Warm Memory (QMD Search)
 
 **Purpose:** Fast semantic search over the knowledge base (`zen‑docs` repository).
 
 **Implementation:**
 
-- **CockroachDB with C‑SPANN vector index** – stores `KnowledgeChunk` embeddings.
+- **QMD (Question‑Answer Memory Database)** – indexes the `zen‑docs` Git repository and provides semantic search via CLI.
 - **Embedding model:** `nomic‑embed‑text` (768 dimensions) for local inference, or `text‑embedding‑3‑small` (1536d) for API‑based.
-- **Indexing:** Performed by the **KB Ingestion Service** (Block 3.5).
-
-**Schema:**
-
-```sql
-CREATE TABLE kb_chunks (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    scope TEXT NOT NULL,
-    repo TEXT NOT NULL,
-    path TEXT NOT NULL,
-    chunk_index INT NOT NULL,
-    content TEXT NOT NULL,
-    embedding VECTOR(768),          -- nomic‑embed‑text dimension
-    heading_path TEXT[],
-    token_count INT,
-    file_type TEXT,
-    language TEXT,
-    created_at TIMESTAMPTZ DEFAULT now(),
-    updated_at TIMESTAMPTZ DEFAULT now(),
-    UNIQUE (scope, repo, path, chunk_index)
-);
-
--- Distributed vector index (C‑SPANN)
-VECTOR INDEX (scope, repo, embedding);
-```
+- **Indexing:** Performed by the **KB Ingestion Service** (Block 3.5) which runs `qmd index` on repository changes.
 
 **Query flow:**
 
 1. Agent calls `QueryKnowledge` with `QueryOptions`.
-2. ZenContext service generates embedding for the query (using the same model as the index).
-3. Executes `SELECT … ORDER BY embedding <=> $1 LIMIT $2` with scope filtering.
-4. Returns `KnowledgeChunk` results with similarity scores.
+2. ZenContext service invokes `qmd search` with the query and scope filters.
+3. QMD returns JSON results with chunk content and similarity scores.
+4. Results are mapped to `KnowledgeChunk` objects and returned to the agent.
 
 **Performance expectations:**
 
 - < 100K vectors: 1‑5 ms
 - 100K – 1M vectors: 5‑15 ms
 - 1M – 1B vectors: 15‑50 ms
+
+**Scope isolation:** QMD supports tagging chunks with scope (`company`, `general`, `project`). The KB Ingestion Service ensures proper tagging.
 
 ### Tier 3: Cold Memory (Object Storage)
 
@@ -205,11 +183,10 @@ context:
       sync_interval_seconds: 5
 
   # Tier 2 (Warm)
-  tier2:
-    cockroachdb:
-      uri: "postgresql://root@cockroachdb‑public:26257/zen_brain?sslmode=disable"
-      embedding_model: "nomic‑embed‑text"
-      embedding_dimension: 768
+  tier2_qmd:
+    repo_path: "../zen-docs"
+    qmd_binary_path: "qmd"
+    verbose: false
 
   # Tier 3 (Cold)
   tier3:
