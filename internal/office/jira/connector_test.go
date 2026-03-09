@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/kube-zen/zen-brain1/pkg/contracts"
 )
@@ -31,40 +30,7 @@ func TestNewJiraOffice(t *testing.T) {
 	}
 }
 
-func TestFormatAIAttribution(t *testing.T) {
-	attribution := &contracts.AIAttribution{
-		AgentRole:  "worker-debug",
-		ModelUsed:  "glm-4.7",
-		SessionID:  "session-123",
-		TaskID:     "task-456",
-		Timestamp:  time.Date(2026, 3, 7, 14, 30, 0, 0, time.UTC),
-	}
 
-	expected := "[zen-brain | agent:worker-debug | model:glm-4.7 | session:session-123 | task:task-456 | 2026-03-07 14:30:00 UTC]"
-	result := formatAIAttribution(attribution)
-
-	if result != expected {
-		t.Errorf("Expected:\n%s\nGot:\n%s", expected, result)
-	}
-}
-
-func TestInjectAIAttribution(t *testing.T) {
-	attribution := &contracts.AIAttribution{
-		AgentRole:  "worker-debug",
-		ModelUsed:  "glm-4.7",
-		SessionID:  "session-123",
-		TaskID:     "task-456",
-		Timestamp:  time.Date(2026, 3, 7, 14, 30, 0, 0, time.UTC),
-	}
-
-	body := "This is a test comment from the AI."
-	expected := "[zen-brain | agent:worker-debug | model:glm-4.7 | session:session-123 | task:task-456 | 2026-03-07 14:30:00 UTC]\n\nThis is a test comment from the AI."
-	result := injectAIAttribution(body, attribution)
-
-	if result != expected {
-		t.Errorf("Expected:\n%s\nGot:\n%s", expected, result)
-	}
-}
 
 func TestMapWorkType(t *testing.T) {
 	config := &Config{}

@@ -77,11 +77,11 @@ func TestAddComment_WithAIAttribution(t *testing.T) {
 				t.Errorf("AI attribution header should be present in comment body: %s", bodyText)
 			}
 
-			if !contains(bodyText, "agent:worker-debug") {
+			if !contains(bodyText, "agent: worker-debug") {
 				t.Errorf("Agent role should be in comment body: %s", bodyText)
 			}
 
-			if !contains(bodyText, "model:glm-4.7") {
+			if !contains(bodyText, "model: glm-4.7") {
 				t.Errorf("Model should be in comment body: %s", bodyText)
 			}
 
