@@ -37,10 +37,11 @@ This directory contains Kubernetes manifests for deploying Zen‑Brain on a loca
 
 ## Current path: run Zen‑Brain components locally
 
-Foreman and API server are not yet deployed as in-cluster workloads. Use local binaries with kubeconfig pointing at the k3d cluster:
+**Recommended for now:** Foreman and API server are not yet deployed as in-cluster workloads. Run the binaries locally with kubeconfig pointing at the k3d cluster (e.g. `export KUBECONFIG=~/.kube/config` or use default after `make dev-up`).
 
-- **Foreman:** `make build-foreman && ./bin/foreman` (set `KUBECONFIG` or use default; apply CRDs first).
-- **API server:** `make build-apiserver && ./bin/apiserver`.
+- **Foreman:** `make build-foreman && ./bin/foreman` — apply CRDs first (`kubectl apply -f deployments/crds/`). Optional: `-factory` for Factory execution, `-session-affinity` for session routing.
+- **API server:** `make build-apiserver && ./bin/apiserver` — serves `/healthz`, `/readyz`, `/api/v1/sessions`, `/api/v1/health`, `/api/v1/version`.
+- **zen-brain:** Run from repo root for the vertical slice (Office → Analyzer → Planner → Factory).
 
 **TBD:** Helm charts or manifests for Foreman and API server as in-cluster deployments (Deployments/Services).
 
