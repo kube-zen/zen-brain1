@@ -140,10 +140,13 @@ The `vertical-slice` command now demonstrates a **working end-to-end pipeline**:
    - Stored in /tmp/zen-brain-pow/
 
 [8/8] Update Jira ✅ COMPLETE (conditional)
-   - Updates status to completed via Office Manager
-   - Adds proof-of-work comment
-   - Graceful error handling
-   - Skipped in mock mode
+   - Sets status to running when work starts; completed/failed/blocked at end
+   - Posts proof-of-work comment via AddComment (ProofOfWorkManager.GenerateComment)
+   - Uploads proof artifacts (JSON, MD, log) via AddAttachment
+   - End-of-run Office summary: comment posted, attachments count, status updated
+   - Graceful error handling; skipped in mock mode
+   - Config/bootstrap: Jira from config first (InitOfficeManagerFromConfig), then env fallback
+   - Office CLI: zen-brain office doctor | search <query> | fetch <key> | watch
 ```
 
 ## Integration Status Summary

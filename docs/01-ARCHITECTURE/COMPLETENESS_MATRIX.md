@@ -14,7 +14,7 @@
 
 | Subsystem | Status | Notes | Key files |
 |-----------|--------|-------|-----------|
-| **Office / Jira** | Real | Fetch, update, search, AddAttachment, Search (JQL), Watch (webhook server + HMAC). Block 2 complete. | `internal/office/jira/connector.go`, `README.md` |
+| **Office / Jira** | Real | Fetch, update, search, AddAttachment, Search (JQL), Watch (webhook server + HMAC). Config/bootstrap unified (config + env); vertical-slice posts proof comment + attachments + status; `zen-brain office doctor/search/fetch/watch` CLI. Block 2 complete. | `internal/office/jira/connector.go`, `internal/integration/office_bootstrap.go`, `cmd/zen-brain/office.go`, `README.md` |
 | **Session manager** | Real | Create, get, resume, evidence; SQLite/memory; ZenContext write. | `internal/session/manager.go`, `sqlite_store.go` |
 | **ZenContext (Tier 1/2/3)** | Real | Redis, QMD store, S3; composite; ReConstruct. Mock: QMD falls back to mock when CLI absent. | `internal/context/composite.go`, `tier1/`, `tier2/`, `tier3/`, `internal/qmd/` |
 | **QMD / KB** | Partial | Real when `qmd` CLI present; FallbackToMock when not. Block 5.1: Populate() + BLOCK5_QMD_POPULATION.md, golden-query tests. | `internal/qmd/adapter.go`, `kb_store.go`, `populate.go` |
@@ -51,6 +51,7 @@
 ## Doc/code drift (resolved)
 
 - **VERTICAL_SLICE_PROGRESS.md** – Updated: Session Manager and ZenContext are marked WIRED and point at `cmd/zen-brain/main.go`.
+- **Jira** – Config/env unified (JIRA_EMAIL/JIRA_USERNAME, JIRA_API_TOKEN/JIRA_TOKEN, Project→ProjectKey). Vertical-slice uses Office for proof comment, attachments, and status (running → completed/failed/blocked). Office CLI: doctor, search, fetch, watch.
 
 ---
 

@@ -161,10 +161,15 @@ func NewFromEnv(name, clusterID string) (*JiraOffice, error) {
 	return New(name, clusterID, config)
 }
 
-// jiraRequest makes an authenticated request to the Jira API.
-func (j *JiraOffice) jiraRequest(method, path string, body io.Reader) (*http.Response, error) {
+// Config returns the connector configuration (for doctor/health display only; do not modify).
+func (j *JiraOffice) Config() *Config {
+	return j.config
+}
+
+// jiraRequest makes an authenticated request to the Jira API (context-aware).
+func (j *JiraOffice) jiraRequest(ctx context.Context, method, path string, body io.Reader) (*http.Response, error) {
 	url := j.config.BaseURL + path
-	req, err := http.NewRequest(method, url, body)
+	req, err := http.NewRequestWithContext(ctx, method, url, body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -175,7 +180,66 @@ func (j *JiraOffice) jiraRequest(method, path string, body io.Reader) (*http.Res
 		req.Header.Set("Content-Type", "application/json")
 	}
 
-	return j.client.Do(req)
+	resp, err := j.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	// Return clearer errors for auth/forbidden/not-found
+	if resp.StatusCode == http.StatusUnauthorized {
+		resp.Body.Close()
+		return nil, fmt.Errorf("jira authentication failed (401) at %s", sanitizePath(path))
+	}
+	if resp.StatusCode == http.StatusForbidden {
+		resp.Body.Close()
+		return nil, fmt.Errorf("jira forbidden (403) at %s", sanitizePath(path))
+	}
+	if resp.StatusCode == http.StatusNotFound {
+		resp.Body.Close()
+		return nil, fmt.Errorf("jira resource not found (404) at %s", sanitizePath(path))
+	}
+	return resp, nil
+}
+
+// sanitizePath returns a path safe for logging (no token/query leakage).
+func sanitizePath(path string) string {
+	// Remove any query string for logging
+	if i := strings.Index(path, "?"); i >= 0 {
+		path = path[:i]
+	}
+	return path
+}
+
+// ValidateConfig returns an error if required config is missing.
+func (j *JiraOffice) ValidateConfig() error {
+	if j.config.BaseURL == "" {
+		return fmt.Errorf("base_url is required")
+	}
+	if j.config.APIToken == "" {
+		return fmt.Errorf("api_token is required")
+	}
+	return nil
+}
+
+// Ping performs a lightweight API reachability check (e.g. GET /rest/api/3/myself or project).
+func (j *JiraOffice) Ping(ctx context.Context) error {
+	if err := j.ValidateConfig(); err != nil {
+		return err
+	}
+	// Prefer project key if set, otherwise /myself
+	path := "/rest/api/3/myself"
+	if j.config.ProjectKey != "" {
+		path = fmt.Sprintf("/rest/api/3/project/%s", url.PathEscape(j.config.ProjectKey))
+	}
+	resp, err := j.jiraRequest(ctx, "GET", path, nil)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("ping failed (status %d): %s", resp.StatusCode, string(body))
+	}
+	return nil
 }
 
 // formatAIAttribution formats an AI attribution header according to V6 spec.
@@ -219,7 +283,7 @@ func (j *JiraOffice) FetchBySourceKey(ctx context.Context, clusterID, sourceKey 
 // fetchJiraIssue fetches a Jira issue and converts it to a WorkItem.
 func (j *JiraOffice) fetchJiraIssue(ctx context.Context, jiraKey string) (*contracts.WorkItem, error) {
 	path := fmt.Sprintf("/rest/api/3/issue/%s", url.PathEscape(jiraKey))
-	resp, err := j.jiraRequest("GET", path, nil)
+	resp, err := j.jiraRequest(ctx, "GET", path, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch Jira issue: %w", err)
 	}
@@ -264,7 +328,7 @@ func (j *JiraOffice) UpdateStatus(ctx context.Context, clusterID, workItemID str
 	jiraKey := extractJiraKey(workItemID)
 
 	// First, get available transitions for this issue
-	transitions, err := j.getTransitions(jiraKey)
+	transitions, err := j.getTransitions(ctx, jiraKey)
 	if err != nil {
 		return fmt.Errorf("failed to get transitions: %w", err)
 	}
@@ -276,13 +340,13 @@ func (j *JiraOffice) UpdateStatus(ctx context.Context, clusterID, workItemID str
 	}
 
 	// Execute the transition
-	return j.executeTransition(jiraKey, transitionID)
+	return j.executeTransition(ctx, jiraKey, transitionID)
 }
 
 // getTransitions fetches available transitions for a Jira issue.
-func (j *JiraOffice) getTransitions(jiraKey string) ([]JiraTransition, error) {
+func (j *JiraOffice) getTransitions(ctx context.Context, jiraKey string) ([]JiraTransition, error) {
 	path := fmt.Sprintf("/rest/api/3/issue/%s/transitions", url.PathEscape(jiraKey))
-	resp, err := j.jiraRequest("GET", path, nil)
+	resp, err := j.jiraRequest(ctx, "GET", path, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get transitions: %w", err)
 	}
@@ -332,7 +396,7 @@ func (j *JiraOffice) findTransition(transitions []JiraTransition, targetStatus c
 }
 
 // executeTransition executes a Jira transition.
-func (j *JiraOffice) executeTransition(jiraKey, transitionID string) error {
+func (j *JiraOffice) executeTransition(ctx context.Context, jiraKey, transitionID string) error {
 	path := fmt.Sprintf("/rest/api/3/issue/%s/transitions", url.PathEscape(jiraKey))
 
 	payload := map[string]interface{}{
@@ -346,7 +410,7 @@ func (j *JiraOffice) executeTransition(jiraKey, transitionID string) error {
 		return fmt.Errorf("failed to marshal transition payload: %w", err)
 	}
 
-	resp, err := j.jiraRequest("POST", path, bytes.NewReader(data))
+	resp, err := j.jiraRequest(ctx, "POST", path, bytes.NewReader(data))
 	if err != nil {
 		return fmt.Errorf("failed to execute transition: %w", err)
 	}
@@ -396,7 +460,7 @@ func (j *JiraOffice) AddComment(ctx context.Context, clusterID, workItemID strin
 	}
 
 	path := fmt.Sprintf("/rest/api/3/issue/%s/comment", url.PathEscape(jiraKey))
-	resp, err := j.jiraRequest("POST", path, bytes.NewReader(data))
+	resp, err := j.jiraRequest(ctx, "POST", path, bytes.NewReader(data))
 	if err != nil {
 		return fmt.Errorf("failed to add comment: %w", err)
 	}
@@ -465,16 +529,20 @@ func (j *JiraOffice) AddAttachment(ctx context.Context, clusterID, workItemID st
 }
 
 // Search searches for work items matching criteria.
+// If query looks like full JQL (contains "ORDER BY", "project =", etc.), it is used as-is.
+// Otherwise, for plain queries, project key is prepended when configured.
 func (j *JiraOffice) Search(ctx context.Context, clusterID string, query string) ([]contracts.WorkItem, error) {
-	// Build JQL query
-	jql := query
-	if j.config.ProjectKey != "" && !strings.Contains(strings.ToUpper(query), "PROJECT") {
-		// Default to searching in configured project
-		jql = fmt.Sprintf("project = %s AND (%s)", j.config.ProjectKey, query)
+	q := strings.TrimSpace(query)
+	isJQL := strings.Contains(strings.ToUpper(q), "ORDER BY") ||
+		strings.Contains(strings.ToUpper(q), "PROJECT ") ||
+		strings.HasPrefix(strings.ToUpper(q), "PROJECT=")
+	jql := q
+	if !isJQL && j.config.ProjectKey != "" {
+		jql = fmt.Sprintf("project = %s AND (%s)", j.config.ProjectKey, q)
 	}
 
 	path := fmt.Sprintf("/rest/api/3/search/jql?jql=%s&maxResults=50", url.QueryEscape(jql))
-	resp, err := j.jiraRequest("GET", path, nil)
+	resp, err := j.jiraRequest(ctx, "GET", path, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to search Jira: %w", err)
 	}
@@ -645,41 +713,74 @@ func (j *JiraOffice) webhookHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// stopWebhookServer gracefully stops the HTTP server.
+// stopWebhookServer gracefully stops the HTTP server. Idempotent and safe on nil/closed state.
 func (j *JiraOffice) stopWebhookServer(ctx context.Context) error {
 	j.mu.Lock()
-	defer j.mu.Unlock()
-
 	if j.server == nil {
+		j.mu.Unlock()
 		return nil
 	}
+	server := j.server
+	done := j.serverDone
+	ch := j.eventChan
+	j.server = nil
+	j.serverDone = nil
+	j.eventChan = nil
+	j.mu.Unlock()
 
-	// Shutdown server with timeout
 	shutdownCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-
-	err := j.server.Shutdown(shutdownCtx)
-
-	// Wait for server goroutine to finish
+	err := server.Shutdown(shutdownCtx)
 	select {
-	case <-j.serverDone:
-		// Server stopped
+	case <-done:
 	case <-shutdownCtx.Done():
-		// Timeout
 	}
-
-	// Clean up channels
-	close(j.eventChan)
-	j.eventChan = nil
-	j.server = nil
-
+	if ch != nil {
+		close(ch)
+	}
 	return err
+}
+
+const maxTagValueLen = 200
+
+// deriveWorkDomain derives WorkDomain from custom field mapping, then components, then labels.
+func (j *JiraOffice) deriveWorkDomain(issue *JiraIssue, customFields map[string]interface{}) contracts.WorkDomain {
+	// 1. Config custom field mapping: map Jira field ID -> canonical domain name
+	if j.config.CustomFieldMapping != nil && customFields != nil {
+		for jiraFieldID, canonicalDomain := range j.config.CustomFieldMapping {
+			if canonicalDomain == "" {
+				continue
+			}
+			if v, ok := customFields[jiraFieldID]; ok && v != nil {
+				return j.BaseOffice.MapWorkDomain(canonicalDomain)
+			}
+		}
+	}
+	// 2. Component names
+	for _, c := range issue.Fields.Components {
+		if c.Name != "" {
+			return j.BaseOffice.MapWorkDomain(c.Name)
+		}
+	}
+	// 3. Labels
+	for _, label := range issue.Fields.Labels {
+		if label != "" {
+			return j.BaseOffice.MapWorkDomain(label)
+		}
+	}
+	return contracts.DomainCore
 }
 
 // convertToWorkItem converts a JiraIssue to a canonical WorkItem.
 func (j *JiraOffice) convertToWorkItem(issue *JiraIssue, customFields map[string]interface{}) *contracts.WorkItem {
-	// Map Jira status to canonical WorkStatus
 	canonicalStatus := j.mapStatus(issue.Fields.Status.Name)
+	projectKey := issue.Fields.Project.Key
+	if projectKey == "" {
+		parts := strings.Split(issue.Key, "-")
+		if len(parts) > 0 {
+			projectKey = parts[0]
+		}
+	}
 
 	workItem := &contracts.WorkItem{
 		ID:                  issue.Key,
@@ -691,13 +792,13 @@ func (j *JiraOffice) convertToWorkItem(issue *JiraIssue, customFields map[string
 		Status:              canonicalStatus,
 		WorkType:            j.mapWorkType(issue.Fields.Issuetype.Name),
 		Priority:            j.mapPriority(issue.Fields.Priority.Name),
-		WorkDomain:          contracts.DomainCore,      // Default, can be refined later
-		ExecutionMode:       contracts.ModeAutonomous,  // Default
-		EvidenceRequirement: contracts.EvidenceSummary, // Default
+		WorkDomain:          j.deriveWorkDomain(issue, customFields),
+		ExecutionMode:       contracts.ModeAutonomous,
+		EvidenceRequirement: contracts.EvidenceSummary,
 		Source: contracts.SourceMetadata{
 			System:    "jira",
 			IssueKey:  issue.Key,
-			Project:   strings.Split(issue.Key, "-")[0],
+			Project:   projectKey,
 			IssueType: issue.Fields.Issuetype.Name,
 			Reporter:  issue.Fields.Reporter.DisplayName,
 			Assignee:  issue.Fields.Assignee.DisplayName,
@@ -705,14 +806,28 @@ func (j *JiraOffice) convertToWorkItem(issue *JiraIssue, customFields map[string
 			UpdatedAt: issue.Fields.Updated.Time,
 		},
 		Tags: contracts.WorkTags{
-			HumanOrg: issue.Fields.Labels,
+			HumanOrg: append([]string(nil), issue.Fields.Labels...),
 		},
 	}
 
-	// Add custom fields as tags
+	// Structured tags
+	workItem.Tags.HumanOrg = append(workItem.Tags.HumanOrg, "jira:project:"+projectKey)
+	workItem.Tags.HumanOrg = append(workItem.Tags.HumanOrg, "jira:status:"+issue.Fields.Status.Name)
+	workItem.Tags.HumanOrg = append(workItem.Tags.HumanOrg, "jira:type:"+issue.Fields.Issuetype.Name)
+	for _, c := range issue.Fields.Components {
+		if c.Name != "" {
+			workItem.Tags.HumanOrg = append(workItem.Tags.HumanOrg, "jira:component:"+c.Name)
+		}
+	}
+	for _, fv := range issue.Fields.FixVersions {
+		if fv.Name != "" {
+			workItem.Tags.HumanOrg = append(workItem.Tags.HumanOrg, "jira:fixversion:"+fv.Name)
+		}
+	}
+
+	// Custom fields as tags (truncate large values)
 	if customFields != nil {
 		for key, value := range customFields {
-			// Format value as string
 			var strVal string
 			switch v := value.(type) {
 			case string:
@@ -722,12 +837,14 @@ func (j *JiraOffice) convertToWorkItem(issue *JiraIssue, customFields map[string
 			case bool:
 				strVal = fmt.Sprintf("%t", v)
 			default:
-				// Try JSON marshal for complex objects
-				if bytes, err := json.Marshal(v); err == nil {
-					strVal = string(bytes)
+				if b, err := json.Marshal(v); err == nil {
+					strVal = string(b)
 				} else {
 					strVal = fmt.Sprintf("%v", v)
 				}
+			}
+			if len(strVal) > maxTagValueLen {
+				strVal = strVal[:maxTagValueLen] + "..."
 			}
 			workItem.Tags.HumanOrg = append(workItem.Tags.HumanOrg, fmt.Sprintf("%s:%s", key, strVal))
 		}

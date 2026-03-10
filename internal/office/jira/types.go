@@ -59,7 +59,8 @@ type JiraIssue struct {
 			Name string `json:"name"`
 		} `json:"issuetype"`
 		Project struct {
-			Key string `json:"key"`
+			Key  string `json:"key"`
+			Name string `json:"name,omitempty"`
 		} `json:"project"`
 		Reporter struct {
 			DisplayName string `json:"displayName"`
@@ -68,6 +69,22 @@ type JiraIssue struct {
 			DisplayName string `json:"displayName"`
 		} `json:"assignee"`
 		Labels []string `json:"labels"`
+		// Optional common fields
+		Components []struct {
+			Name string `json:"name"`
+		} `json:"components,omitempty"`
+		Parent *struct {
+			Key string `json:"key"`
+		} `json:"parent,omitempty"`
+		FixVersions []struct {
+			Name string `json:"name"`
+		} `json:"fixVersions,omitempty"`
+		Versions []struct {
+			Name string `json:"name"`
+		} `json:"versions,omitempty"`
+		Resolution *struct {
+			Name string `json:"name"`
+		} `json:"resolution,omitempty"`
 		// Common custom fields (examples)
 		EpicLink    string `json:"customfield_10014,omitempty"`
 		StoryPoints int    `json:"customfield_10016,omitempty"`

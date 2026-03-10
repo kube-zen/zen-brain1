@@ -49,11 +49,21 @@ type QMDConfig struct {
 
 // JiraConfig holds Jira connector configuration.
 type JiraConfig struct {
-	Enabled  bool   `yaml:"enabled"`
-	BaseURL  string `yaml:"base_url"`
-	Project  string `yaml:"project"`
-	Username string `yaml:"-"` // From env var
-	APIToken string `yaml:"-"` // From env var
+	Enabled   bool              `yaml:"enabled"`
+	BaseURL   string            `yaml:"base_url"`
+	Project   string            `yaml:"project"`    // Legacy; prefer ProjectKey
+	ProjectKey string           `yaml:"project_key"`
+	Username  string            `yaml:"-"`          // From env var
+	APIToken  string            `yaml:"-"`          // From env var
+	Email     string            `yaml:"email"`
+	WebhookURL    string        `yaml:"webhook_url"`
+	WebhookSecret string        `yaml:"webhook_secret"`
+	WebhookPort   int           `yaml:"webhook_port"`
+	WebhookPath   string        `yaml:"webhook_path"`
+	StatusMapping      map[string]string `yaml:"status_mapping"`
+	WorkTypeMapping    map[string]string `yaml:"worktype_mapping"`
+	PriorityMapping    map[string]string `yaml:"priority_mapping"`
+	CustomFieldMapping map[string]string `yaml:"custom_field_mapping"`
 }
 
 // ConfluenceConfig holds Confluence integration configuration.
@@ -208,9 +218,39 @@ func findConfigPath() string {
 }
 
 // loadFromEnv loads sensitive configuration from environment variables.
+// Supports both legacy and unified Jira env names: JIRA_URL, JIRA_EMAIL, JIRA_USERNAME,
+// JIRA_TOKEN, JIRA_API_TOKEN, JIRA_PROJECT_KEY. APIToken prefers JIRA_API_TOKEN then JIRA_TOKEN;
+// Email prefers JIRA_EMAIL then JIRA_USERNAME.
 func (c *Config) loadFromEnv() {
-	c.Jira.Username = os.Getenv("JIRA_USERNAME")
-	c.Jira.APIToken = os.Getenv("JIRA_API_TOKEN")
+	// Jira: unified env support
+	if c.Jira.BaseURL == "" {
+		c.Jira.BaseURL = os.Getenv("JIRA_URL")
+	}
+	if c.Jira.Email == "" {
+		c.Jira.Email = os.Getenv("JIRA_EMAIL")
+	}
+	if c.Jira.Email == "" {
+		c.Jira.Email = os.Getenv("JIRA_USERNAME")
+	}
+	if c.Jira.Username == "" {
+		c.Jira.Username = os.Getenv("JIRA_USERNAME")
+	}
+	if c.Jira.APIToken == "" {
+		c.Jira.APIToken = os.Getenv("JIRA_API_TOKEN")
+	}
+	if c.Jira.APIToken == "" {
+		c.Jira.APIToken = os.Getenv("JIRA_TOKEN")
+	}
+	if c.Jira.ProjectKey == "" {
+		c.Jira.ProjectKey = os.Getenv("JIRA_PROJECT_KEY")
+	}
+	// Compatibility: Project -> ProjectKey if ProjectKey empty
+	if c.Jira.ProjectKey == "" && c.Jira.Project != "" {
+		c.Jira.ProjectKey = c.Jira.Project
+	}
+	if c.Jira.Email == "" && c.Jira.Username != "" {
+		c.Jira.Email = c.Jira.Username
+	}
 
 	// Confluence credentials
 	c.Confluence.Username = os.Getenv("CONFLUENCE_USERNAME")

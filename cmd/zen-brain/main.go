@@ -19,6 +19,7 @@ import (
 	"github.com/kube-zen/zen-brain1/internal/context/tier3"
 	"github.com/kube-zen/zen-brain1/internal/factory"
 	llmgateway "github.com/kube-zen/zen-brain1/internal/llm"
+	"github.com/kube-zen/zen-brain1/internal/integration"
 	"github.com/kube-zen/zen-brain1/internal/office"
 	"github.com/kube-zen/zen-brain1/internal/office/jira"
 	"github.com/kube-zen/zen-brain1/internal/messagebus/redis"
@@ -58,6 +59,9 @@ func main() {
 	case "intelligence":
 		runIntelligence()
 
+	case "office":
+		runOfficeCommand()
+
 	case "version":
 		printVersion()
 
@@ -75,6 +79,7 @@ func printUsage() {
 	fmt.Println("  test           Run a simple LLM Gateway test query")
 	fmt.Println("  vertical-slice Run end-to-end vertical slice (Jira → analyze → plan → execute → update)")
 	fmt.Println("  intelligence   Block 5 intelligence: mine, analyze, recommend")
+	fmt.Println("  office         Office doctor, search, fetch, watch (Jira)")
 	fmt.Println("  version        Print version information")
 	fmt.Println()
 	fmt.Println("For vertical-slice command:")
@@ -86,6 +91,12 @@ func printUsage() {
 	fmt.Println("  zen-brain intelligence mine                      Mine proof-of-work artifacts")
 	fmt.Println("  zen-brain intelligence analyze                  Print pattern analysis")
 	fmt.Println("  zen-brain intelligence recommend <workType> <workDomain>   Get template and config recommendations")
+	fmt.Println()
+	fmt.Println("For office command:")
+	fmt.Println("  zen-brain office doctor              Print config, connectors, Jira URL, API reachability")
+	fmt.Println("  zen-brain office search <query>      Search work items (JQL or plain text)")
+	fmt.Println("  zen-brain office fetch <jira-key>    Fetch one item by Jira key")
+	fmt.Println("  zen-brain office watch               Start webhook listener and stream events")
 }
 
 func printVersion() {
@@ -212,43 +223,42 @@ func runVerticalSlice() {
 	// Step 2: Initialize Office Manager (config-first, then env fallback)
 	fmt.Println("[2/7] Initializing Office Manager...")
 	var officeManager *office.Manager
+	var jiraMode string // "config", "env", or "mock"
 	cfg, cfgErr := config.LoadConfig("")
 	if cfgErr == nil && cfg != nil && cfg.Jira.Enabled {
-		mgr, err := office.InitOfficeManagerFromConfig(cfg)
+		mgr, err := integration.InitOfficeManagerFromConfig(cfg)
 		if err != nil {
 			fmt.Printf("  ! Jira from config failed: %v\n", err)
-			officeManager = office.NewManager()
-			if !useMock {
-				fmt.Println("  ! Falling back to env-driven Jira...")
-			}
 		} else {
 			officeManager = mgr
-			if !useMock {
-				fmt.Println("  ✓ Jira enabled from config")
-			}
+			jiraMode = "config"
 		}
 	}
 	if officeManager == nil {
 		officeManager = office.NewManager()
 	}
-	// Env fallback: if not mock and no Jira connector yet, try NewFromEnv
-	if !useMock {
-		_, _ = officeManager.GetConnectorForCluster("default")
-		if _, err := officeManager.GetConnectorForCluster("default"); err != nil {
-			fmt.Println("  - Attempting Jira from environment...")
-			jiraConnector, err := jira.NewFromEnv("jira", "default")
-			if err != nil {
-				fmt.Printf("  ! Jira connector initialization failed: %v\n", err)
-				fmt.Println("  ! Falling back to mock mode")
-				useMock = true
+	if jiraMode == "" && !useMock {
+		jiraConnector, err := jira.NewFromEnv("jira", "default")
+		if err != nil {
+			fmt.Printf("  ! Jira connector initialization failed: %v\n", err)
+			fmt.Println("  ! Falling back to mock mode")
+			useMock = true
+			jiraMode = "mock"
+		} else {
+			if err := officeManager.Register("jira", jiraConnector); err != nil {
+				log.Printf("  ! Register Jira: %v", err)
+			} else if err := officeManager.RegisterForCluster("default", "jira"); err != nil {
+				log.Printf("  ! Register Jira for cluster: %v", err)
 			} else {
-				_ = officeManager.Register("jira", jiraConnector)
-				_ = officeManager.RegisterForCluster("default", "jira")
-				fmt.Println("  ✓ Jira enabled from env fallback")
+				jiraMode = "env"
 			}
 		}
 	}
-	if useMock {
+	if jiraMode == "config" {
+		fmt.Println("  ✓ Jira enabled from config")
+	} else if jiraMode == "env" {
+		fmt.Println("  ✓ Jira enabled from env fallback")
+	} else {
 		fmt.Println("  ✓ Jira unavailable, mock mode used")
 	}
 	fmt.Println("  ✓ Office Manager initialized")
@@ -537,10 +547,20 @@ func runVerticalSlice() {
 		log.Fatalf("No analysis result for session %s", workSession.ID)
 	}
 
+	// Once work starts, set Jira status to running (if not mock)
+	if !useMock {
+		if err := officeManager.UpdateStatus(ctx, "default", workItem.ID, contracts.StatusRunning); err != nil {
+			log.Printf("Warning: Failed to set Jira status to running: %v", err)
+		}
+	}
+
 	// Execute tasks through Factory (collect for execution checkpoint)
 	var brainTaskIDs []string
 	var proofPaths []string
 	var lastRecommendation string
+	var tasksSucceeded, tasksFailed int
+	var commentPosted bool
+	var lastPowArtifact *factory.ProofOfWorkArtifact
 
 	fmt.Println()
 	fmt.Println("Executing tasks through Factory...")
@@ -575,6 +595,7 @@ func runVerticalSlice() {
 				}
 			}
 			if powArtifact != nil {
+				lastPowArtifact = powArtifact
 				fmt.Printf("  ✓ Proof-of-work generated: %s\n", powArtifact.JSONPath)
 				for _, artifactPath := range []string{powArtifact.JSONPath, powArtifact.MarkdownPath, powArtifact.LogPath} {
 					if artifactPath != "" {
@@ -597,6 +618,17 @@ func runVerticalSlice() {
 						}
 					}
 				}
+				// Post proof-of-work comment to Jira (do not fail slice on error)
+				if !useMock {
+					proofComment, err := powManager.GenerateComment(ctx, powArtifact)
+					if err != nil {
+						log.Printf("Warning: could not generate proof comment: %v", err)
+					} else if err := officeManager.AddComment(ctx, "default", workItem.ID, proofComment); err != nil {
+						log.Printf("Warning: could not post proof comment to Jira: %v", err)
+					} else {
+						commentPosted = true
+					}
+				}
 			}
 
 			// Log execution result
@@ -604,8 +636,10 @@ func runVerticalSlice() {
 				lastRecommendation = executionResult.Recommendation
 			}
 			if executionResult.Success {
+				tasksSucceeded++
 				fmt.Printf("  ✓ Task completed: %s (%d steps)\n", executionResult.TaskID, executionResult.CompletedSteps)
 			} else {
+				tasksFailed++
 				fmt.Printf("  ! Task failed: %s - %s\n", executionResult.TaskID, executionResult.Error)
 			}
 		}
@@ -617,6 +651,41 @@ func runVerticalSlice() {
 	if miningIntegration != nil {
 		if _, err := miningIntegration.MineProofOfWorks(ctx); err != nil {
 			log.Printf("Warning: intelligence mining failed: %v", err)
+		}
+	}
+
+	// Attach proof artifacts to Jira (do not fail slice on attachment errors)
+	var attachmentsUploaded int
+	if !useMock && len(proofPaths) > 0 {
+		for _, p := range proofPaths {
+			content, err := os.ReadFile(p)
+			if err != nil {
+				log.Printf("Warning: could not read proof artifact %s: %v", p, err)
+				continue
+			}
+			filename := filepath.Base(p)
+			contentType := "application/octet-stream"
+			switch strings.ToLower(filepath.Ext(p)) {
+			case ".json":
+				contentType = "application/json"
+			case ".md":
+				contentType = "text/markdown"
+			case ".log", ".txt":
+				contentType = "text/plain"
+			}
+			att := &contracts.Attachment{
+				ID:          fmt.Sprintf("pow-%s", filename),
+				WorkItemID:  workItem.ID,
+				Filename:    filename,
+				ContentType: contentType,
+				Size:        int64(len(content)),
+				CreatedAt:   time.Now(),
+			}
+			if err := officeManager.AddAttachment(ctx, "default", workItem.ID, att, content); err != nil {
+				log.Printf("Warning: could not attach %s to Jira: %v", filename, err)
+			} else {
+				attachmentsUploaded++
+			}
 		}
 	}
 
@@ -660,13 +729,19 @@ func runVerticalSlice() {
 		return
 	}
 
-	// Update Jira if not in mock mode
+	// Determine final Jira status and update (if not mock)
+	var statusUpdated bool
 	if !useMock {
+		finalStatus := contracts.StatusCompleted
+		if ctx.Err() == context.DeadlineExceeded || (len(analysisResult.BrainTaskSpecs) > 0 && tasksSucceeded == 0 && tasksFailed > 0) {
+			finalStatus = contracts.StatusFailed
+		}
 		fmt.Println()
-		fmt.Println("Updating Jira status to completed...")
-		if err := officeManager.UpdateStatus(ctx, "default", workItem.ID, contracts.StatusCompleted); err != nil {
+		fmt.Println("Updating Jira status...")
+		if err := officeManager.UpdateStatus(ctx, "default", workItem.ID, finalStatus); err != nil {
 			log.Printf("Warning: Failed to update Jira status: %v", err)
 		} else {
+			statusUpdated = true
 			fmt.Println("✓ Jira status updated")
 		}
 	}
@@ -698,6 +773,10 @@ func runVerticalSlice() {
 	fmt.Printf("  Duration: %s\n", elapsed)
 	fmt.Printf("  Estimated cost: $%.2f\n", analysisResult.EstimatedTotalCostUSD)
 	fmt.Printf("  Jira updated: %v\n", !useMock)
+	if !useMock {
+		fmt.Printf("  Office: comment posted=%v, attachments=%d, status updated=%v\n", commentPosted, attachmentsUploaded, statusUpdated)
+	}
+	_ = lastPowArtifact // used for comment generation above
 }
 
 // simpleAnalyzer is a simple implementation of IntentAnalyzer

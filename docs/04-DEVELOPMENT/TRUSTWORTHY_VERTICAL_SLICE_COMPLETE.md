@@ -81,9 +81,10 @@ Office intake → analyze → session → status update
 #### 5. Status Update ✅
 - **Component:** Office Manager
 - **Implementation:**
-  - `officeManager.UpdateStatus()` updates Jira to "completed"
-  - Only runs in non-mock mode
-  - Graceful error handling
+  - Once work starts: `UpdateStatus(..., StatusRunning)`.
+  - After execution: `UpdateStatus(..., StatusCompleted)` or `StatusFailed`/`StatusBlocked` on timeout or all-failed.
+  - Proof-of-work comment posted via `AddComment` (from ProofOfWorkManager.GenerateComment); attachments uploaded via `AddAttachment` (JSON/MD/log).
+  - Only runs in non-mock mode; graceful error handling. End-of-run summary: comment posted, attachments count, status updated.
 
 ---
 
@@ -132,10 +133,16 @@ go build -o zen-brain ./cmd/zen-brain
 # Run with mock work item
 ./zen-brain vertical-slice --mock
 
-# Run with real Jira ticket
-export JIRA_USERNAME="your-username"
+# Run with real Jira ticket (unified env: JIRA_EMAIL or JIRA_USERNAME, JIRA_API_TOKEN or JIRA_TOKEN)
+export JIRA_EMAIL="your-email"
 export JIRA_API_TOKEN="your-api-token"
 ./zen-brain vertical-slice ZB-123
+
+# Office operational CLI
+./zen-brain office doctor
+./zen-brain office search "status = Open"
+./zen-brain office fetch PROJ-123
+./zen-brain office watch
 ```
 
 ### Make Target

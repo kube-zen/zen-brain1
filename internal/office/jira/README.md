@@ -16,11 +16,17 @@ Implements the `ZenOffice` interface for Atlassian Jira, providing bidirectional
 
 ## Configuration
 
-### Environment Variables
+### Environment Variables (unified with config)
+All of the following are supported; config loader and `jira.NewFromEnv` use the same semantics:
+- `JIRA_URL` – base URL
+- `JIRA_EMAIL` (preferred) or `JIRA_USERNAME` – auth identity
+- `JIRA_API_TOKEN` (preferred) or `JIRA_TOKEN` – API token
+- `JIRA_PROJECT_KEY` (or YAML `project` / `project_key`)
+
 ```bash
 export JIRA_URL="https://your-domain.atlassian.net"
-export JIRA_TOKEN="your-api-token"
-export JIRA_EMAIL="your-email@example.com"
+export JIRA_TOKEN="your-api-token"   # or JIRA_API_TOKEN
+export JIRA_EMAIL="your-email@example.com"   # or JIRA_USERNAME
 export JIRA_PROJECT_KEY="PROJ"  # Optional
 ```
 
@@ -220,6 +226,17 @@ This header:
 | Blocked, On Hold, Paused | `StatusBlocked` |
 | Failed | `StatusFailed` |
 | Canceled | `StatusCanceled` |
+
+## Office CLI (zen-brain office)
+
+The vertical slice and config bootstrap are the main integration path. For operational use:
+
+- **zen-brain office doctor** – config source, connectors, cluster mapping, Jira base URL (sanitized), project key, webhook config, credentials present, API reachability (Ping).
+- **zen-brain office search &lt;query&gt;** – search work items (JQL or plain text); prints key, title, status, work type, priority.
+- **zen-brain office fetch &lt;jira-key&gt;** – fetch one item; prints canonical mapping (ID, title, status, work type, work domain, source metadata, tags).
+- **zen-brain office watch** – start Jira webhook listener and stream events until interrupted.
+
+Vertical-slice now posts proof-of-work comments and attachments back to Jira by default (when not in mock mode), and reports Office summary (comment posted, attachments count, status updated).
 
 ## Development
 
