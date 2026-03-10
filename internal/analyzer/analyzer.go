@@ -271,9 +271,7 @@ func (a *DefaultAnalyzer) combineStageResults(ctx context.Context, workItem *con
 		}
 	}
 
-	// For now, create a single BrainTaskSpec
-	// In a real implementation, this would create multiple specs based on breakdown
-	spec := contracts.BrainTaskSpec{
+	baseSpec := contracts.BrainTaskSpec{
 		ID:                  fmt.Sprintf("%s-%d", workItem.ID, time.Now().Unix()),
 		Title:               workItem.Title,
 		Description:         workItem.Body,
@@ -296,10 +294,43 @@ func (a *DefaultAnalyzer) combineStageResults(ctx context.Context, workItem *con
 		UpdatedAt:           time.Now(),
 	}
 
-	// Apply breakdown if available (deferred: create multiple BrainTaskSpecs from breakdown; see REMAINING_DRAGS.md).
-	_ = breakdown.Output
+	// Multi-task breakdown: when breakdown stage produced multiple subtasks, create one BrainTaskSpec per subtask.
+	subtasks := a.extractSubtasksFromBreakdown(breakdown)
+	if len(subtasks) > 1 {
+		specs := make([]contracts.BrainTaskSpec, 0, len(subtasks))
+		for i, title := range subtasks {
+			spec := baseSpec
+			spec.ID = fmt.Sprintf("%s-%d-%d", workItem.ID, time.Now().Unix(), i+1)
+			spec.Title = title
+			spec.Objective = title
+			specs = append(specs, spec)
+		}
+		return specs, nil
+	}
 
-	return []contracts.BrainTaskSpec{spec}, nil
+	return []contracts.BrainTaskSpec{baseSpec}, nil
+}
+
+// extractSubtasksFromBreakdown returns subtask titles from breakdown stage output ([]string or []interface{}).
+func (a *DefaultAnalyzer) extractSubtasksFromBreakdown(breakdown StageResult) []string {
+	if breakdown.Output == nil {
+		return nil
+	}
+	// Direct []string
+	if s, ok := breakdown.Output["subtasks"].([]string); ok && len(s) > 0 {
+		return s
+	}
+	// From JSON/LLM: []interface{}
+	if raw, ok := breakdown.Output["subtasks"].([]interface{}); ok {
+		var out []string
+		for _, v := range raw {
+			if str, ok := v.(string); ok && str != "" {
+				out = append(out, str)
+			}
+		}
+		return out
+	}
+	return nil
 }
 
 // Helper methods for extracting information from stage results

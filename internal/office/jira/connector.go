@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"mime/multipart"
 	"net/http"
 	"net/url"
@@ -600,8 +601,7 @@ func (j *JiraOffice) Watch(ctx context.Context, clusterID string) (<-chan pkgoff
 	done := j.serverDone
 	go func() {
 		if err := j.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			// Log error (TODO: add proper logging)
-			fmt.Printf("Jira webhook server error: %v\n", err)
+			log.Printf("[Jira] webhook server error: %v", err)
 		}
 		close(done)
 	}()
@@ -708,7 +708,7 @@ func (j *JiraOffice) webhookHandler(w http.ResponseWriter, r *http.Request) {
 	case j.eventChan <- event:
 		// Event delivered
 	default:
-		// Channel full, log warning (TODO: add logging)
+		log.Printf("[Jira] webhook event channel full, dropping event for issue %s", workItem.Source.IssueKey)
 	}
 
 	w.WriteHeader(http.StatusOK)
