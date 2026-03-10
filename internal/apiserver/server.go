@@ -12,10 +12,11 @@ import (
 
 // Server is the zen-brain API server (Block 3.4).
 type Server struct {
-	Addr    string
-	Checker zenhealth.Checker
-	mux     *http.ServeMux
-	srv     *http.Server
+	Addr       string
+	Checker    zenhealth.Checker
+	AuthAPIKey string // when set, require X-API-Key or Authorization: Bearer (skipPaths exempt)
+	mux        *http.ServeMux
+	srv        *http.Server
 }
 
 // New creates a new API server with health/readiness using zen-sdk/pkg/health.
@@ -46,9 +47,13 @@ func (s *Server) HandleFunc(pattern string, fn func(http.ResponseWriter, *http.R
 }
 
 // Start starts the HTTP server (blocking until Shutdown).
+// If AuthAPIKey is set, wraps the mux with API key auth (healthz/readyz/ excluded).
 func (s *Server) Start() error {
 	if s.Addr == "" {
 		s.Addr = ":8080"
+	}
+	if s.AuthAPIKey != "" {
+		s.srv.Handler = RequireAPIKey(s.AuthAPIKey, DefaultSkipPaths)(s.mux)
 	}
 	return s.srv.ListenAndServe()
 }
