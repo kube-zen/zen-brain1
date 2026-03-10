@@ -4,6 +4,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"os"
 
@@ -19,7 +20,10 @@ import (
 	"github.com/kube-zen/zen-brain1/internal/evidence"
 	"github.com/kube-zen/zen-brain1/internal/foreman"
 	"github.com/kube-zen/zen-brain1/internal/gate"
-	"github.com/kube-zen/zen-brain1/internal/guardian"
+	internalguardian "github.com/kube-zen/zen-brain1/internal/guardian"
+	internalledger "github.com/kube-zen/zen-brain1/internal/ledger"
+	"github.com/kube-zen/zen-brain1/pkg/guardian"
+	"github.com/kube-zen/zen-brain1/pkg/ledger"
 )
 
 var scheme = runtime.NewScheme()
@@ -50,6 +54,8 @@ func main() {
 	flag.BoolVar(&reuseSessionWorktree, "factory-reuse-session-worktree", envBool("ZEN_FOREMAN_REUSE_SESSION_WORKTREE", false), "Reuse one worktree per session when using git worktrees.")
 	zenContextRedis := flag.String("zen-context-redis", envStr("ZEN_CONTEXT_REDIS_URL", ""), "Redis URL for ZenContext (ReMe). When set, Worker uses ReMeBinder for session context on continuation.")
 	sessionAffinity := flag.Bool("session-affinity", envBool("ZEN_FOREMAN_SESSION_AFFINITY", false), "Route tasks by session (same session → same worker).")
+	guardianMode := flag.String("guardian", envStr("ZEN_FOREMAN_GUARDIAN", "stub"), "Guardian mode: stub (allow all, no log), log (audit log, allow all), circuit-breaker (log + per-session rate limit).")
+	guardianCircuitMax := flag.Int("guardian-circuit-max-per-session-per-min", envInt("ZEN_FOREMAN_GUARDIAN_CIRCUIT_MAX_PER_SESSION_PER_MIN", 0), "Max tasks per session per minute when guardian=circuit-breaker; 0 = no limit.")
 	flag.Parse()
 
 	ctx := ctrl.SetupSignalHandler()
@@ -89,6 +95,13 @@ func main() {
 
 	worker := foreman.NewWorker(mgr.GetClient(), runner, numWorkers)
 	worker.SessionAffinity = *sessionAffinity
+	if ledgerClient := foremanLedgerClient(); ledgerClient != nil {
+		worker.LedgerClient = ledgerClient
+		if closer, ok := ledgerClient.(interface{ Close() error }); ok {
+			defer closer.Close()
+		}
+		log.Printf("Foreman: ZenLedger enabled (task completion will be recorded)")
+	}
 	if *zenContextRedis != "" {
 		zc, err := internalcontext.NewMinimalZenContext(*zenContextRedis, "default")
 		if err != nil {
@@ -101,10 +114,25 @@ func main() {
 	}
 	worker.Start(ctx)
 
+	var g guardian.ZenGuardian
+	switch *guardianMode {
+	case "log":
+		g = internalguardian.NewLogGuardian()
+		log.Printf("Foreman: Guardian=log (audit log)")
+	case "circuit-breaker":
+		cbCfg := internalguardian.CircuitBreakerConfig{
+			MaxTasksPerSessionPerMinute: *guardianCircuitMax,
+			Window:                      0, // default 1 min
+		}
+		g = internalguardian.NewCircuitBreakerGuardian(internalguardian.NewLogGuardian(), cbCfg)
+		log.Printf("Foreman: Guardian=circuit-breaker (max %d/session/min)", *guardianCircuitMax)
+	default:
+		g = internalguardian.NewStubGuardian()
+	}
 	reconciler := &foreman.Reconciler{
 		Client:     mgr.GetClient(),
 		Gate:       gate.NewStubGate(),
-		Guardian:   guardian.NewStubGuardian(),
+		Guardian:   g,
 		Dispatcher: worker,
 	}
 	if err = reconciler.SetupWithManager(mgr); err != nil {
@@ -133,4 +161,32 @@ func envBool(key string, defaultVal bool) bool {
 		return v == "1" || v == "true" || v == "yes"
 	}
 	return defaultVal
+}
+
+func envInt(key string, defaultVal int) int {
+	if v := os.Getenv(key); v != "" {
+		var n int
+		if _, err := fmt.Sscanf(v, "%d", &n); err == nil {
+			return n
+		}
+	}
+	return defaultVal
+}
+
+// foremanLedgerClient returns a ZenLedgerClient when ZEN_LEDGER_DSN or LEDGER_DATABASE_URL is set (Block 4 completeness).
+// Caller may defer Close() on the returned value if it implements interface{ Close() error }.
+func foremanLedgerClient() ledger.ZenLedgerClient {
+	dsn := os.Getenv("ZEN_LEDGER_DSN")
+	if dsn == "" {
+		dsn = os.Getenv("LEDGER_DATABASE_URL")
+	}
+	if dsn == "" {
+		return nil
+	}
+	cl, err := internalledger.NewCockroachLedger(dsn)
+	if err != nil {
+		log.Printf("Foreman: ZenLedger unavailable: %v", err)
+		return nil
+	}
+	return cl
 }
