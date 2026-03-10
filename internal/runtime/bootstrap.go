@@ -25,8 +25,9 @@ type Runtime struct {
 }
 
 // strictness reads env and config to determine if a capability is required.
+// ZEN_RUNTIME_PROFILE=prod (or ZEN_BRAIN_STRICT_RUNTIME) makes all capabilities required (fail-closed).
 func strictness(cfg *config.Config) (requireZenContext, requireQMD, requireLedger, requireMessageBus bool) {
-	if os.Getenv("ZEN_BRAIN_STRICT_RUNTIME") != "" {
+	if os.Getenv("ZEN_RUNTIME_PROFILE") == "prod" || os.Getenv("ZEN_BRAIN_STRICT_RUNTIME") != "" {
 		requireZenContext = true
 		requireQMD = true
 		requireLedger = true
@@ -137,6 +138,7 @@ func Bootstrap(ctx context.Context, cfg *config.Config) (*Runtime, error) {
 		report.Tier1Hot = CapabilityStatus{Name: "tier1_hot", Mode: ModeReal, Healthy: true, Required: reqZC}
 		t2, t3, j := inferTier2Tier3Journal(zcConfig)
 		report.Tier2Warm = t2
+		report.Tier2Warm.Required = reqQMD
 		report.Tier3Cold = t3
 		report.Journal = j
 		// Run health checks so Healthy reflects actual reachability
@@ -169,7 +171,11 @@ func Bootstrap(ctx context.Context, cfg *config.Config) (*Runtime, error) {
 		report.Ledger = CapabilityStatus{Name: "ledger", Mode: ModeStub, Healthy: true, Required: reqLedger, Message: "using stub ledger"}
 		ledgerClient = nil
 		if reqLedger {
-			return &Runtime{ZenContext: zenContext, Report: report}, fmt.Errorf("ledger required but init failed: %w", errLedger)
+			msg := "ledger required but no DSN (set ZEN_LEDGER_DSN or LEDGER_DATABASE_URL) or init failed"
+			if errLedger != nil {
+				msg = fmt.Sprintf("ledger required but init failed: %v", errLedger)
+			}
+			return &Runtime{ZenContext: zenContext, Report: report}, fmt.Errorf("%s", msg)
 		}
 	} else {
 		report.Ledger = CapabilityStatus{Name: "ledger", Mode: ModeReal, Healthy: true, Required: reqLedger}

@@ -41,6 +41,16 @@ func TestStrictness_Env(t *testing.T) {
 	}
 }
 
+func TestStrictness_ProdProfile(t *testing.T) {
+	os.Setenv("ZEN_RUNTIME_PROFILE", "prod")
+	defer os.Unsetenv("ZEN_RUNTIME_PROFILE")
+	cfg := config.DefaultConfig()
+	reqZC, reqQMD, reqLedger, reqMB := strictness(cfg)
+	if !reqZC || !reqQMD || !reqLedger || !reqMB {
+		t.Errorf("prod profile should require all: zc=%v qmd=%v ledger=%v mb=%v", reqZC, reqQMD, reqLedger, reqMB)
+	}
+}
+
 func TestInferTier2Tier3Journal(t *testing.T) {
 	t2, t3, j := inferTier2Tier3Journal(nil)
 	if t2.Mode != ModeDisabled || t3.Mode != ModeDisabled || j.Mode != ModeDisabled {

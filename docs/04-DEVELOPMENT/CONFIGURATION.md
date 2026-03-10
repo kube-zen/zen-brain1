@@ -52,7 +52,7 @@ When `ZEN_BRAIN_MESSAGE_BUS=redis` is set, the bus is enabled and uses `REDIS_UR
 
 **Strictness (env):** To require capabilities and fail startup when unavailable, set:
 
-- `ZEN_BRAIN_STRICT_RUNTIME=1` — require all of: ZenContext, QMD, Ledger, MessageBus (when enabled).
+- `ZEN_RUNTIME_PROFILE=prod` or `ZEN_BRAIN_STRICT_RUNTIME=1` — **fail-closed**: require all of ZenContext, QMD, Ledger, MessageBus; startup fails if any required capability is missing (no mock/stub fallback).
 - `ZEN_BRAIN_REQUIRE_ZENCONTEXT=1`, `ZEN_BRAIN_REQUIRE_QMD=1`, `ZEN_BRAIN_REQUIRE_LEDGER=1`, `ZEN_BRAIN_REQUIRE_MESSAGEBUS=1` — require the corresponding capability.
 
 Config can also set `zen_context.required`, `ledger.required`, `message_bus.required` in YAML.
