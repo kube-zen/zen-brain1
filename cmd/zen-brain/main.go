@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -502,6 +503,26 @@ func runVerticalSlice() {
 		}
 	} else {
 		fmt.Println("  ! No BrainTaskSpecs from analysis, skipping Factory execution")
+	}
+
+	// Update ZenContext session state so ReMe/resume has execution summary (Task 3: session/context glue)
+	if zenContext != nil {
+		sc, err := zenContext.GetSessionContext(ctx, "default", workSession.ID)
+		if err == nil && sc != nil {
+			state := map[string]interface{}{
+				"stage":      "proof_attached",
+				"session_id": workSession.ID,
+				"work_item":  workItem.ID,
+				"updated_at": time.Now().Format(time.RFC3339),
+			}
+			if stateBytes, err := json.Marshal(state); err == nil {
+				sc.State = stateBytes
+				sc.LastAccessedAt = time.Now()
+				if err := zenContext.StoreSessionContext(ctx, sc.ClusterID, sc); err != nil {
+					log.Printf("Warning: failed to update ZenContext session state: %v", err)
+				}
+			}
+		}
 	}
 
 	// Update Jira if not in mock mode
