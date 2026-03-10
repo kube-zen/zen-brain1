@@ -21,7 +21,7 @@
 | **Message bus** | Real | Redis when `ZEN_BRAIN_MESSAGE_BUS=redis`; optional. | `internal/messagebus/redis/` |
 | **ZenLedger** | Real | CockroachDB when DSN set; stub otherwise. | `internal/ledger/cockroach.go`, `stub.go` |
 | **API server** | Real | Block 3.4: /healthz, /readyz, /api/v1/sessions, /api/v1/health, /api/v1/version. Auth: optional ZEN_API_KEY. | `internal/apiserver/`, `auth.go`, `cmd/apiserver/` |
-| **Factory execution** | Partial | Real: BoundedExecutor runs real shell, workspace allocation, proof-of-work. Templates: some steps are echo-only (simulated output); useful_templates do create real files. | `internal/factory/bounded_executor.go`, `factory.go`, `work_templates.go`, `useful_templates.go` |
+| **Factory execution** | Partial | Real: BoundedExecutor, workspace (getGitInfo), proof-of-work; "run tests" runs go test when go.mod present; FactoryTaskRunner records PoW to Vault when set. Templates: mix of real and echo steps. | `internal/factory/bounded_executor.go`, `workspace.go`, `factory_runner.go`, `proof.go` |
 | **Foreman / Worker** | Real | CRDs, reconciler, worker pool, FactoryTaskRunner, ZenGate stub, ZenGuardian stub (CheckSafety, RecordEvent), metrics, queue status. | `internal/foreman/`, `cmd/foreman/`, `pkg/guardian/`, `internal/guardian/` |
 | **Evidence Vault** | Real | Interface + MemoryVault; Store/GetBySession/GetByTask. | `internal/evidence/vault.go` |
 | **Funding aggregator** | Real | T661 + IRAP from Vault evidence. | `internal/funding/aggregator.go` |

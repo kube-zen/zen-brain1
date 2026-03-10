@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -232,11 +233,29 @@ func (w *WorkspaceManagerImpl) ListWorkspaceFiles(ctx context.Context, path stri
 	return w.scanWorkspaceFiles(path)
 }
 
-// getGitInfo returns git branch and commit for workspace if it's a git repo
+// getGitInfo returns git branch and commit for workspace if it's a git repo.
+// Runs git rev-parse in path; returns error if not a git repo or git unavailable.
 func (w *WorkspaceManagerImpl) getGitInfo(path string) (branch, commit string, err error) {
-	// This is a stub implementation
-	// In real implementation, would run git commands
-	return "", "", fmt.Errorf("git not implemented")
+	if path == "" {
+		return "", "", fmt.Errorf("path is empty")
+	}
+	// Branch: git rev-parse --abbrev-ref HEAD
+	branchCmd := exec.CommandContext(context.Background(), "git", "rev-parse", "--abbrev-ref", "HEAD")
+	branchCmd.Dir = path
+	branchOut, err := branchCmd.Output()
+	if err != nil {
+		return "", "", fmt.Errorf("git branch: %w", err)
+	}
+	branch = strings.TrimSpace(string(branchOut))
+	// Commit: git rev-parse HEAD
+	commitCmd := exec.CommandContext(context.Background(), "git", "rev-parse", "HEAD")
+	commitCmd.Dir = path
+	commitOut, err := commitCmd.Output()
+	if err != nil {
+		return branch, "", fmt.Errorf("git commit: %w", err)
+	}
+	commit = strings.TrimSpace(string(commitOut))
+	return branch, commit, nil
 }
 
 func (w *WorkspaceManagerImpl) DeleteWorkspace(ctx context.Context, path string) error {

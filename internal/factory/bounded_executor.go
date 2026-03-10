@@ -52,6 +52,9 @@ func (b *BoundedExecutor) ExecuteStep(ctx context.Context, step *ExecutionStep, 
 			cmdStr = "echo 'Initializing workspace for task execution' && pwd && ls -la"
 		case "execute objective", "run objective":
 			cmdStr = "echo 'Executing task objective' && echo 'Simulating work: sleep 0.1s' && sleep 0.1"
+		case "run tests", "go test", "test":
+			// Real execution: run Go tests when workspace has go.mod (Factory completeness)
+			cmdStr = "if [ -f go.mod ]; then go test ./... -count=1; else echo 'No go.mod, skipping go test'; fi"
 		case "validate results", "validate":
 			cmdStr = "echo 'Validating results' && echo 'All checks passed'"
 		default:

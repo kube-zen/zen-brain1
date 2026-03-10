@@ -14,6 +14,7 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"github.com/kube-zen/zen-brain1/api/v1alpha1"
+	"github.com/kube-zen/zen-brain1/internal/evidence"
 	"github.com/kube-zen/zen-brain1/internal/factory"
 	"github.com/kube-zen/zen-brain1/internal/foreman"
 	"github.com/kube-zen/zen-brain1/internal/gate"
@@ -59,7 +60,9 @@ func main() {
 		executor := factory.NewBoundedExecutor()
 		powManager := factory.NewProofOfWorkManager(factoryRuntimeDir)
 		factoryImpl := factory.NewFactory(workspaceManager, executor, powManager, factoryRuntimeDir)
-		runner = foreman.NewFactoryTaskRunner(factoryImpl)
+		ftr := foreman.NewFactoryTaskRunner(factoryImpl)
+		ftr.Vault = evidence.NewMemoryVault() // proof-of-work evidence stored when tasks succeed
+		runner = ftr
 		log.Printf("Foreman: Factory enabled (runtime dir %s)", factoryRuntimeDir)
 	}
 

@@ -7,13 +7,16 @@ import (
 	"time"
 
 	"github.com/kube-zen/zen-brain1/api/v1alpha1"
+	"github.com/kube-zen/zen-brain1/internal/evidence"
 	"github.com/kube-zen/zen-brain1/internal/factory"
 	"github.com/kube-zen/zen-brain1/pkg/contracts"
 )
 
 // FactoryTaskRunner runs a BrainTask by converting it to FactoryTaskSpec and calling Factory.ExecuteTask.
+// When Vault is set, successful runs with proof-of-work are recorded as evidence (Block 4.5 / 5).
 type FactoryTaskRunner struct {
 	Factory factory.Factory
+	Vault   evidence.Vault // optional: store proof-of-work evidence on success
 }
 
 // NewFactoryTaskRunner returns a TaskRunner that delegates to the given Factory.
@@ -22,6 +25,7 @@ func NewFactoryTaskRunner(f factory.Factory) *FactoryTaskRunner {
 }
 
 // Run converts the BrainTask to FactoryTaskSpec, runs Factory.ExecuteTask, and returns any error.
+// On success, if Vault is set and result has proof-of-work path, stores an evidence item.
 func (r *FactoryTaskRunner) Run(ctx context.Context, task *v1alpha1.BrainTask) error {
 	if r.Factory == nil {
 		return fmt.Errorf("factory is nil")
@@ -33,6 +37,19 @@ func (r *FactoryTaskRunner) Run(ctx context.Context, task *v1alpha1.BrainTask) e
 	}
 	if result != nil && !result.Success {
 		return fmt.Errorf("task execution failed: %s", result.Error)
+	}
+	// Record proof-of-work evidence when vault is configured (Factory completeness)
+	if result != nil && result.Success && result.ProofOfWorkPath != "" && r.Vault != nil {
+		item := contracts.EvidenceItem{
+			ID:          fmt.Sprintf("pow-%s-%s", task.Spec.SessionID, task.Name),
+			SessionID:   task.Spec.SessionID,
+			Type:        contracts.EvidenceTypeProofOfWork,
+			Content:     result.ProofOfWorkPath,
+			Metadata:    map[string]string{"task_id": task.Name, "work_item_id": task.Spec.WorkItemID},
+			CollectedAt: time.Now(),
+			CollectedBy: "factory-runner",
+		}
+		_ = r.Vault.Store(ctx, item) // best effort
 	}
 	return nil
 }
