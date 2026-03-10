@@ -10,7 +10,6 @@ import (
 	"os/signal"
 	"strconv"
 	"syscall"
-	"time"
 
 	"github.com/kube-zen/zen-brain1/internal/apiserver"
 	"github.com/kube-zen/zen-brain1/internal/config"
