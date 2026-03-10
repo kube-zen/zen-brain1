@@ -183,6 +183,21 @@ func (p *DefaultPlanner) queryKnowledge(ctx context.Context, agentState *agent.A
 
 // analyzeAndPlan performs analysis and planning for a session.
 func (p *DefaultPlanner) analyzeAndPlan(ctx context.Context, sessionID string, workItem *contracts.WorkItem) {
+	// Budget check: skip planning if project is over budget (Block 5 Intelligence)
+	projectID := workItem.ProjectID
+	if projectID == "" {
+		projectID = "default"
+	}
+	if p.ledgerClient != nil {
+		status, err := p.ledgerClient.GetCostBudgetStatus(ctx, projectID)
+		if err == nil && status != nil && status.BudgetLimitUSD > 0 && status.RemainingUSD <= 0 {
+			log.Printf("Session %s: project %s over budget (spent %.2f of %.2f USD)", sessionID, projectID, status.SpentUSD, status.BudgetLimitUSD)
+			p.sessionManager.TransitionState(ctx, sessionID, contracts.SessionStateFailed,
+				fmt.Sprintf("Project over budget (%.2f USD limit)", status.BudgetLimitUSD), "planner")
+			return
+		}
+	}
+
 	// Initialize agent state for this session
 	agentState, err := p.initializeAgentState(ctx, sessionID, workItem.ID)
 	if err != nil {

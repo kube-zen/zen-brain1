@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/kube-zen/zen-brain1/internal/llm/routing"
+	"github.com/kube-zen/zen-brain1/pkg/ledger"
 	"github.com/kube-zen/zen-brain1/pkg/llm"
 	zenretry "github.com/kube-zen/zen-sdk/pkg/retry"
 )
@@ -84,6 +85,9 @@ type Gateway struct {
 
 	// Fallback chain for intelligent provider selection
 	fallbackChain routing.FallbackChain
+
+	// Optional: record token usage to ZenLedger (Block 5 Intelligence)
+	tokenRecorder ledger.TokenRecorder
 
 	// Statistics
 	stats *GatewayStats
@@ -432,6 +436,9 @@ func (g *Gateway) Chat(ctx context.Context, req llm.ChatRequest) (*llm.ChatRespo
 
 	resp.LatencyMs = latency
 
+	// Record token usage to ZenLedger when recorder is set (Block 5)
+	g.recordTokenUsage(ctx, req, resp, providerName, latency)
+
 	// Accumulate latency into stats
 	g.stats.mu.Lock()
 	g.stats.TotalLatencyMs += latency
@@ -448,6 +455,57 @@ func (g *Gateway) Chat(ctx context.Context, req llm.ChatRequest) (*llm.ChatRespo
 	g.stats.mu.Unlock()
 
 	return resp, nil
+}
+
+// SetTokenRecorder sets the optional ZenLedger token recorder for usage tracking (Block 5).
+func (g *Gateway) SetTokenRecorder(recorder ledger.TokenRecorder) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.tokenRecorder = recorder
+}
+
+// recordTokenUsage sends a TokenRecord to the ledger when recorder and usage are present.
+func (g *Gateway) recordTokenUsage(ctx context.Context, req llm.ChatRequest, resp *llm.ChatResponse, providerName string, latencyMs int64) {
+	g.mu.RLock()
+	rec := g.tokenRecorder
+	g.mu.RUnlock()
+	if rec == nil || resp == nil || resp.Usage == nil {
+		return
+	}
+	src := ledger.SourceAPI
+	if providerName == "local-worker" {
+		src = ledger.SourceLocal
+	}
+	sessionID := req.SessionID
+	if sessionID == "" {
+		sessionID = "unknown"
+	}
+	taskID := req.TaskID
+	if taskID == "" {
+		taskID = "unknown"
+	}
+	record := ledger.TokenRecord{
+		SessionID:      sessionID,
+		TaskID:         taskID,
+		AgentRole:      "worker",
+		ModelID:        resp.Model,
+		InferenceType:  ledger.InferenceChat,
+		Source:         src,
+		TokensInput:    resp.Usage.InputTokens,
+		TokensOutput:   resp.Usage.OutputTokens,
+		TokensCached:   resp.Usage.CachedTokens,
+		CostUSD:        0, // Filled by ledger or pricing layer if needed
+		LatencyMs:      latencyMs,
+		Outcome:        ledger.OutcomeCompleted,
+		EvidenceClass:  ledger.EvidenceSummary,
+		SREDEligible:   true,
+		Timestamp:      time.Now(),
+		ClusterID:      req.ClusterID,
+		ProjectID:     req.ProjectID,
+	}
+	if err := rec.Record(ctx, record); err != nil {
+		log.Printf("[LLM Gateway] failed to record token usage: %v", err)
+	}
 }
 
 // ChatStream sends a streaming chat request.

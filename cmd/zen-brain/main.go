@@ -324,6 +324,12 @@ func runVerticalSlice() {
 	defer plannerAgent.Close()
 	fmt.Println("  ✓ Planner initialized")
 
+	// Block 5: Wire ZenLedger token recorder to gateway for usage tracking
+	if recorder, ok := ledgerClient.(ledger.TokenRecorder); ok {
+		llmGateway.SetTokenRecorder(recorder)
+		fmt.Println("  ✓ LLM Gateway token recording enabled (ZenLedger)")
+	}
+
 	// Block 3.1: Optional message bus for vertical slice events
 	var msgBus messagebus.MessageBus
 	if os.Getenv("ZEN_BRAIN_MESSAGE_BUS") == "redis" {

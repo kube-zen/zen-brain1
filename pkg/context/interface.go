@@ -48,6 +48,10 @@ type SessionContext struct {
 	// RelevantKnowledge contains retrieved KB chunks for this session
 	RelevantKnowledge []KnowledgeChunk `json:"relevant_knowledge,omitempty"`
 
+	// JournalEntries are causal-chain entries from ReMe (ZenJournal) for this task/session.
+	// Agents can use this to resume with full context.
+	JournalEntries []interface{} `json:"journal_entries,omitempty"`
+
 	// Scratchpad contains intermediate reasoning (Tier 1 only)
 	Scratchpad []byte `json:"scratchpad,omitempty"`
 }
