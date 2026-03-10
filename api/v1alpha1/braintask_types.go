@@ -48,6 +48,9 @@ type BrainTaskSpec struct {
 
 	DependsOn []string `json:"dependsOn,omitempty"`
 	KBScopes  []string `json:"kbScopes,omitempty"`
+
+	// QueueName is the name of the BrainQueue to use for scheduling (optional). Foreman skips scheduling if that queue is Paused.
+	QueueName string `json:"queueName,omitempty"`
 }
 
 // BrainTaskPhase is the phase of a BrainTask.

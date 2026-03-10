@@ -57,8 +57,15 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, nil
 	}
 
-	// Pending -> Scheduled: optional admission, then status update and optional dispatch.
+	// Pending -> Scheduled: optional queue check, admission, then status update and optional dispatch.
 	if task.Status.Phase == v1alpha1.BrainTaskPhasePending {
+		if task.Spec.QueueName != "" {
+			var queue v1alpha1.BrainQueue
+			if err := r.Get(ctx, client.ObjectKey{Namespace: task.Namespace, Name: task.Spec.QueueName}, &queue); err == nil && queue.Status.Phase == v1alpha1.BrainQueuePhasePaused {
+				logger.Info("queue is paused, requeuing", "task", task.Name, "queue", task.Spec.QueueName)
+				return ctrl.Result{Requeue: true}, nil
+			}
+		}
 		if r.Gate != nil {
 			admissionReq := gate.AdmissionRequest{
 				RequestID:   string(task.UID),
