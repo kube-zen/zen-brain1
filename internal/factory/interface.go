@@ -57,6 +57,9 @@ type WorkspaceManager interface {
 	// GetWorkspaceMetadata returns workspace state.
 	GetWorkspaceMetadata(ctx context.Context, path string) (*WorkspaceMetadata, error)
 
+	// ListWorkspaceFiles returns all non-hidden files in the workspace.
+	ListWorkspaceFiles(ctx context.Context, path string) ([]string, error)
+
 	// DeleteWorkspace removes a workspace and all its contents.
 	DeleteWorkspace(ctx context.Context, path string) error
 }

@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sort"
 	"time"
 
 	"github.com/kube-zen/zen-brain1/pkg/contracts"
@@ -173,42 +174,60 @@ func (p *proofOfWorkManagerImpl) generateSummary(result *ExecutionResult, spec *
 	return p.hardenProofOfWorkSummary(summary)
 }
 
+// sortStringSlice sorts a string slice in place for deterministic proof output.
+func sortStringSlice(s []string) {
+	if len(s) == 0 {
+		return
+	}
+	sort.Strings(s)
+}
+
 // hardenProofOfWorkSummary ensures proof-of-work summary has deterministic, stable schema
 func (p *proofOfWorkManagerImpl) hardenProofOfWorkSummary(summary *ProofOfWorkSummary) *ProofOfWorkSummary {
 	// Ensure all slices are initialized (not nil) for consistent JSON serialization
 	if summary.FilesChanged == nil {
 		summary.FilesChanged = []string{}
 	}
+	sortStringSlice(summary.FilesChanged)
 	if summary.NewFiles == nil {
 		summary.NewFiles = []string{}
 	}
+	sortStringSlice(summary.NewFiles)
 	if summary.ModifiedFiles == nil {
 		summary.ModifiedFiles = []string{}
 	}
+	sortStringSlice(summary.ModifiedFiles)
 	if summary.DeletedFiles == nil {
 		summary.DeletedFiles = []string{}
 	}
+	sortStringSlice(summary.DeletedFiles)
 	if summary.TestsRun == nil {
 		summary.TestsRun = []string{}
 	}
+	sortStringSlice(summary.TestsRun)
 	if summary.TestsFailed == nil {
 		summary.TestsFailed = []string{}
 	}
+	sortStringSlice(summary.TestsFailed)
 	if summary.CommandLog == nil {
 		summary.CommandLog = []string{}
 	}
+	sortStringSlice(summary.CommandLog)
 	if summary.EvidenceItems == nil {
 		summary.EvidenceItems = []contracts.EvidenceItem{}
 	}
 	if summary.UnresolvedRisks == nil {
 		summary.UnresolvedRisks = []string{}
 	}
+	sortStringSlice(summary.UnresolvedRisks)
 	if summary.KnownLimitations == nil {
 		summary.KnownLimitations = []string{}
 	}
+	sortStringSlice(summary.KnownLimitations)
 	if summary.ArtifactPaths == nil {
 		summary.ArtifactPaths = []string{}
 	}
+	sortStringSlice(summary.ArtifactPaths)
 
 	// Calculate file change metrics if files changed but metrics not set
 	if len(summary.FilesChanged) > 0 && summary.LinesAdded == 0 && summary.LinesDeleted == 0 {
@@ -370,6 +389,17 @@ func (p *proofOfWorkManagerImpl) generateMarkdown(summary *ProofOfWorkSummary) s
 	md += fmt.Sprintf("- **Duration:** `%s`\n", summary.Duration)
 	md += fmt.Sprintf("- **Model:** `%s`\n", summary.ModelUsed)
 	md += fmt.Sprintf("- **Agent:** `%s`\n\n", summary.AgentRole)
+
+	// Failure summary (when not completed) — trusted useful path: clear failure handling
+	if summary.Result != "completed" && summary.Result != "" {
+		md += "## Failure summary\n\n"
+		md += fmt.Sprintf("- **Outcome:** %s\n", summary.Result)
+		md += fmt.Sprintf("- **Recommended action:** %s\n", summary.RecommendedAction)
+		if summary.ErrorLog != "" {
+			md += fmt.Sprintf("- **Error:** %s\n", summary.ErrorLog)
+		}
+		md += "\n"
+	}
 
 	// Objective section
 	md += "## Objective\n\n"

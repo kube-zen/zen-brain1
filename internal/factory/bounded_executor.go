@@ -88,14 +88,14 @@ func (b *BoundedExecutor) ExecuteStep(ctx context.Context, step *ExecutionStep, 
 		step.ExitCode = exitCode
 		step.Output = output.String()
 		log.Printf("[BoundedExecutor] Step failed: step_id=%s error=%v exit_code=%d", step.StepID, err, exitCode)
-		return step, fmt.Errorf("step execution failed: %w", err)
+		return step, StepExecutionError(step.StepID, "command execution failed", exitCode, err)
 	} else if stepCtx.Err() == context.DeadlineExceeded {
 		step.Status = StepStatusFailed
 		step.Error = "Step timed out"
 		step.ExitCode = -2
 		step.Output = output.String()
 		log.Printf("[BoundedExecutor] Step timed out: step_id=%s", step.StepID)
-		return step, fmt.Errorf("step timed out")
+		return step, StepTimeoutError(step.StepID)
 	} else {
 		// Success
 		step.Status = StepStatusCompleted
@@ -162,13 +162,20 @@ func (b *BoundedExecutor) ExecutePlan(ctx context.Context, steps []*ExecutionSte
 
 			step.Status = StepStatusFailed
 			result.FailedSteps = append(result.FailedSteps, step)
-			result.Error = lastErr.Error()
-			result.ErrorCode = "STEP_EXECUTION_FAILED"
+			
+			// Create structured error for max retries exceeded
+			retryErr := StepMaxRetriesError(step.StepID, step.MaxRetries)
+			if fe, ok := lastErr.(*FactoryError); ok {
+				retryErr = fe // Preserve the original factory error
+			}
+			
+			result.Error = retryErr.Error()
+			result.ErrorCode = string(GetErrorCode(retryErr))
 			result.Status = ExecutionStatusFailed
 			result.NeedsRetry = true
 			result.Recommendation = "retry"
 
-			return result, lastErr
+			return result, retryErr
 		}
 	}
 
