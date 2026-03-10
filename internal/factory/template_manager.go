@@ -31,6 +31,11 @@ func (tm *TemplateManager) GetTemplateOrNil(workType, workDomain string) *WorkTy
 	return tm.registry.GetTemplateOrNil(workType, workDomain)
 }
 
+// HasExactTemplate returns true only when this work type has a template for the domain (no default fallback).
+func (tm *TemplateManager) HasExactTemplate(workType, workDomain string) bool {
+	return tm.registry.HasExactTemplate(workType, workDomain)
+}
+
 // ExpandTemplateVariables expands template variables using task spec values.
 func (tm *TemplateManager) ExpandTemplateVariables(template *WorkTypeTemplate, spec *FactoryTaskSpec) []*ExecutionStep {
 	steps := make([]*ExecutionStep, 0, len(template.Steps))

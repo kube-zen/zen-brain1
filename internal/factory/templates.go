@@ -48,10 +48,26 @@ func NewWorkTypeTemplateRegistry() *WorkTypeTemplateRegistry {
 	return registry
 }
 
-// HasTemplate returns true if a template exists for the given work type and domain.
+// HasTemplate returns true if a template exists for the given work type and domain
+// (including when the registry would return a fallback for that type).
 func (r *WorkTypeTemplateRegistry) HasTemplate(workType, workDomain string) bool {
 	t := r.GetTemplateOrNil(workType, workDomain)
 	return t != nil
+}
+
+// HasExactTemplate returns true only when this work type has a template for the given domain
+// (no fallback to default). Use for selection so unknown types get "default" identity.
+func (r *WorkTypeTemplateRegistry) HasExactTemplate(workType, workDomain string) bool {
+	domainMap, exists := r.templates[workType]
+	if !exists {
+		return false
+	}
+	if workDomain != "" {
+		_, ok := domainMap[workDomain]
+		return ok
+	}
+	_, hasEmpty := domainMap[""]
+	return hasEmpty || len(domainMap) > 0
 }
 
 // GetTemplateOrNil returns the template for work type and domain, or nil if none.
