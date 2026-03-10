@@ -8,6 +8,8 @@ Focused view of key blocks and their completion status with next actions.
 ┌───────────────────────────┬──────────────────┬────────────────────────────────────────────┐
 │ Block                     │ Status           │ Next Action                                 │
 ├───────────────────────────┼──────────────────┼────────────────────────────────────────────┤
+│ 0   Foundation            │ ✅ Complete      │ 0.1–0.5 done (CUTOVER.md); no open tasks   │
+├───────────────────────────┼──────────────────┼────────────────────────────────────────────┤
 │ 0.5 zen-sdk Reuse        │ ✅ Complete      │ Deferred: dlq, observability, leader (doc'd) │
 ├───────────────────────────┼──────────────────┼────────────────────────────────────────────┤
 │ 3.3 ZenJournal            │ ✅ Complete      │ ReMe protocol enabled                       │
@@ -26,6 +28,7 @@ Focused view of key blocks and their completion status with next actions.
 
 | Block | Status | Next Action |
 |-------|--------|-------------|
+| **0 Foundation** | ✅ Complete | 0.1 repo, 0.2 scaffold, 0.3 configurable home (ZEN_BRAIN_HOME, internal/config), 0.4 cutover doc, 0.5 zen-sdk reuse; see CUTOVER.md. No open tasks. |
 | **0.5 zen-sdk Reuse** | ✅ Complete | Deferred items (dlq, observability, leader, logging, events, crypto) documented in BLOCK0_5_ZEN_SDK.md |
 | **3.3 ZenJournal** | ✅ Complete | ReMe protocol enabled |
 | **3.5 KB Ingestion** | ✅ Complete | All 6 acceptance criteria met |

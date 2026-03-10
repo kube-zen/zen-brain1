@@ -73,9 +73,11 @@ Standard paths:
 
 ## Milestones
 
+**Block 0 (Foundation) — complete.** No open tasks; all sub-blocks done.
+
 - [x] Block 0.1: GitHub repo created
 - [x] Block 0.2: Directory scaffold
-- [x] Block 0.3: Configurable home directory
-- [x] Block 0.4: Cutover documentation
+- [x] Block 0.3: Configurable home directory (`ZEN_BRAIN_HOME`, `internal/config/home.go`, `paths.go`)
+- [x] Block 0.4: Cutover documentation (this doc)
 - [x] Block 0.5: SDK package audit (see [BLOCK0_5_ZEN_SDK.md](../01-ARCHITECTURE/BLOCK0_5_ZEN_SDK.md); mandatory reuse satisfied; dlq/observability/leader/logging/events/crypto documented as deferred)
 - [ ] Block 1: Neuro-Anatomy
