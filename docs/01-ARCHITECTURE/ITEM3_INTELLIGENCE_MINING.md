@@ -207,18 +207,19 @@ internal/intelligence/
 
 ## CLI Commands (Block 5)
 
-- `zen-brain intelligence mine` — Load runtime dir + pattern store, run miner; print artifacts found/mined, patterns extracted, errors.
+- `zen-brain intelligence mine` — Load runtime dir + pattern store, run miner; print artifacts found/mined, patterns extracted, failure stats, errors.
 - `zen-brain intelligence analyze` — Load pattern store, run `PatternAnalysis()`, print formatted summary.
 - `zen-brain intelligence recommend <workType> <workDomain>` — Load pattern store, run `RecommendAll`, print template, confidence, reasoning, timeout, retries.
+- `zen-brain intelligence diagnose <workType> <workDomain>` — Print failure statistics summary (total failures, top failure mode, recommended actions, last failure at).
+- `zen-brain intelligence checkpoint <sessionID>` — Load structured execution checkpoint via session manager, print summary and details.
 
-Exit non-zero on hard failures. Existing commands (`test`, `vertical-slice`, `version`) unchanged.
+Runtime dir from `ZEN_BRAIN_RUNTIME_DIR` (default `/tmp/zen-brain-factory`); pattern store at `<runtimeDir>/patterns`. Exit non-zero on hard failures. Existing commands (`test`, `vertical-slice`, `version`) unchanged.
 
 ## Limitations (Current)
 
 1. **Template Tracking**: ✅ Resolved — proof-of-work now includes `template_used`; miner uses it first with `model_used` fallback for backward compatibility.
 
-2. **Failure Analysis**: Only tracks success rate, not failure modes
-   - Future: Extract common failure patterns and root causes
+2. **Failure Analysis**: ✅ Addressed — deterministic `classifyFailure` (test/timeout/workspace/policy/infra/runtime/validation); `FailureStatistics` persisted; `GetFailureStats`/`GetAllFailureStats`; recommender applies failure-aware confidence downgrade when recent failures ≥ 3.
 
 3. **Pattern Versioning**: No schema versioning for stored patterns
    - Future: Add migration support for pattern schema changes

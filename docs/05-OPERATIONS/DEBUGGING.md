@@ -56,6 +56,15 @@ How to debug workers, KB (QMD) queries, LLM calls, and k3d-based local developme
 
 ---
 
+## 3.1 Block 5 intelligence and resume
+
+- **Pattern store:** Runtime dir is `ZEN_BRAIN_RUNTIME_DIR` (default `/tmp/zen-brain-factory`); patterns live under `<runtimeDir>/patterns`. Run `zen-brain intelligence mine` to (re)mine proof-of-work; `zen-brain intelligence analyze` for a pattern summary.
+- **Recommendations:** `zen-brain intelligence recommend <workType> <workDomain>` prints recommended template, confidence, reasoning, timeout, retries. Recommendations are compatibility-aware (exact workType+workDomain, then same workType, then default).
+- **Failure diagnosis:** `zen-brain intelligence diagnose <workType> <workDomain>` prints failure statistics (total failures, top failure mode, recommended actions, last failure). Useful when a work type/domain is failing often.
+- **Resume / checkpoint:** On `vertical-slice --resume <sessionID>`, the session manager loads the execution checkpoint from ZenContext. Use `zen-brain intelligence checkpoint <sessionID>` to print the checkpoint summary (stage, tasks, proofs, selected model, last recommendation) without running the slice. If checkpoint stage is proof_attached or execution_complete with proof paths, resume skips blind task replay.
+
+---
+
 ## 4. k3d-specific debugging
 
 - **Cluster state:** `kubectl get nodes`, `kubectl get pods -A`, `kubectl get crd | grep brain`.

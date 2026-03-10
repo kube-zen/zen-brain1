@@ -309,7 +309,7 @@ The following are intentionally omitted for MVP (can be added later):
 - **Priority:** Medium (requires credentials)
 
 ### Real ZenContext
-- **Current:** Mock or real (Redis + MinIO) depending on config. **ReMe checkpoint:** vertical-slice writes structured `ExecutionCheckpoint` (brain task IDs, proof paths, recommendation, knowledge chunk IDs/source paths) into SessionContext.State via `UpdateExecutionCheckpoint`; `GetExecutionCheckpoint` reads it back.
+- **Current:** Mock or real (Redis + MinIO) depending on config. **ReMe checkpoint:** vertical-slice writes structured `ExecutionCheckpoint` (stage, brain task IDs, proof paths, last recommendation, **selected model**, **analysis summary**, knowledge chunk IDs/source paths) into SessionContext.State; checkpoint normalized (sort/dedupe). **Resume:** On `--resume <id>`, loads checkpoint; if stage is proof_attached/execution_complete with proof paths, skips blind task replay and continues with finalization only. Model-selection provenance (source, confidence) printed on vertical-slice; planner records model evidence in session.
 - **Future:** Cross-cluster/global intelligence service (out of scope for current patch).
 
 ---
