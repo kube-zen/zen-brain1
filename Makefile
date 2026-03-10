@@ -101,9 +101,11 @@ dev-clean: ## Reset databases (local Docker: db-reset; for k3d full reset run de
 dev-build: build-all ## Build all binaries (foreman, apiserver, zen-brain).
 
 # Build Docker image and load into k3d (Block 6 in-cluster deploy). Run after dev-up.
-dev-image: ## Build zen-brain:dev image and import into k3d cluster zen-brain-dev
+dev-image: ## Build zen-brain:dev image and push to local registry (localhost:5000)
 	docker build -t zen-brain:dev .
-	k3d image import zen-brain:dev -c zen-brain-dev
+	docker tag zen-brain:dev localhost:5000/zen-brain:dev
+	docker push localhost:5000/zen-brain:dev
+	@echo "✓ Image pushed to local registry: localhost:5000/zen-brain:dev"
 
 # Apply in-cluster stack (Block 6 bootstrap). Run after: make dev-up, kubectl apply -f deployments/crds/, make dev-image.
 dev-apply: ## Apply zen-brain namespace, foreman, apiserver, and controller to k3d
