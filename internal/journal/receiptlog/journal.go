@@ -224,14 +224,21 @@ func (j *receiptlogJournal) Verify(ctx context.Context) (int, error) {
 	return verified, nil
 }
 
-// Stats returns journal statistics.
+// Stats returns journal statistics (from ledger and query index).
 func (j *receiptlogJournal) Stats() journal.Stats {
 	indexStats := j.index.Stats()
 	st := journal.Stats{
-		TotalReceipts:   uint64(indexStats.TotalEntries),
-		LastSequence:    indexStats.LastSequence,
-		OldestTimestamp: indexStats.OldestTimestamp,
-		NewestTimestamp: indexStats.NewestTimestamp,
+		TotalReceipts:     uint64(indexStats.TotalEntries),
+		LastSequence:      indexStats.LastSequence,
+		OldestTimestamp:   indexStats.OldestTimestamp,
+		NewestTimestamp:   indexStats.NewestTimestamp,
+		TotalEventTypes:   indexStats.TotalEventTypes,
+		TotalCorrelations: indexStats.TotalCorrelations,
+		TotalTasks:        indexStats.TotalTasks,
+		TotalSessions:     indexStats.TotalSessions,
+		TotalClusters:     indexStats.TotalClusters,
+		TotalProjects:     indexStats.TotalProjects,
+		TotalSREDTags:     indexStats.TotalSREDTags,
 	}
 	if indexStats.LastSequence > 0 {
 		if r, err := j.ledger.Get(context.Background(), indexStats.LastSequence); err == nil && r != nil {

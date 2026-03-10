@@ -149,13 +149,22 @@ type QueryOptions struct {
 	OrderBy string `json:"order_by,omitempty"`
 }
 
-// Stats holds journal statistics.
+// Stats holds journal statistics (populated from ledger and query index).
 type Stats struct {
+	// Core chain stats (from ledger/index)
 	TotalReceipts   uint64    `json:"total_receipts"`
 	LastSequence    uint64    `json:"last_sequence"`
 	LastHash        string    `json:"last_hash"`
 	OldestTimestamp time.Time `json:"oldest_timestamp"`
 	NewestTimestamp time.Time `json:"newest_timestamp"`
+	// Index dimensions (from query index)
+	TotalEventTypes   int `json:"total_event_types,omitempty"`
+	TotalCorrelations int `json:"total_correlations,omitempty"`
+	TotalTasks        int `json:"total_tasks,omitempty"`
+	TotalSessions     int `json:"total_sessions,omitempty"`
+	TotalClusters     int `json:"total_clusters,omitempty"`
+	TotalProjects     int `json:"total_projects,omitempty"`
+	TotalSREDTags     int `json:"total_sred_tags,omitempty"`
 }
 
 // ZenJournal is the interface for the immutable event ledger.

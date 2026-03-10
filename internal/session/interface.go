@@ -117,6 +117,9 @@ type Config struct {
 	// ZenContext integration (optional)
 	ZenContext zenctx.ZenContext `yaml:"-" json:"-"`
 
+	// ClusterID is the cluster identifier for session/context lookups (default: "default").
+	ClusterID string `yaml:"cluster_id" json:"cluster_id"`
+
 	// Block 3: optional journal and message bus sinks for lifecycle events
 	Journal    JournalRecorder `yaml:"-" json:"-"`
 	EventBus  EventPublisher  `yaml:"-" json:"-"`
@@ -133,5 +136,6 @@ func DefaultConfig() *Config {
 		CleanupInterval: 1 * time.Hour,
 		StaleThreshold:  2 * time.Hour,
 		EventStream:     "zen-brain.events",
+		ClusterID:       "default",
 	}
 }

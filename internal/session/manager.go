@@ -62,6 +62,14 @@ func New(config *Config, store Store) (*DefaultManager, error) {
 	return manager, nil
 }
 
+// clusterID returns the configured cluster ID for session/context lookups, or "default".
+func (m *DefaultManager) clusterID() string {
+	if m.config != nil && m.config.ClusterID != "" {
+		return m.config.ClusterID
+	}
+	return "default"
+}
+
 // CreateSession creates a new session for a work item.
 func (m *DefaultManager) CreateSession(ctx context.Context, workItem *contracts.WorkItem) (*contracts.Session, error) {
 	m.mutex.Lock()
@@ -113,10 +121,11 @@ func (m *DefaultManager) CreateSession(ctx context.Context, workItem *contracts.
 
 	// Create corresponding ZenContext SessionContext if ZenContext is configured
 	if m.zenctx != nil {
+		clusterID := m.clusterID()
 		zenSession := &zenctx.SessionContext{
 			SessionID:         session.ID,
 			TaskID:            workItem.ID,
-			ClusterID:         "default", // TODO: make configurable
+			ClusterID:         clusterID,
 			ProjectID:         workItem.Source.Project,
 			CreatedAt:         now,
 			LastAccessedAt:    now,
@@ -144,7 +153,7 @@ func (m *DefaultManager) UpdateExecutionCheckpoint(ctx context.Context, sessionI
 	if checkpoint == nil {
 		return fmt.Errorf("checkpoint cannot be nil")
 	}
-	clusterID := "default"
+	clusterID := m.clusterID()
 	sc, err := m.zenctx.GetSessionContext(ctx, clusterID, sessionID)
 	if err != nil || sc == nil {
 		log.Printf("Warning: SessionContext not found for session %s (cluster %s)", sessionID, clusterID)
@@ -170,7 +179,7 @@ func (m *DefaultManager) GetExecutionCheckpoint(ctx context.Context, sessionID s
 	if m.zenctx == nil {
 		return nil, fmt.Errorf("ZenContext not configured")
 	}
-	clusterID := "default"
+	clusterID := m.clusterID()
 	sc, err := m.zenctx.GetSessionContext(ctx, clusterID, sessionID)
 	if err != nil || sc == nil {
 		return nil, fmt.Errorf("session context not found: %w", err)
@@ -226,7 +235,7 @@ func (m *DefaultManager) updateZenContextLastAccessed(ctx context.Context, sessi
 		return
 	}
 
-	clusterID := "default"
+	clusterID := m.clusterID()
 	sessionCtx, err := m.zenctx.GetSessionContext(ctx, clusterID, sessionID)
 	if err != nil || sessionCtx == nil {
 		// SessionContext may not exist (e.g., created before ZenContext integration)
