@@ -86,16 +86,16 @@ db-reset: db-down db-up ## Reset database (stop, remove, start)
 	@echo "Database reset complete"
 
 ## k3d cluster development (Block 6)
-## Canonical path: python3 scripts/zen.py env redeploy --env sandbox (config/clusters.yaml, 127.0.1.x, zen-brain-registry:5001).
+## Canonical path: config/clusters.yaml + scripts/zen.py (127.0.1.x, zen-brain-registry:5001).
+## Override env: make dev-up ZEN_DEV_ENV=staging
 
-dev-up: ## Start k3d cluster and deploy dependencies (uses existing registry on localhost:5000)
-	k3d cluster create zen-brain-dev \
-		-p "8081:80@loadbalancer" \
-		-p "26257:26257@loadbalancer"
-	kubectl apply -f deployments/k3d/dependencies.yaml
+ZEN_DEV_ENV ?= sandbox
 
-dev-down: ## Stop k3d cluster
-	k3d cluster delete zen-brain-dev
+dev-up: ## Start k3d cluster and deploy (thin wrapper: zen.py env redeploy --env $(ZEN_DEV_ENV))
+	python3 scripts/zen.py env redeploy --env $(ZEN_DEV_ENV)
+
+dev-down: ## Stop k3d cluster (thin wrapper: zen.py env destroy; set CONFIRM_DESTROY=1 or --confirm-destroy)
+	CONFIRM_DESTROY=1 python3 scripts/zen.py env destroy --env $(ZEN_DEV_ENV)
 
 dev-logs: ## Tail logs from all pods
 	kubectl logs -f --all-containers -l app.kubernetes.io/part-of=zen-brain --tail=100
@@ -105,9 +105,8 @@ dev-clean: ## Reset databases (local Docker: db-reset; for k3d full reset run de
 
 dev-build: build-all ## Build all binaries (foreman, apiserver, zen-brain).
 
-dev-image: ## Build zen-brain:dev image and import into k3d cluster zen-brain-dev
-	docker build -t zen-brain:dev .
-	k3d image import zen-brain:dev -c zen-brain-dev
+dev-image: ## Build zen-brain image and load into k3d (thin wrapper: zen.py image build --env $(ZEN_DEV_ENV))
+	python3 scripts/zen.py image build --env $(ZEN_DEV_ENV)
 
 # Apply in-cluster stack (Block 6). Prefer: make dev-up (includes apply). Standalone apply when cluster already exists.
 dev-apply: ## Apply zen-brain namespace, foreman, apiserver to k3d (context from config)

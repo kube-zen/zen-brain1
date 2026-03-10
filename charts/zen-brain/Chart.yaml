@@ -1,0 +1,6 @@
+apiVersion: v2
+name: zen-brain
+description: Zen-Brain core workloads (namespace, foreman, apiserver)
+version: 0.1.0
+appVersion: "1.0"
+dependencies: []

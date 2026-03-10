@@ -1,0 +1,8 @@
+apiVersion: v2
+name: zen-brain-crds
+description: Zen-Brain Custom Resource Definitions (BrainTask, BrainQueue, BrainAgent, BrainPolicy, ZenProject, ZenCluster)
+type: library
+version: 0.1.0
+appVersion: "1.0"
+maintainers: []
+# CRDs live in crds/ and are installed by Helm without templating.

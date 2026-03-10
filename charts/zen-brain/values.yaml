@@ -1,0 +1,32 @@
+# Zen-Brain core. Values driven by config/clusters.yaml (generated) + deploy/values/<env>/zen-brain.yaml
+
+image:
+  repository: zen-brain
+  tag: dev
+  pullPolicy: IfNotPresent
+
+# When Ollama is enabled (deploy.use_ollama), set to http://ollama:11434 so gateway uses real Ollama
+ollama:
+  baseUrl: ""  # e.g. http://ollama:11434
+
+apiserver:
+  port: 8080
+  service:
+    type: ClusterIP
+    externalPort: 8080
+  resources:
+    requests:
+      memory: "32Mi"
+      cpu: "25m"
+    limits:
+      memory: "128Mi"
+      cpu: "200m"
+
+foreman:
+  resources:
+    requests:
+      memory: "64Mi"
+      cpu: "50m"
+    limits:
+      memory: "256Mi"
+      cpu: "500m"

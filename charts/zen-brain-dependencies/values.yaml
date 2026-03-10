@@ -1,0 +1,15 @@
+# Dependencies: ZenContext namespace and optional Redis
+# Driven by config/clusters.yaml deploy.use_zencontext
+
+zencontext:
+  enabled: false
+
+redis:
+  image: redis:7-alpine
+  resources:
+    requests:
+      memory: "64Mi"
+      cpu: "50m"
+    limits:
+      memory: "256Mi"
+      cpu: "200m"
