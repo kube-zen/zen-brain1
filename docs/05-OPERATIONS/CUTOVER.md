@@ -77,5 +77,5 @@ Standard paths:
 - [x] Block 0.2: Directory scaffold
 - [x] Block 0.3: Configurable home directory
 - [x] Block 0.4: Cutover documentation
-- [ ] Block 0.5: SDK package audit
+- [x] Block 0.5: SDK package audit (see [BLOCK0_5_ZEN_SDK.md](../01-ARCHITECTURE/BLOCK0_5_ZEN_SDK.md); mandatory reuse satisfied; dlq/observability/leader/logging/events/crypto documented as deferred)
 - [ ] Block 1: Neuro-Anatomy
