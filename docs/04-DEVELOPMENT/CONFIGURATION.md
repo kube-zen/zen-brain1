@@ -50,6 +50,8 @@ message_bus:
 
 When `ZEN_BRAIN_MESSAGE_BUS=redis` is set, the bus is enabled and uses `REDIS_URL` (default `redis://localhost:6379`). Session lifecycle events (session.created, session.transitioned, etc.) are published to the configured stream when `session.Config.EventBus` is set.
 
+**Proof-of-work signing (env):** When `ZEN_PROOF_SIGNING_KEY` is set, proof-of-work artifacts are signed with HMAC-SHA256 (digest of proof data). Verification uses the same key; set the env at verify time to verify. Algorithm: `HMAC-SHA256`; KeyID is a short hash of the key.
+
 **Strictness (env):** To require capabilities and fail startup when unavailable, set:
 
 - `ZEN_RUNTIME_PROFILE=prod` or `ZEN_BRAIN_STRICT_RUNTIME=1` — **fail-closed**: require all of ZenContext, QMD, Ledger, MessageBus; startup fails if any required capability is missing (no mock/stub fallback).
