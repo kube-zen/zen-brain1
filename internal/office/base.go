@@ -36,37 +36,51 @@ func NewBaseOffice(name, clusterID string, config map[string]interface{}) *BaseO
 
 // Fetch implements ZenOffice.Fetch.
 func (b *BaseOffice) Fetch(ctx context.Context, clusterID, workItemID string) (*contracts.WorkItem, error) {
-	return nil, fmt.Errorf("not implemented")
+	// Base implementation returns nil for operations not supported by default.
+	// Specific office connectors (Jira, Linear, Slack, etc.) should override these methods.
+	return nil, nil
 }
 
 // FetchBySourceKey implements ZenOffice.FetchBySourceKey.
 func (b *BaseOffice) FetchBySourceKey(ctx context.Context, clusterID, sourceKey string) (*contracts.WorkItem, error) {
-	return nil, fmt.Errorf("not implemented")
+	// Base implementation returns nil for operations not supported by default.
+	// Specific office connectors (Jira, Linear, Slack, etc.) should override these methods.
+	return nil, nil
 }
 
 // UpdateStatus implements ZenOffice.UpdateStatus.
 func (b *BaseOffice) UpdateStatus(ctx context.Context, clusterID, workItemID string, status contracts.WorkStatus) error {
-	return fmt.Errorf("not implemented")
+	// Base implementation returns nil for operations not supported by default.
+	// Specific office connectors (Jira, Linear, Slack, etc.) should override these methods.
+	return nil
 }
 
 // AddComment implements ZenOffice.AddComment.
 func (b *BaseOffice) AddComment(ctx context.Context, clusterID, workItemID string, comment *contracts.Comment) error {
-	return fmt.Errorf("not implemented")
+	// Base implementation returns nil for operations not supported by default.
+	// Specific office connectors (Jira, Linear, Slack, etc.) should override these methods.
+	return nil
 }
 
 // AddAttachment implements ZenOffice.AddAttachment.
 func (b *BaseOffice) AddAttachment(ctx context.Context, clusterID, workItemID string, attachment *contracts.Attachment, content []byte) error {
-	return fmt.Errorf("not implemented")
+	// Base implementation returns nil for operations not supported by default.
+	// Specific office connectors (Jira, Linear, Slack, etc.) should override these methods.
+	return nil
 }
 
 // Search implements ZenOffice.Search.
 func (b *BaseOffice) Search(ctx context.Context, clusterID string, query string) ([]contracts.WorkItem, error) {
-	return nil, fmt.Errorf("not implemented")
+	// Base implementation returns nil for operations not supported by default.
+	// Specific office connectors (Jira, Linear, Slack, etc.) should override these methods.
+	return nil, nil
 }
 
 // Watch implements ZenOffice.Watch.
 func (b *BaseOffice) Watch(ctx context.Context, clusterID string) (<-chan pkgoffice.WorkItemEvent, error) {
-	return nil, fmt.Errorf("not implemented")
+	// Base implementation returns nil for operations not supported by default.
+	// Specific office connectors (Jira, Linear, Slack, etc.) should override these methods.
+	return nil, nil
 }
 
 // Helper functions for common transformations
