@@ -18,7 +18,9 @@
 | **Session manager** | Real | Create, get, resume, evidence; SQLite/memory; ZenContext write. | `internal/session/manager.go`, `sqlite_store.go` |
 | **ZenContext (Tier 1/2/3)** | Real | Redis, QMD store, S3; composite; ReConstruct. Mock: QMD falls back to mock when CLI absent. | `internal/context/composite.go`, `tier1/`, `tier2/`, `tier3/`, `internal/qmd/` |
 | **QMD / KB** | Partial | Real when `qmd` CLI present; FallbackToMock when not. Block 5.1: Populate() + BLOCK5_QMD_POPULATION.md, golden-query tests. | `internal/qmd/adapter.go`, `kb_store.go`, `populate.go` |
+| **Nervous System (Block 3)** | Real | Connectivity layer: message bus, ZenJournal, state sync (ZenContext/Session/ReMe), API server, ZenLedger, KB/QMD. All real when deps set; bus optional, ledger stub when no DSN. Vertical slice publishes session.created, intent.analyzed, session.completed. | `pkg/messagebus`, `internal/journal`, `internal/context`, `internal/apiserver`, `internal/ledger`, `cmd/zen-brain` (events) |
 | **Message bus** | Real | Redis when `ZEN_BRAIN_MESSAGE_BUS=redis`; optional. | `internal/messagebus/redis/` |
+| **ZenJournal** | Real | receiptlog-backed event store; query API; ReMe reconstruction uses it. | `pkg/journal`, `internal/journal/receiptlog` |
 | **ZenLedger** | Real | CockroachDB when DSN set; stub otherwise. | `internal/ledger/cockroach.go`, `stub.go` |
 | **API server** | Real | Block 3.4: /healthz, /readyz, /api/v1/sessions, /api/v1/health, /api/v1/version. Auth: optional ZEN_API_KEY. | `internal/apiserver/`, `auth.go`, `cmd/apiserver/` |
 | **Factory execution** | Partial | Real: BoundedExecutor, workspace (getGitInfo), proof-of-work; "run tests" runs go test when go.mod present; FactoryTaskRunner records PoW to Vault when set. Templates: mix of real and echo steps. | `internal/factory/bounded_executor.go`, `workspace.go`, `factory_runner.go`, `proof.go` |
