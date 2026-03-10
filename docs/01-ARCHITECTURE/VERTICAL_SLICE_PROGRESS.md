@@ -641,3 +641,17 @@ All default CI gates pass (10/10):
 | QMD Tier 2 | ✅ FULLY WIRED | ✅ PROVEN |
 
 **The vertical slice now demonstrates a complete working system with real infrastructure integration AND has been fully proven in a production environment.**
+
+---
+
+## Block 4 Fast Completeness (2026-03-10)
+
+Local execution realism was raised by closing the worktree and proof-of-work gaps:
+
+- **Local git worktree execution is real when configured:** `internal/worktree/git_manager.go` implements a real GitManager (not just a temp-dir stub). Foreman can run tasks in a writable git worktree when `ZEN_FOREMAN_USE_GIT_WORKTREE=true` and `ZEN_FOREMAN_SOURCE_REPO` point at a local repo.
+- **Foreman supports source-repo execution mode:** Flags/env: `ZEN_FOREMAN_USE_GIT_WORKTREE`, `ZEN_FOREMAN_SOURCE_REPO`, `ZEN_FOREMAN_WORKTREE_BASE`, `ZEN_FOREMAN_SOURCE_REF`, `ZEN_FOREMAN_REUSE_SESSION_WORKTREE`. When enabled, Factory uses GitWorkspaceManager backed by GitManager.
+- **`review:real` is the canonical trustworthy real lane:** Repo-aware steps (workspace/git inventory, Go/Python checks, REVIEW.md from real observations); produces `review/files.txt`, `review/git-status.txt`, `review/git-diff-stat.txt` (or explicit no-git markers).
+- **Proof-of-work carries real artifact paths and git evidence:** ArtifactPaths list actual files (JSON, MD, log); OutputLog is aggregated from execution step output; GitStatusPath/GitDiffStatPath when workspace has review artifacts; branch/commit in result/summary.
+- **Execution mode visible:** TaskRunOutcome.ExecutionMode (`workspace` | `git-worktree`) and BrainTask annotation `zen.kube-zen.com/factory-execution-mode`.
+
+**Intentionally out of scope:** No remote clone/fork/PR; no distributed worktree pool; no in-cluster git cache/bare-repo manager; implementation/debug/refactor templates may still be less trustworthy than review:real; no full scheduler recovery across process restarts.
