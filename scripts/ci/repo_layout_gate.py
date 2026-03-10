@@ -30,11 +30,12 @@ def _repo_root() -> str:
 
 
 ALLOWED_ROOT_MD = {
-    "README.md",
-    "INDEX.md",
     "AGENTS.md",
-    "WORKFLOW.md",
+    "CHANGELOG.md",
     "CONTRIBUTING.md",
+    "INDEX.md",
+    "README.md",
+    "WORKFLOW.md",
 }
 
 EXPECTED_DOCS_DIRS = {

@@ -62,12 +62,15 @@ spec:
               cluster_ref:
                 description: ClusterRef is the name of the ZenCluster where this project
                   runs
+                minLength: 1
                 type: string
               cost_budget_usd:
                 description: CostBudgetUSD is the monthly budget limit in USD
+                minimum: 0
                 type: number
               display_name:
                 description: DisplayName is the human-readable name of the project
+                minLength: 1
                 type: string
               funding_programs:
                 description: FundingPrograms are the funding programs this project

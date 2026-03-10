@@ -84,6 +84,18 @@ func New(cfg *Config) (journal.ZenJournal, error) {
 	}, nil
 }
 
+// journalMeta holds journal-specific fields in a single struct so that we store
+// one metadata key in receiptlog. The zen-sdk hashes receipt.Metadata by iterating
+// the map (non-deterministic order); using a single key makes the hash deterministic.
+type journalMeta struct {
+	ClusterID  string `json:"cluster_id,omitempty"`
+	Payload     string `json:"payload,omitempty"`
+	ProjectID   string `json:"project_id,omitempty"`
+	SessionID   string `json:"session_id,omitempty"`
+	SREDTags    string `json:"sred_tags,omitempty"`
+	TaskID      string `json:"task_id,omitempty"`
+}
+
 // Record records a new journal entry and returns the receipt.
 func (j *receiptlogJournal) Record(ctx context.Context, entry journal.Entry) (*journal.Receipt, error) {
 	// Convert journal.Entry to receiptlog.Entry
@@ -92,38 +104,33 @@ func (j *receiptlogJournal) Record(ctx context.Context, entry journal.Entry) (*j
 		return nil, fmt.Errorf("failed to marshal payload: %w", err)
 	}
 
-	rlogEntry := receiptlog.Entry{
-		EventType:  string(entry.EventType),
-		Source:     entry.Actor,
-		ExternalID: entry.CorrelationID,
-		Payload:    payloadJSON, // used for hash, not stored
-		Metadata:   make(map[string]string),
-		Timestamp:  entry.Timestamp,
+	meta := journalMeta{
+		TaskID:     entry.TaskID,
+		SessionID:  entry.SessionID,
+		ClusterID:  entry.ClusterID,
+		ProjectID:  entry.ProjectID,
+		Payload:    string(payloadJSON),
 	}
-
-	// Add additional fields as metadata
-	if entry.TaskID != "" {
-		rlogEntry.Metadata["task_id"] = entry.TaskID
-	}
-	if entry.SessionID != "" {
-		rlogEntry.Metadata["session_id"] = entry.SessionID
-	}
-	if entry.ClusterID != "" {
-		rlogEntry.Metadata["cluster_id"] = entry.ClusterID
-	}
-	if entry.ProjectID != "" {
-		rlogEntry.Metadata["project_id"] = entry.ProjectID
-	}
-	// SREDTags as comma-separated list
 	if len(entry.SREDTags) > 0 {
 		var tags []string
 		for _, tag := range entry.SREDTags {
 			tags = append(tags, string(tag))
 		}
-		rlogEntry.Metadata["sred_tags"] = strings.Join(tags, ",")
+		meta.SREDTags = strings.Join(tags, ",")
 	}
-	// Store payload as JSON string in metadata (since receiptlog discards Payload)
-	rlogEntry.Metadata["payload"] = string(payloadJSON)
+	metaJSON, err := json.Marshal(meta)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal journal metadata: %w", err)
+	}
+
+	rlogEntry := receiptlog.Entry{
+		EventType:  string(entry.EventType),
+		Source:     entry.Actor,
+		ExternalID: entry.CorrelationID,
+		Payload:    payloadJSON,
+		Metadata:   map[string]string{"_j": string(metaJSON)}, // single key for deterministic hash
+		Timestamp:  entry.Timestamp,
+	}
 
 	// Record in receiptlog
 	rlogReceipt, err := j.ledger.Record(ctx, rlogEntry)
@@ -258,30 +265,24 @@ func fromReceiptlogReceipt(rlogReceipt *receiptlog.Receipt) *journal.Receipt {
 		Timestamp:     rlogReceipt.Timestamp,
 	}
 
-	// Parse metadata
-	if taskID, ok := rlogReceipt.Metadata["task_id"]; ok {
-		entry.TaskID = taskID
-	}
-	if sessionID, ok := rlogReceipt.Metadata["session_id"]; ok {
-		entry.SessionID = sessionID
-	}
-	if clusterID, ok := rlogReceipt.Metadata["cluster_id"]; ok {
-		entry.ClusterID = clusterID
-	}
-	if projectID, ok := rlogReceipt.Metadata["project_id"]; ok {
-		entry.ProjectID = projectID
-	}
-	if sredTagsStr, ok := rlogReceipt.Metadata["sred_tags"]; ok {
-		tags := strings.Split(sredTagsStr, ",")
-		for _, tag := range tags {
-			entry.SREDTags = append(entry.SREDTags, contracts.SREDTag(tag))
-		}
-	}
-	if payloadStr, ok := rlogReceipt.Metadata["payload"]; ok {
-		// Unmarshal payload into interface{}
-		var payload interface{}
-		if err := json.Unmarshal([]byte(payloadStr), &payload); err == nil {
-			entry.Payload = payload
+	if metaStr, ok := rlogReceipt.Metadata["_j"]; ok {
+		var meta journalMeta
+		if err := json.Unmarshal([]byte(metaStr), &meta); err == nil {
+			entry.TaskID = meta.TaskID
+			entry.SessionID = meta.SessionID
+			entry.ClusterID = meta.ClusterID
+			entry.ProjectID = meta.ProjectID
+			if meta.SREDTags != "" {
+				for _, tag := range strings.Split(meta.SREDTags, ",") {
+					entry.SREDTags = append(entry.SREDTags, contracts.SREDTag(tag))
+				}
+			}
+			if meta.Payload != "" {
+				var payload interface{}
+				if err := json.Unmarshal([]byte(meta.Payload), &payload); err == nil {
+					entry.Payload = payload
+				}
+			}
 		}
 	}
 

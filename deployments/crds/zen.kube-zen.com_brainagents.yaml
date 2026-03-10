@@ -55,10 +55,12 @@ spec:
               maxConcurrentTasks:
                 description: MaxConcurrentTasks is the maximum number of tasks this
                   agent can run at once.
+                minimum: 0
                 type: integer
               modelID:
                 description: ModelID is the LLM model this agent uses (e.g. qwen3.5:0.8b,
                   glm-4.7).
+                minLength: 1
                 type: string
               role:
                 description: Role is the agent role (e.g. implementer, planner).

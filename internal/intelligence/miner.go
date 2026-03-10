@@ -14,20 +14,24 @@ import (
 // ProofOfWorkSummary represents a minimal proof-of-work summary for mining.
 // This is a subset of factory.ProofOfWorkSummary to avoid circular dependencies.
 type ProofOfWorkSummary struct {
-	TaskID       string        `json:"task_id"`
-	SessionID    string        `json:"session_id"`
-	WorkItemID   string        `json:"work_item_id"`
-	WorkType     string        `json:"work_type"`
-	WorkDomain   string        `json:"work_domain"`
-	Title        string        `json:"title"`
-	Objective    string        `json:"objective"`
-	Result       string        `json:"result"`
-	StartedAt    time.Time     `json:"started_at"`
-	CompletedAt  time.Time     `json:"completed_at"`
-	Duration     time.Duration `json:"duration"`
-	ModelUsed    string        `json:"model_used"`
-	TemplateUsed string        `json:"template_used,omitempty"` // Actual template; prefer over ModelUsed when present
-	FilesChanged []string      `json:"files_changed,omitempty"`
+	TaskID             string        `json:"task_id"`
+	SessionID          string        `json:"session_id"`
+	WorkItemID         string        `json:"work_item_id"`
+	WorkType           string        `json:"work_type"`
+	WorkDomain         string        `json:"work_domain"`
+	Title              string        `json:"title"`
+	Objective          string        `json:"objective"`
+	Result             string        `json:"result"`
+	StartedAt          time.Time     `json:"started_at"`
+	CompletedAt        time.Time     `json:"completed_at"`
+	Duration           time.Duration `json:"duration"`
+	ModelUsed          string        `json:"model_used"`
+	TemplateUsed       string        `json:"template_used,omitempty"` // Actual template; prefer over ModelUsed when present
+	FilesChanged       []string      `json:"files_changed,omitempty"`
+	TestsFailed        []string      `json:"tests_failed,omitempty"`
+	ErrorLog           string        `json:"error_log,omitempty"`
+	OutputLog          string        `json:"output_log,omitempty"`
+	RecommendedAction  string        `json:"recommended_action,omitempty"`
 }
 
 // Miner extracts patterns from proof-of-work artifacts.

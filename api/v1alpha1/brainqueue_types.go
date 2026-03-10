@@ -25,10 +25,14 @@ type BrainQueue struct {
 // BrainQueueSpec defines the desired state of a queue.
 type BrainQueueSpec struct {
 	// Priority is relative priority (higher = more preferred). Default 0.
+	// +optional
 	Priority int32 `json:"priority,omitempty"`
 	// MaxConcurrency is the max tasks that can be in-flight from this queue (0 = unbounded).
+	// +optional
+	// +kubebuilder:validation:Minimum=0
 	MaxConcurrency int32 `json:"maxConcurrency,omitempty"`
 	// SessionAffinity when true prefers dispatching to agents already serving this session.
+	// +optional
 	SessionAffinity bool `json:"sessionAffinity,omitempty"`
 }
 

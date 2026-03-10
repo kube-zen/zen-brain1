@@ -377,6 +377,11 @@ func (in *BrainTaskSpec) DeepCopyInto(out *BrainTaskSpec) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
+	if in.SREDTags != nil {
+		in, out := &in.SREDTags, &out.SREDTags
+		*out = make([]contracts.SREDTag, len(*in))
+		copy(*out, *in)
+	}
 	if in.DependsOn != nil {
 		in, out := &in.DependsOn, &out.DependsOn
 		*out = make([]string, len(*in))

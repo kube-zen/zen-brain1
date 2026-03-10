@@ -109,6 +109,15 @@ Standard comment and attachment types with optional AI attribution.
 - `ZenProject` – project‑level configuration, includes typed `SREDTags`
 - `ZenCluster` – cluster registration and topology
 
+## Validation and Normalization
+
+Block 1 (Neuro-Anatomy) adds an explicit validation and normalization layer in `pkg/contracts`:
+
+- **`validate.go`**: `IsValidWorkType`, `IsValidWorkDomain`, `IsValidPriority`, and similar helpers for all canonical enums; `Parse*` functions for strict string→enum parsing (no silent guessing); `ValidateWorkTags` (duplicates, valid SRED); `ValidateWorkItem`, `ValidateBrainTaskSpec`, `ValidateAnalysisResult`, `ValidateExecutionConstraints`.
+- **`normalize.go`**: `NormalizeWorkItem`, `NormalizeBrainTaskSpec` — trim strings, sort and dedupe slices (DependsOn, KBScopes, AllowedClusters, tag categories). No invention of enum values.
+
+Use these before persisting or passing canonical structs to ensure consistency and to catch invalid data early.
+
 ## Versioning & Compatibility
 
 Canonical types are considered **stable** once Block 1 is complete. Changes require a migration plan and update of all dependent packages (Office, Factory, Journal, Ledger, Policy, Gate, Funding, Taxonomy).
