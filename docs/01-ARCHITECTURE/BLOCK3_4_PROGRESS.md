@@ -71,7 +71,7 @@
 | **ZenGuardian** | Added | `pkg/guardian/interface.go`: ZenGuardian (RecordEvent, CheckSafety); `internal/guardian/stub.go`: StubGuardian; Foreman Reconciler optional Guardian (CheckSafety before schedule, RecordEvent after) |
 | **API auth** | Added | When `ZEN_API_KEY` set, API requires X-API-Key or Authorization: Bearer; /healthz, /readyz, / exempt. `internal/apiserver/auth.go`, Server.AuthAPIKey, cmd/apiserver |
 
-**Block 4 complete:** CRDs (BrainTask, BrainAgent, BrainQueue, BrainPolicy), Foreman with Gate + Guardian + Dispatcher, worker pool, FactoryTaskRunner, **real local git worktree manager when configured**, GitWorkspaceManager (no deferred placeholders), proof-of-work with real artifact paths and git evidence, **review:real** as canonical trustworthy lane, execution mode in outcome/annotations, observability, session-affinity, queue status, ZenContext in-cluster, ZenGate/ZenGuardian stubs. **Still out of scope for Block 4:** no remote clone/fork/PR, no distributed worktree pool, no in-cluster git cache/bare-repo manager; in-cluster Foreman/API deploy is available (see deployments/k3d/README.md).
+**Block 4 complete:** CRDs (BrainTask, BrainAgent, BrainQueue, BrainPolicy), Foreman with Gate + Guardian + Dispatcher, worker pool, FactoryTaskRunner, **real local git worktree manager when configured**, GitWorkspaceManager (no deferred placeholders), proof-of-work with real artifact paths and git evidence, **review:real** as canonical trustworthy lane, execution mode in outcome/annotations, observability, session-affinity, queue status, ZenContext in-cluster. **ZenGate:** PolicyGate (default) enforces BrainPolicy when present; **ZenGuardian:** LogGuardian and CircuitBreakerGuardian available. **Still out of scope for Block 4:** no remote clone/fork/PR, no distributed worktree pool, no in-cluster git cache/bare-repo manager; in-cluster Foreman/API deploy is available (see deployments/k3d/README.md).
 
 ### Block 4 completeness (optional next steps)
 
@@ -81,8 +81,17 @@ To raise Block 4 completeness further without changing scope:
 |--------|-------------|----------|
 | **ZenLedger in Foreman** | When `ZEN_LEDGER_DSN` (or `LEDGER_DATABASE_URL`) is set, optionally pass a ZenLedgerClient/TokenRecorder into Foreman so task runs or LLM usage from Factory steps can be recorded (cost visibility, SR&ED, dashboards). Today zen-brain CLI wires ledger to Planner/LLM; cmd/foreman does not. | Optional |
 | **ZenLedger dashboard (4.13)** | Add Grafana dashboard or equivalent for model efficiency, cost per project, local vs API breakdown, SR&ED cost accumulator (per Construction Plan 4.13). | Optional |
-| **ZenGate beyond stub** | Replace `gate.NewStubGate()` in cmd/foreman with a real implementation that validates BrainTaskSpec and enforces BrainPolicy rules (e.g. maxCostUSD, allowedModels). PolicyAdapter already converts BrainPolicy → policy.PolicyRule. | Optional |
-| **ZenGuardian beyond stub** | Implemented | LogGuardian (audit log), CircuitBreakerGuardian (per-session rate limit). Foreman `-guardian=stub|log|circuit-breaker`, `-guardian-circuit-max-per-session-per-min`; env `ZEN_FOREMAN_GUARDIAN`, `ZEN_FOREMAN_GUARDIAN_CIRCUIT_MAX_PER_SESSION_PER_MIN`. | Done |
+| **ZenGate beyond stub** | Done | PolicyGate loads BrainPolicies, enforces maxCostUSD and allowedModels on Admit. Foreman default `-gate=policy` (modes: stub, log, policy). No policies → allow; when policies exist → non-permissive. | Done |
+| **ZenGuardian beyond stub** | Done | LogGuardian (audit log), CircuitBreakerGuardian (per-session rate limit). Foreman `-guardian=stub|log|circuit-breaker`, `-guardian-circuit-max-per-session-per-min`; env `ZEN_FOREMAN_GUARDIAN`, `ZEN_FOREMAN_GUARDIAN_CIRCUIT_MAX_PER_SESSION_PER_MIN`. | Done |
+
+### Block 4 known gaps (post-86% assessment)
+
+| Gap | Status | Notes |
+|-----|--------|-------|
+| **ZenGate allow-all stub** | Addressed | PolicyGate is default; enforces BrainPolicy (maxCostUSD, allowedModels) when CRDs exist. |
+| **Factory templates scaffold/echo** | Partial | Many work-type templates (operations, documentation, etc.) use `echo`/scaffold steps; **review:real** is execution-real (Go test, Python compile, git evidence). Remaining templates can be upgraded incrementally. |
+| **Proof signing/verification not cryptographic** | Open | Proof chain uses hash (zen-sdk receiptlog); artifact `SignArtifact`/`verifySignature` only check digest match; full crypto (e.g. age/signify) deferred until signing infrastructure is available. |
+| **Remote clone/fork/PR, distributed worktree pool, in-cluster git cache/bare-repo** | Out of scope | Documented as still out of scope for Block 4; no change. |
 
 **Block 3 complete:** Message bus, state sync (ZenContext/Session/ReMe), ZenJournal, API server (sessions, health, version), KB/QMD adapter and orchestration, ZenLedger, CockroachDB provisioning.
 
