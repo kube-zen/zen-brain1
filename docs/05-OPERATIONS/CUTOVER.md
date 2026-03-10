@@ -80,4 +80,5 @@ Standard paths:
 - [x] Block 0.3: Configurable home directory (`ZEN_BRAIN_HOME`, `internal/config/home.go`, `paths.go`)
 - [x] Block 0.4: Cutover documentation (this doc)
 - [x] Block 0.5: SDK package audit (see [BLOCK0_5_ZEN_SDK.md](../01-ARCHITECTURE/BLOCK0_5_ZEN_SDK.md); mandatory reuse satisfied; dlq/observability/leader/logging/events/crypto documented as deferred)
-- [ ] Block 1: Neuro-Anatomy
+- [x] Block 1: Neuro-Anatomy (see [ROADMAP.md](../01-ARCHITECTURE/ROADMAP.md): 1.1 ZenJournal, 1.2 ZenContext tiers, 1.3 SessionManager, 1.4 Agent/Planner, 1.5 Redis/S3, 1.6 Config, 1.7 Integration tests)
+- [x] Block 2: Office (ZenOffice, Jira connector, Intent Analyzer, Session Manager, Planner, Gatekeeper; see [BLOCK3_4_PROGRESS.md](../01-ARCHITECTURE/BLOCK3_4_PROGRESS.md))

@@ -12,6 +12,10 @@ Focused view of key blocks and their completion status with next actions.
 ├───────────────────────────┼──────────────────┼────────────────────────────────────────────┤
 │ 0.5 zen-sdk Reuse        │ ✅ Complete      │ Deferred: dlq, observability, leader (doc'd) │
 ├───────────────────────────┼──────────────────┼────────────────────────────────────────────┤
+│ 1   Neuro-Anatomy         │ ✅ Complete      │ 1.1–1.7 done (ROADMAP, CUTOVER)             │
+├───────────────────────────┼──────────────────┼────────────────────────────────────────────┤
+│ 2   Office                │ ✅ Complete      │ Jira, config, office CLI (BLOCK3_4)        │
+├───────────────────────────┼──────────────────┼────────────────────────────────────────────┤
 │ 3.3 ZenJournal            │ ✅ Complete      │ ReMe protocol enabled                       │
 ├───────────────────────────┼──────────────────┼────────────────────────────────────────────┤
 │ 3.5 KB Ingestion          │ ✅ Complete      │ All 6 acceptance criteria met               │
@@ -30,6 +34,8 @@ Focused view of key blocks and their completion status with next actions.
 |-------|--------|-------------|
 | **0 Foundation** | ✅ Complete | 0.1 repo, 0.2 scaffold, 0.3 configurable home (ZEN_BRAIN_HOME, internal/config), 0.4 cutover doc, 0.5 zen-sdk reuse; see CUTOVER.md. No open tasks. |
 | **0.5 zen-sdk Reuse** | ✅ Complete | Deferred items (dlq, observability, leader, logging, events, crypto) documented in BLOCK0_5_ZEN_SDK.md |
+| **1 Neuro-Anatomy** | ✅ Complete | 1.1 ZenJournal, 1.2 ZenContext (tiers 1–3), 1.3 SessionManager, 1.4 Agent/Planner, 1.5 Redis/S3, 1.6 Config, 1.7 Integration tests; see ROADMAP.md, CUTOVER.md. |
+| **2 Office** | ✅ Complete | ZenOffice, Jira connector (fetch/update/comment/attachment/search/watch), config bootstrap, office CLI; see BLOCK3_4_PROGRESS.md, COMPLETENESS_MATRIX.md. |
 | **3.3 ZenJournal** | ✅ Complete | ReMe protocol enabled |
 | **3.5 KB Ingestion** | ✅ Complete | All 6 acceptance criteria met |
 | **5.1 QMD Population** | 🟡 Content Ready | Needs qmd installation + index |
