@@ -48,40 +48,45 @@ func NewWorkTypeTemplateRegistry() *WorkTypeTemplateRegistry {
 	return registry
 }
 
+// HasTemplate returns true if a template exists for the given work type and domain.
+func (r *WorkTypeTemplateRegistry) HasTemplate(workType, workDomain string) bool {
+	t := r.GetTemplateOrNil(workType, workDomain)
+	return t != nil
+}
+
+// GetTemplateOrNil returns the template for work type and domain, or nil if none.
+func (r *WorkTypeTemplateRegistry) GetTemplateOrNil(workType, workDomain string) *WorkTypeTemplate {
+	domainMap, exists := r.templates[workType]
+	if !exists {
+		if defaultMap, ok := r.templates["default"]; ok && len(defaultMap) > 0 {
+			for _, t := range defaultMap {
+				return t
+			}
+		}
+		return nil
+	}
+	if workDomain != "" {
+		if template, ok := domainMap[workDomain]; ok {
+			return template
+		}
+	}
+	if template, ok := domainMap[""]; ok {
+		return template
+	}
+	for _, t := range domainMap {
+		return t
+	}
+	return nil
+}
+
 // GetTemplate returns best matching template for work type and domain.
 // If domain-specific template exists, returns that; otherwise returns default for work type.
 func (r *WorkTypeTemplateRegistry) GetTemplate(workType, workDomain string) (*WorkTypeTemplate, error) {
-	domainMap, exists := r.templates[workType]
-	if !exists {
-		// Try default template
-		defaultTemplate, ok := r.templates["default"]
-		if ok && len(defaultTemplate) > 0 {
-			// Return first default template
-			for _, t := range defaultTemplate {
-				return t, nil
-			}
-		}
-		return nil, fmt.Errorf("no template for work type: %s", workType)
-	}
-
-	// Prefer domain-specific template
-	if workDomain != "" {
-		if template, ok := domainMap[workDomain]; ok {
-			return template, nil
-		}
-	}
-
-	// Fall back to default domain
-	if template, ok := domainMap[""]; ok {
-		return template, nil
-	}
-
-	// Return first available
-	for _, t := range domainMap {
+	t := r.GetTemplateOrNil(workType, workDomain)
+	if t != nil {
 		return t, nil
 	}
-
-	return nil, fmt.Errorf("no templates registered for work type: %s", workType)
+	return nil, fmt.Errorf("no template for work type: %s", workType)
 }
 
 // ExpandVariables replaces {{.var}} placeholders with values.

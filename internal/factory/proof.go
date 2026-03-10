@@ -409,7 +409,11 @@ func (p *proofOfWorkManagerImpl) generateMarkdown(summary *ProofOfWorkSummary) s
 	md += fmt.Sprintf("- **Status:** **%s**\n", summary.Result)
 	md += fmt.Sprintf("- **Duration:** `%s`\n", summary.Duration)
 	md += fmt.Sprintf("- **Model:** `%s`\n", summary.ModelUsed)
-	md += fmt.Sprintf("- **Agent:** `%s`\n\n", summary.AgentRole)
+	md += fmt.Sprintf("- **Agent:** `%s`\n", summary.AgentRole)
+	if summary.TemplateKey != "" {
+		md += fmt.Sprintf("- **Template:** `%s`\n", summary.TemplateKey)
+	}
+	md += "\n"
 
 	// Failure summary (when not completed) — trusted useful path: clear failure handling
 	if summary.Result != "completed" && summary.Result != "" {

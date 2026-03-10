@@ -71,23 +71,20 @@ The vertical slice executes a 7-stage pipeline:
   3. Validate results
 
 ### 4. Execute in Factory
-- **Component:** Factory with BoundedExecutor
-- **Workspace:** Isolated workspace at `/tmp/zen-brain-factory-<timestamp>/`
-- **Execution:** Real shell commands (not simulated)
-- **Safety:** Workspace locking, bounded execution, timeout enforcement
-- **Retry:** Automatic retry with max_retries limit
-- **Commands:**
-  - `Initialize workspace`: `echo 'Initializing workspace' && pwd && ls -la`
-  - `Execute objective`: `echo 'Executing task objective' && echo 'Work simulation complete'`
-  - `Validate results`: `echo 'Validating results' && echo 'All checks passed'`
+- **Component:** Foreman uses **FactoryTaskRunner** by default (Block 4). BrainTasks are executed through Factory: workspace allocation, bounded execution, proof-of-work.
+- **Workspace:** Isolated workspace under `ZEN_FOREMAN_WORKSPACE_HOME` (default `/tmp/zen-brain-factory/workspaces/<session>/<task>`).
+- **Execution:** Real shell commands; template selection prefers **real** templates (implementation, docs, debug, refactor, review) when work domain is empty (`ZEN_FOREMAN_PREFER_REAL_TEMPLATES=true`).
+- **Safety:** Workspace locking, bounded execution, timeout enforcement.
+- **Retry:** Automatic retry with max_retries limit.
+- **Outcome:** Run outcome (workspace path, proof path, template key, files changed, duration, recommendation) is written to BrainTask annotations (`zen.kube-zen.com/factory-*`).
 
 ### 5. Generate Proof-of-Work
 - **Component:** ProofOfWorkManager
 - **Output:** Structured artifacts (JSON + Markdown)
 - **Content:**
-  - Summary: Task metadata, objective, complexity
-  - Workspace: Path, state, changes
-  - Execution: Duration, steps, exit codes
+  - Summary: Task metadata, objective, **template key** (e.g. `implementation:real`), complexity
+  - Workspace: Path, state, **real git branch/commit** when workspace is inside a git repo (no synthetic `ai/<workItemID>`)
+  - Execution: Duration, steps, exit codes; **files changed** sorted for deterministic proof
   - AI Attribution: `[zen-brain agent: <role>]`
 - **Optimization:** Uses Factory's proof-of-work when available (eliminates duplicates)
 

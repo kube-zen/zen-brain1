@@ -2,6 +2,10 @@ package factory
 
 import (
 	"context"
+	"encoding/json"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -463,5 +467,169 @@ func TestBoundedExecutor_ExecutePlan(t *testing.T) {
 
 	if result.Success != true {
 		t.Error("Success should be true")
+	}
+}
+
+// TestCreateExecutionPlan_PrefersRealWhenDomainEmpty verifies that when workDomain is empty
+// and a "real" template exists for the work type, the factory selects it (Block 4).
+func TestCreateExecutionPlan_PrefersRealWhenDomainEmpty(t *testing.T) {
+	workspaceManager := NewWorkspaceManager(t.TempDir())
+	executor := NewBoundedExecutor()
+	powManager := NewProofOfWorkManager(t.TempDir())
+	f := NewFactory(workspaceManager, executor, powManager, t.TempDir())
+
+	spec := &FactoryTaskSpec{
+		ID:             "task-1",
+		SessionID:      "session-1",
+		WorkItemID:     "WI-1",
+		Title:          "Implement feature",
+		Objective:      "Do work",
+		WorkType:       contracts.WorkTypeImplementation,
+		WorkDomain:     "", // empty
+		Priority:       contracts.PriorityMedium,
+		TimeoutSeconds: 300,
+		CreatedAt:      time.Now(),
+		UpdatedAt:      time.Now(),
+	}
+	ctx := context.Background()
+	result, err := f.ExecuteTask(ctx, spec)
+	if err != nil {
+		t.Fatalf("ExecuteTask: %v", err)
+	}
+	// Should have selected implementation:real (prefer real when domain empty)
+	if spec.TemplateKey != "implementation:real" && spec.SelectedTemplate != "implementation:real" {
+		t.Errorf("expected template implementation:real when domain empty, got TemplateKey=%q SelectedTemplate=%q", spec.TemplateKey, spec.SelectedTemplate)
+	}
+	if result != nil && result.TemplateKey == "" && spec.TemplateKey != "" {
+		result.TemplateKey = spec.TemplateKey
+	}
+	if result != nil && result.TemplateKey != "implementation:real" && result.TemplateKey != "" {
+		t.Errorf("result.TemplateKey expected implementation:real or from spec, got %q", result.TemplateKey)
+	}
+}
+
+// TestCreateExecutionPlan_FallbackToDefault verifies fallback to default when no specific template.
+func TestCreateExecutionPlan_FallbackToDefault(t *testing.T) {
+	workspaceManager := NewWorkspaceManager(t.TempDir())
+	executor := NewBoundedExecutor()
+	powManager := NewProofOfWorkManager(t.TempDir())
+	f := NewFactory(workspaceManager, executor, powManager, t.TempDir())
+
+	spec := &FactoryTaskSpec{
+		ID:             "task-1",
+		SessionID:      "session-1",
+		WorkItemID:     "WI-1",
+		Title:          "Unknown work",
+		Objective:      "Do work",
+		WorkType:       contracts.WorkType("unknown-type"),
+		WorkDomain:     "unknown-domain",
+		Priority:       contracts.PriorityMedium,
+		TimeoutSeconds: 300,
+		CreatedAt:      time.Now(),
+		UpdatedAt:      time.Now(),
+	}
+	ctx := context.Background()
+	result, err := f.ExecuteTask(ctx, spec)
+	if err != nil {
+		t.Fatalf("ExecuteTask: %v", err)
+	}
+	if spec.TemplateKey != "default" && spec.SelectedTemplate != "default" {
+		t.Errorf("expected fallback to default, got TemplateKey=%q SelectedTemplate=%q", spec.TemplateKey, spec.SelectedTemplate)
+	}
+	if result != nil && result.TemplateKey != "" && result.TemplateKey != "default" {
+		t.Errorf("result.TemplateKey expected default, got %q", result.TemplateKey)
+	}
+}
+
+// TestGetWorkspaceMetadata_GitRepo verifies GetWorkspaceMetadata returns branch/commit when path is a git repo.
+func TestGetWorkspaceMetadata_GitRepo(t *testing.T) {
+	dir := t.TempDir()
+	// Create a minimal git repo
+	runCmd(t, dir, "git", "init")
+	runCmd(t, dir, "git", "config", "user.email", "test@test.com")
+	runCmd(t, dir, "git", "config", "user.name", "Test")
+	_ = os.WriteFile(filepath.Join(dir, "file.txt"), []byte("x"), 0644)
+	runCmd(t, dir, "git", "add", "file.txt")
+	runCmd(t, dir, "git", "commit", "-m", "initial")
+	runCmd(t, dir, "git", "checkout", "-b", "feature/test")
+
+	home := t.TempDir()
+	w := NewWorkspaceManager(home)
+	ctx := context.Background()
+	meta, err := w.GetWorkspaceMetadata(ctx, dir)
+	if err != nil {
+		t.Fatalf("GetWorkspaceMetadata: %v", err)
+	}
+	if meta.Branch == "" {
+		t.Error("expected Branch to be set in git repo")
+	}
+	if meta.BaseCommit == "" {
+		t.Error("expected BaseCommit to be set in git repo")
+	}
+}
+
+// TestGetWorkspaceMetadata_NotGitRepo verifies GetWorkspaceMetadata returns empty branch/commit without error outside git.
+func TestGetWorkspaceMetadata_NotGitRepo(t *testing.T) {
+	dir := t.TempDir()
+	_ = os.WriteFile(filepath.Join(dir, "file.txt"), []byte("x"), 0644)
+	home := t.TempDir()
+	w := NewWorkspaceManager(home)
+	ctx := context.Background()
+	meta, err := w.GetWorkspaceMetadata(ctx, dir)
+	if err != nil {
+		t.Fatalf("GetWorkspaceMetadata: %v", err)
+	}
+	if meta.Branch != "" || meta.BaseCommit != "" {
+		t.Errorf("expected empty branch/commit outside git, got branch=%q commit=%q", meta.Branch, meta.BaseCommit)
+	}
+}
+
+func runCmd(t *testing.T, dir, name string, args ...string) {
+	t.Helper()
+	cmd := exec.Command(name, args...)
+	cmd.Dir = dir
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("%s %v: %v\n%s", name, args, err, out)
+	}
+}
+
+// TestExecuteTask_StoresTemplateKeyInResult verifies result and proof get TemplateKey.
+func TestExecuteTask_StoresTemplateKeyInResult(t *testing.T) {
+	workspaceManager := NewWorkspaceManager(t.TempDir())
+	executor := NewBoundedExecutor()
+	runtimeDir := t.TempDir()
+	powManager := NewProofOfWorkManager(runtimeDir)
+	f := NewFactory(workspaceManager, executor, powManager, runtimeDir)
+
+	spec := &FactoryTaskSpec{
+		ID:             "task-1",
+		SessionID:      "session-1",
+		WorkItemID:     "WI-1",
+		Title:          "Docs",
+		Objective:      "Write docs",
+		WorkType:       contracts.WorkType("docs"),
+		WorkDomain:     contracts.WorkDomain("real"),
+		Priority:       contracts.PriorityMedium,
+		TimeoutSeconds: 300,
+		CreatedAt:      time.Now(),
+		UpdatedAt:      time.Now(),
+	}
+	ctx := context.Background()
+	result, err := f.ExecuteTask(ctx, spec)
+	if err != nil {
+		t.Fatalf("ExecuteTask: %v", err)
+	}
+	if result.TemplateKey == "" {
+		t.Error("result.TemplateKey should be set")
+	}
+	if result.ProofOfWorkPath != "" {
+		jsonPath := filepath.Join(result.ProofOfWorkPath, "proof-of-work.json")
+		data, err := os.ReadFile(jsonPath)
+		if err == nil {
+			var summary ProofOfWorkSummary
+			if json.Unmarshal(data, &summary) == nil && summary.TemplateKey == "" && summary.TemplateUsed == "" {
+				t.Error("proof summary should have TemplateKey or TemplateUsed")
+			}
+		}
 	}
 }

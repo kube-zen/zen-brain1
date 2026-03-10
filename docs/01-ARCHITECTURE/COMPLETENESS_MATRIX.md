@@ -23,8 +23,8 @@
 | **ZenJournal** | Real | receiptlog-backed event store; query API; ReMe reconstruction uses it. | `pkg/journal`, `internal/journal/receiptlog` |
 | **ZenLedger** | Real | CockroachDB when DSN set; stub otherwise. | `internal/ledger/cockroach.go`, `stub.go` |
 | **API server** | Real | Block 3.4: /healthz, /readyz, /api/v1/sessions, /api/v1/health, /api/v1/version, /api/v1/evidence?session_id= (optional vault). Auth: ZEN_API_KEY. | `internal/apiserver/`, `auth.go`, `cmd/apiserver/` |
-| **Factory execution** | Partial | Real: BoundedExecutor, workspace (getGitInfo), proof-of-work; "run tests" runs go test when go.mod present; FactoryTaskRunner records PoW to Vault when set. Templates: mix of real and echo steps. | `internal/factory/bounded_executor.go`, `workspace.go`, `factory_runner.go`, `proof.go` |
-| **Foreman / Worker** | Real | CRDs, reconciler, worker pool, FactoryTaskRunner, ZenGate/ZenGuardian stubs, metrics, queue status. Optional ReMe: -zen-context-redis → ReMeBinder. | `internal/foreman/`, `cmd/foreman/`, `pkg/guardian/`, `internal/guardian/` |
+| **Factory execution** | Real | BoundedExecutor, workspace (getGitInfo: real branch/commit when git repo; empty when not, no hard failure). Template selection: prefers `<workType>:real` when domain empty; fallback to default. Proof-of-work: TemplateKey, real git metadata, sorted FilesChanged. review:real is repo-aware (inventory, Go/Python checks, REVIEW.md). | `internal/factory/factory.go`, `bounded_executor.go`, `workspace.go`, `proof.go`, `useful_templates.go` |
+| **Foreman / Worker** | Real | **FactoryTaskRunner by default** (no PlaceholderRunner). cmd/foreman builds runner from `ZEN_FOREMAN_RUNTIME_DIR`, `ZEN_FOREMAN_WORKSPACE_HOME`, `ZEN_FOREMAN_PREFER_REAL_TEMPLATES`. Worker persists run outcome to BrainTask annotations (factory-workspace, factory-proof, factory-template, factory-files-changed, factory-duration-seconds, factory-recommendation). CRDs, reconciler, worker pool, ZenGate/ZenGuardian stubs, metrics, queue status. Optional ReMe: -zen-context-redis → ReMeBinder. | `internal/foreman/runner.go`, `factory_runner.go`, `worker.go`, `cmd/foreman/main.go` |
 | **Evidence Vault** | Real | Interface + MemoryVault; Store/GetBySession/GetByTask. | `internal/evidence/vault.go` |
 | **Funding aggregator** | Real | T661 + IRAP from Vault evidence. | `internal/funding/aggregator.go` |
 | **Agent–context binding** | Real | GetForContinuation / WriteIntermediate; TaskRunnerWithContext. | `internal/agent/binding.go`, `foreman/runner.go` |
@@ -38,7 +38,7 @@
 
 ## Suggested fix order (production / completeness)
 
-1. **Factory templates** – Real "run tests" path done (BoundedExecutor); template tiers documented in FACTORY_TEMPLATE_TIERS.md. Optional: more real steps per work type.
+1. ~~**Factory / Foreman execution**~~ – Foreman runs BrainTasks through Factory by default; outcome annotations on BrainTask; Factory prefers real templates; proof has TemplateKey and real git; review:real is repo-aware. No distributed agents, remote clone, PR creation, or in-cluster deployment in this patch.
 2. **API surface** – Auth done; /api/v1/evidence?session_id= added (optional vault). Add more endpoints as needed.
 3. ~~**QMD**~~ – Documented: BLOCK5_QMD_POPULATION "Real vs mock" + internal/qmd/README; repo-sync done (Block 5.1 Populate + docs).
 4. **K3d** – Documented: k3d README "Current path" = run foreman/apiserver/zen-brain locally with kubeconfig. In-cluster TBD.
@@ -54,4 +54,6 @@
 
 ---
 
-*Last updated from BLOCK3_4_PROGRESS and codebase scan. Template tiers: FACTORY_TEMPLATE_TIERS.md; QMD real vs mock: BLOCK5_QMD_POPULATION.md.*
+**Still out of scope (Block 4 patch):** No distributed agents, no remote repo clone strategy, no PR creation, no in-cluster deployment story, no advanced scheduling or resource isolation.
+
+*Last updated from BLOCK3_4_PROGRESS and Block 4 completeness patch. Template tiers: FACTORY_TEMPLATE_TIERS.md; QMD real vs mock: BLOCK5_QMD_POPULATION.md.*

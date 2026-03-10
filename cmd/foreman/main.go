@@ -17,7 +17,6 @@ import (
 	"github.com/kube-zen/zen-brain1/internal/agent"
 	internalcontext "github.com/kube-zen/zen-brain1/internal/context"
 	"github.com/kube-zen/zen-brain1/internal/evidence"
-	"github.com/kube-zen/zen-brain1/internal/factory"
 	"github.com/kube-zen/zen-brain1/internal/foreman"
 	"github.com/kube-zen/zen-brain1/internal/gate"
 	"github.com/kube-zen/zen-brain1/internal/guardian"
@@ -33,15 +32,16 @@ func init() {
 func main() {
 	var metricsAddr, probeAddr string
 	var numWorkers int
-	var useFactory bool
-	var factoryRuntimeDir string
+	var runtimeDir, workspaceHome string
+	var preferRealTemplates bool
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "Address for metrics.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "Address for health probes.")
 	flag.IntVar(&numWorkers, "workers", 2, "Number of worker goroutines for task execution (Block 4.3).")
-	flag.BoolVar(&useFactory, "factory", envBool("ZEN_FOREMAN_FACTORY", false), "Run tasks via Factory (workspace + bounded executor + proof-of-work).")
-	sessionAffinity := flag.Bool("session-affinity", envBool("ZEN_FOREMAN_SESSION_AFFINITY", false), "Route tasks by session (same session → same worker).")
-	flag.StringVar(&factoryRuntimeDir, "factory-runtime-dir", envStr("ZEN_FACTORY_RUNTIME_DIR", "/tmp/zen-foreman-factory"), "Runtime dir for Factory workspaces and proof-of-work (when -factory).")
+	flag.StringVar(&runtimeDir, "factory-runtime-dir", envStr("ZEN_FOREMAN_RUNTIME_DIR", "/tmp/zen-brain-factory"), "Runtime dir for Factory workspaces and proof-of-work.")
+	flag.StringVar(&workspaceHome, "factory-workspace-home", envStr("ZEN_FOREMAN_WORKSPACE_HOME", "/tmp/zen-brain-factory"), "Workspace home for Factory (workspaces created under <home>/workspaces).")
+	flag.BoolVar(&preferRealTemplates, "factory-prefer-real-templates", envBool("ZEN_FOREMAN_PREFER_REAL_TEMPLATES", true), "Prefer real templates when workDomain is empty (implementation, docs, debug, refactor, review).")
 	zenContextRedis := flag.String("zen-context-redis", envStr("ZEN_CONTEXT_REDIS_URL", ""), "Redis URL for ZenContext (ReMe). When set, Worker uses ReMeBinder for session context on continuation.")
+	sessionAffinity := flag.Bool("session-affinity", envBool("ZEN_FOREMAN_SESSION_AFFINITY", false), "Route tasks by session (same session → same worker).")
 	flag.Parse()
 
 	ctx := ctrl.SetupSignalHandler()
@@ -57,17 +57,18 @@ func main() {
 		os.Exit(1)
 	}
 
-	var runner foreman.TaskRunner = foreman.PlaceholderRunner{}
-	if useFactory {
-		workspaceManager := factory.NewWorkspaceManager(factoryRuntimeDir)
-		executor := factory.NewBoundedExecutor()
-		powManager := factory.NewProofOfWorkManager(factoryRuntimeDir)
-		factoryImpl := factory.NewFactory(workspaceManager, executor, powManager, factoryRuntimeDir)
-		ftr := foreman.NewFactoryTaskRunner(factoryImpl)
-		ftr.Vault = evidence.NewMemoryVault() // proof-of-work evidence stored when tasks succeed
-		runner = ftr
-		log.Printf("Foreman: Factory enabled (runtime dir %s)", factoryRuntimeDir)
+	cfg := foreman.FactoryTaskRunnerConfig{
+		RuntimeDir:          runtimeDir,
+		WorkspaceHome:       workspaceHome,
+		PreferRealTemplates: preferRealTemplates,
 	}
+	runner, err := foreman.NewFactoryTaskRunner(cfg)
+	if err != nil {
+		log.Printf("Foreman: failed to create FactoryTaskRunner: %v", err)
+		os.Exit(1)
+	}
+	runner.Vault = evidence.NewMemoryVault() // proof-of-work evidence stored when tasks succeed
+	log.Printf("Foreman: FactoryTaskRunner (runtime %s, workspace %s, prefer-real=%v)", runtimeDir, workspaceHome, preferRealTemplates)
 
 	worker := foreman.NewWorker(mgr.GetClient(), runner, numWorkers)
 	worker.SessionAffinity = *sessionAffinity

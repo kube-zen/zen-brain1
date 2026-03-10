@@ -21,6 +21,16 @@ func (tm *TemplateManager) GetTemplate(workType, workDomain string) (*WorkTypeTe
 	return tm.registry.GetTemplate(workType, workDomain)
 }
 
+// HasTemplate returns true if a template exists for the given work type and domain.
+func (tm *TemplateManager) HasTemplate(workType, workDomain string) bool {
+	return tm.registry.HasTemplate(workType, workDomain)
+}
+
+// GetTemplateOrNil returns the template for work type and domain, or nil if none.
+func (tm *TemplateManager) GetTemplateOrNil(workType, workDomain string) *WorkTypeTemplate {
+	return tm.registry.GetTemplateOrNil(workType, workDomain)
+}
+
 // ExpandTemplateVariables expands template variables using task spec values.
 func (tm *TemplateManager) ExpandTemplateVariables(template *WorkTypeTemplate, spec *FactoryTaskSpec) []*ExecutionStep {
 	steps := make([]*ExecutionStep, 0, len(template.Steps))
