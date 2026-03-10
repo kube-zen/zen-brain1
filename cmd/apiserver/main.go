@@ -18,6 +18,8 @@ func main() {
 		addr = ":" + p
 	}
 	srv := apiserver.New(addr, nil)
+	srv.Handle("/api/v1/sessions", apiserver.SessionsHandler(nil))
+	srv.Handle("/api/v1/health", apiserver.HealthDetailHandler(nil))
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
