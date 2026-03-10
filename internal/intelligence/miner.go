@@ -76,6 +76,7 @@ func (m *Miner) MineProofOfWorks(ctx context.Context) (*MiningResult, error) {
 	workTypeStats := make(map[string]*WorkTypeStatistics)
 	templateStats := make(map[string]*TemplateStatistics)
 	durationStats := make(map[string]*DurationStatistics)
+	failureStats := make(map[string]*FailureStatistics)
 
 	for _, entry := range entries {
 		if !entry.IsDir() {
@@ -108,6 +109,9 @@ func (m *Miner) MineProofOfWorks(ctx context.Context) (*MiningResult, error) {
 		// Extract patterns from this artifact
 		m.extractPatterns(&summary, workTypeStats, templateStats, durationStats)
 
+		// Extract failure patterns
+		m.extractFailurePatterns(&summary, failureStats)
+
 		result.ArtifactsMined++
 	}
 
@@ -115,6 +119,7 @@ func (m *Miner) MineProofOfWorks(ctx context.Context) (*MiningResult, error) {
 	result.WorkTypeStatistics = AggregateWorkTypeStats(workTypeStats)
 	result.TemplateStatistics = AggregateTemplateStats(templateStats)
 	result.DurationStatistics = aggregateDurationStats(durationStats)
+	result.FailureStatistics = aggregateFailureStats(failureStats)
 	result.PatternsExtracted = len(result.WorkTypeStatistics) + len(result.TemplateStatistics)
 
 	result.EndTime = time.Now()
@@ -145,6 +150,13 @@ func (m *Miner) extractPatterns(
 	templateStats map[string]*TemplateStatistics,
 	durationStats map[string]*DurationStatistics,
 ) {
+	// Determine completion timestamp for recency tracking
+	completedAt := summary.CompletedAt
+	if completedAt.IsZero() {
+		completedAt = summary.StartedAt
+	}
+	isRecentArtifact := isRecent(completedAt)
+
 	// Work type statistics
 	workTypeKey := fmt.Sprintf("%s:%s", summary.WorkType, summary.WorkDomain)
 	if _, exists := workTypeStats[workTypeKey]; !exists {
@@ -155,6 +167,8 @@ func (m *Miner) extractPatterns(
 			SuccessRate:        0.0,
 			AverageDuration:    0,
 			FilesChangedPerRun: 0,
+			FirstSeenAt:        completedAt,
+			LastSeenAt:         completedAt,
 		}
 	}
 
@@ -164,6 +178,20 @@ func (m *Miner) extractPatterns(
 		stats.SuccessfulRuns++
 	}
 	stats.TotalDuration += summary.Duration
+
+	// Update recency fields
+	if completedAt.Before(stats.FirstSeenAt) || stats.FirstSeenAt.IsZero() {
+		stats.FirstSeenAt = completedAt
+	}
+	if completedAt.After(stats.LastSeenAt) || stats.LastSeenAt.IsZero() {
+		stats.LastSeenAt = completedAt
+	}
+	if isRecentArtifact {
+		stats.RecentRuns++
+		if summary.Result == "completed" {
+			stats.RecentSuccessfulRuns++
+		}
+	}
 
 	// Files changed
 	stats.TotalFilesChanged += len(summary.FilesChanged)
@@ -190,6 +218,8 @@ func (m *Miner) extractPatterns(
 			TotalRuns:       0,
 			SuccessRate:     0.0,
 			AverageDuration: 0,
+			FirstSeenAt:     completedAt,
+			LastSeenAt:      completedAt,
 		}
 	}
 
@@ -199,6 +229,20 @@ func (m *Miner) extractPatterns(
 		tStats.SuccessfulRuns++
 	}
 	tStats.TotalDuration += summary.Duration
+
+	// Update template recency fields
+	if completedAt.Before(tStats.FirstSeenAt) || tStats.FirstSeenAt.IsZero() {
+		tStats.FirstSeenAt = completedAt
+	}
+	if completedAt.After(tStats.LastSeenAt) || tStats.LastSeenAt.IsZero() {
+		tStats.LastSeenAt = completedAt
+	}
+	if isRecentArtifact {
+		tStats.RecentRuns++
+		if summary.Result == "completed" {
+			tStats.RecentSuccessfulRuns++
+		}
+	}
 }
 
 // AggregateWorkTypeStats aggregates and finalizes work type statistics.
@@ -212,6 +256,12 @@ func AggregateWorkTypeStats(stats map[string]*WorkTypeStatistics) []WorkTypeStat
 			copied.SuccessRate = float64(copied.SuccessfulRuns) / float64(copied.TotalRuns)
 			copied.AverageDuration = copied.TotalDuration / time.Duration(copied.TotalRuns)
 			copied.FilesChangedPerRun = float64(copied.TotalFilesChanged) / float64(copied.TotalRuns)
+		}
+		// Calculate recent success rate
+		if copied.RecentRuns > 0 {
+			copied.RecentSuccessRate = float64(copied.RecentSuccessfulRuns) / float64(copied.RecentRuns)
+		} else {
+			copied.RecentSuccessRate = 0.0
 		}
 		result = append(result, copied)
 	}
@@ -229,6 +279,12 @@ func AggregateTemplateStats(stats map[string]*TemplateStatistics) []TemplateStat
 		if copied.TotalRuns > 0 {
 			copied.SuccessRate = float64(copied.SuccessfulRuns) / float64(copied.TotalRuns)
 			copied.AverageDuration = copied.TotalDuration / time.Duration(copied.TotalRuns)
+		}
+		// Calculate recent success rate
+		if copied.RecentRuns > 0 {
+			copied.RecentSuccessRate = float64(copied.RecentSuccessfulRuns) / float64(copied.RecentRuns)
+		} else {
+			copied.RecentSuccessRate = 0.0
 		}
 		result = append(result, copied)
 	}
@@ -257,39 +313,145 @@ func aggregateDurationStats(stats map[string]*DurationStatistics) []DurationStat
 
 // MiningResult represents the output of a mining operation.
 type MiningResult struct {
-	StartTime          time.Time
-	EndTime            time.Time
-	Duration           time.Duration
-	ArtifactsFound     int
-	ArtifactsMined     int
-	PatternsExtracted  int
-	Errors             []string
-	WorkTypeStatistics []WorkTypeStatistics
-	TemplateStatistics []TemplateStatistics
-	DurationStatistics []DurationStatistics
+	StartTime           time.Time
+	EndTime             time.Time
+	Duration            time.Duration
+	ArtifactsFound      int
+	ArtifactsMined      int
+	PatternsExtracted   int
+	Errors              []string
+	WorkTypeStatistics  []WorkTypeStatistics
+	TemplateStatistics  []TemplateStatistics
+	DurationStatistics  []DurationStatistics
+	FailureStatistics   []FailureStatistics `json:"failure_statistics,omitempty"`
 }
 
 // WorkTypeStatistics tracks performance metrics by work type and domain.
 type WorkTypeStatistics struct {
-	WorkType           string
-	WorkDomain         string
-	TotalRuns          int
-	SuccessfulRuns     int
-	SuccessRate        float64
-	AverageDuration    time.Duration
-	TotalDuration      time.Duration
-	TotalFilesChanged  int
-	FilesChangedPerRun float64
+	WorkType            string
+	WorkDomain          string
+	TotalRuns           int
+	SuccessfulRuns      int
+	SuccessRate         float64
+	AverageDuration     time.Duration
+	TotalDuration       time.Duration
+	TotalFilesChanged   int
+	FilesChangedPerRun  float64
+	FirstSeenAt         time.Time `json:"first_seen_at,omitempty"`
+	LastSeenAt          time.Time `json:"last_seen_at,omitempty"`
+	RecentRuns          int       `json:"recent_runs,omitempty"`
+	RecentSuccessfulRuns int       `json:"recent_successful_runs,omitempty"`
+	RecentSuccessRate   float64   `json:"recent_success_rate,omitempty"`
+}
+
+// extractFailurePatterns extracts failure patterns from a proof-of-work summary.
+func (m *Miner) extractFailurePatterns(summary *ProofOfWorkSummary, failureStats map[string]*FailureStatistics) {
+	// Only track failures
+	if summary.Result == "completed" {
+		return
+	}
+
+	// Classify failure mode
+	failureMode := classifyFailure(summary)
+	if failureMode == "" {
+		return // No failure
+	}
+
+	// Determine completion timestamp
+	completedAt := summary.CompletedAt
+	if completedAt.IsZero() {
+		completedAt = summary.StartedAt
+	}
+
+	// Create or update failure statistics by work type/domain
+	key := fmt.Sprintf("%s:%s", summary.WorkType, summary.WorkDomain)
+	if _, exists := failureStats[key]; !exists {
+		failureStats[key] = &FailureStatistics{
+			WorkType:          summary.WorkType,
+			WorkDomain:        summary.WorkDomain,
+			TotalFailures:     0,
+			FailureModes:      make(map[string]int),
+			LastFailureAt:     completedAt,
+			RecommendedActions: make(map[string]int),
+		}
+	}
+
+	stats := failureStats[key]
+	stats.TotalFailures++
+
+	// Track failure mode
+	if failureMode != "" {
+		stats.FailureModes[string(failureMode)]++
+	}
+
+	// Track recommended action
+	if summary.RecommendedAction != "" {
+		stats.RecommendedActions[summary.RecommendedAction]++
+	}
+
+	// Update last failure timestamp
+	if completedAt.After(stats.LastFailureAt) || stats.LastFailureAt.IsZero() {
+		stats.LastFailureAt = completedAt
+	}
+
+	// Also track per-template failures if template is known
+	if summary.TemplateUsed != "" || summary.ModelUsed != "" {
+		templateKey := summary.TemplateUsed
+		if templateKey == "" {
+			templateKey = summary.ModelUsed
+		}
+		templateFullKey := fmt.Sprintf("%s:%s:%s", summary.WorkType, summary.WorkDomain, templateKey)
+		if _, exists := failureStats[templateFullKey]; !exists {
+			failureStats[templateFullKey] = &FailureStatistics{
+				WorkType:          summary.WorkType,
+				WorkDomain:        summary.WorkDomain,
+				TemplateName:      templateKey,
+				TotalFailures:     0,
+				FailureModes:      make(map[string]int),
+				LastFailureAt:     completedAt,
+				RecommendedActions: make(map[string]int),
+			}
+		}
+
+		tStats := failureStats[templateFullKey]
+		tStats.TotalFailures++
+		if failureMode != "" {
+			tStats.FailureModes[string(failureMode)]++
+		}
+		if summary.RecommendedAction != "" {
+			tStats.RecommendedActions[summary.RecommendedAction]++
+		}
+		if completedAt.After(tStats.LastFailureAt) || tStats.LastFailureAt.IsZero() {
+			tStats.LastFailureAt = completedAt
+		}
+	}
+}
+
+// aggregateFailureStats aggregates failure statistics into a slice.
+func aggregateFailureStats(stats map[string]*FailureStatistics) []FailureStatistics {
+	result := make([]FailureStatistics, 0, len(stats))
+
+	for _, s := range stats {
+		copied := *s
+		result = append(result, copied)
+	}
+
+	return result
 }
 
 // TemplateStatistics tracks performance metrics by template.
 type TemplateStatistics struct {
-	TemplateName    string
-	TotalRuns       int
-	SuccessfulRuns  int
-	SuccessRate     float64
-	AverageDuration time.Duration
-	TotalDuration   time.Duration
+	TemplateName         string
+	TotalRuns            int
+	SuccessfulRuns       int
+	SuccessRate          float64
+	AverageDuration      time.Duration
+	TotalDuration        time.Duration
+	FirstSeenAt          time.Time `json:"first_seen_at,omitempty"`
+	LastSeenAt           time.Time `json:"last_seen_at,omitempty"`
+	RecentRuns           int       `json:"recent_runs,omitempty"`
+	RecentSuccessfulRuns int       `json:"recent_successful_runs,omitempty"`
+	RecentSuccessRate    float64   `json:"recent_success_rate,omitempty"`
 }
 
 // DurationStatistics tracks duration percentiles.

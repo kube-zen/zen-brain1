@@ -596,13 +596,14 @@ func (j *JiraOffice) Watch(ctx context.Context, clusterID string) (<-chan pkgoff
 		// Timeouts can be configured later
 	}
 
-	// Start server in goroutine
+	// Start server in goroutine (capture channel so we don't close nil after stopWebhookServer clears j.serverDone)
+	done := j.serverDone
 	go func() {
 		if err := j.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			// Log error (TODO: add proper logging)
 			fmt.Printf("Jira webhook server error: %v\n", err)
 		}
-		close(j.serverDone)
+		close(done)
 	}()
 
 	// Start goroutine to shutdown server when context is cancelled

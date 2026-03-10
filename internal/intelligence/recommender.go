@@ -78,17 +78,12 @@ func (r *Recommender) RecommendTemplate(ctx context.Context, workType contracts.
 	if matchingSamples == 0 && workTypeStats != nil {
 		matchingSamples = workTypeStats.TotalRuns
 	}
-	confidence := r.calculateConfidence(matchingSamples)
 
-	var reasoning string
-	switch matchKind {
-	case "exact":
-		reasoning = fmt.Sprintf("Recommendation from exact match history (%d samples); %.1f%% success rate", matchingSamples, workTypeStats.SuccessRate*100)
-	case "work_type_only":
-		reasoning = fmt.Sprintf("Recommendation from work-type-only history (%d samples); %.1f%% success rate", matchingSamples, workTypeStats.SuccessRate*100)
-	default:
-		reasoning = fmt.Sprintf("No matching template name for %s/%s; using default template", wtStr, wdStr)
-	}
+	// Calculate recency-aware confidence and reasoning
+	confidence, reasoning := r.calculateRecencyAwareConfidence(workTypeStats, matchingSamples, matchKind, wtStr, wdStr)
+
+	// Apply failure-aware downgrade if recent failures dominate
+	confidence, reasoning = r.applyFailureAwareDowngrade(ctx, confidence, reasoning, workTypeStats, wtStr, wdStr)
 
 	return &Recommendation{
 		TemplateName:    templateName,
@@ -100,6 +95,66 @@ func (r *Recommender) RecommendTemplate(ctx context.Context, workType contracts.
 		Reasoning:       reasoning,
 		SampleCount:     matchingSamples,
 	}, nil
+}
+
+// applyFailureAwareDowngrade reduces confidence when recent failures dominate.
+// Returns (adjustedConfidence, updatedReasoning).
+func (r *Recommender) applyFailureAwareDowngrade(
+	ctx context.Context,
+	confidence float64,
+	reasoning string,
+	stats *WorkTypeStatistics,
+	wtStr, wdStr string,
+) (float64, string) {
+	// Get failure statistics
+	failureStats, err := r.patternStore.GetFailureStats(ctx, wtStr, wdStr)
+	if err != nil || failureStats == nil {
+		return confidence, reasoning
+	}
+
+	// Only downgrade when there's meaningful failure signal
+	// Minimum 3 recent failures or total failures >= recent successes
+	recentFailures := 0
+	for _, count := range failureStats.FailureModes {
+		// Count failures that might be recent (approximate based on last failure time)
+		if failureStats.LastFailureAt.After(time.Now().Add(-recentWindow)) {
+			recentFailures += count
+		}
+	}
+
+	if recentFailures < 3 && failureStats.TotalFailures < stats.RecentRuns-stats.RecentSuccessfulRuns {
+		// Not enough failure signal to downgrade
+		return confidence, reasoning
+	}
+
+	// Find top failure mode
+	topFailureMode := ""
+	topFailureCount := 0
+	for mode, count := range failureStats.FailureModes {
+		if count > topFailureCount {
+			topFailureMode = mode
+			topFailureCount = count
+		}
+	}
+
+	// If top failure mode is trivial/noise, don't downgrade
+	if topFailureCount < 2 {
+		return confidence, reasoning
+	}
+
+	// Downgrade confidence materially
+	adjustedConfidence := confidence * 0.7 // 30% reduction
+
+	// Update reasoning to mention failure pressure
+	if recentFailures >= stats.RecentSuccessfulRuns {
+		reasoning = fmt.Sprintf("%s; Warning: recent failures are elevated (%s=%d), confidence reduced; consider troubleshooting before proceeding",
+			reasoning, topFailureMode, topFailureCount)
+	} else {
+		reasoning = fmt.Sprintf("%s; Note: elevated recent failures observed (%s=%d), confidence slightly reduced",
+			reasoning, topFailureMode, topFailureCount)
+	}
+
+	return adjustedConfidence, reasoning
 }
 
 // RecommendConfiguration recommends execution configuration based on work type.
@@ -252,6 +307,58 @@ func (r *Recommender) calculateConfidence(sampleCount int) float64 {
 		confidence = 1.0
 	}
 	return confidence
+}
+
+// calculateRecencyAwareConfidence calculates confidence using recency-weighted scoring.
+// Returns (confidence, reasoning).
+func (r *Recommender) calculateRecencyAwareConfidence(stats *WorkTypeStatistics, sampleCount int, matchKind, wtStr, wdStr string) (float64, string) {
+	// Prefer recent runs for scoring
+	score := 0.0
+	var reasoning string
+
+	if stats.RecentRuns >= r.minSamples {
+		// Strong recent signal: use weighted score favoring recent success rate
+		score = 0.7*stats.RecentSuccessRate + 0.3*stats.SuccessRate
+		confidence := r.calculateConfidence(stats.RecentRuns)
+		daysAgo := getDaysSince(stats.LastSeenAt)
+		if daysAgo >= 0 {
+			reasoning = fmt.Sprintf("Recommended from recent exact-match history (%d recent runs, %.1f%% success); last seen %d days ago",
+				stats.RecentRuns, stats.RecentSuccessRate*100, daysAgo)
+		} else {
+			reasoning = fmt.Sprintf("Recommended from recent exact-match history (%d recent runs, %.1f%% success)",
+				stats.RecentRuns, stats.RecentSuccessRate*100)
+		}
+		return score * confidence, reasoning
+	} else if stats.TotalRuns >= r.minSamples {
+		// Historical data but weak recent signal: apply freshness penalty
+		freshnessFactor := calculateFreshnessFactor(stats.LastSeenAt)
+		score = 0.5*stats.SuccessRate + 0.5*freshnessFactor
+		confidence := r.calculateConfidence(stats.TotalRuns)
+		daysAgo := getDaysSince(stats.LastSeenAt)
+		if daysAgo >= 0 {
+			reasoning = fmt.Sprintf("Recommended from older exact-match history (%d total runs, %.1f%% success); last seen %d days ago; freshness penalty applied",
+				stats.TotalRuns, stats.SuccessRate*100, daysAgo)
+		} else {
+			reasoning = fmt.Sprintf("Recommended from older exact-match history (%d total runs, %.1f%% success); freshness penalty applied",
+				stats.TotalRuns, stats.SuccessRate*100)
+		}
+		// Reduce confidence for stale data
+		if freshnessFactor < 0.85 {
+			confidence *= 0.8
+		}
+		return score * confidence, reasoning
+	}
+
+	// Fallback to default
+	switch matchKind {
+	case "exact":
+		reasoning = fmt.Sprintf("Insufficient recent data for %s/%s; falling back to default", wtStr, wdStr)
+	case "work_type_only":
+		reasoning = fmt.Sprintf("Insufficient recent data for %s/%s; falling back to default", wtStr, wdStr)
+	default:
+		reasoning = fmt.Sprintf("No matching template for %s/%s; using default template", wtStr, wdStr)
+	}
+	return 0.0, reasoning
 }
 
 // GetWorkTypeSummary returns a summary of work type performance.
