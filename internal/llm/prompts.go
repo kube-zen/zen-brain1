@@ -134,6 +134,37 @@ func (pt *PromptTemplate) compile() (*template.Template, error) {
 func DefaultTemplates() []*PromptTemplate {
 	return []*PromptTemplate{
 		{
+			Name:         "work_item_analysis",
+			Role:         RoleAnalyzer,
+			SystemPrompt: "You are a technical analyst. Provide structured JSON responses.",
+			UserTemplate: `Analyze this work item and provide a structured assessment:
+
+Title: {{.title}}
+Summary: {{.summary}}
+Type: {{.work_type}}
+Priority: {{.priority}}
+
+Provide:
+1. Complexity assessment (low/medium/high)
+2. Estimated effort (e.g., "1-2 hours", "half day", "1 day")
+3. Recommended approach
+4. Key risks
+5. Dependencies
+
+Format your response as JSON:
+{
+  "complexity": "...",
+  "estimated_effort": "...",
+  "recommended_approach": "...",
+  "risks": ["..."],
+  "dependencies": ["..."]
+}`,
+			Temperature: 0.1,
+			MaxTokens:   1500,
+			Version:     "1.0",
+			Variables:   []string{"title", "summary", "work_type", "priority"},
+		},
+		{
 			Name:         "classification",
 			Role:         RoleAnalyzer,
 			SystemPrompt: "You are a software engineering classifier. Be precise and consistent in your classifications.",

@@ -16,6 +16,7 @@ func (r *WorkTypeTemplateRegistry) registerUsefulTemplates() {
 	r.registerRealBugFixTemplate()
 	r.registerRealRefactorTemplate()
 	r.registerRealPythonTemplate()
+	r.registerRealReviewTemplate()
 }
 
 // registerRealImplementationTemplate creates a template that generates real files.
@@ -245,6 +246,34 @@ func (r *WorkTypeTemplateRegistry) registerRealPythonTemplate() {
 				Name:        "Generate proof-of-work summary",
 				Description: "Create summary of work done",
 				Command:     "echo '# Proof of Work' > PROOF_OF_WORK.md && echo '' >> PROOF_OF_WORK.md && echo '## Summary' >> PROOF_OF_WORK.md && echo '' >> PROOF_OF_WORK.md && echo '- Work Item: {{.work_item_id}}' >> PROOF_OF_WORK.md && echo '- Title: {{.title}}' >> PROOF_OF_WORK.md && echo '- Objective: {{.objective}}' >> PROOF_OF_WORK.md && echo '' >> PROOF_OF_WORK.md && echo '## Files Created' >> PROOF_OF_WORK.md && echo '' >> PROOF_OF_WORK.md && echo '- src/main.py - Main application' >> PROOF_OF_WORK.md && echo '- tests/test_main.py - Pytest test suite' >> PROOF_OF_WORK.md && echo '- requirements.txt - Python dependencies' >> PROOF_OF_WORK.md && echo '- setup.py - Package setup' >> PROOF_OF_WORK.md && echo '- README.md - Documentation' >> PROOF_OF_WORK.md && echo '- docs/api.md - API documentation' >> PROOF_OF_WORK.md && echo '' >> PROOF_OF_WORK.md && echo '## Verification' >> PROOF_OF_WORK.md && echo '' >> PROOF_OF_WORK.md && echo 'Run tests: python -m pytest tests/ -v' >> PROOF_OF_WORK.md && echo '' >> PROOF_OF_WORK.md && echo 'Run application: python src/main.py' >> PROOF_OF_WORK.md && echo 'Proof of work generated' > .pow_generated",
+				Variables:   map[string]string{},
+				Timeout:     30,
+				MaxRetries:  1,
+			},
+		},
+	}
+		r.registerTemplate(template)
+}
+
+// registerRealReviewTemplate creates a template for code/work review (Task 4 rescue).
+func (r *WorkTypeTemplateRegistry) registerRealReviewTemplate() {
+	template := &WorkTypeTemplate{
+		WorkType:    "review",
+		WorkDomain:  "real",
+		Description: "Real review: creates review checklist and REVIEW.md artifact",
+		Steps: []ExecutionStepTemplate{
+			{
+				Name:        "Create review checklist",
+				Description: "Create review checklist file",
+				Command:     "mkdir -p review && echo '# Review Checklist' > review/CHECKLIST.md && echo '' >> review/CHECKLIST.md && echo '## Work Item: {{.work_item_id}}' >> review/CHECKLIST.md && echo '## Title: {{.title}}' >> review/CHECKLIST.md && echo '' >> review/CHECKLIST.md && echo '- [ ] Functional correctness' >> review/CHECKLIST.md && echo '- [ ] Code quality and style' >> review/CHECKLIST.md && echo '- [ ] Security considerations' >> review/CHECKLIST.md && echo '- [ ] Tests and coverage' >> review/CHECKLIST.md && echo '- [ ] Documentation' >> review/CHECKLIST.md && echo 'Checklist created' > .review_checklist",
+				Variables:   map[string]string{},
+				Timeout:     30,
+				MaxRetries:  1,
+			},
+			{
+				Name:        "Generate proof-of-work summary",
+				Description: "Create REVIEW.md summary",
+				Command:     "echo '# Review Summary' > REVIEW.md && echo '' >> REVIEW.md && echo '- Work Item: {{.work_item_id}}' >> REVIEW.md && echo '- Title: {{.title}}' >> REVIEW.md && echo '- Objective: {{.objective}}' >> REVIEW.md && echo '' >> REVIEW.md && echo '## Checklist' >> REVIEW.md && echo 'See review/CHECKLIST.md' >> REVIEW.md && echo 'Proof of work generated' > .pow_generated",
 				Variables:   map[string]string{},
 				Timeout:     30,
 				MaxRetries:  1,

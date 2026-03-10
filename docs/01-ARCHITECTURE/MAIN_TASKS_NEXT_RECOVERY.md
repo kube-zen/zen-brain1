@@ -72,11 +72,11 @@
 - Watchdog behavior  
 - Task/work templates  
 
-**Current state:** First rescue batch shipped. **Proof/evidence:** `EvidenceTypeProofOfWork` and `EvidenceTypeExecutionLog` in contracts; vertical slice uses `EvidenceTypeProofOfWork` for proof artifacts. **Provider fallback/calibration:** `LocalWorkerMaxTokens` in fallback chain and gateway config—when set, skip local worker for large prompts (use planner first). **Watchdog:** vertical slice runs under a global timeout (default 15 min; `ZEN_BRAIN_VERTICAL_SLICE_TIMEOUT_SECONDS`); on timeout session transitions to failed and run exits. Office/Jira, Factory templates, and intelligence/mining remain as further rescue targets.
+**Current state:** First rescue batch shipped. **Proof/evidence:** `EvidenceTypeProofOfWork` and `EvidenceTypeExecutionLog` in contracts; vertical slice uses `EvidenceTypeProofOfWork` for proof artifacts. **Provider fallback/calibration:** `LocalWorkerMaxTokens` in fallback chain and gateway config—when set, skip local worker for large prompts (use planner first). **Watchdog:** vertical slice runs under a global timeout (default 15 min; `ZEN_BRAIN_VERTICAL_SLICE_TIMEOUT_SECONDS`); on timeout session transitions to failed and run exits. **Task/work templates:** `review`/`real` template added (review checklist + REVIEW.md). **Task 5 wire:** analyzer uses PromptManager and `work_item_analysis` template. Office/Jira and intelligence/mining remain as further rescue targets.
 
 **Recovery / next steps:**
 
-- Optional: Jira/ticket knowledge rescue, one more task/work template.
+- Shipped: review work type template (`review`/`real`) in factory; analyzer uses prompt manager and `work_item_analysis` template (Task 5 wire). Optional: Jira/ticket knowledge rescue.
 - Reuse: Office Manager, Factory templates, proof-of-work artifacts, and [ITEM3_INTELLIGENCE_MINING.md](./ITEM3_INTELLIGENCE_MINING.md) for patterns.
 
 ---
@@ -89,7 +89,7 @@
 
 **Recovery / next steps:**
 
-- Keep provider set small; tune for reliability and cost (e.g. local worker + planner escalation).
+- Analyzer now uses PromptManager and `work_item_analysis` template from [internal/llm/prompts.go](../../internal/llm/prompts.go); fallback to hardcoded prompt if template missing. Keep provider set small; tune for reliability and cost.
 - Improvements should be in prompt/usage and calibration, not in adding more providers or options.
 
 ---

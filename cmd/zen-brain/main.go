@@ -279,10 +279,14 @@ func runVerticalSlice() {
 	analyzerConfig.LLMProviderName = "glm-4.7"
 	analyzerConfig.RequireApproval = false // Auto-approve for vertical slice
 
+	// Task 5: prompt manager for tunable analysis prompts
+	promptManager := llmgateway.InitializeDefaultManager()
+
 	// Create simple Analyzer wrapper around LLM Gateway
 	intentAnalyzer := &simpleAnalyzer{
-		llmGateway: llmGateway,
-		config:     analyzerConfig,
+		llmGateway:    llmGateway,
+		config:        analyzerConfig,
+		promptManager: promptManager,
 	}
 	fmt.Println("  ✓ Analyzer initialized")
 
@@ -593,12 +597,29 @@ func runVerticalSlice() {
 
 // simpleAnalyzer is a simple implementation of IntentAnalyzer
 type simpleAnalyzer struct {
-	llmGateway *llmgateway.Gateway
-	config     *analyzer.Config
+	llmGateway    *llmgateway.Gateway
+	config        *analyzer.Config
+	promptManager *llmgateway.PromptManager
 }
 
 func (a *simpleAnalyzer) Analyze(ctx context.Context, workItem *contracts.WorkItem) (*contracts.AnalysisResult, error) {
-	prompt := fmt.Sprintf(`Analyze this work item and provide a structured assessment:
+	var systemMsg, userMsg string
+	if a.promptManager != nil {
+		if tpl, err := a.promptManager.GetTemplate("work_item_analysis"); err == nil {
+			vars := map[string]string{
+				"title":     workItem.Title,
+				"summary":   workItem.Summary,
+				"work_type": string(workItem.WorkType),
+				"priority":  string(workItem.Priority),
+			}
+			if s, u, err := tpl.Render(vars); err == nil {
+				systemMsg, userMsg = s, u
+			}
+		}
+	}
+	if systemMsg == "" && userMsg == "" {
+		systemMsg = "You are a technical analyst. Provide structured JSON responses."
+		userMsg = fmt.Sprintf(`Analyze this work item and provide a structured assessment:
 
 Title: %s
 Summary: %s
@@ -620,12 +641,13 @@ Format your response as JSON:
   "risks": ["..."],
   "dependencies": ["..."]
 }`,
-		workItem.Title, workItem.Summary, workItem.WorkType, workItem.Priority)
+			workItem.Title, workItem.Summary, workItem.WorkType, workItem.Priority)
+	}
 
 	req := llm.ChatRequest{
 		Messages: []llm.Message{
-			{Role: "system", Content: "You are a technical analyst. Provide structured JSON responses."},
-			{Role: "user", Content: prompt},
+			{Role: "system", Content: systemMsg},
+			{Role: "user", Content: userMsg},
 		},
 		SessionID: "analysis-" + workItem.ID,
 	}
