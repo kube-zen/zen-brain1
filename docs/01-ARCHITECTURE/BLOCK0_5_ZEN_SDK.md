@@ -4,6 +4,8 @@
 
 **Construction Plan:** V6.1, Block 0.5.
 
+**Status: ~95%.** The reuse contract is in good shape: all mandatory reuse points (receiptlog, dedup, retry, health, store, scheduler) are satisfied and in use. Some items are **explicitly deferred**: DLQ, observability, leader, logging, events, and crypto adoption. This is **low risk** for current scope (no blocking gaps), but those deferred items remain **backlog — not done-done**. When adding DLQ, standardized tracing, HA leader election, structured logging, K8s event recording, or crypto helpers, wire the corresponding zen-sdk packages per this doc.
+
 ---
 
 ## Audit: zen-sdk Packages in Use
@@ -57,12 +59,12 @@ The Construction Plan also lists the following. They are **not yet imported** in
 - [ ] HA control-plane path explicitly uses `zen-sdk/pkg/leader` — **deferred**
 - [x] No local replacement package for receiptlog, dedup, retry, health, store, scheduler exists without an approved ADR
 
-**Block 0.5 is complete** for the current scope: all mandatory reuse points are satisfied; dlq/observability/leader/logging/events/crypto are documented as deferred.
+**Block 0.5 is complete for current scope** (mandatory reuse satisfied). The **deferred** items (dlq, observability, leader, logging, events, crypto) are **backlog** — low risk now, but not done-done until those packages are adopted when the related features are built.
 
 ---
 
 ## Completeness (tracking)
 
 - **CUTOVER.md:** Block 0.5 milestone is marked complete (SDK audit done; see above).
-- **BLOCK_COMPLETION_MATRIX.md:** Block 0.5 appears as ✅ Complete; next action is to implement deferred packages when the corresponding features are built (dlq for failed tasks/messages, observability for tracing, leader for HA, etc.).
-- **Lifting completeness further:** To move from “complete with deferred” to “more reuse in use,” wire one or more of the deferred zen-sdk packages when adding the related feature (e.g. `pkg/dlq` when implementing DLQ for message bus or task failures; `pkg/observability` when standardizing tracing; `pkg/logging` when standardizing log format).
+- **BLOCK_COMPLETION_MATRIX.md:** Block 0.5 appears as ~95% / complete with deferred; deferred items are backlog, not done-done.
+- **Lifting to done-done:** Wire the deferred zen-sdk packages when adding the related feature: `pkg/dlq` (DLQ for message bus or task failures), `pkg/observability` (tracing/metrics), `pkg/leader` (HA), `pkg/logging` (structured logs), `pkg/events` (K8s events), `pkg/crypto` (secrets/encryption).
