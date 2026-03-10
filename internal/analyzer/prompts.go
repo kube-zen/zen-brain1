@@ -202,29 +202,31 @@ func (s *breakdownStage) Process(ctx context.Context, workItem *contracts.WorkIt
 		}, nil
 	}
 
-	prompt := fmt.Sprintf(`Break down this work item into subtasks:
+	// Use template-based prompt
+	template, err := s.promptManager.GetTemplate("breakdown")
+	if err != nil {
+		return StageResult{Stage: StageBreakdown, Confidence: 0.0}, fmt.Errorf("failed to get breakdown template: %w", err)
+	}
 
-Title: %s
-Description: %s
-Work Type: %s
+	// Prepare template variables
+	variables := map[string]string{
+		"title":       workItem.Title,
+		"description": workItem.Body,
+		"work_type":   string(workItem.WorkType),
+	}
 
-Break this down into 2-5 logical subtasks that could be executed independently.
-For each subtask, provide a brief description.
-
-Format your response as:
-Subtasks:
-1. <subtask 1 description>
-2. <subtask 2 description>
-...`,
-		workItem.Title, workItem.Body, workItem.WorkType)
+	systemMsg, userMsg, err := template.Render(variables)
+	if err != nil {
+		return StageResult{Stage: StageBreakdown, Confidence: 0.0}, fmt.Errorf("failed to render breakdown template: %w", err)
+	}
 
 	req := llm.ChatRequest{
 		Messages: []llm.Message{
-			{Role: "system", Content: "You are a project planner. Break down work into logical, executable subtasks."},
-			{Role: "user", Content: prompt},
+			{Role: "system", Content: systemMsg},
+			{Role: "user", Content: userMsg},
 		},
-		MaxTokens:   800,
-		Temperature: 0.1,
+		MaxTokens:   template.MaxTokens,
+		Temperature: template.Temperature,
 	}
 
 	resp, err := s.llm.Chat(ctx, req)

@@ -322,6 +322,29 @@ Highlight any actions that require explicit approval.`,
 			Version:     "1.0",
 			Variables:   []string{"title", "description", "environment", "risk_level"},
 		},
+		{
+			Name:         "breakdown",
+			Role:         RoleAnalyzer,
+			SystemPrompt: "You are a project planner. Break down work into logical, executable subtasks.",
+			UserTemplate: `Break down this work item into subtasks:
+
+Title: {{.title}}
+Description: {{.description}}
+Work Type: {{.work_type}}
+
+Break this down into 2-5 logical subtasks that could be executed independently.
+For each subtask, provide a brief description.
+
+Format your response as:
+Subtasks:
+1. <subtask 1 description>
+2. <subtask 2 description>
+...`,
+			Temperature: 0.1,
+			MaxTokens:   800,
+			Version:     "1.0",
+			Variables:   []string{"title", "description", "work_type"},
+		},
 	}
 }
 
