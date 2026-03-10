@@ -11,11 +11,11 @@ import (
 	"github.com/kube-zen/zen-brain1/internal/config"
 	"github.com/kube-zen/zen-brain1/internal/context"
 	"github.com/kube-zen/zen-brain1/internal/context/tier1"
-	"github.com/kube-zen/zen-brain1/internal/context/tier2"
 	"github.com/kube-zen/zen-brain1/internal/context/tier3"
 	"github.com/kube-zen/zen-brain1/internal/llm"
 	zenctx "github.com/kube-zen/zen-brain1/pkg/context"
 	"github.com/kube-zen/zen-brain1/pkg/contracts"
+	llmtypes "github.com/kube-zen/zen-brain1/pkg/llm"
 )
 
 // Runner holds all zen-brain components.
@@ -147,7 +147,7 @@ func (r *Runner) processWorkItem(workItemID string) error {
 		ID:       workItemID,
 		Title:    "Test Work Item",
 		Priority: contracts.PriorityMedium,
-		Status:   contracts.WorkStatusTodo,
+		Status:   contracts.StatusRequested,
 		Source: contracts.SourceMetadata{
 			System:   "mock",
 			IssueKey: workItemID,
@@ -157,8 +157,8 @@ func (r *Runner) processWorkItem(workItemID string) error {
 
 	// Step 2: Use Gateway to generate a response
 	log.Printf("[Runner] Step 2: Querying LLM Gateway")
-	req := llm.ChatRequest{
-		Messages: []llm.Message{
+	req := llmtypes.ChatRequest{
+		Messages: []llmtypes.Message{
 			{Role: "system", Content: "You are zen-brain, an AI assistant for software engineering tasks."},
 			{Role: "user", Content: fmt.Sprintf("Analyze this work item: %s\n\nTitle: %s", workItem.ID, workItem.Title)},
 		},
@@ -175,7 +175,7 @@ func (r *Runner) processWorkItem(workItemID string) error {
 	// Step 3: Query knowledge if ZenContext available
 	if r.zenctx != nil {
 		log.Printf("[Runner] Step 3: Querying knowledge base")
-		chunks, err := r.zenctx.QueryKnowledge(ctx, fmt.Sprintf("test-session-%s", workItemID), "test query", []string{"general"}, 5)
+		chunks, err := r.zenctx.QueryKnowledge(ctx, zenctx.QueryOptions{Query: "test query", Scopes: []string{"general"}, Limit: 5})
 		if err != nil {
 			log.Printf("[Runner] Knowledge query failed: %v", err)
 		} else {
@@ -191,8 +191,8 @@ func (r *Runner) processWorkItem(workItemID string) error {
 func (r *Runner) runTestQuery() error {
 	ctx := r.shutdownCtx
 
-	req := llm.ChatRequest{
-		Messages: []llm.Message{
+	req := llmtypes.ChatRequest{
+		Messages: []llmtypes.Message{
 			{Role: "user", Content: "Hello from zen-brain vertical slice! What can you help with?"},
 		},
 		SessionID: "test-session-mvp",
