@@ -127,10 +127,11 @@ type Config struct {
 }
 
 // DefaultConfig returns the default configuration.
+// DataDir is left empty; callers should set it from ZEN_BRAIN_HOME (e.g. ${ZEN_BRAIN_HOME}/sessions) so runtime state is not written into the repo tree.
 func DefaultConfig() *Config {
 	return &Config{
 		StoreType:       "sqlite",
-		DataDir:         "./data/sessions",
+		DataDir:         "",
 		DefaultTimeout:  24 * time.Hour,
 		MaxSessionAge:   7 * 24 * time.Hour,
 		CleanupInterval: 1 * time.Hour,
