@@ -4,11 +4,12 @@ This document describes all configuration options available in Zen‑Brain. Conf
 
 ## Configuration File Location
 
-Zen‑Brain looks for configuration in the following order:
+**Canonical runtime config:** `$ZEN_BRAIN_HOME/config.yaml` (where `ZEN_BRAIN_HOME` defaults to `~/.zen-brain`). No search of current directory or repo paths at runtime.
 
-1. Command‑line flag `--config /path/to/config.yaml`
-2. Environment variable `ZEN_BRAIN_CONFIG`
-3. Default location: `$ZEN_BRAIN_HOME/config.yaml` (where `ZEN_BRAIN_HOME` defaults to `~/.zen‑brain`)
+- Override: command‑line `--config /path/to/config.yaml` or set config path explicitly when calling `LoadConfig(path)`.
+- **Repo `configs/`**: templates/examples only. Copy to `$ZEN_BRAIN_HOME/config.yaml` for runtime use.
+
+**Runtime state (no repo-local paths):** Session persistence uses `$ZEN_BRAIN_HOME/sessions` (or `ZEN_BRAIN_DATA_DIR`). Coverage and other build artifacts use `.artifacts/` (e.g. `.artifacts/coverage/coverage.out`). No runtime DB or coverage files are written into the repo tree.
 
 ## Top‑Level Structure
 
@@ -60,6 +61,8 @@ When `ZEN_BRAIN_MESSAGE_BUS=redis` is set, the bus is enabled and uses `REDIS_UR
 Config can also set `zen_context.required`, `ledger.required`, `message_bus.required` in YAML.
 
 **Runtime commands:** `zen-brain runtime doctor` (readable summary), `zen-brain runtime report` (JSON), `zen-brain runtime ping` (exit non-zero if required capability unhealthy).
+
+**LLM local worker (Ollama gap):** The current **local worker** lane (`internal/llm/local_worker.go`) is **simulated**—it does not call Ollama or any real inference backend. Docs and design may mention Ollama; runtime does not yet wire a real Ollama provider. **Target state:** real Ollama-backed local worker (e.g. `internal/llm/ollama_provider.go`, gateway wiring, k8s manifest/service for Ollama). Until that is implemented, deploying Ollama in-cluster improves optics only, not completeness. Do not describe the local worker as production-real or Ollama-backed in docs.
 
 **Mock/degraded paths (Block 3/5):** By default, capabilities are optional. **QMD** can fall back to mock when the `qmd` CLI is missing or unavailable (Tier 2 warm store then disabled or mock). **Ledger** falls back to stub when no DSN is set or Cockroach is unreachable; the runtime report shows `ledger.mode: stub`. To require a capability and fail startup instead of using a fallback, set the corresponding `ZEN_BRAIN_REQUIRE_*` env or `required: true` in config.
 

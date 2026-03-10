@@ -78,6 +78,8 @@ Environments: `sandbox` (127.0.1.6), `staging` (127.0.1.2), `uat` (127.0.1.3). A
    kubectl apply -f deployments/zencontext-in-cluster/
    ```
 
+   **Canonical local dependency path:** k3d + `dependencies.yaml` + `deployments/zencontext-in-cluster/` only. Docker Compose is not used for ZenContext; the repo is k8s-first for local dev.
+
 ## In-cluster deployment (Foreman + API server)
 
 Foreman and API server can run **inside** the k3d cluster using the manifests in this directory.
