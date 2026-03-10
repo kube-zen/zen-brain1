@@ -31,7 +31,7 @@
 | **ReMe protocol** | Real | ReconstructSession in ZenContext; ReMeBinder wires it as agent continuation path (Worker.ContextBinder = NewReMeBinder). | `internal/context/composite.go`, `internal/agent/binding.go` (ReMeBinder) |
 | **Human Gatekeeper** | Real | Block 2.6: Gatekeeper interface, DefaultGatekeeper (approvals, reject, delegate, escalate, notifiers, audit). | `internal/gatekeeper/`, `internal/planner` (GetPendingApprovals) |
 | **K3d / deployment** | Partial | Block 6: dev-up, dev-down, dev-logs, dev-clean, dev-build; DEBUGGING.md. “Deploy Zen-Brain components” still TBD (no Helm/manifests for foreman/apiserver in-cluster). | `deployments/k3d/README.md`, `Makefile`, `docs/05-OPERATIONS/DEBUGGING.md` |
-| **Repo polish** | Partial | Makefile: repo-sync TODO; pre-commit/repo-check exist. | `Makefile`, `scripts/ci/` |
+| **Repo polish** | Partial | Makefile: repo-sync implemented (scripts/repo_sync.py, ZEN_KB_REPO_URL/DIR); pre-commit/repo-check exist. | `Makefile`, `scripts/repo_sync.py`, `scripts/ci/` |
 
 ---
 
@@ -43,7 +43,7 @@
 4. **K3d** – Add minimal deployable manifest or Helm placeholder for foreman + apiserver (or document “run binaries locally with kubeconfig” as the current path).
 5. ~~**ReMe**~~ – Done: ReMeBinder wires ReConstruct as agent continuation path.
 6. ~~**Jira**~~ – Done: webhooks (Watch), attachments (AddAttachment), JQL (Search); Block 2 complete.
-7. **repo-sync** – Implement or document; reference in COMPLETENESS_MATRIX.
+7. ~~**repo-sync**~~ – Implemented: `make repo-sync` via `scripts/repo_sync.py` (clone/pull KB repos for QMD).
 
 ---
 

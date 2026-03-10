@@ -106,8 +106,8 @@ generate: ## Generate code (CRDs, deepcopy) - requires controller-gen
 
 ## Repository management
 
-repo-sync: ## Sync knowledge base repositories (see docs/01-ARCHITECTURE/COMPLETENESS_MATRIX.md)
-	@echo "TODO: implement repo sync (clone/pull of configured KB repos for QMD population)"
+repo-sync: ## Sync KB repos for QMD population. Set ZEN_KB_REPO_URL to clone; ZEN_KB_REPO_DIR (default ../zen-docs) must match tier2_qmd.repo_path
+	python3 scripts/repo_sync.py
 
 ## Repository hygiene
 

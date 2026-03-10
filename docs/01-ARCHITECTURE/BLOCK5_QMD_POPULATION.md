@@ -27,6 +27,10 @@ err := qmd.Populate(ctx, qmdClient, "/path/to/zen-docs", []string{"docs/"})
 - Run **`go test ./internal/qmd/... -run KBQuality`** to validate KB search against the golden set (uses mock client by default).
 - For live validation against a real index, run the same golden-query checks with a real qmd client and repo after `Populate`.
 
+## Syncing the repo before population
+
+Run **`make repo-sync`** to clone or pull the KB repo (e.g. zen-docs). Set `ZEN_KB_REPO_URL` to clone from a remote; `ZEN_KB_REPO_DIR` (default `../zen-docs`) should match `tier2_qmd.repo_path` in your config. Then run `qmd embed` (or use `Populate`) to refresh the index. See `scripts/repo_sync.py`.
+
 ## Block 3.5 (KB Ingestion)
 
 QMD population can be driven by the KB Ingestion Service (Block 3.5) when available: ingestion pipeline calls `Populate` or the qmd adapter’s `RefreshIndex` after syncing repo content.
