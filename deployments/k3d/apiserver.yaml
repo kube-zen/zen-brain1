@@ -32,6 +32,8 @@ spec:
               value: "http://ollama:11434"
             - name: OLLAMA_TIMEOUT_SECONDS
               value: "120"
+            - name: OLLAMA_KEEP_ALIVE
+              value: "30m"
             # Optional: set ZEN_API_KEY (e.g. from a Secret) to enable API key auth.
             # - name: ZEN_API_KEY
             #   valueFrom:
