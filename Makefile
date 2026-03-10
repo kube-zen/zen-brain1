@@ -2,7 +2,8 @@
 
 # Build variables
 BINARY_NAME := zen-brain
-VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+# Prefer VERSION file for release builds (e.g. 1.2.3); else git describe or "dev"
+VERSION := $(shell cat VERSION 2>/dev/null | tr -d '\n' || git describe --tags --always --dirty 2>/dev/null || echo "dev")
 BUILD_TIME := $(shell date -u '+%Y-%m-%d_%H:%M:%S')
 LDFLAGS := -ldflags "-X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_TIME)"
 
