@@ -59,6 +59,7 @@ type JournalConfig struct {
 }
 
 // DefaultZenContextConfig returns the default ZenContext configuration.
+// Note: Paths are fallbacks; production should use config/env for explicit values.
 func DefaultZenContextConfig() *ZenContextConfig {
 	return &ZenContextConfig{
 		Tier1Redis: tier1.DefaultRedisConfig(),
@@ -69,7 +70,7 @@ func DefaultZenContextConfig() *ZenContextConfig {
 		},
 		Tier3S3: tier3.DefaultS3Config(),
 		Journal: &JournalConfig{
-			JournalPath:      "./journal.db",
+			JournalPath:      "./journal",
 			EnableQueryIndex: true,
 		},
 		Verbose:   false,

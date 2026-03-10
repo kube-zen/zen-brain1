@@ -59,6 +59,7 @@ type RedisConfig struct {
 }
 
 // DefaultRedisConfig returns the default Redis configuration.
+// Note: Addr is a fallback; production should use URL with full connection string.
 func DefaultRedisConfig() *RedisConfig {
 	return &RedisConfig{
 		URL:                "",
@@ -73,7 +74,7 @@ func DefaultRedisConfig() *RedisConfig {
 		WriteTimeout:       3 * time.Second,
 		PoolTimeout:        4 * time.Second,
 		IdleTimeout:        5 * time.Minute,
-		IdleCheckFrequency: 1 * time.Minute,
+		IdleCheckFrequency:  1 * time.Minute,
 		TLSEnabled:         false,
 	}
 }
@@ -235,7 +236,8 @@ func (c *goRedisClient) Close() error {
 }
 
 // MustParseRedisURL is a helper to parse Redis URL and create a client.
-// This is useful for simple configurations.
+// Use only in tests or main() where panic is acceptable.
+// For production code, use NewGoRedisClient() directly.
 func MustParseRedisURL(url string) RedisClient {
 	client, err := NewGoRedisClient(&RedisConfig{URL: url})
 	if err != nil {
