@@ -281,6 +281,7 @@ type BrainTaskSpec struct {
 }
 
 // AnalysisResult represents the output of the Intent Analyzer.
+// Enterprise: durable storage, audit fields (AnalyzedAt, AnalyzedBy, AnalyzerVersion), and optional WorkItemSnapshot for history.
 type AnalysisResult struct {
 	WorkItem              *WorkItem       `json:"work_item"`
 	BrainTaskSpecs        []BrainTaskSpec `json:"brain_task_specs"`
@@ -289,6 +290,21 @@ type AnalysisResult struct {
 	RequiresApproval      bool            `json:"requires_approval"`
 	RecommendedModel      string          `json:"recommended_model,omitempty"`
 	EstimatedTotalCostUSD float64         `json:"estimated_total_cost_usd,omitempty"`
+
+	// Audit and enrichment (Block 2 enterprise)
+	AnalyzedAt      time.Time `json:"analyzed_at,omitempty"`       // When this analysis was produced
+	AnalyzedBy      string    `json:"analyzed_by,omitempty"`      // Actor (e.g. "zen-brain", "api")
+	AnalyzerVersion string    `json:"analyzer_version,omitempty"`  // Version of analyzer that produced this result
+	WorkItemSnapshot *WorkItemSnapshot `json:"work_item_snapshot,omitempty"` // Snapshot of work item at analysis time for audit
+}
+
+// WorkItemSnapshot is a minimal snapshot of a work item at analysis time for audit/history.
+type WorkItemSnapshot struct {
+	ID        string `json:"id"`
+	SourceKey string `json:"source_key"`
+	Title     string `json:"title"`
+	WorkType  string `json:"work_type,omitempty"`
+	WorkDomain string `json:"work_domain,omitempty"`
 }
 
 // SessionState represents the lifecycle state of a work session.

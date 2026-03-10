@@ -68,6 +68,10 @@ type Config struct {
 	// Knowledge Base
 	KBSearchEnabled bool `yaml:"kb_search_enabled" json:"kb_search_enabled"`
 	MaxKBResults    int  `yaml:"max_kb_results" json:"max_kb_results"`
+
+	// Audit (Block 2 enterprise)
+	AnalyzedBy      string `yaml:"analyzed_by" json:"analyzed_by"`
+	AnalyzerVersion string `yaml:"analyzer_version" json:"analyzer_version"`
 }
 
 // DefaultConfig returns the default configuration.
@@ -91,5 +95,7 @@ func DefaultConfig() *Config {
 		MaxCostUSD:          10.0,
 		KBSearchEnabled:     true,
 		MaxKBResults:        5,
+		AnalyzedBy:          "zen-brain",
+		AnalyzerVersion:     "1.0",
 	}
 }

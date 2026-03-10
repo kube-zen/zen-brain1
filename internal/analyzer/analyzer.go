@@ -21,6 +21,8 @@ type DefaultAnalyzer struct {
 	kbStore       kb.Store
 	promptManager *internalllm.PromptManager
 	pipeline      []StageProcessor
+	// HistoryStore optional: when set, analysis results are persisted and GetAnalysisHistory/UpdateAnalysis use it (Block 2 enterprise).
+	HistoryStore AnalysisHistoryStore
 }
 
 // StageProcessor processes a single stage of analysis.
@@ -139,13 +141,47 @@ func (a *DefaultAnalyzer) Analyze(ctx context.Context, workItem *contracts.WorkI
 		AnalysisNotes:         a.buildAnalysisNotes(stageResults, errors),
 		RequiresApproval:      a.config.RequireApproval,
 		EstimatedTotalCostUSD: a.estimateTotalCost(brainTaskSpecs),
-		// RecommendedModel will be set by the Planner (Block 2.5)
+	}
+	a.enrichResult(result, workItem)
+
+	if a.HistoryStore != nil {
+		if err := a.HistoryStore.Store(ctx, workItem.ID, result); err != nil {
+			log.Printf("Failed to store analysis history for %s: %v", workItem.ID, err)
+		}
 	}
 
 	log.Printf("Analyzed work item %s in %v: %d tasks, confidence %.2f",
 		workItem.ID, time.Since(startTime), len(brainTaskSpecs), overallConfidence)
 
 	return result, nil
+}
+
+// enrichResult sets audit and snapshot fields for durability and auditability.
+func (a *DefaultAnalyzer) enrichResult(result *contracts.AnalysisResult, workItem *contracts.WorkItem) {
+	EnrichForAudit(result, workItem, a.config.AnalyzedBy, a.config.AnalyzerVersion)
+}
+
+// EnrichForAudit sets AnalyzedAt, AnalyzedBy, AnalyzerVersion, and WorkItemSnapshot on result (Block 2 enterprise).
+// Use from DefaultAnalyzer or simpleAnalyzer before persisting. analyzedBy/version default to "zen-brain"/"1.0" if empty.
+func EnrichForAudit(result *contracts.AnalysisResult, workItem *contracts.WorkItem, analyzedBy, analyzerVersion string) {
+	result.AnalyzedAt = time.Now().UTC()
+	result.AnalyzedBy = analyzedBy
+	if result.AnalyzedBy == "" {
+		result.AnalyzedBy = "zen-brain"
+	}
+	result.AnalyzerVersion = analyzerVersion
+	if result.AnalyzerVersion == "" {
+		result.AnalyzerVersion = "1.0"
+	}
+	if workItem != nil {
+		result.WorkItemSnapshot = &contracts.WorkItemSnapshot{
+			ID:         workItem.ID,
+			SourceKey:  workItem.Source.IssueKey,
+			Title:      workItem.Title,
+			WorkType:   string(workItem.WorkType),
+			WorkDomain: string(workItem.WorkDomain),
+		}
+	}
 }
 
 // AnalyzeBatch analyzes multiple work items in batch.
@@ -166,16 +202,24 @@ func (a *DefaultAnalyzer) AnalyzeBatch(ctx context.Context, workItems []*contrac
 	return results, nil
 }
 
-// GetAnalysisHistory returns analysis history for a work item.
-// Deferred: persistent analysis history storage (see docs/01-ARCHITECTURE/REMAINING_DRAGS.md).
+// GetAnalysisHistory returns analysis history for a work item (from HistoryStore when set).
 func (a *DefaultAnalyzer) GetAnalysisHistory(ctx context.Context, workItemID string) ([]*contracts.AnalysisResult, error) {
-	return nil, fmt.Errorf("not implemented: GetAnalysisHistory")
+	if a.HistoryStore != nil {
+		return a.HistoryStore.GetHistory(ctx, workItemID)
+	}
+	return nil, fmt.Errorf("analysis history not available: HistoryStore not configured")
 }
 
-// UpdateAnalysis updates an analysis based on new information.
-// Deferred: analysis update persistence (see docs/01-ARCHITECTURE/REMAINING_DRAGS.md).
+// UpdateAnalysis appends an updated analysis to history (Store when HistoryStore is set).
 func (a *DefaultAnalyzer) UpdateAnalysis(ctx context.Context, result *contracts.AnalysisResult) error {
-	return fmt.Errorf("not implemented: UpdateAnalysis")
+	if a.HistoryStore == nil {
+		return fmt.Errorf("analysis history not available: HistoryStore not configured")
+	}
+	if result == nil || result.WorkItem == nil {
+		return fmt.Errorf("result and result.WorkItem are required")
+	}
+	a.enrichResult(result, result.WorkItem)
+	return a.HistoryStore.Store(ctx, result.WorkItem.ID, result)
 }
 
 // shouldContinueAfterError determines if pipeline should continue after a stage error.

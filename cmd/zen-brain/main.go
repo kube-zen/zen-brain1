@@ -312,7 +312,9 @@ func runVerticalSlice() {
 	var ledgerClient ledger.ZenLedgerClient
 	var msgBus messagebus.MessageBus
 	var rt *runtime.Runtime
-	if cfg, cfgErr := config.LoadConfig(""); cfgErr == nil && cfg != nil {
+	var cfg *config.Config
+	if loaded, cfgErr := config.LoadConfig(""); cfgErr == nil && loaded != nil {
+		cfg = loaded
 		ctxB := context.Background()
 		var errB error
 		rt, errB = runtime.Bootstrap(ctxB, cfg)
@@ -352,6 +354,9 @@ func runVerticalSlice() {
 		}
 	}
 	sessionConfig.ZenContext = zenContext
+	if cfg != nil && cfg.ZenContext.ClusterID != "" {
+		sessionConfig.ClusterID = cfg.ZenContext.ClusterID
+	}
 	// Block 3: wire message bus for session lifecycle events (journal can be added when available)
 	if msgBus != nil {
 		sessionConfig.EventBus = msgBus
@@ -379,6 +384,14 @@ func runVerticalSlice() {
 		llmGateway:    llmGateway,
 		config:        analyzerConfig,
 		promptManager: promptManager,
+	}
+	// Block 2 enterprise: durable, auditable analysis history when Analysis path is set
+	if paths := config.DefaultPaths(); paths.Analysis != "" {
+		if store, errStore := analyzer.NewFileAnalysisStore(paths.Analysis); errStore == nil {
+			intentAnalyzer.historyStore = store
+			_ = paths.EnsureAll()
+			fmt.Printf("  ✓ Analysis history store: %s\n", paths.Analysis)
+		}
 	}
 	fmt.Println("  ✓ Analyzer initialized")
 
@@ -886,6 +899,7 @@ type simpleAnalyzer struct {
 	llmGateway    *llmgateway.Gateway
 	config        *analyzer.Config
 	promptManager *llmgateway.PromptManager
+	historyStore  analyzer.AnalysisHistoryStore
 }
 
 func (a *simpleAnalyzer) Analyze(ctx context.Context, workItem *contracts.WorkItem) (*contracts.AnalysisResult, error) {
@@ -982,11 +996,21 @@ func (a *simpleAnalyzer) AnalyzeBatch(ctx context.Context, workItems []*contract
 }
 
 func (a *simpleAnalyzer) GetAnalysisHistory(ctx context.Context, workItemID string) ([]*contracts.AnalysisResult, error) {
+	if a.historyStore != nil {
+		return a.historyStore.GetHistory(ctx, workItemID)
+	}
 	return []*contracts.AnalysisResult{}, nil
 }
 
 func (a *simpleAnalyzer) UpdateAnalysis(ctx context.Context, result *contracts.AnalysisResult) error {
-	return nil
+	if a.historyStore == nil {
+		return nil
+	}
+	if result == nil || result.WorkItem == nil {
+		return fmt.Errorf("result and result.WorkItem are required")
+	}
+	analyzer.EnrichForAudit(result, result.WorkItem, a.config.AnalyzedBy, a.config.AnalyzerVersion)
+	return a.historyStore.Store(ctx, result.WorkItem.ID, result)
 }
 
 // mockZenContext is a simple in-memory implementation of zenctx.ZenContext
