@@ -27,8 +27,12 @@
 | **BrainPolicy CRD** | Added | `api/v1alpha1/brainpolicy_types.go`: cluster-scoped; rules (action, requiresApproval, maxCostUSD, allowedModels); CRD in deployments/crds |
 | **Foreman + Gate** | Wired | Reconciler accepts optional Gate and Dispatcher; cmd/foreman uses NewStubGate() and NoOpDispatcher; Admit before Pending→Scheduled |
 | **TaskDispatcher** | Interface + no-op | `internal/foreman/dispatcher.go`: TaskDispatcher.Dispatch(ctx, task); NoOpDispatcher for 4.3 placeholder |
+| **4.3 Worker pool** | Implemented | `internal/foreman/worker.go`: Worker implements TaskDispatcher; queue + N goroutines; processOne: Running → TaskRunner.Run → Completed/Failed; `runner.go`: TaskRunner + PlaceholderRunner |
+| **Worktree manager** | Interface + stub | `internal/worktree/manager.go`: Manager.Prepare(ctx, taskID, sessionID) (dir, cleanup, err); StubManager uses os.MkdirTemp |
+| **Foreman + BrainQueue** | Wired | BrainTaskSpec.QueueName optional; Foreman skips scheduling when queue exists and Phase == Paused (requeue) |
+| **Foreman cmd** | Worker + flag | cmd/foreman uses Worker(PlaceholderRunner, -workers=2), Start(ctx) before mgr.Start(ctx) |
 
-**Foreman:** `make build-foreman && ./bin/foreman` — needs kubeconfig; apply CRDs then run. Uses ZenGate stub (admit all) and NoOpDispatcher.
+**Foreman:** `make build-foreman && ./bin/foreman` — needs kubeconfig; apply CRDs then run. Uses ZenGate stub, Worker pool (PlaceholderRunner), `-workers=2`. Tasks flow Pending → Scheduled → (dispatched) → Running → Completed/Failed.
 
 **Outstanding (Block 3):** KB/QMD adapter; full API surface (auth, more endpoints).  
-**Outstanding (Block 4):** Worker agents (4.3 real implementation); ZenContext in cluster; ZenGuardian; worktree manager; worker pool; session-affinity dispatcher; observability; Foreman watching BrainQueue/BrainPolicy (optional).
+**Outstanding (Block 4):** TaskRunner impl that calls Factory/LLM (replace PlaceholderRunner); ZenContext in cluster; ZenGuardian; session-affinity dispatcher; observability; Foreman updating BrainQueue depth/inFlight (optional).

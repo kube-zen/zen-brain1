@@ -26,9 +26,13 @@ func init() {
 
 func main() {
 	var metricsAddr, probeAddr string
+	var numWorkers int
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "Address for metrics.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "Address for health probes.")
+	flag.IntVar(&numWorkers, "workers", 2, "Number of worker goroutines for task execution (Block 4.3).")
 	flag.Parse()
+
+	ctx := ctrl.SetupSignalHandler()
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme: scheme,
@@ -41,16 +45,19 @@ func main() {
 		os.Exit(1)
 	}
 
+	worker := foreman.NewWorker(mgr.GetClient(), foreman.PlaceholderRunner{}, numWorkers)
+	worker.Start(ctx)
+
 	reconciler := &foreman.Reconciler{
 		Client:     mgr.GetClient(),
 		Gate:       gate.NewStubGate(),
-		Dispatcher: foreman.NoOpDispatcher{},
+		Dispatcher: worker,
 	}
 	if err = reconciler.SetupWithManager(mgr); err != nil {
 		os.Exit(1)
 	}
 
-	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
+	if err := mgr.Start(ctx); err != nil {
 		os.Exit(1)
 	}
 }

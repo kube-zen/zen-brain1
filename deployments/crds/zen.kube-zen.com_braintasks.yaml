@@ -81,6 +81,10 @@ spec:
                 type: string
               priority:
                 type: string
+              queueName:
+                description: QueueName is the name of the BrainQueue to use for scheduling
+                  (optional). Foreman skips scheduling if that queue is Paused.
+                type: string
               sessionID:
                 description: SessionID links this task to a work session.
                 type: string
