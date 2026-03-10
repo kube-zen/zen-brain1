@@ -17,6 +17,8 @@ type TaskRunOutcome struct {
 	ResultStatus    string
 	Recommendation  string
 	DurationSeconds int64
+	// ExecutionMode is "workspace" or "git-worktree" (Block 4 real worktree lane).
+	ExecutionMode string
 }
 
 // TaskRunner executes a single BrainTask. Used by Worker after setting status to Running.
