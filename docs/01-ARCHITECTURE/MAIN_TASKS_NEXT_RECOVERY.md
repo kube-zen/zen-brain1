@@ -2,7 +2,7 @@
 
 **Purpose:** Single place to resume work on the zen-brain vertical slice. These are the **five main tasks** to tackle next (as of the last planning session).
 
-**Progress (2026-03-09):** Task 1 proven — `zen-brain vertical-slice --mock` runs E2E (Office → Analyze → Plan → Session → Factory → Proof-of-work → Status). Single proof-of-work source: main uses Factory’s artifact via `GetProofOfWork` when present; no duplicate creation. Task 2 (Item #2): deterministic proof (sorted slices), failure summary in proof markdown, factory errors pkg; committed. Task 3: persistent session store (SQLite via ZEN_BRAIN_SESSION_STORE=sqlite or when using --resume); vertical-slice --resume <session-id> continues from stored session; ZenContext session state updated after proof attachment.
+**Progress (2026-03-09):** Task 1 proven — `zen-brain vertical-slice --mock` runs E2E (Office → Analyze → Plan → Session → Factory → Proof-of-work → Status). Single proof-of-work source: main uses Factory’s artifact via `GetProofOfWork` when present; no duplicate creation. Task 2 (Item #2): deterministic proof (sorted slices), failure summary in proof markdown, factory errors pkg; committed. Task 3: persistent session store (SQLite via ZEN_BRAIN_SESSION_STORE=sqlite or when using --resume); vertical-slice --resume <session-id> continues from stored session; ZenContext session state updated after proof attachment. Task 4 (rescue batch): proof/evidence types (EvidenceTypeProofOfWork, EvidenceTypeExecutionLog), provider fallback calibration (LocalWorkerMaxTokens), vertical-slice watchdog (timeout + session failed on timeout); Item #5 doc and prompts package added.
 
 ---
 
@@ -72,11 +72,11 @@
 - Watchdog behavior  
 - Task/work templates  
 
-**Current state:** Office/Jira integration exists (`internal/office`, `internal/integration/office.go`). Factory has work templates and proof generation (`internal/factory/templates`, `work_templates.go`, `useful_templates.go`). Intelligence/mining (Item #3) is implemented (miner, pattern store, recommender).
+**Current state:** First rescue batch shipped. **Proof/evidence:** `EvidenceTypeProofOfWork` and `EvidenceTypeExecutionLog` in contracts; vertical slice uses `EvidenceTypeProofOfWork` for proof artifacts. **Provider fallback/calibration:** `LocalWorkerMaxTokens` in fallback chain and gateway config—when set, skip local worker for large prompts (use planner first). **Watchdog:** vertical slice runs under a global timeout (default 15 min; `ZEN_BRAIN_VERTICAL_SLICE_TIMEOUT_SECONDS`); on timeout session transitions to failed and run exits. Office/Jira, Factory templates, and intelligence/mining remain as further rescue targets.
 
 **Recovery / next steps:**
 
-- Pick one rescue area (e.g. Jira/ticket knowledge or proof templates) and implement a small, shippable batch.
+- Optional: Jira/ticket knowledge rescue, one more task/work template.
 - Reuse: Office Manager, Factory templates, proof-of-work artifacts, and [ITEM3_INTELLIGENCE_MINING.md](./ITEM3_INTELLIGENCE_MINING.md) for patterns.
 
 ---
@@ -101,7 +101,7 @@
 | 1 – Prove slice locally | [VERTICAL_SLICE_PROGRESS.md](./VERTICAL_SLICE_PROGRESS.md), [runner.go](../../internal/runner/runner.go), `vertical-slice` command |
 | 2 – Trusted useful path | [ITEM2_MAKE_SLICE_MORE_USEFUL.md](./ITEM2_MAKE_SLICE_MORE_USEFUL.md), factory templates |
 | 3 – Session/context glue | [ZEN_CONTEXT.md](../03-DESIGN/ZEN_CONTEXT.md), [session/manager.go](../../internal/session/manager.go), [pkg/context](../../pkg/context/) |
-| 4 – 0.1 rescue batch | Office/Jira, [ITEM3_INTELLIGENCE_MINING.md](./ITEM3_INTELLIGENCE_MINING.md), proof templates, watchdog |
+| 4 – 0.1 rescue batch | Office/Jira, [ITEM3_INTELLIGENCE_MINING.md](./ITEM3_INTELLIGENCE_MINING.md), [ITEM5_MLQ_PROVIDER.md](./ITEM5_MLQ_PROVIDER.md), proof templates, watchdog |
 | 5 – MLQ/provider practical | [internal/llm](../../internal/llm/), [fallback_chain.go](../../internal/llm/routing/fallback_chain.go) |
 
 **Build:** `go build ./...` from repo root. Fix any regressions in `internal/runner` or contracts/llm types before adding new behavior.

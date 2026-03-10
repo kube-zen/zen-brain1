@@ -317,6 +317,18 @@ func runVerticalSlice() {
 	fmt.Println("[7/8] Fetching and processing work item...")
 	ctx := context.Background()
 
+	// Watchdog: global timeout for vertical slice (default 15 min)
+	sliceTimeout := 15 * 60
+	if s := os.Getenv("ZEN_BRAIN_VERTICAL_SLICE_TIMEOUT_SECONDS"); s != "" {
+		if n, err := fmt.Sscanf(s, "%d", &sliceTimeout); n == 1 && err == nil && sliceTimeout > 0 {
+			// use parsed value
+		} else {
+			sliceTimeout = 15 * 60
+		}
+	}
+	ctx, cancelSlice := context.WithTimeout(ctx, time.Duration(sliceTimeout)*time.Second)
+	defer cancelSlice()
+
 	var workItem *contracts.WorkItem
 	var workSession *contracts.Session
 	var analysisResult *contracts.AnalysisResult
@@ -477,7 +489,7 @@ func runVerticalSlice() {
 						evidence := contracts.EvidenceItem{
 							ID:        fmt.Sprintf("pow-%s-%s", brainTask.ID, artifactPath[strings.LastIndex(artifactPath, "/")+1:]),
 							SessionID: workSession.ID,
-							Type:      "proof_of_work",
+							Type:      contracts.EvidenceTypeProofOfWork,
 							Content:   artifactPath,
 							Metadata: map[string]string{
 								"task_id":  brainTask.ID,
@@ -523,6 +535,21 @@ func runVerticalSlice() {
 				}
 			}
 		}
+	}
+
+	// Watchdog: on timeout, mark session failed and exit without updating Jira
+	if ctx.Err() == context.DeadlineExceeded {
+		log.Printf("Watchdog: vertical slice timeout (%ds)", sliceTimeout)
+		if err := sessionManager.TransitionState(ctx, workSession.ID, contracts.SessionStateFailed, "vertical slice timeout", "watchdog"); err != nil {
+			log.Printf("Warning: Failed to transition session to failed: %v", err)
+		}
+		fmt.Println("  ✗ Session failed (timeout)")
+		elapsed := time.Since(startTime)
+		fmt.Println()
+		fmt.Println("=== Vertical Slice Aborted (Timeout) ===")
+		fmt.Printf("  Session: %s\n", workSession.ID)
+		fmt.Printf("  Duration: %s\n", elapsed)
+		return
 	}
 
 	// Update Jira if not in mock mode

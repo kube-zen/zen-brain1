@@ -49,6 +49,10 @@ type FallbackConfig struct {
 
 	// EnableSmartRouting enables context-aware routing.
 	EnableSmartRouting bool
+
+	// LocalWorkerMaxTokens calibrates when to skip local worker: if estimated tokens
+	// exceed this, local-worker is not tried first (planner/fallback used). 0 = no limit.
+	LocalWorkerMaxTokens int
 }
 
 // ProviderCapability defines a provider's capabilities.
@@ -97,7 +101,8 @@ func DefaultFallbackConfig() *FallbackConfig {
 				SupportsTools:    true,
 			},
 		},
-		EnableSmartRouting: true,
+		EnableSmartRouting:   true,
+		LocalWorkerMaxTokens: 0, // 0 = no limit; set e.g. 2000 to prefer planner for large prompts
 	}
 }
 
@@ -237,23 +242,40 @@ func (f *DefaultFallbackChain) filterToAvailable(providers []string) []string {
 
 // smartProviderOrder selects providers based on token capacity and cost.
 // If preferredProvider is specified and can handle tokens, it will be first.
+// LocalWorkerMaxTokens calibration: when set, local-worker is skipped when estimated tokens exceed it.
 func (f *DefaultFallbackChain) smartProviderOrder(estimatedTokens int, preferredProvider string) []string {
 	var chain []string
+
+	// Calibration: skip local worker when prompt exceeds LocalWorkerMaxTokens
+	skipLocalWorker := f.Config.LocalWorkerMaxTokens > 0 && estimatedTokens > f.Config.LocalWorkerMaxTokens
 
 	// Start with preferred provider if specified and can handle tokens
 	if preferredProvider != "" && f.ProviderChecker(preferredProvider) &&
 		f.canHandleTokens(preferredProvider, estimatedTokens) {
-		chain = append(chain, preferredProvider)
+		if preferredProvider == "local-worker" && skipLocalWorker {
+			// Skip: prefer planner for large prompts
+		} else {
+			chain = append(chain, preferredProvider)
+		}
 	}
 
 	// Add default provider if not already included and can handle tokens
-	if f.Config.DefaultProvider != "" && f.ProviderChecker(f.Config.DefaultProvider) &&
-		f.canHandleTokens(f.Config.DefaultProvider, estimatedTokens) && !contains(chain, f.Config.DefaultProvider) {
-		chain = append(chain, f.Config.DefaultProvider)
+	// (and not skipping local worker when default is local-worker)
+	defaultProvider := f.Config.DefaultProvider
+	if defaultProvider != "" && f.ProviderChecker(defaultProvider) &&
+		f.canHandleTokens(defaultProvider, estimatedTokens) && !contains(chain, defaultProvider) {
+		if defaultProvider == "local-worker" && skipLocalWorker {
+			// Skip: prefer planner for large prompts
+		} else {
+			chain = append(chain, defaultProvider)
+		}
 	}
 
 	// Add fallback providers that can handle tokens
 	for _, provider := range f.Config.FallbackOrder {
+		if provider == "local-worker" && skipLocalWorker {
+			continue
+		}
 		if f.ProviderChecker(provider) && f.canHandleTokens(provider, estimatedTokens) && !contains(chain, provider) {
 			chain = append(chain, provider)
 		}
