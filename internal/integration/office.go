@@ -85,9 +85,14 @@ func NewOfficePipeline() (*OfficePipeline, error) {
 
 	// 6. Message Bus (Redis)
 	log.Println("  - Message Bus (Redis)")
+	redisURL := os.Getenv("ZEN_BRAIN_REDIS_URL")
+	if redisURL == "" {
+		redisURL = "redis://localhost:6379"
+		log.Printf("    ! Using default Redis URL: %s (set ZEN_BRAIN_REDIS_URL to override)", redisURL)
+	}
 	var msgBus messagebus.MessageBus
 	redisConfig := &redis.Config{
-		RedisURL:     "redis://localhost:6379",
+		RedisURL:     redisURL,
 		MaxPending:   1000,
 		ConsumerName: "",
 		BlockTimeout: 5 * time.Second,
