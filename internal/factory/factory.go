@@ -137,6 +137,9 @@ func (f *FactoryImpl) ExecuteTask(ctx context.Context, spec *FactoryTaskSpec) (*
 	} else {
 		result.ProofOfWorkPath = artifact.Directory
 		proofPath = artifact.Directory
+		result.ArtifactPaths = artifact.Summary.ArtifactPaths
+		result.GitStatusPath = artifact.Summary.GitStatusPath
+		result.GitDiffStatPath = artifact.Summary.GitDiffStatPath
 	}
 
 	log.Printf("[Factory] Task execution completed: task_id=%s status=%s duration=%s proof=%s", spec.ID, result.Status, result.Duration.String(), proofPath)

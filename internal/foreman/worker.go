@@ -256,6 +256,9 @@ func (w *Worker) processOne(ctx context.Context, nn types.NamespacedName) {
 		if outcome.Recommendation != "" {
 			task.Annotations["zen.kube-zen.com/factory-recommendation"] = outcome.Recommendation
 		}
+		if outcome.ExecutionMode != "" {
+			task.Annotations["zen.kube-zen.com/factory-execution-mode"] = outcome.ExecutionMode
+		}
 		if patchErr := w.Client.Patch(ctx, &task, client.MergeFrom(base)); patchErr != nil {
 			logger.Error(patchErr, "patch task annotations with outcome", "task", nn.String())
 		}

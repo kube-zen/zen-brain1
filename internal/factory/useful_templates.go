@@ -255,43 +255,36 @@ func (r *WorkTypeTemplateRegistry) registerRealPythonTemplate() {
 		r.registerTemplate(template)
 }
 
-// registerRealReviewTemplate creates a template for repo-aware code/work review (Block 4).
-// Step 1: inventory workspace (files.txt, summary.txt). Step 2: run Go/Python checks when safe (skip markers if tool absent).
-// Step 3: generate REVIEW.md from actual observations.
+// registerRealReviewTemplate creates the canonical repo-aware review lane (Block 4).
+// Step 1: workspace and git inventory (pwd, files, git branch/commit/status/diff or "not a git repo").
+// Step 2: language-aware safe checks (Go test, Python py_compile when tools exist).
+// Step 3: REVIEW.md from real observations (work item, path, git-backed, checks ran, next action).
 func (r *WorkTypeTemplateRegistry) registerRealReviewTemplate() {
 	template := &WorkTypeTemplate{
 		WorkType:    "review",
 		WorkDomain:  "real",
-		Description: "Real review: repo-aware inventory, language checks (Go/Python), REVIEW.md from observations",
+		Description: "Real review: repo-aware inventory, git evidence, Go/Python checks, REVIEW.md from observations",
 		Steps: []ExecutionStepTemplate{
 			{
-				Name:        "Inventory workspace",
-				Description: "Create review dir, list files (sorted), write top-level summary",
-				Command:     "mkdir -p review && find . -maxdepth 4 -type f ! -path './.git/*' ! -path './.zen-*' | sort > review/files.txt && (echo 'Work Item: {{.work_item_id}}'; echo 'Title: {{.title}}'; echo 'File count:'; wc -l < review/files.txt) > review/summary.txt",
+				Name:        "Workspace and git inventory",
+				Description: "Create review dir, pwd, list files; if git repo write branch/commit/status/diff, else write not-a-git-repo markers",
+				Command:     "mkdir -p review && pwd > review/workspace.txt && find . -maxdepth 4 -type f ! -path './.git/*' ! -path './.zen-*' | sort > review/files.txt && (git rev-parse --is-inside-work-tree 2>/dev/null | grep -q true && (git rev-parse --abbrev-ref HEAD > review/git-branch.txt && git rev-parse HEAD > review/git-commit.txt && git status --short > review/git-status.txt 2>/dev/null || true && git diff --stat > review/git-diff-stat.txt 2>/dev/null || true && git diff --name-only > review/git-diff-files.txt 2>/dev/null || true) || (echo 'not a git repo' > review/git-branch.txt && echo 'not a git repo' > review/git-commit.txt && echo 'not a git repo' > review/git-status.txt && echo 'not a git repo' > review/git-diff-stat.txt && echo 'not a git repo' > review/git-diff-files.txt))",
 				Variables:   map[string]string{},
 				Timeout:     30,
 				MaxRetries:  1,
 			},
 			{
-				Name:        "Run Go checks when safe",
-				Description: "Run go test ./... if go.mod and go exist; otherwise write skip marker",
-				Command:     "if [ -f go.mod ] && command -v go >/dev/null 2>&1; then go test ./... 2>&1 | tee review/go-test.txt; else echo 'skipped (no go.mod or go not in PATH)' > review/go-test.txt; fi",
+				Name:        "Language-aware safe checks",
+				Description: "Run go test ./... if go.mod and go exist; run Python py_compile if py project and python3 exist; else write skipped markers",
+				Command:     "if [ -f go.mod ] && command -v go >/dev/null 2>&1; then go test ./... -count=1 > review/go-test.txt 2>&1 || true; else echo 'skipped (no go.mod or go not in PATH)' > review/go-test.txt; fi && (if ( [ -f pyproject.toml ] || [ -f setup.py ] || [ -f requirements.txt ] ) && command -v python3 >/dev/null 2>&1; then pyfiles=$(find . -name '*.py' -type f 2>/dev/null | head -20); if [ -n \"$pyfiles\" ]; then python3 -m py_compile $pyfiles > review/python-test.txt 2>&1 || true; else echo 'skipped (no .py files)' > review/python-test.txt; fi; else echo 'skipped (no pyproject.toml/setup.py/requirements.txt or python3 not in PATH)' > review/python-test.txt; fi)",
 				Variables:   map[string]string{},
 				Timeout:     120,
 				MaxRetries:  1,
 			},
 			{
-				Name:        "Run Python checks when safe",
-				Description: "Lightweight Python check if pyproject.toml or setup.py and python3 exist; otherwise write skip marker",
-				Command:     "if ( [ -f pyproject.toml ] || [ -f setup.py ] ) && command -v python3 >/dev/null 2>&1; then (python3 -m pytest --collect-only -q 2>/dev/null || python3 -m py_compile setup.py 2>/dev/null || echo 'no pytest/py_compile') 2>&1 | tee review/python-test.txt; else echo 'skipped (no pyproject.toml/setup.py or python3 not in PATH)' > review/python-test.txt; fi",
-				Variables:   map[string]string{},
-				Timeout:     60,
-				MaxRetries:  1,
-			},
-			{
-				Name:        "Generate REVIEW.md",
-				Description: "Create REVIEW.md from work item, inventory location, and whether Go/Python checks ran",
-				Command:     "echo '# Review' > REVIEW.md && echo '' >> REVIEW.md && echo '- **Work Item:** {{.work_item_id}}' >> REVIEW.md && echo '- **Title:** {{.title}}' >> REVIEW.md && echo '- **Objective:** {{.objective}}' >> REVIEW.md && echo '' >> REVIEW.md && echo '## Files inventory' >> REVIEW.md && echo '- `review/files.txt`' >> REVIEW.md && echo '' >> REVIEW.md && echo '## Checks' >> REVIEW.md && (grep -q 'skipped' review/go-test.txt 2>/dev/null && echo '- Go checks ran: no' >> REVIEW.md || echo '- Go checks ran: yes' >> REVIEW.md) && (grep -q 'skipped' review/python-test.txt 2>/dev/null && echo '- Python checks ran: no' >> REVIEW.md || echo '- Python checks ran: yes' >> REVIEW.md) && echo '' >> REVIEW.md && echo '## Next action' >> REVIEW.md && echo 'Review artifacts in `review/`. Recommend: inspect REVIEW.md and run tests locally if needed.' >> REVIEW.md",
+				Name:        "Generate REVIEW.md from observations",
+				Description: "Create REVIEW.md with work item, title, objective, workspace path, git-backed flag, Go/Python check status, diff stat location, next action",
+				Command:     "echo '# Review' > REVIEW.md && echo '' >> REVIEW.md && echo '- **Work Item:** {{.work_item_id}}' >> REVIEW.md && echo '- **Title:** {{.title}}' >> REVIEW.md && echo '- **Objective:** {{.objective}}' >> REVIEW.md && echo '- **Workspace path:** '$(cat review/workspace.txt 2>/dev/null) >> REVIEW.md && echo '' >> REVIEW.md && (grep -q 'not a git repo' review/git-branch.txt 2>/dev/null && echo '- **Git-backed:** no' >> REVIEW.md || echo '- **Git-backed:** yes' >> REVIEW.md) && echo '' >> REVIEW.md && echo '## Files inventory' >> REVIEW.md && echo '- `review/files.txt`' >> REVIEW.md && echo '' >> REVIEW.md && echo '## Checks' >> REVIEW.md && (grep -q 'skipped' review/go-test.txt 2>/dev/null && echo '- Go checks ran: no' >> REVIEW.md || echo '- Go checks ran: yes' >> REVIEW.md) && (grep -q 'skipped' review/python-test.txt 2>/dev/null && echo '- Python checks ran: no' >> REVIEW.md || echo '- Python checks ran: yes' >> REVIEW.md) && echo '' >> REVIEW.md && echo '## Diff stat' >> REVIEW.md && echo '- `review/git-diff-stat.txt` (or not a git repo)' >> REVIEW.md && echo '' >> REVIEW.md && echo '## Next action' >> REVIEW.md && echo 'Inspect `review/` artifacts and REVIEW.md. If git-backed, review git-status and diff; run tests locally if needed.' >> REVIEW.md",
 				Variables:   map[string]string{},
 				Timeout:     30,
 				MaxRetries:  1,

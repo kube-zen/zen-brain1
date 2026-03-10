@@ -495,10 +495,13 @@ func (g *GitWorkspaceManager) ListWorkspaceFiles(ctx context.Context, path strin
 		if err != nil {
 			return nil
 		}
+		base := filepath.Base(full)
+		if base == ".git" && d.IsDir() {
+			return filepath.SkipDir
+		}
 		if d.IsDir() {
 			return nil
 		}
-		base := filepath.Base(full)
 		if strings.HasPrefix(base, ".") || strings.HasPrefix(base, ".zen-") {
 			return nil
 		}

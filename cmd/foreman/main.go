@@ -34,12 +34,20 @@ func main() {
 	var numWorkers int
 	var runtimeDir, workspaceHome string
 	var preferRealTemplates bool
+	var useGitWorktree bool
+	var sourceRepoPath, worktreeBasePath, sourceRef string
+	var reuseSessionWorktree bool
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "Address for metrics.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "Address for health probes.")
 	flag.IntVar(&numWorkers, "workers", 2, "Number of worker goroutines for task execution (Block 4.3).")
 	flag.StringVar(&runtimeDir, "factory-runtime-dir", envStr("ZEN_FOREMAN_RUNTIME_DIR", "/tmp/zen-brain-factory"), "Runtime dir for Factory workspaces and proof-of-work.")
 	flag.StringVar(&workspaceHome, "factory-workspace-home", envStr("ZEN_FOREMAN_WORKSPACE_HOME", "/tmp/zen-brain-factory"), "Workspace home for Factory (workspaces created under <home>/workspaces).")
 	flag.BoolVar(&preferRealTemplates, "factory-prefer-real-templates", envBool("ZEN_FOREMAN_PREFER_REAL_TEMPLATES", true), "Prefer real templates when workDomain is empty (implementation, docs, debug, refactor, review).")
+	flag.BoolVar(&useGitWorktree, "factory-use-git-worktree", envBool("ZEN_FOREMAN_USE_GIT_WORKTREE", false), "Use real git worktrees from source repo (Block 4 real execution lane).")
+	flag.StringVar(&sourceRepoPath, "factory-source-repo", envStr("ZEN_FOREMAN_SOURCE_REPO", ""), "Path to git repo (required if factory-use-git-worktree).")
+	flag.StringVar(&worktreeBasePath, "factory-worktree-base", envStr("ZEN_FOREMAN_WORKTREE_BASE", ""), "Base path for git worktrees (default <runtime-dir>/worktrees).")
+	flag.StringVar(&sourceRef, "factory-source-ref", envStr("ZEN_FOREMAN_SOURCE_REF", "HEAD"), "Git ref for worktree (e.g. HEAD, main).")
+	flag.BoolVar(&reuseSessionWorktree, "factory-reuse-session-worktree", envBool("ZEN_FOREMAN_REUSE_SESSION_WORKTREE", false), "Reuse one worktree per session when using git worktrees.")
 	zenContextRedis := flag.String("zen-context-redis", envStr("ZEN_CONTEXT_REDIS_URL", ""), "Redis URL for ZenContext (ReMe). When set, Worker uses ReMeBinder for session context on continuation.")
 	sessionAffinity := flag.Bool("session-affinity", envBool("ZEN_FOREMAN_SESSION_AFFINITY", false), "Route tasks by session (same session → same worker).")
 	flag.Parse()
@@ -58,9 +66,14 @@ func main() {
 	}
 
 	cfg := foreman.FactoryTaskRunnerConfig{
-		RuntimeDir:          runtimeDir,
-		WorkspaceHome:       workspaceHome,
-		PreferRealTemplates: preferRealTemplates,
+		RuntimeDir:            runtimeDir,
+		WorkspaceHome:         workspaceHome,
+		PreferRealTemplates:   preferRealTemplates,
+		UseGitWorktree:        useGitWorktree,
+		SourceRepoPath:        sourceRepoPath,
+		WorktreeBasePath:      worktreeBasePath,
+		SourceRef:             sourceRef,
+		ReuseSessionWorktree:  reuseSessionWorktree,
 	}
 	runner, err := foreman.NewFactoryTaskRunner(cfg)
 	if err != nil {
@@ -68,7 +81,11 @@ func main() {
 		os.Exit(1)
 	}
 	runner.Vault = evidence.NewMemoryVault() // proof-of-work evidence stored when tasks succeed
-	log.Printf("Foreman: FactoryTaskRunner (runtime %s, workspace %s, prefer-real=%v)", runtimeDir, workspaceHome, preferRealTemplates)
+	if useGitWorktree {
+		log.Printf("Foreman: FactoryTaskRunner (git-worktree mode, repo=%s, base=%s)", sourceRepoPath, worktreeBasePath)
+	} else {
+		log.Printf("Foreman: FactoryTaskRunner (runtime %s, workspace %s, prefer-real=%v)", runtimeDir, workspaceHome, preferRealTemplates)
+	}
 
 	worker := foreman.NewWorker(mgr.GetClient(), runner, numWorkers)
 	worker.SessionAffinity = *sessionAffinity

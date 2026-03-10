@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -126,6 +127,55 @@ func TestProofOfWorkManager_CreateProofOfWork(t *testing.T) {
 	}
 	if artifact.Summary.SelectionReasoning != "Based on 10 historical executions" {
 		t.Errorf("SelectionReasoning: got %s", artifact.Summary.SelectionReasoning)
+	}
+
+	// Proof bundle must contain actual artifact paths (no glob placeholders)
+	if len(artifact.Summary.ArtifactPaths) < 3 {
+		t.Errorf("ArtifactPaths should have at least 3 entries (json, md, log), got %d", len(artifact.Summary.ArtifactPaths))
+	}
+	for i, p := range artifact.Summary.ArtifactPaths {
+		if p == "" {
+			t.Errorf("ArtifactPaths[%d] must not be empty", i)
+		}
+		if strings.Contains(p, "*") {
+			t.Errorf("ArtifactPaths must not contain glob placeholders, got %q", p)
+		}
+	}
+}
+
+func TestProofOfWorkManager_OutputLogFromSteps(t *testing.T) {
+	runtimeDir := t.TempDir()
+	powManager := NewProofOfWorkManager(runtimeDir)
+	result := &ExecutionResult{
+		TaskID:        "task-out",
+		SessionID:     "s1",
+		WorkItemID:    "W-1",
+		Status:        ExecutionStatusCompleted,
+		Success:       true,
+		CompletedAt:   time.Now(),
+		Duration:      time.Minute,
+		WorkspacePath: runtimeDir,
+		Error:         "some error",
+		ExecutionSteps: []*ExecutionStep{
+			{Name: "step-one", Output: "stdout from step one"},
+			{Name: "step-two", Output: "stdout from step two"},
+		},
+	}
+	spec := &FactoryTaskSpec{ID: "task-out", SessionID: "s1", WorkItemID: "W-1", Title: "T", Objective: "O"}
+	ctx := context.Background()
+	artifact, err := powManager.CreateProofOfWork(ctx, result, spec)
+	if err != nil {
+		t.Fatalf("CreateProofOfWork: %v", err)
+	}
+	// OutputLog must be aggregated from steps, not copied from result.Error
+	if strings.Contains(artifact.Summary.OutputLog, "some error") {
+		t.Error("OutputLog should not be result.Error; it must be aggregated from step output")
+	}
+	if !strings.Contains(artifact.Summary.OutputLog, "step-one") || !strings.Contains(artifact.Summary.OutputLog, "stdout from step one") {
+		t.Error("OutputLog should contain step name and step output")
+	}
+	if artifact.Summary.ErrorLog != "some error" {
+		t.Errorf("ErrorLog should hold result.Error: got %q", artifact.Summary.ErrorLog)
 	}
 }
 
