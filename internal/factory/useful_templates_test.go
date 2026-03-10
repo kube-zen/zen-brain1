@@ -461,6 +461,284 @@ func TestReviewRealTemplate(t *testing.T) {
 	}
 }
 
+// TestCICDTemplate tests the CI/CD template.
+func TestCICDTemplate(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping CI/CD template test in short mode")
+	}
+
+	baseDir, err := os.MkdirTemp("", "zen-brain-cicd-*")
+	if err != nil {
+		t.Fatalf("Failed to create base dir: %v", err)
+	}
+	defer os.RemoveAll(baseDir)
+
+	workspaceManager := NewWorkspaceManager(baseDir)
+	executor := NewBoundedExecutor()
+	powManager := NewProofOfWorkManager(baseDir)
+	factory := NewFactory(workspaceManager, executor, powManager, baseDir)
+
+	taskID := "cicd-task-" + fmt.Sprint(time.Now().Unix())
+	spec := &FactoryTaskSpec{
+		ID:         taskID,
+		SessionID:  "cicd-session",
+		WorkItemID: "CICD-001",
+		Title:      "CI/CD Pipeline Setup",
+		Objective:  "Set up GitHub Actions CI/CD pipeline",
+		WorkType:   "cicd",
+		WorkDomain: "real",
+		Priority:   "high",
+		CreatedAt:  time.Now(),
+	}
+
+	ctx := context.Background()
+	result, err := factory.ExecuteTask(ctx, spec)
+	if err != nil {
+		t.Fatalf("Failed to execute task: %v", err)
+	}
+
+	if result.Status != ExecutionStatusCompleted {
+		t.Errorf("Expected status 'completed', got '%s'", result.Status)
+	}
+
+	if !result.Success {
+		t.Error("Expected task to succeed")
+	}
+
+	cicdFiles := []string{
+		".github/workflows/ci.yml",
+		"DEPLOYMENT.md",
+		"PROOF_OF_WORK.md",
+		".cicd_structure",
+		".ci_workflow",
+		".deploy_documented",
+		".pow_generated",
+	}
+
+	for _, file := range cicdFiles {
+		filePath := filepath.Join(result.WorkspacePath, file)
+		if _, err := os.Stat(filePath); os.IsNotExist(err) {
+			t.Errorf("Expected CI/CD file %s was not created", file)
+		}
+	}
+
+	t.Logf("CI/CD template test passed. Workspace: %s", result.WorkspacePath)
+}
+
+// TestJavaScriptTemplate tests the JavaScript implementation template.
+func TestJavaScriptTemplate(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping JavaScript template test in short mode")
+	}
+
+	baseDir, err := os.MkdirTemp("", "zen-brain-javascript-*")
+	if err != nil {
+		t.Fatalf("Failed to create base dir: %v", err)
+	}
+	defer os.RemoveAll(baseDir)
+
+	workspaceManager := NewWorkspaceManager(baseDir)
+	executor := NewBoundedExecutor()
+	powManager := NewProofOfWorkManager(baseDir)
+	factory := NewFactory(workspaceManager, executor, powManager, baseDir)
+
+	taskID := "javascript-task-" + fmt.Sprint(time.Now().Unix())
+	spec := &FactoryTaskSpec{
+		ID:         taskID,
+		SessionID:  "javascript-session",
+		WorkItemID: "JS-001",
+		Title:      "JavaScript Feature",
+		Objective:  "Create a Node.js application with tests",
+		WorkType:   "implementation",
+		WorkDomain: "javascript",
+		Priority:   "high",
+		CreatedAt:  time.Now(),
+	}
+
+	ctx := context.Background()
+	result, err := factory.ExecuteTask(ctx, spec)
+	if err != nil {
+		t.Fatalf("Failed to execute task: %v", err)
+	}
+
+	if result.Status != ExecutionStatusCompleted {
+		t.Errorf("Expected status 'completed', got '%s'", result.Status)
+	}
+
+	if !result.Success {
+		t.Error("Expected task to succeed")
+	}
+
+	jsFiles := []string{
+		"src/main.js",
+		"tests/main.test.js",
+		"tests/package.json",
+		"package.json",
+		".gitignore",
+		"README.md",
+		"docs/api.md",
+		"PROOF_OF_WORK.md",
+		".structure_created",
+		".code_generated",
+		".docs_generated",
+		".tests_created",
+		".pow_generated",
+	}
+
+	for _, file := range jsFiles {
+		filePath := filepath.Join(result.WorkspacePath, file)
+		if _, err := os.Stat(filePath); os.IsNotExist(err) {
+			t.Errorf("Expected JavaScript file %s was not created", file)
+		}
+	}
+
+	t.Logf("JavaScript template test passed. Workspace: %s", result.WorkspacePath)
+}
+
+// TestDatabaseMigrationTemplate tests the database migration template.
+func TestDatabaseMigrationTemplate(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping migration template test in short mode")
+	}
+
+	baseDir, err := os.MkdirTemp("", "zen-brain-migration-*")
+	if err != nil {
+		t.Fatalf("Failed to create base dir: %v", err)
+	}
+	defer os.RemoveAll(baseDir)
+
+	workspaceManager := NewWorkspaceManager(baseDir)
+	executor := NewBoundedExecutor()
+	powManager := NewProofOfWorkManager(baseDir)
+	factory := NewFactory(workspaceManager, executor, powManager, baseDir)
+
+	taskID := "migration-task-" + fmt.Sprint(time.Now().Unix())
+	spec := &FactoryTaskSpec{
+		ID:         taskID,
+		SessionID:  "migration-session",
+		WorkItemID: "MIGRATION-001",
+		Title:      "Database Migration",
+		Objective:  "Create database migration scripts",
+		WorkType:   "migration",
+		WorkDomain: "real",
+		Priority:   "high",
+		CreatedAt:  time.Now(),
+	}
+
+	ctx := context.Background()
+	result, err := factory.ExecuteTask(ctx, spec)
+	if err != nil {
+		t.Fatalf("Failed to execute task: %v", err)
+	}
+
+	if result.Status != ExecutionStatusCompleted {
+		t.Errorf("Expected status 'completed', got '%s'", result.Status)
+	}
+
+	if !result.Success {
+		t.Error("Expected task to succeed")
+	}
+
+	// Verify migrations directory was created
+	migrationsDir := filepath.Join(result.WorkspacePath, "migrations")
+	if _, err := os.Stat(migrationsDir); os.IsNotExist(err) {
+		t.Error("Expected migrations directory to be created")
+	}
+
+	// Verify rollbacks directory was created
+	rollbacksDir := filepath.Join(result.WorkspacePath, "rollbacks")
+	if _, err := os.Stat(rollbacksDir); os.IsNotExist(err) {
+		t.Error("Expected rollbacks directory to be created")
+	}
+
+	migrationFiles := []string{
+		"MIGRATION.md",
+		"PROOF_OF_WORK.md",
+		".migration_structure",
+		".up_migration",
+		".down_migration",
+		".migration_documented",
+		".pow_generated",
+	}
+
+	for _, file := range migrationFiles {
+		filePath := filepath.Join(result.WorkspacePath, file)
+		if _, err := os.Stat(filePath); os.IsNotExist(err) {
+			t.Errorf("Expected migration file %s was not created", file)
+		}
+	}
+
+	t.Logf("Database migration template test passed. Workspace: %s", result.WorkspacePath)
+}
+
+// TestMonitoringTemplate tests the monitoring template.
+func TestMonitoringTemplate(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping monitoring template test in short mode")
+	}
+
+	baseDir, err := os.MkdirTemp("", "zen-brain-monitoring-*")
+	if err != nil {
+		t.Fatalf("Failed to create base dir: %v", err)
+	}
+	defer os.RemoveAll(baseDir)
+
+	workspaceManager := NewWorkspaceManager(baseDir)
+	executor := NewBoundedExecutor()
+	powManager := NewProofOfWorkManager(baseDir)
+	factory := NewFactory(workspaceManager, executor, powManager, baseDir)
+
+	taskID := "monitoring-task-" + fmt.Sprint(time.Now().Unix())
+	spec := &FactoryTaskSpec{
+		ID:         taskID,
+		SessionID:  "monitoring-session",
+		WorkItemID: "MONITORING-001",
+		Title:      "Monitoring Setup",
+		Objective:  "Set up Prometheus metrics and Grafana dashboards",
+		WorkType:   "monitoring",
+		WorkDomain: "real",
+		Priority:   "high",
+		CreatedAt:  time.Now(),
+	}
+
+	ctx := context.Background()
+	result, err := factory.ExecuteTask(ctx, spec)
+	if err != nil {
+		t.Fatalf("Failed to execute task: %v", err)
+	}
+
+	if result.Status != ExecutionStatusCompleted {
+		t.Errorf("Expected status 'completed', got '%s'", result.Status)
+	}
+
+	if !result.Success {
+		t.Error("Expected task to succeed")
+	}
+
+	monitoringFiles := []string{
+		"monitoring/metrics/metrics.yml",
+		"monitoring/dashboards/application.json",
+		"monitoring/alerts/alerts.yml",
+		"MONITORING.md",
+		"PROOF_OF_WORK.md",
+		".monitoring_structure",
+		".metrics_config",
+		".dashboard_config",
+		".alerts_config",
+		".monitoring_documented",
+		".pow_generated",
+	}
+
+	for _, file := range monitoringFiles {
+		filePath := filepath.Join(result.WorkspacePath, file)
+		if _, err := os.Stat(filePath); os.IsNotExist(err) {
+			t.Errorf("Expected monitoring file %s was not created", file)
+		}
+	}
+
+	t.Logf("Monitoring template test passed. Workspace: %s", result.WorkspacePath)
+}
+
 // Helper function to check if a string contains a substring
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) && (s == substr || len(substr) == 0 ||
