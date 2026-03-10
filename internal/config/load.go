@@ -4,6 +4,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"gopkg.in/yaml.v2"
@@ -201,33 +202,11 @@ func LoadConfig(path string) (*Config, error) {
 	return &config, nil
 }
 
-// findConfigPath searches for the config file in standard locations.
+// findConfigPath returns the canonical runtime config path when path is not explicitly set.
+// Runtime config lives under ZEN_BRAIN_HOME only; repo configs/ is for templates/examples.
+// Use --config <path> to override. If the file does not exist, LoadConfig will fail and callers may use DefaultConfig().
 func findConfigPath() string {
-	// Try current directory
-	if _, err := os.Stat("config.yaml"); err == nil {
-		return "config.yaml"
-	}
-	if _, err := os.Stat("config.dev.yaml"); err == nil {
-		return "config.dev.yaml"
-	}
-
-	// Try home directory
-	homeDir := HomeDir()
-	homeConfig := homeDir + "/config.yaml"
-	if _, err := os.Stat(homeConfig); err == nil {
-		return homeConfig
-	}
-
-	// Try configs directory
-	configsDir := "../configs"
-	for _, name := range []string{"config.yaml", "config.dev.yaml"} {
-		if _, err := os.Stat(configsDir + "/" + name); err == nil {
-			return configsDir + "/" + name
-		}
-	}
-
-	// Default to config.dev.yaml
-	return "../configs/config.dev.yaml"
+	return filepath.Join(HomeDir(), "config.yaml")
 }
 
 // loadFromEnv loads sensitive configuration from environment variables.
