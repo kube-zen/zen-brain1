@@ -2,6 +2,8 @@
 
 Known gaps and polish items after blocks 0–6 and 1.2.3 start. Not blocking the vertical slice; track here until addressed.
 
+**Executive call:** Zen-Brain is 1.0-shaped and execution-capable (~91% blended). Remaining work is hardening real paths and reducing fallbacks, not adding missing blocks. See [Completeness Matrix](COMPLETENESS_MATRIX.md) executive status.
+
 ## Current list
 
 1. ~~**internal/factory/workspace.go**~~ — Git implemented: getGitInfo runs `git rev-parse --abbrev-ref HEAD` and `git rev-parse HEAD` in workspace path.

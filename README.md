@@ -137,20 +137,20 @@ Comprehensive documentation is available in the `docs/` directory:
 
 ## Development Status
 
-**Executive summary:** The first trustworthy vertical slice is implemented—Office intake → analyze → plan → session → Factory execution → proof-of-work → status update. Blocks 0–5 are complete; Block 6 (k3d, local dev) is available.
+**Executive summary:** Zen-Brain is **1.0-shaped and execution-capable** (low-90s completeness). The trustworthy vertical slice is in place: Office intake → analyze → plan → session → Factory execution → proof-of-work → status update. Blocks 0–6 are present; remaining work is hardening real paths and reducing fallbacks, not adding missing blocks.
 
 | Block | Name | Status |
 |-------|------|--------|
 | 0 | Foundation | ✅ Complete |
-| 0.5 | zen-sdk reuse | ✅ Complete |
+| 0.5 | zen-sdk reuse | ~95% (deferred: DLQ, observability, etc.) |
 | 1 | Neuro-Anatomy | ✅ Complete |
 | 2 | Office | ✅ Complete |
-| 3 | Nervous System | ✅ Complete |
+| 3 | Nervous System | ✅ Complete (degraded modes by design) |
 | 4 | Factory | ✅ Complete |
 | 5 | Intelligence | ✅ Complete |
-| 6 | Developer Experience | ✅ Available |
+| 6 | Developer Experience | ✅ Available (controller status-only) |
 
-**Single source of truth for status:** [Construction Plan (V6.1)](docs/01-ARCHITECTURE/CONSTRUCTION_PLAN.md) is the canonical roadmap. For completion detail and next actions, see [Block Completion Matrix](docs/01-ARCHITECTURE/BLOCK_COMPLETION_MATRIX.md) and [Completeness Matrix](docs/01-ARCHITECTURE/COMPLETENESS_MATRIX.md).
+**Single source of truth for status:** [Completeness Matrix](docs/01-ARCHITECTURE/COMPLETENESS_MATRIX.md) (executive narrative and subsystem table), [Block Completion Matrix](docs/01-ARCHITECTURE/BLOCK_COMPLETION_MATRIX.md), and [Construction Plan (V6.1)](docs/01-ARCHITECTURE/CONSTRUCTION_PLAN.md).
 
 ## License
 
