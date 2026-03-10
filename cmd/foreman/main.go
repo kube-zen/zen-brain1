@@ -22,6 +22,7 @@ import (
 	"github.com/kube-zen/zen-brain1/internal/gate"
 	internalguardian "github.com/kube-zen/zen-brain1/internal/guardian"
 	internalledger "github.com/kube-zen/zen-brain1/internal/ledger"
+	gatepkg "github.com/kube-zen/zen-brain1/pkg/gate"
 	"github.com/kube-zen/zen-brain1/pkg/guardian"
 	"github.com/kube-zen/zen-brain1/pkg/ledger"
 )
@@ -54,7 +55,8 @@ func main() {
 	flag.BoolVar(&reuseSessionWorktree, "factory-reuse-session-worktree", envBool("ZEN_FOREMAN_REUSE_SESSION_WORKTREE", false), "Reuse one worktree per session when using git worktrees.")
 	zenContextRedis := flag.String("zen-context-redis", envStr("ZEN_CONTEXT_REDIS_URL", ""), "Redis URL for ZenContext (ReMe). When set, Worker uses ReMeBinder for session context on continuation.")
 	sessionAffinity := flag.Bool("session-affinity", envBool("ZEN_FOREMAN_SESSION_AFFINITY", false), "Route tasks by session (same session → same worker).")
-	guardianMode := flag.String("guardian", envStr("ZEN_FOREMAN_GUARDIAN", "stub"), "Guardian mode: stub (allow all, no log), log (audit log, allow all), circuit-breaker (log + per-session rate limit).")
+	gateMode := flag.String("gate", envStr("ZEN_FOREMAN_GATE", "log"), "Gate mode: stub (allow all, no log), log (audit log, allow all).")
+	guardianMode := flag.String("guardian", envStr("ZEN_FOREMAN_GUARDIAN", "log"), "Guardian mode: stub (allow all, no log), log (audit log, allow all), circuit-breaker (log + per-session rate limit).")
 	guardianCircuitMax := flag.Int("guardian-circuit-max-per-session-per-min", envInt("ZEN_FOREMAN_GUARDIAN_CIRCUIT_MAX_PER_SESSION_PER_MIN", 0), "Max tasks per session per minute when guardian=circuit-breaker; 0 = no limit.")
 	flag.Parse()
 
@@ -129,9 +131,18 @@ func main() {
 	default:
 		g = internalguardian.NewStubGuardian()
 	}
+	var zenGate gatepkg.ZenGate
+	switch *gateMode {
+	case "log":
+		zenGate = gate.NewLogGate()
+		log.Printf("Foreman: Gate=log (audit log)")
+	default:
+		zenGate = gate.NewStubGate()
+		log.Printf("Foreman: Gate=stub (no audit)")
+	}
 	reconciler := &foreman.Reconciler{
 		Client:     mgr.GetClient(),
-		Gate:       gate.NewStubGate(),
+		Gate:       zenGate,
 		Guardian:   g,
 		Dispatcher: worker,
 	}

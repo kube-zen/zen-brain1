@@ -1,5 +1,5 @@
 // Package ledger provides stub implementations for testing and development.
-// These implementations are used when the full ZenLedger is not yet available.
+// Use when ZenLedger (CockroachDB) is not available; real path is NewCockroachLedger(dsn).
 package ledger
 
 import (
@@ -10,8 +10,8 @@ import (
 	"github.com/kube-zen/zen-brain1/pkg/ledger"
 )
 
-// StubLedgerClient is a stub implementation of ZenLedgerClient.
-// It returns empty data for development and testing.
+// StubLedgerClient is a stub implementation of ZenLedgerClient and TokenRecorder.
+// It returns empty/safe data and no-ops token recording for development and testing.
 type StubLedgerClient struct {
 	// Records model selections for later inspection
 	modelSelections []ModelSelectionRecord
@@ -82,5 +82,20 @@ func (s *StubLedgerClient) ClearModelSelections() {
 	s.modelSelections = make([]ModelSelectionRecord, 0)
 }
 
-// Ensure StubLedgerClient implements ledger.ZenLedgerClient
-var _ ledger.ZenLedgerClient = (*StubLedgerClient)(nil)
+// Record implements TokenRecorder.Record (no-op in stub).
+func (s *StubLedgerClient) Record(ctx context.Context, record ledger.TokenRecord) error {
+	_ = record
+	return nil
+}
+
+// RecordBatch implements TokenRecorder.RecordBatch (no-op in stub).
+func (s *StubLedgerClient) RecordBatch(ctx context.Context, records []ledger.TokenRecord) error {
+	_ = records
+	return nil
+}
+
+// Ensure StubLedgerClient implements both interfaces.
+var (
+	_ ledger.ZenLedgerClient = (*StubLedgerClient)(nil)
+	_ ledger.TokenRecorder   = (*StubLedgerClient)(nil)
+)
