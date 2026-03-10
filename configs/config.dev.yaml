@@ -104,7 +104,7 @@ zen_context:
 
   # Journal integration (optional)
   journal:
-    journal_path: "./journal.db"
+    journal_path: "./journal"  # Directory for journal spool files
     enable_query_index: true
 
   # General settings

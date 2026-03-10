@@ -1,0 +1,71 @@
+// Package foreman provides a TaskRunner that executes BrainTasks via the Factory (Block 4.3).
+package foreman
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	"github.com/kube-zen/zen-brain1/api/v1alpha1"
+	"github.com/kube-zen/zen-brain1/internal/factory"
+	"github.com/kube-zen/zen-brain1/pkg/contracts"
+)
+
+// FactoryTaskRunner runs a BrainTask by converting it to FactoryTaskSpec and calling Factory.ExecuteTask.
+type FactoryTaskRunner struct {
+	Factory factory.Factory
+}
+
+// NewFactoryTaskRunner returns a TaskRunner that delegates to the given Factory.
+func NewFactoryTaskRunner(f factory.Factory) *FactoryTaskRunner {
+	return &FactoryTaskRunner{Factory: f}
+}
+
+// Run converts the BrainTask to FactoryTaskSpec, runs Factory.ExecuteTask, and returns any error.
+func (r *FactoryTaskRunner) Run(ctx context.Context, task *v1alpha1.BrainTask) error {
+	if r.Factory == nil {
+		return fmt.Errorf("factory is nil")
+	}
+	spec := brainTaskToFactorySpec(task)
+	result, err := r.Factory.ExecuteTask(ctx, spec)
+	if err != nil {
+		return err
+	}
+	if result != nil && !result.Success {
+		return fmt.Errorf("task execution failed: %s", result.Error)
+	}
+	return nil
+}
+
+func brainTaskToFactorySpec(task *v1alpha1.BrainTask) *factory.FactoryTaskSpec {
+	now := time.Now()
+	spec := &factory.FactoryTaskSpec{
+		ID:         task.Name,
+		SessionID:  task.Spec.SessionID,
+		WorkItemID: task.Spec.WorkItemID,
+		Title:      task.Spec.Title,
+		Objective:  task.Spec.Objective,
+		Constraints: task.Spec.Constraints,
+		WorkType:   contracts.WorkType(task.Spec.WorkType),
+		WorkDomain: contracts.WorkDomain(task.Spec.WorkDomain),
+		Priority:   contracts.Priority(task.Spec.Priority),
+		TimeoutSeconds: task.Spec.TimeoutSeconds,
+		MaxRetries:     task.Spec.MaxRetries,
+		KBScopes:       task.Spec.KBScopes,
+		CreatedAt:      now,
+		UpdatedAt:      now,
+	}
+	if spec.Priority == "" {
+		spec.Priority = contracts.PriorityMedium
+	}
+	if spec.WorkType == "" {
+		spec.WorkType = contracts.WorkTypeImplementation
+	}
+	if spec.WorkDomain == "" {
+		spec.WorkDomain = contracts.DomainFactory
+	}
+	return spec
+}
+
+// Ensure FactoryTaskRunner implements TaskRunner.
+var _ TaskRunner = (*FactoryTaskRunner)(nil)
