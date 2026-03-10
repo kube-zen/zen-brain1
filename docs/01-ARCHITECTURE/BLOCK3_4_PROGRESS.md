@@ -79,3 +79,14 @@
 **Agent-context binding:** Use `agent.NewZenContextBinder(zenContext, "default")` for Tier-1-only continuation. Use a runner that implements `TaskRunnerWithContext` to read/write session context.  
 **QMD:** See `docs/01-ARCHITECTURE/BLOCK5_QMD_POPULATION.md`. Validate with `go test ./internal/qmd/... -run KBQuality`.  
 **Funding reports:** `funding.NewAggregator(vault).AggregateForSession(ctx, sessionID, "Project Title")` returns T661 narrative and IRAP report; use `.T661.T661Text()` or `.IRAP.IRAPMarkdown()` for export.
+
+## Block 6 (Developer Experience) – Complete
+
+| Item | Status | Notes |
+|------|--------|------|
+| **6.1 k3d cluster setup** | Done | `make dev-up`, `deployments/k3d/README.md`, `dependencies.yaml`; ports 8080, 26257 |
+| **6.2 Development scripts** | Done | `make dev-up`, `dev-down`, `dev-logs`, `dev-clean` (db-reset), `dev-build` (build-all) |
+| **6.3 Local configuration** | Done | `configs/config.dev.yaml`, ZEN_BRAIN_DEV, dev defaults |
+| **6.4 Debugging guide** | Done | `docs/05-OPERATIONS/DEBUGGING.md`: workers, KB/QMD, LLM, k3d patterns |
+
+**Block 6 complete:** k3d dev cluster, make targets, local config, debugging doc. Foreman/API server in-cluster deploy remains TBD (run binaries locally with kubeconfig).
