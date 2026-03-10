@@ -1,0 +1,27 @@
+{{- if and .Values.enabled .Values.vpa.enabled }}
+# VPA: updateMode Initial = apply recommendations at pod creation only (no in-place resize).
+# Requires VPA CRD + Metrics Server installed in cluster.
+---
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: ollama
+  namespace: zen-brain
+  labels:
+    app: ollama
+    app.kubernetes.io/part-of: zen-brain
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: StatefulSet
+    name: ollama
+  updatePolicy:
+    updateMode: {{ .Values.vpa.updateMode | default "Initial" }}
+  resourcePolicy:
+    containerPolicies:
+      - containerName: ollama
+        minAllowed:
+          {{- toYaml .Values.vpa.minAllowed | nindent 10 }}
+        maxAllowed:
+          {{- toYaml .Values.vpa.maxAllowed | nindent 10 }}
+{{- end }}

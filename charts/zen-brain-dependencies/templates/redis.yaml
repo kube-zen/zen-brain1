@@ -1,0 +1,42 @@
+{{- if .Values.zencontext.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zencontext-redis
+  namespace: zen-context
+  labels:
+    app: zencontext-redis
+spec:
+  ports:
+    - port: 6379
+      targetPort: 6379
+      name: redis
+  selector:
+    app: zencontext-redis
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zencontext-redis
+  namespace: zen-context
+  labels:
+    app: zencontext-redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: zencontext-redis
+  template:
+    metadata:
+      labels:
+        app: zencontext-redis
+    spec:
+      containers:
+        - name: redis
+          image: {{ .Values.redis.image | default "redis:7-alpine" }}
+          ports:
+            - containerPort: 6379
+          resources:
+            {{- toYaml .Values.redis.resources | nindent 12 }}
+{{- end }}

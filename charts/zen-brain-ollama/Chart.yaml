@@ -1,0 +1,6 @@
+apiVersion: v2
+name: zen-brain-ollama
+description: Ollama in-cluster for Zen-Brain local-worker lane (Block 5), with declarative model preload
+version: 0.1.0
+appVersion: "1.0"
+dependencies: []

@@ -19,6 +19,7 @@ clusters:
       manage: false
     k3d:
       cluster_name: zen-brain-sandbox
+      k8s_image: rancher/k3s:v1.35.2-k3s1
       servers: 1
       agents: 0
       api_port: "127.0.1.6:6443"
@@ -32,6 +33,35 @@ clusters:
       zen_brain: "dev"
     deploy:
       use_zencontext: false
+      use_ollama: false
+      ollama:
+        enabled: false
+        kind: StatefulSet
+        replicas: 1
+        models: []
+        keepAlive: "2m"
+        persistence:
+          enabled: true
+          size: 50Gi
+          storageClassName: ""
+        vpa:
+          enabled: true
+          updateMode: Initial
+          minAllowed:
+            cpu: "500m"
+            memory: "2Gi"
+          maxAllowed:
+            cpu: "8"
+            memory: "32Gi"
+        service:
+          port: 11434
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "2Gi"
+          limits:
+            cpu: "8"
+            memory: "32Gi"
       in_cluster: true
       apiserver_external_port: 8080
       require_destroy_confirm: true
@@ -49,6 +79,7 @@ clusters:
       manage: false
     k3d:
       cluster_name: zen-brain-staging
+      k8s_image: rancher/k3s:v1.35.2-k3s1
       servers: 1
       agents: 0
       api_port: "127.0.1.2:6443"
@@ -62,6 +93,23 @@ clusters:
       zen_brain: "dev"
     deploy:
       use_zencontext: false
+      use_ollama: false
+      ollama:
+        enabled: false
+        kind: StatefulSet
+        replicas: 1
+        models: []
+        keepAlive: "2m"
+        persistence: { enabled: true, size: 50Gi, storageClassName: "" }
+        vpa:
+          enabled: true
+          updateMode: Initial
+          minAllowed: { cpu: "500m", memory: "2Gi" }
+          maxAllowed: { cpu: "8", memory: "32Gi" }
+        service: { port: 11434 }
+        resources:
+          requests: { cpu: "500m", memory: "2Gi" }
+          limits: { cpu: "8", memory: "32Gi" }
       in_cluster: true
       apiserver_external_port: 8080
       require_destroy_confirm: true
@@ -92,6 +140,23 @@ clusters:
       zen_brain: "dev"
     deploy:
       use_zencontext: false
+      use_ollama: false
+      ollama:
+        enabled: false
+        kind: StatefulSet
+        replicas: 1
+        models: []
+        keepAlive: "2m"
+        persistence: { enabled: true, size: 50Gi, storageClassName: "" }
+        vpa:
+          enabled: true
+          updateMode: Initial
+          minAllowed: { cpu: "500m", memory: "2Gi" }
+          maxAllowed: { cpu: "8", memory: "32Gi" }
+        service: { port: 11434 }
+        resources:
+          requests: { cpu: "500m", memory: "2Gi" }
+          limits: { cpu: "8", memory: "32Gi" }
       in_cluster: true
       apiserver_external_port: 8080
       require_destroy_confirm: true

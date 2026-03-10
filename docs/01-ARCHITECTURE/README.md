@@ -7,6 +7,7 @@ This directory contains architecture documentation.
 - **[Source of Truth](SOURCE_OF_TRUTH.md)** – Where canonical truth resides (CRDs, Git, Jira, DB, model-facing docs)
 - **[Construction Plan](CONSTRUCTION_PLAN.md)** – Master build roadmap
 - **[Roadmap](ROADMAP.md)** – Prioritized roadmap with 1.0 must-have, 1.1 radar, and explicitly deferred items
+- **[Recommended Next Steps](RECOMMENDED_NEXT_STEPS.md)** – Wave-based execution order (cleanup, governance, deployment, Block 5)
 - **[Control Plane Vocabulary](CONTROL_PLANE_VOCABULARY.md)** – First-class control-plane objects: `ZenRoleProfile`, `ZenExecutionPolicy`, `ZenHandoffPolicy`, `ZenTool`, `ZenToolBinding`, `ZenComplianceProfile`, workspace classes, trust levels
 - **[Glossary](GLOSSARY.md)** – Definitions of terms, components, and processes
 - **[KB/QMD Strategy](KB_QMD_STRATEGY.md)** – How documentation is stored, searched, and published (git + qmd, Confluence optional)

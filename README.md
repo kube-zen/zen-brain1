@@ -66,6 +66,8 @@ make run
 
 **Image build:** The canonical image is built from the **root Dockerfile** (`docker build -t zen-brain:dev .` or `make dev-image` when using k3d).
 
+**Deployment:** **Helm/Helmfile** is the canonical deployment path. Set env in `config/clusters.yaml`, then run `make dev-up` (or `python3 scripts/zen.py env redeploy --env <env>`). Values are generated from clusters.yaml; no manual `kubectl apply` or `kubectl exec ... ollama pull` in the standard path. See [deploy/README.md](deploy/README.md).
+
 ## Configuration
 
 Zen‑Brain uses a configurable home directory for **runtime state only** (no repo-local runtime files):

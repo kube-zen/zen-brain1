@@ -1,0 +1,6 @@
+apiVersion: v2
+name: zen-brain-dependencies
+description: Zen-Brain cluster dependencies (zen-context namespace, optional Redis)
+version: 0.1.0
+appVersion: "1.0"
+dependencies: []

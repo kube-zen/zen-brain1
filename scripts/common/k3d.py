@@ -82,6 +82,7 @@ def _get_k3d_config(env: str, config_path: str | None) -> dict:
         disable = ["traefik"] + [d for d in disable if d != "traefik"]
     if not api_port or not http_port or not https_port:
         raise ValueError(f"clusters.{env}.k3d: api_port and lb_ports.http/https required")
+    k8s_image = _config.get_k3d_k8s_image(env, config_path)
     return {
         "cluster_name": cluster_name,
         "context_name": context_name,
@@ -93,6 +94,7 @@ def _get_k3d_config(env: str, config_path: str | None) -> dict:
         "apiserver_port": apiserver_port or None,
         "disable": disable,
         "env_ip": (block.get("env_ip") or "").strip(),
+        "k8s_image": k8s_image,
     }
 
 
@@ -125,6 +127,7 @@ def _create_cluster(cfg: dict, config_path: str | None, repo_root: str) -> None:
 
     args = [
         "k3d", "cluster", "create", cluster_name,
+        "--image", cfg.get("k8s_image", "rancher/k3s:v1.35.2-k3s1"),
         "--api-port", cfg["api_port"],
         "--port", f"{http_spec}:80@loadbalancer",
         "--port", f"{https_spec}:443@loadbalancer",

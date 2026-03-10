@@ -1,0 +1,40 @@
+# Zen-Brain Helmfile. Canonical deployment path.
+# Run: helmfile -e <env> -f deploy/helmfile/zen-brain/helmfile.yaml.gotmpl sync
+# Values: config/clusters.yaml → scripts/zen.py → .artifacts/state/<env>/*-values.yaml
+# Do not use manual kubectl apply or kubectl exec ollama pull in the standard path.
+---
+environments:
+  sandbox:
+  staging:
+  uat:
+---
+releases:
+  - name: zen-brain-crds
+    chart: ../../../charts/zen-brain-crds
+    namespace: zen-brain
+    force: false
+    # CRDs only; no values
+
+  - name: zen-brain-dependencies
+    chart: ../../../charts/zen-brain-dependencies
+    namespace: zen-context
+    needs: [zen-brain-crds]
+    values:
+      - ../../../charts/zen-brain-dependencies/values.yaml
+      - ../../../.artifacts/state/{{ .Environment.Name }}/zen-brain-dependencies-values.yaml
+
+  - name: zen-brain-ollama
+    chart: ../../../charts/zen-brain-ollama
+    namespace: zen-brain
+    needs: [zen-brain-crds, zen-brain-dependencies]
+    values:
+      - ../../../charts/zen-brain-ollama/values.yaml
+      - ../../../.artifacts/state/{{ .Environment.Name }}/zen-brain-ollama-values.yaml
+
+  - name: zen-brain-core
+    chart: ../../../charts/zen-brain
+    namespace: zen-brain
+    needs: [zen-brain-crds, zen-brain-dependencies, zen-brain-ollama]
+    values:
+      - ../../../charts/zen-brain/values.yaml
+      - ../../../.artifacts/state/{{ .Environment.Name }}/zen-brain-values.yaml
