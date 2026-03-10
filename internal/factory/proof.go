@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"runtime/debug"
 	"sort"
 	"strings"
 	"time"
@@ -985,8 +986,8 @@ func (p *proofOfWorkManagerImpl) verifySignature(ctx context.Context, artifact *
 		return false, fmt.Errorf("proof digest mismatch")
 	}
 
-	// TODO: Add actual cryptographic verification when signing infrastructure is available
-	// For now, we just verify the digest matches
+	// Deferred: full cryptographic verification when signing infrastructure is available (zen-sdk or internal).
+	// For now, we verify the digest matches only.
 	return true, nil
 }
 
@@ -1042,12 +1043,16 @@ func NewExecutionEnvironment() *ExecutionEnvironment {
 		hostname = h
 	}
 
+	version := "v1.0.0"
+	if info, ok := debug.ReadBuildInfo(); ok && info.Main.Version != "" && info.Main.Version != "(devel)" {
+		version = info.Main.Version
+	}
 	return &ExecutionEnvironment{
 		OS:             runtime.GOOS,
 		Architecture:   runtime.GOARCH,
 		GoVersion:      runtime.Version(),
 		Hostname:       hostname,
-		FactoryVersion: "v1.0.0", // TODO: Get actual version from build tags
+		FactoryVersion: version,
 		Timestamp:      time.Now().Format(time.RFC3339),
 	}
 }

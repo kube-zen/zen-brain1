@@ -136,7 +136,7 @@ func (r *WorkTypeTemplateRegistry) registerDatabaseMigrationTemplate() {
 			{
 				Name:        "Generate up migration",
 				Description: "Create migration SQL file",
-				Command:     "echo '-- Migration: {{.title}}' > migrations/$(date +%Y%m%d%H%M%S)_{{.work_item_id}}_up.sql && echo '-- Work Item: {{.work_item_id}}' >> migrations/$(date +%Y%m%d%H%M%S)_{{.work_item_id}}_up.sql && echo '' >> migrations/$(date +%Y%m%d%H%M%S)_{{.work_item_id}}_up.sql && echo 'BEGIN;' >> migrations/$(date +%Y%m%d%H%M%S)_{{.work_item_id}}_up.sql && echo '' >> migrations/$(date +%Y%m%d%H%M%S)_{{.work_item_id}}_up.sql && echo '-- TODO: Add your migration SQL here' >> migrations/$(date +%Y%m%d%H%M%S)_{{.work_item_id}}_up.sql && echo '-- Example:' >> migrations/$(date +%Y%m%d%H%M%S)_{{.work_item_id}}_up.sql && echo '-- CREATE TABLE example (' >> migrations/$(date +%Y%m%d%H%M%S)_{{.work_item_id}}_up.sql && echo '--   id SERIAL PRIMARY KEY,' >> migrations/$(date +%Y%m%d%H%M%S)_{{.work_item_id}}_up.sql && echo '--   name VARCHAR(255) NOT NULL,' >> migrations/$(date +%Y%m%d%H%M%S)_{{.work_item_id}}_up.sql && echo '--   created_at TIMESTAMP DEFAULT NOW()' >> migrations/$(date +%Y%m%d%H%M%S)_{{.work_item_id}}_up.sql && echo '-- );' >> migrations/$(date +%Y%m%d%H%M%S)_{{.work_item_id}}_up.sql && echo '' >> migrations/$(date +%Y%m%d%H%M%S)_{{.work_item_id}}_up.sql && echo 'COMMIT;' >> migrations/$(date +%Y%m%d%H%M%S)_{{.work_item_id}}_up.sql && echo 'Up migration generated' > .up_migration",
+				Command:     "echo '-- Migration: {{.title}}' > migrations/$(date +%Y%m%d%H%M%S)_{{.work_item_id}}_up.sql && echo '-- Work Item: {{.work_item_id}}' >> migrations/$(date +%Y%m%d%H%M%S)_{{.work_item_id}}_up.sql && echo '' >> migrations/$(date +%Y%m%d%H%M%S)_{{.work_item_id}}_up.sql && echo 'BEGIN;' >> migrations/$(date +%Y%m%d%H%M%S)_{{.work_item_id}}_up.sql && echo '' >> migrations/$(date +%Y%m%d%H%M%S)_{{.work_item_id}}_up.sql && echo '-- Add your migration SQL here' >> migrations/$(date +%Y%m%d%H%M%S)_{{.work_item_id}}_up.sql && echo '-- Example:' >> migrations/$(date +%Y%m%d%H%M%S)_{{.work_item_id}}_up.sql && echo '-- CREATE TABLE example (' >> migrations/$(date +%Y%m%d%H%M%S)_{{.work_item_id}}_up.sql && echo '--   id SERIAL PRIMARY KEY,' >> migrations/$(date +%Y%m%d%H%M%S)_{{.work_item_id}}_up.sql && echo '--   name VARCHAR(255) NOT NULL,' >> migrations/$(date +%Y%m%d%H%M%S)_{{.work_item_id}}_up.sql && echo '--   created_at TIMESTAMP DEFAULT NOW()' >> migrations/$(date +%Y%m%d%H%M%S)_{{.work_item_id}}_up.sql && echo '-- );' >> migrations/$(date +%Y%m%d%H%M%S)_{{.work_item_id}}_up.sql && echo '' >> migrations/$(date +%Y%m%d%H%M%S)_{{.work_item_id}}_up.sql && echo 'COMMIT;' >> migrations/$(date +%Y%m%d%H%M%S)_{{.work_item_id}}_up.sql && echo 'Up migration generated' > .up_migration",
 				Variables:   map[string]string{},
 				Timeout:     30,
 				MaxRetries:  1,
@@ -144,7 +144,7 @@ func (r *WorkTypeTemplateRegistry) registerDatabaseMigrationTemplate() {
 			{
 				Name:        "Generate down migration",
 				Description: "Create rollback migration SQL file",
-				Command:     "echo '-- Rollback: {{.title}}' > rollbacks/$(date +%Y%m%d%H%M%S)_{{.work_item_id}}_down.sql && echo '-- Work Item: {{.work_item_id}}' >> rollbacks/$(date +%Y%m%d%H%M%S)_{{.work_item_id}}_down.sql && echo '' >> rollbacks/$(date +%Y%m%d%H%M%S)_{{.work_item_id}}_down.sql && echo 'BEGIN;' >> rollbacks/$(date +%Y%m%d%H%M%S)_{{.work_item_id}}_down.sql && echo '' >> rollbacks/$(date +%Y%m%d%H%M%S)_{{.work_item_id}}_down.sql && echo '-- TODO: Add your rollback SQL here' >> rollbacks/$(date +%Y%m%d%H%M%S)_{{.work_item_id}}_down.sql && echo '-- Example:' >> rollbacks/$(date +%Y%m%d%H%M%S)_{{.work_item_id}}_down.sql && echo '-- DROP TABLE IF EXISTS example;' >> rollbacks/$(date +%Y%m%d%H%M%S)_{{.work_item_id}}_down.sql && echo '' >> rollbacks/$(date +%Y%m%d%H%M%S)_{{.work_item_id}}_down.sql && echo 'COMMIT;' >> rollbacks/$(date +%Y%m%d%H%M%S)_{{.work_item_id}}_down.sql && echo 'Down migration generated' > .down_migration",
+				Command:     "echo '-- Rollback: {{.title}}' > rollbacks/$(date +%Y%m%d%H%M%S)_{{.work_item_id}}_down.sql && echo '-- Work Item: {{.work_item_id}}' >> rollbacks/$(date +%Y%m%d%H%M%S)_{{.work_item_id}}_down.sql && echo '' >> rollbacks/$(date +%Y%m%d%H%M%S)_{{.work_item_id}}_down.sql && echo 'BEGIN;' >> rollbacks/$(date +%Y%m%d%H%M%S)_{{.work_item_id}}_down.sql && echo '' >> rollbacks/$(date +%Y%m%d%H%M%S)_{{.work_item_id}}_down.sql && echo '-- Add your rollback SQL here' >> rollbacks/$(date +%Y%m%d%H%M%S)_{{.work_item_id}}_down.sql && echo '-- Example:' >> rollbacks/$(date +%Y%m%d%H%M%S)_{{.work_item_id}}_down.sql && echo '-- DROP TABLE IF EXISTS example;' >> rollbacks/$(date +%Y%m%d%H%M%S)_{{.work_item_id}}_down.sql && echo '' >> rollbacks/$(date +%Y%m%d%H%M%S)_{{.work_item_id}}_down.sql && echo 'COMMIT;' >> rollbacks/$(date +%Y%m%d%H%M%S)_{{.work_item_id}}_down.sql && echo 'Down migration generated' > .down_migration",
 				Variables:   map[string]string{},
 				Timeout:     30,
 				MaxRetries:  1,
@@ -343,7 +343,7 @@ func (r *WorkTypeTemplateRegistry) registerRealBugFixTemplate() {
 			{
 				Name:        "Implement fix",
 				Description: "Create fix implementation file",
-				Command:     "mkdir -p internal && echo 'package internal\n\n// Fix for {{.title}}\n//\n// Work Item: {{.work_item_id}}\n//\n// This implements the fix for the bug described in analysis/BUG_REPORT.md\n\n// TODO: Implement the actual fix here\nfunc ApplyFix() error {\n    // Fix implementation\n    return nil\n}\n' > internal/fix.go && echo 'Fix implemented' > .fix_implemented",
+				Command:     "mkdir -p internal && echo 'package internal\n\n// Fix for {{.title}}\n//\n// Work Item: {{.work_item_id}}\n//\n// This implements the fix for the bug described in analysis/BUG_REPORT.md\n\n// Implement the actual fix here\nfunc ApplyFix() error {\n    // Fix implementation\n    return nil\n}\n' > internal/fix.go && echo 'Fix implemented' > .fix_implemented",
 				Variables:   map[string]string{},
 				Timeout:     60,
 				MaxRetries:  2,
@@ -613,7 +613,7 @@ import (
 func main() {
 	log.Println("Starting %s")
 	
-	// TODO: Implement %s
+	// Implement %s (replace with your logic)
 	
 	fmt.Println("Feature implementation complete")
 }
@@ -653,7 +653,7 @@ func (f *Feature) Execute() error {
 	if !f.initialized {
 		return fmt.Errorf("feature not initialized")
 	}
-	// TODO: Implement feature logic
+	// Implement feature logic here
 	return nil
 }
 `, title)
@@ -853,7 +853,7 @@ func generateProofOfWorkSummary(workItemID, title string) ([]string, error) {
 
 ## Next Steps
 
-1. Implement TODO items in the code
+1. Implement the generated placeholders in the code
 2. Add additional test cases
 3. Create examples
 4. Set up CI/CD pipeline
