@@ -890,7 +890,11 @@ func createRealZenContext() (zenctx.ZenContext, error) {
 			QMDBinaryPath: "",
 			Verbose:       false,
 		},
-		Tier3S3:   s3Config,
+		Tier3S3: s3Config,
+		Journal: &internalcontext.JournalConfig{
+			JournalPath:      "./journal",
+			EnableQueryIndex: true,
+		},
 		ClusterID: "default",
 		Verbose:   true,
 	}

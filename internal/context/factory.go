@@ -4,12 +4,14 @@ package context
 import (
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"github.com/kube-zen/zen-brain1/internal/context/tier1"
 	"github.com/kube-zen/zen-brain1/internal/context/tier2"
 	"github.com/kube-zen/zen-brain1/internal/context/tier3"
 	internalkb "github.com/kube-zen/zen-brain1/internal/qmd"
+	"github.com/kube-zen/zen-brain1/internal/journal/receiptlog"
 	zenctx "github.com/kube-zen/zen-brain1/pkg/context"
 	qmdpkg "github.com/kube-zen/zen-brain1/pkg/qmd"
 )
@@ -288,11 +290,34 @@ func createJournalAdapter(config *ZenContextConfig) (Journal, error) {
 			config.Journal.JournalPath)
 	}
 
-	// Note: Journal adapter implementation is in internal/context/journal_adapter.go
-	// It requires a journal.ZenJournal instance which is part of Block 1.1.
-	// For now, we return nil (optional component).
-	// TODO: Implement journal adapter creation when Block 1.1 is fully integrated.
-	return nil, nil
+	// Ensure spool directory exists
+	spoolDir := config.Journal.JournalPath
+	if err := os.MkdirAll(spoolDir, 0755); err != nil {
+		return nil, fmt.Errorf("failed to create journal spool directory %s: %w", spoolDir, err)
+	}
+
+	// Create receiptlog journal configuration
+	receiptlogConfig := &receiptlog.Config{
+		SpoolDir:      spoolDir,
+		SpoolSize:     100 * 1024 * 1024, // 100MB
+		RetentionDays: 7,
+		// S3 archival optional - can be added later via config
+	}
+
+	// Create the ZenJournal implementation
+	zenJournal, err := receiptlog.New(receiptlogConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create receiptlog journal: %w", err)
+	}
+
+	// Create adapter that conforms to composite.Journal interface
+	adapter := NewJournalAdapter(zenJournal, config.Verbose)
+
+	if config.Verbose {
+		log.Printf("[ZenContextFactory] Journal adapter created successfully")
+	}
+
+	return adapter, nil
 }
 
 // MustCreateZenContext creates a ZenContext or panics on error.

@@ -31,8 +31,9 @@
 | **Worktree manager** | Interface + stub | `internal/worktree/manager.go`: Manager.Prepare(ctx, taskID, sessionID) (dir, cleanup, err); StubManager uses os.MkdirTemp |
 | **Foreman + BrainQueue** | Wired | BrainTaskSpec.QueueName optional; Foreman skips scheduling when queue exists and Phase == Paused (requeue) |
 | **Foreman cmd** | Worker + flag | cmd/foreman uses Worker(PlaceholderRunner, -workers=2), Start(ctx) before mgr.Start(ctx) |
+| **FactoryTaskRunner** | Added | `internal/foreman/factory_runner.go`: converts BrainTask → FactoryTaskSpec, calls Factory.ExecuteTask; use NewFactoryTaskRunner(f) when Factory available |
 
-**Foreman:** `make build-foreman && ./bin/foreman` — needs kubeconfig; apply CRDs then run. Uses ZenGate stub, Worker pool (PlaceholderRunner), `-workers=2`. Tasks flow Pending → Scheduled → (dispatched) → Running → Completed/Failed.
+**Foreman:** `make build-foreman && ./bin/foreman` — needs kubeconfig; apply CRDs then run. Uses ZenGate stub, Worker pool (PlaceholderRunner), `-workers=2`. Tasks flow Pending → Scheduled → (dispatched) → Running → Completed/Failed. To run tasks via Factory, pass `foreman.NewFactoryTaskRunner(factory)` as the runner when constructing the Worker.
 
 **Outstanding (Block 3):** KB/QMD adapter; full API surface (auth, more endpoints).  
-**Outstanding (Block 4):** TaskRunner impl that calls Factory/LLM (replace PlaceholderRunner); ZenContext in cluster; ZenGuardian; session-affinity dispatcher; observability; Foreman updating BrainQueue depth/inFlight (optional).
+**Outstanding (Block 4):** Wire Factory into cmd/foreman (optional, for FactoryTaskRunner); ZenContext in cluster; ZenGuardian; session-affinity dispatcher; observability; Foreman updating BrainQueue depth/inFlight (optional).
