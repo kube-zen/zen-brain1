@@ -66,3 +66,12 @@ zen-brain
 
 # Temporary test binaries and scripts
 test_zencontext*
+
+# Scratch / one-off scripts and backups (do not commit)
+*.backup
+*.broken
+*.clean
+apply_template_*.py
+fix_factory.py
+remove_bounded.py
+template_manager.patch
