@@ -280,10 +280,11 @@ Enable Go modules, Kubernetes plugin.
 
 ### Ollama Model Not Loading
 
+Canonical path: set `deploy.ollama.models` in `config/clusters.yaml` and run `make dev-up` (Helm preload Job pulls them). For emergency manual pull (StatefulSet in zen-brain):
+
 ```bash
-# Load the required models manually
-kubectl exec -n dependencies deployment/ollama -- ollama pull glm‑4.7
-kubectl exec -n dependencies deployment/ollama -- ollama pull nomic‑embed‑text
+kubectl exec -it ollama-0 -n zen-brain -- ollama pull glm-4.7
+kubectl exec -it ollama-0 -n zen-brain -- ollama pull nomic-embed-text
 ```
 
 ### Insufficient Memory

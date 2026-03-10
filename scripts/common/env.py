@@ -50,10 +50,20 @@ def _cluster_exists(cluster_name: str) -> bool:
     return _k3d._cluster_exists(cluster_name)
 
 
+def _ensure_namespaces(context_name: str) -> None:
+    """Ensure zen-brain and zen-context namespaces exist (for createNamespace: false)."""
+    for ns in ("zen-brain", "zen-context"):
+        r = _kubectl(["get", "namespace", ns], context_name, capture=True, timeout=10)
+        if r.returncode != 0:
+            _kubectl(["create", "namespace", ns], context_name, timeout=10)
+            _log(f"Created namespace {ns}")
+
+
 def _run_helmfile(env: str, config_path: str | None, context_name: str) -> None:
     """Canonical deployment: render values from clusters.yaml then helmfile sync."""
     import helmfile_values  # noqa: E402
     root = _repo_root()
+    _ensure_namespaces(context_name)
     _log("Rendering Helm values from config/clusters.yaml...")
     helmfile_values.render(env, config_path)
     helmfile_path = os.path.join(root, "deploy", "helmfile", "zen-brain", "helmfile.yaml.gotmpl")
@@ -62,8 +72,8 @@ def _run_helmfile(env: str, config_path: str | None, context_name: str) -> None:
         raise FileNotFoundError(helmfile_path)
     _log("Running Helmfile (canonical deployment path)...")
     _run(
-        ["helmfile", "-e", env, "-f", helmfile_path, "sync"],
-        timeout=300,
+        ["helmfile", "-e", env, "-f", helmfile_path, "--kube-context", context_name, "sync"],
+        timeout=900,
         cwd=root,
     )
 
@@ -81,6 +91,8 @@ def _build_and_load_image(env: str, config_path: str | None, build: bool) -> Non
     _log("Tagging and pushing to local registry...")
     _run(["docker", "tag", image_local, image_reg], timeout=10)
     _run(["docker", "push", image_reg], timeout=120)
+    # Tag for k3d image import (host must have image under cluster ref name)
+    _run(["docker", "tag", image_local, f"{reg_ref}/zen-brain:{tag}"], timeout=10)
     block = _config.get_cluster_block(env, config_path)
     context_name = (block.get("context_name") or f"k3d-zen-brain-{env}").strip()
     k3d_block = block.get("k3d") or {}

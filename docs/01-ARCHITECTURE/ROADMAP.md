@@ -169,6 +169,14 @@ The highest-priority work is to complete one trustworthy vertical slice:
   - Clear ROI gates before production use
 - **Status:** Radar item
 
+#### Qwen 3.5 0.8B fine-tuning (research / enablement track)
+- **Scope:** Research and enablement only — not a committed build item. Platform stability first; model specialization follows.
+- **Rationale:** Qwen officially recommends fine-tuning frameworks for Qwen models; Qwen3.5-0.8B is small (2GB–5GB VRAM), defaults to non-thinking mode, and supports 262K-token context. Unsloth and LLaMA-Factory document support for the Qwen 3.5 Small family.
+- **Recommended tools:** Unsloth (fast, lower VRAM), LLaMA-Factory (no-code/low-code, 100+ models including Qwen).
+- **Suggested LoRA config (SFT):** Rank r=16, alpha=16; target modules: `q_proj`, `k_proj`, `v_proj`, `o_proj`, `gate_proj`, `up_proj`, `down_proj`; precision BF16/FP16 (QLoRA possible but standard LoRA preferred for Qwen 3.5 to limit quantization effects).
+- **Practices:** High-quality data (e.g. 100–200 examples); avoid overfitting on narrow data; for reasoning/thinking, use `<think>` tags in data and `enable_thinking: true` in chat template.
+- **Status:** Research / enablement track — no committed implementation until platform 1.0 is stable and ROI is clear.
+
 ### Compliance Overlays (Beyond SR&ED/IRAP)
 - **Goal:** Enterprise-level compliance posture for future production use
 - **Profiles:**
@@ -403,4 +411,4 @@ These concepts should be elevated to first-class architecture before implementat
 
 ---
 
-*Last updated: 2026-03-09*
+*Last updated: 2026-03-10*

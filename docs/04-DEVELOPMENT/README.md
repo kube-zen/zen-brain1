@@ -40,12 +40,7 @@ This directory contains practical guides for developers working on Zen‑Brain.
 
 **Database connection refused:** Verify CockroachDB pod is running: `kubectl get pods -n dependencies`.
 
-**Ollama models not loaded:** Manually pull models:
-
-```bash
-kubectl exec -n dependencies deployment/ollama -- ollama pull glm‑4.7
-kubectl exec -n dependencies deployment/ollama -- ollama pull nomic‑embed‑text
-```
+**Ollama models not loaded:** Set `deploy.ollama.models` in `config/clusters.yaml` and use `make dev-up` (declarative preload). For emergency manual pull (StatefulSet, zen-brain ns): `kubectl exec -it ollama-0 -n zen-brain -- ollama pull <model>`.
 
 **Insufficient memory:** Increase k3d memory limit with `--memory 8G`.
 
