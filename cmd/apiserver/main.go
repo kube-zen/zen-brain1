@@ -59,6 +59,9 @@ func main() {
 			}
 		}
 	}
+	if s := os.Getenv("OLLAMA_KEEP_ALIVE"); s != "" {
+		gwCfg.LocalWorkerKeepAlive = s
+	}
 	gateway, errGW := llm.NewGateway(gwCfg)
 	var warmup *llm.OllamaWarmupCoordinator
 	if errGW != nil {

@@ -34,7 +34,7 @@ func TestOllamaProvider_Chat(t *testing.T) {
 	srv := httptest.NewServer(handler)
 	defer srv.Close()
 
-	provider := NewOllamaProvider(srv.URL, "test-model", 10)
+	provider := NewOllamaProvider(srv.URL, "test-model", 10, "0")
 	resp, err := provider.Chat(context.Background(), llm.ChatRequest{
 		Messages: []llm.Message{{Role: "user", Content: "Hi"}},
 	})
@@ -54,7 +54,7 @@ func TestOllamaProvider_Chat(t *testing.T) {
 }
 
 func TestOllamaProvider_Embed_NotSupported(t *testing.T) {
-	provider := NewOllamaProvider("http://localhost:11434", "test", 5)
+	provider := NewOllamaProvider("http://localhost:11434", "test", 5, "0")
 	_, err := provider.Embed(context.Background(), llm.EmbeddingRequest{Input: "x"})
 	if err != llm.ErrEmbeddingNotSupported {
 		t.Errorf("Embed: want ErrEmbeddingNotSupported, got %v", err)
