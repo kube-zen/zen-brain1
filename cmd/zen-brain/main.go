@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -66,8 +67,9 @@ func printUsage() {
 	fmt.Println("  version        Print version information")
 	fmt.Println()
 	fmt.Println("For vertical-slice command:")
-	fmt.Println("  zen-brain vertical-slice <jira-key>   Process a Jira ticket by key")
-	fmt.Println("  zen-brain vertical-slice --mock          Use mock work item instead of real Jira")
+	fmt.Println("  zen-brain vertical-slice <jira-key>       Process a Jira ticket by key")
+	fmt.Println("  zen-brain vertical-slice --mock           Use mock work item (no Jira)")
+	fmt.Println("  zen-brain vertical-slice --resume <id>    Resume an existing session (requires persistent store)")
 }
 
 func printVersion() {
@@ -142,11 +144,19 @@ func runVerticalSlice() {
 	// Parse arguments
 	useMock := false
 	jiraKey := ""
+	resumeSessionID := ""
 	if len(os.Args) > 2 {
-		if os.Args[2] == "--mock" {
+		switch os.Args[2] {
+		case "--mock":
 			useMock = true
 			fmt.Println("Mode: Using mock work item (no Jira required)")
-		} else {
+		case "--resume":
+			if len(os.Args) < 4 {
+				log.Fatal("vertical-slice --resume requires a session ID (e.g. zen-brain vertical-slice --resume session-123-0)")
+			}
+			resumeSessionID = os.Args[3]
+			fmt.Printf("Mode: Resuming session %s\n", resumeSessionID)
+		default:
 			jiraKey = os.Args[2]
 			fmt.Printf("Mode: Fetching real Jira ticket: %s\n", jiraKey)
 		}
@@ -210,8 +220,38 @@ func runVerticalSlice() {
 	// Step 3: Initialize Session Manager
 	fmt.Println("[3/7] Initializing Session Manager...")
 	sessionConfig := session.DefaultConfig()
-	sessionConfig.StoreType = "memory"
-	sessionStore := session.NewMemoryStore()
+	var sessionStore session.Store
+	if storeType := os.Getenv("ZEN_BRAIN_SESSION_STORE"); storeType == "sqlite" || resumeSessionID != "" {
+		sessionConfig.StoreType = "sqlite"
+		if d := os.Getenv("ZEN_BRAIN_DATA_DIR"); d != "" {
+			sessionConfig.DataDir = d
+		}
+		if sessionConfig.DataDir == "" {
+			sessionConfig.DataDir = "./data/sessions"
+		}
+		if err := os.MkdirAll(sessionConfig.DataDir, 0755); err != nil {
+			if resumeSessionID != "" {
+				log.Fatalf("Failed to create session data dir: %v", err)
+			}
+			sessionStore = session.NewMemoryStore()
+		} else {
+			s, errStore := session.NewSQLiteStore(filepath.Join(sessionConfig.DataDir, "sessions.db"))
+			if errStore != nil {
+				if resumeSessionID != "" {
+					log.Fatalf("Resume requires persistent store; SQLite failed: %v", errStore)
+				}
+				sessionStore = session.NewMemoryStore()
+				log.Printf("Warning: SQLite store failed (%v), using memory", errStore)
+			} else {
+				sessionStore = s
+				fmt.Printf("  ✓ Session store: sqlite (%s)\n", sessionConfig.DataDir)
+			}
+		}
+	}
+	if sessionStore == nil {
+		sessionConfig.StoreType = "memory"
+		sessionStore = session.NewMemoryStore()
+	}
 
 	// Create and wire real ZenContext (Redis + MinIO)
 	fmt.Println("  - Initializing ZenContext (tiered memory)...")
@@ -277,72 +317,124 @@ func runVerticalSlice() {
 	ctx := context.Background()
 
 	var workItem *contracts.WorkItem
+	var workSession *contracts.Session
+	var analysisResult *contracts.AnalysisResult
 
-	if useMock {
-		workItem = createMockWorkItem()
-	} else {
-		fmt.Printf("  Fetching Jira ticket: %s\n", jiraKey)
-		fetchedItem, err := officeManager.Fetch(ctx, "default", jiraKey)
+	if resumeSessionID != "" {
+		// Resume existing session (persistent store required)
+		sess, err := sessionManager.GetSession(ctx, resumeSessionID)
 		if err != nil {
-			log.Fatalf("Error fetching work item: %v", err)
+			log.Fatalf("Resume failed: session not found: %v", err)
 		}
-		workItem = fetchedItem
-	}
-
-	fmt.Printf("✓ Work item: %s - %s\n", workItem.ID, workItem.Title)
-	fmt.Printf("  Type: %s, Priority: %s\n", workItem.WorkType, workItem.Priority)
-	fmt.Println()
-
-	// Step 8: Process work item through Planner + Factory
-	fmt.Println("[8/8] Processing work item through Planner + Factory...")
-
-	// Use synchronous processing for vertical slice (not async)
-	startTime := time.Now()
-
-	// Create session
-	workSession, err := sessionManager.CreateSession(ctx, workItem)
-	if err != nil {
-		log.Fatalf("Error creating session: %v", err)
-	}
-	fmt.Printf("✓ Session created: %s\n", workSession.ID)
-
-	// Analyze work item
-	analysisResult, err := intentAnalyzer.Analyze(ctx, workItem)
-	if err != nil {
-		log.Fatalf("Error analyzing work item: %v", err)
-	}
-	fmt.Printf("✓ Analysis complete")
-	fmt.Printf("  Estimated cost: $%.2f\n", analysisResult.EstimatedTotalCostUSD)
-	fmt.Printf("  Confidence: %.1f%%\n", analysisResult.Confidence*100)
-
-	// Update session with analysis
-	if err := sessionManager.TransitionState(ctx, workSession.ID, contracts.SessionStateAnalyzed, "Work item analyzed", "vertical-slice"); err != nil {
-		log.Printf("Warning: Failed to transition session to analyzed: %v", err)
-	}
-
-	// Step 1: analyzed → scheduled
-	if err := sessionManager.TransitionState(ctx, workSession.ID, contracts.SessionStateScheduled, "Ready for execution", "vertical-slice"); err != nil {
-		log.Printf("Warning: Failed to transition session to scheduled: %v", err)
-	}
-
-	// Step 2: scheduled → in_progress
-	if err := sessionManager.TransitionState(ctx, workSession.ID, contracts.SessionStateInProgress, "Execution in progress", "vertical-slice"); err != nil {
-		log.Printf("Warning: Failed to transition session to in_progress: %v", err)
-	}
-
-	// Update session with BrainTaskSpecs from analysis (after state transitions)
-	if len(analysisResult.BrainTaskSpecs) > 0 {
-		// Fetch the current session (after state transitions)
-		currentSession, err := sessionManager.GetSession(ctx, workSession.ID)
-		if err != nil {
-			log.Printf("Warning: Failed to fetch session for BrainTaskSpecs update: %v", err)
+		if sess == nil {
+			log.Fatalf("Resume failed: session %s not found", resumeSessionID)
+		}
+		switch sess.State {
+		case contracts.SessionStateCompleted, contracts.SessionStateFailed, contracts.SessionStateCanceled:
+			log.Fatalf("Resume failed: session %s is terminal (state=%s)", resumeSessionID, sess.State)
+		}
+		workSession = sess
+		if sess.WorkItem != nil {
+			workItem = sess.WorkItem
 		} else {
-			currentSession.BrainTaskSpecs = analysisResult.BrainTaskSpecs
-			currentSession.AnalysisResult = analysisResult
-			if err := sessionManager.UpdateSession(ctx, currentSession); err != nil {
-				log.Printf("Warning: Failed to update session with BrainTaskSpecs: %v", err)
+			workItem = &contracts.WorkItem{
+				ID:       sess.WorkItemID,
+				Title:    "Resumed work item",
+				Priority: contracts.PriorityMedium,
+				Source:   contracts.SourceMetadata{IssueKey: sess.SourceKey},
 			}
 		}
+		analysisResult = sess.AnalysisResult
+		if analysisResult == nil {
+			// Re-analyze and store on session
+			analysisResult, err = intentAnalyzer.Analyze(ctx, workItem)
+			if err != nil {
+				log.Fatalf("Error analyzing work item on resume: %v", err)
+			}
+			currentSession, _ := sessionManager.GetSession(ctx, workSession.ID)
+			if currentSession != nil {
+				currentSession.BrainTaskSpecs = analysisResult.BrainTaskSpecs
+				currentSession.AnalysisResult = analysisResult
+				_ = sessionManager.UpdateSession(ctx, currentSession)
+			}
+		}
+		fmt.Printf("✓ Resumed session: %s\n", workSession.ID)
+		fmt.Printf("✓ Work item: %s - %s\n", workItem.ID, workItem.Title)
+		if analysisResult != nil {
+			fmt.Printf("  Analysis: cost $%.2f, confidence %.1f%%\n", analysisResult.EstimatedTotalCostUSD, analysisResult.Confidence*100)
+		}
+	} else {
+		if useMock {
+			workItem = createMockWorkItem()
+		} else {
+			fmt.Printf("  Fetching Jira ticket: %s\n", jiraKey)
+			fetchedItem, err := officeManager.Fetch(ctx, "default", jiraKey)
+			if err != nil {
+				log.Fatalf("Error fetching work item: %v", err)
+			}
+			workItem = fetchedItem
+		}
+
+		fmt.Printf("✓ Work item: %s - %s\n", workItem.ID, workItem.Title)
+		fmt.Printf("  Type: %s, Priority: %s\n", workItem.WorkType, workItem.Priority)
+		fmt.Println()
+
+		// Create session
+		var err error
+		workSession, err = sessionManager.CreateSession(ctx, workItem)
+		if err != nil {
+			log.Fatalf("Error creating session: %v", err)
+		}
+		fmt.Printf("✓ Session created: %s\n", workSession.ID)
+
+		// Analyze work item
+		analysisResult, err = intentAnalyzer.Analyze(ctx, workItem)
+		if err != nil {
+			log.Fatalf("Error analyzing work item: %v", err)
+		}
+		fmt.Printf("✓ Analysis complete")
+		fmt.Printf("  Estimated cost: $%.2f\n", analysisResult.EstimatedTotalCostUSD)
+		fmt.Printf("  Confidence: %.1f%%\n", analysisResult.Confidence*100)
+
+		// Update session with analysis
+		if err := sessionManager.TransitionState(ctx, workSession.ID, contracts.SessionStateAnalyzed, "Work item analyzed", "vertical-slice"); err != nil {
+			log.Printf("Warning: Failed to transition session to analyzed: %v", err)
+		}
+
+		// analyzed → scheduled → in_progress
+		if err := sessionManager.TransitionState(ctx, workSession.ID, contracts.SessionStateScheduled, "Ready for execution", "vertical-slice"); err != nil {
+			log.Printf("Warning: Failed to transition session to scheduled: %v", err)
+		}
+		if err := sessionManager.TransitionState(ctx, workSession.ID, contracts.SessionStateInProgress, "Execution in progress", "vertical-slice"); err != nil {
+			log.Printf("Warning: Failed to transition session to in_progress: %v", err)
+		}
+
+		// Update session with BrainTaskSpecs from analysis
+		if len(analysisResult.BrainTaskSpecs) > 0 {
+			currentSession, err := sessionManager.GetSession(ctx, workSession.ID)
+			if err == nil && currentSession != nil {
+				currentSession.BrainTaskSpecs = analysisResult.BrainTaskSpecs
+				currentSession.AnalysisResult = analysisResult
+				_ = sessionManager.UpdateSession(ctx, currentSession)
+			}
+		}
+	}
+
+	fmt.Println()
+	// Step 8: Process work item through Planner + Factory
+	fmt.Println("[8/8] Processing work item through Planner + Factory...")
+	startTime := time.Now()
+
+	// If we resumed and session was not yet in_progress, transition now
+	if resumeSessionID != "" && workSession.State != contracts.SessionStateInProgress {
+		if workSession.State == contracts.SessionStateCreated || workSession.State == contracts.SessionStateAnalyzed {
+			_ = sessionManager.TransitionState(ctx, workSession.ID, contracts.SessionStateScheduled, "Ready for execution (resume)", "vertical-slice")
+		}
+		_ = sessionManager.TransitionState(ctx, workSession.ID, contracts.SessionStateInProgress, "Execution in progress (resume)", "vertical-slice")
+		workSession, _ = sessionManager.GetSession(ctx, workSession.ID)
+	}
+	if analysisResult == nil {
+		log.Fatalf("No analysis result for session %s", workSession.ID)
 	}
 
 	// Execute tasks through Factory
