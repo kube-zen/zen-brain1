@@ -62,9 +62,9 @@ tmp/
 *.log
 logs/
 
-# Zen-Brain runtime directories
+# Zen-Brain runtime directories (do not ignore cmd/zen-brain source)
 .zen/
-zen-brain
+/zen-brain
 
 # Temporary test binaries and scripts
 test_zencontext*
