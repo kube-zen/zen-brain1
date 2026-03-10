@@ -53,6 +53,7 @@ type ollamaChatResponse struct {
 }
 
 // NewOllamaProvider creates a provider that calls the Ollama API at baseURL (e.g. http://localhost:11434).
+// timeoutSeconds is the only timeout: it sets both the HTTP client timeout and the per-request deadline (no separate client knob).
 func NewOllamaProvider(baseURL, model string, timeoutSeconds int) *OllamaProvider {
 	baseURL = strings.TrimSuffix(baseURL, "/")
 	if model == "" {
@@ -95,6 +96,10 @@ func (p *OllamaProvider) Chat(ctx context.Context, req llm.ChatRequest) (*llm.Ch
 		Model:    model,
 		Messages: messages,
 		Stream:   false,
+		Options: map[string]any{
+			"num_gpu":  0,  // Force CPU (no GPU available)
+			"num_ctx":  2048,  // Smaller context for faster inference
+		},
 	}
 	payload, err := json.Marshal(body)
 	if err != nil {
