@@ -594,14 +594,17 @@ Right now the path is increasingly real, but still leans thin/MVP. Want:
 - Better state continuity
 - Better status semantics
 
-#### Item #3: Intelligence / ReMe / memory — **BLOCK 5 FAST UPLIFT (2026-03-10)**
+#### Item #3: Intelligence / ReMe / memory — **BLOCK 5 FOUNDATIONAL HARDENING (2026-03-10)**
 
-- **Intelligence wired into runtime**: vertical-slice sets `ZEN_BRAIN_RUNTIME_DIR` (default `/tmp/zen-brain-factory`), initializes pattern store at `<runtimeDir>/patterns`, creates MiningIntegration, and sets Factory recommender. After Factory execution, `MineProofOfWorks(ctx)` is invoked (warning only on failure).
-- **Factory consumes recommendations**: Template and configuration recommendations are used when recommender is set; `SelectedTemplate`, `SelectionSource`, `SelectionConfidence`, `SelectionReasoning` are persisted on spec and in proof-of-work (`template_used`, `selection_source`, etc.).
-- **Proof-of-work records actual template**: New proof-of-work JSON includes `template_used`; miner prefers it with `model_used` fallback for backward compatibility.
-- **ReMe/resume structured checkpoint**: vertical-slice writes a typed `ExecutionCheckpoint` (stage, session/work item IDs, brain task IDs, proof paths, last recommendation, knowledge chunk IDs/source paths) into ZenContext SessionContext.State via `UpdateExecutionCheckpoint`; `GetExecutionCheckpoint` reads it back.
-- **CLI**: `zen-brain intelligence mine | analyze | recommend <workType> <workDomain>` expose Block 5 operationally.
-- **Still missing (out of scope)**: no ML; no temporal decay/recency weighting; no deep causal failure classifier; no cross-cluster/global intelligence service.
+- **Intelligence wired into runtime**: vertical-slice sets `ZEN_BRAIN_RUNTIME_DIR` (default `/tmp/zen-brain-factory`), pattern store at `<runtimeDir>/patterns`, MiningIntegration, Factory recommender. After execution, `MineProofOfWorks(ctx)` runs (warning only on failure).
+- **Structured execution checkpoints**: `internal/session/checkpoint.go` defines `ExecutionCheckpoint` (stage, session/work item IDs, brain task IDs, proof paths, last recommendation, **selected model**, **analysis summary**, knowledge chunk IDs/source paths). Manager: `UpdateExecutionCheckpoint`, `GetExecutionCheckpoint`, `GetExecutionCheckpointSummary`; state normalized (sort/dedupe) before persist.
+- **Resume consumes checkpoints**: On `vertical-slice --resume <id>`, session manager loads checkpoint; if stage is `proof_attached` or `execution_complete` and proof paths exist, **skips blind task replay** and continues with finalization/reporting only; prints checkpoint summary (stage, tasks, proofs, selected model, last recommendation).
+- **Miner uses template_used**: Proof-of-work summary includes `template_used`, `selection_source`, `selection_confidence`, `selection_reasoning`; miner prefers `template_used` for template statistics with `model_used` fallback for older artifacts. WorkType/Template statistics include `FirstSeenAt`/`LastSeenAt`.
+- **Compatibility-aware recommender**: Recommender ranks by exact workType+workDomain, then same workType+generic domain, then default; never recommends a globally “best” unrelated template. Helpers: `isTemplateCompatible`, `parseTemplateIdentity`. Reasoning strings: e.g. “Exact-match history: N runs, X% success”. Failure-aware downgrade when recent failures ≥ 3.
+- **Failure diagnosis**: `internal/intelligence/failure_analysis.go` — `classifyFailure` (test/timeout/workspace/policy/infra/runtime/validation); `FailureStatistics` persisted; pattern store `GetFailureStats`/`GetAllFailureStats`.
+- **Model-selection provenance**: Planner `ModelSelection` includes `Source`, `SampleSize`, `Alternatives`; selectOptimalModel records ledger/fallback/default/recommender; session evidence stores concise model-selection note; vertical-slice prints one line: model, source, confidence.
+- **CLI**: `zen-brain intelligence mine | analyze | recommend <workType> <workDomain> | diagnose <workType> <workDomain> | checkpoint <sessionID>`.
+- **Still missing (out of scope)**: no ML; no cross-cluster/global intelligence service; no vector DB; no deep causal root-cause engine; no writable KB publishing path beyond repo-local pattern store.
 
 #### Item #4: Controlled rescue from 0.1 still needs to become active work - **TODO**
 
