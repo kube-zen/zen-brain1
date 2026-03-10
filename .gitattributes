@@ -1,0 +1,22 @@
+# Exclude from git archive (download-zen-repos uses this for small zips)
+# git archive respects .gitattributes export-ignore, not .gitignore
+
+vendor export-ignore
+vendor/ export-ignore
+vendor/** export-ignore
+**/vendor export-ignore
+**/vendor/ export-ignore
+**/vendor/** export-ignore
+
+# Build and test artifacts
+.artifacts/ export-ignore
+coverage.out export-ignore
+*.coverprofile export-ignore
+*.test export-ignore
+
+# Binaries
+bin/ export-ignore
+zen-brain export-ignore
+apiserver export-ignore
+foreman export-ignore
+controller export-ignore
