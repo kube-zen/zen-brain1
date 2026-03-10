@@ -89,8 +89,11 @@ func (s *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprintf(w, "zen-brain API server\n")
-	fmt.Fprintf(w, "  /healthz - liveness\n")
-	fmt.Fprintf(w, "  /readyz  - readiness\n")
+	fmt.Fprintf(w, "  /healthz       - liveness\n")
+	fmt.Fprintf(w, "  /readyz       - readiness\n")
+	fmt.Fprintf(w, "  /api/v1/sessions - list sessions\n")
+	fmt.Fprintf(w, "  /api/v1/health   - health detail (optional ledger ping)\n")
+	fmt.Fprintf(w, "  /api/v1/version  - service version\n")
 }
 
 // alwaysReadyChecker implements health.Checker for a server that is always ready (e.g. minimal API).

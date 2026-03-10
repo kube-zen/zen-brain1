@@ -25,6 +25,11 @@ func main() {
 	}
 	srv.Handle("/api/v1/sessions", apiserver.SessionsHandler(nil))
 	srv.Handle("/api/v1/health", apiserver.HealthDetailHandler(nil))
+	if v := os.Getenv("API_VERSION"); v != "" {
+		srv.Handle("/api/v1/version", apiserver.VersionHandler(v))
+	} else {
+		srv.Handle("/api/v1/version", apiserver.VersionHandler("dev"))
+	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

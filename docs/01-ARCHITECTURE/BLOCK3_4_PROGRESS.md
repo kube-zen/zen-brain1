@@ -21,17 +21,19 @@
 
 **Block 2 complete:** Office abstraction, Jira connector (including webhooks, attachments, JQL), Intent Analyzer, Session Manager, Planner, Human Gatekeeper. Optional hardening (e.g. Jira webhook auth tuning, Gatekeeper HTTP UI) is post-1.0.
 
-## Block 3 (Nervous System) – In progress
+## Block 3 (Nervous System) – Complete
 
 | Item | Status | Notes |
 |------|--------|------|
-| **3.1 Message Bus** | Wired | `pkg/messagebus`, `internal/messagebus/redis`; vertical slice publishes `session.created` / `session.completed` when `ZEN_BRAIN_MESSAGE_BUS=redis` and REDIS_URL set |
-| **3.3 ZenJournal** | Existing | `pkg/journal`, `internal/journal/receiptlog` (zen-sdk receiptlog) |
-| **3.4 API Server** | Extended | `internal/apiserver`: `/healthz`, `/readyz`, `/`, `/api/v1/sessions`, `/api/v1/health`; optional SessionLister and ledger ping |
-| **3.6 ZenLedger** | Implemented + wired | `internal/ledger/cockroach.go`; zen-brain uses CockroachLedger when `ZEN_LEDGER_DSN` or `LEDGER_DATABASE_URL` set via `ledgerClientOrStub()` |
+| **3.1 Message Bus** | Done | `pkg/messagebus`, `internal/messagebus/redis`; vertical slice publishes `session.created` / `session.completed` when `ZEN_BRAIN_MESSAGE_BUS=redis` and REDIS_URL set; zen-sdk dedup |
+| **3.2 State Synchronization** | Done | ZenContext (tiered state), Session Manager (session state), ReMe (reconstruction from journal + tiers); optional message bus for events; no separate cache layer |
+| **3.3 ZenJournal** | Done | `pkg/journal`, `internal/journal/receiptlog` (zen-sdk receiptlog); query API; composite uses for ReMe |
+| **3.4 API Server** | Done | `internal/apiserver`: `/healthz`, `/readyz`, `/`, `/api/v1/sessions`, `/api/v1/health`, `/api/v1/version`; optional SessionLister and ledger ping; API key auth when `ZEN_API_KEY` set |
+| **3.5 KB / QMD Adapter and Index Orchestration** | Done | `internal/qmd`: adapter (CLI wrapper), kb_store, Populate, Orchestrator (zen-sdk scheduler); BLOCK5_QMD_POPULATION.md; Tier 2 uses QMD store |
+| **3.6 ZenLedger** | Done | `internal/ledger/cockroach.go`; zen-brain uses CockroachLedger when `ZEN_LEDGER_DSN` or `LEDGER_DATABASE_URL` set via `ledgerClientOrStub()` |
 | **3.7 CockroachDB** | Done | `make db-up`, `make db-down`, `make db-migrate`, `make db-reset`; `migrations/001_*.sql`, `migrations/002_*.sql` |
 
-**API server:** `make build-apiserver && ./bin/apiserver` — serves `/healthz`, `/readyz`, `/`, `/api/v1/sessions`, `/api/v1/health`.
+**API server:** `make build-apiserver && ./bin/apiserver` — serves `/healthz`, `/readyz`, `/`, `/api/v1/sessions`, `/api/v1/health`, `/api/v1/version` (version from `API_VERSION` env or `dev`).
 
 ## Block 4 (Factory) – Complete
 
@@ -64,7 +66,7 @@
 
 **Block 4 complete:** CRDs (BrainTask, BrainAgent, BrainQueue, BrainPolicy), Foreman with Gate + Guardian + Dispatcher, worker pool, FactoryTaskRunner, worktree manager, observability, session-affinity, queue status, ZenContext in-cluster, ZenGate/ZenGuardian stubs. Real Guardian/Gate implementations are optional extensions.
 
-**Outstanding (Block 3):** KB/QMD adapter; more API endpoints.
+**Block 3 complete:** Message bus, state sync (ZenContext/Session/ReMe), ZenJournal, API server (sessions, health, version), KB/QMD adapter and orchestration, ZenLedger, CockroachDB provisioning.
 
 ## Block 5 (Intelligence) – Complete
 

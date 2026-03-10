@@ -78,6 +78,29 @@ func HealthDetailHandler(ledgerPing func() error) http.Handler {
 	})
 }
 
+// VersionInfo is returned by GET /api/v1/version (Block 3.4).
+type VersionInfo struct {
+	Service string `json:"service"`
+	Version string `json:"version"`
+}
+
+// VersionHandler returns an http.Handler that serves version info (GET only).
+// version may be empty (defaults to "dev"); set at build time or via env.
+func VersionHandler(version string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		if version == "" {
+			version = "dev"
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(VersionInfo{Service: "zen-brain-apiserver", Version: version})
+	})
+}
+
 func formatTime(t time.Time) string {
 	if t.IsZero() {
 		return ""
