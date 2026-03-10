@@ -21,3 +21,17 @@ pkg/funding/interface.go
 internal/llm/gateway.go
 internal/llm/routing/fallback_chain.go
 internal/qmd/orchestrator.go
+
+# Domain usage of keywords (not SDK reimplementation):
+# - EventBus: session EventPublisher interface (publish domain events), not zen-sdk events
+# - Schedule/Scheduled: BrainTask phase and Foreman scheduling, not zen-sdk scheduler
+# - Retry: factory step retry and qmd CLI retry wrapper, not zen-sdk retry package
+internal/session/interface.go
+internal/session/events.go
+internal/factory/bounded_executor.go
+internal/foreman/dispatcher.go
+internal/foreman/queue_status.go
+internal/foreman/reconciler.go
+internal/foreman/metrics.go
+internal/foreman/worker.go
+internal/qmd/adapter.go
