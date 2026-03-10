@@ -312,9 +312,7 @@ func runVerticalSlice() {
 	var ledgerClient ledger.ZenLedgerClient
 	var msgBus messagebus.MessageBus
 	var rt *runtime.Runtime
-	var cfg *config.Config
-	if loaded, cfgErr := config.LoadConfig(""); cfgErr == nil && loaded != nil {
-		cfg = loaded
+	if cfgErr == nil && cfg != nil {
 		ctxB := context.Background()
 		var errB error
 		rt, errB = runtime.Bootstrap(ctxB, cfg)

@@ -42,6 +42,7 @@ func main() {
 	var useGitWorktree bool
 	var sourceRepoPath, worktreeBasePath, sourceRef string
 	var reuseSessionWorktree bool
+	var clusterID string
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "Address for metrics.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "Address for health probes.")
 	flag.IntVar(&numWorkers, "workers", 2, "Number of worker goroutines for task execution (Block 4.3).")
@@ -53,6 +54,7 @@ func main() {
 	flag.StringVar(&worktreeBasePath, "factory-worktree-base", envStr("ZEN_FOREMAN_WORKTREE_BASE", ""), "Base path for git worktrees (default <runtime-dir>/worktrees).")
 	flag.StringVar(&sourceRef, "factory-source-ref", envStr("ZEN_FOREMAN_SOURCE_REF", "HEAD"), "Git ref for worktree (e.g. HEAD, main).")
 	flag.BoolVar(&reuseSessionWorktree, "factory-reuse-session-worktree", envBool("ZEN_FOREMAN_REUSE_SESSION_WORKTREE", false), "Reuse one worktree per session when using git worktrees.")
+	flag.StringVar(&clusterID, "cluster-id", envStr("CLUSTER_ID", "default"), "Cluster identifier for session/context lookups and ZenContext.")
 	zenContextRedis := flag.String("zen-context-redis", envStr("ZEN_CONTEXT_REDIS_URL", ""), "Redis URL for ZenContext (ReMe). When set, Worker uses ReMeBinder for session context on continuation.")
 	sessionAffinity := flag.Bool("session-affinity", envBool("ZEN_FOREMAN_SESSION_AFFINITY", false), "Route tasks by session (same session → same worker).")
 	gateMode := flag.String("gate", envStr("ZEN_FOREMAN_GATE", "policy"), "Gate mode: stub (allow all), log (audit only), policy (enforce BrainPolicy when present).")
@@ -105,13 +107,13 @@ func main() {
 		log.Printf("Foreman: ZenLedger enabled (task completion will be recorded)")
 	}
 	if *zenContextRedis != "" {
-		zc, err := internalcontext.NewMinimalZenContext(*zenContextRedis, "default")
+		zc, err := internalcontext.NewMinimalZenContext(*zenContextRedis, clusterID)
 		if err != nil {
 			log.Printf("Warning: ZenContext (ReMe) not available: %v", err)
 		} else {
 			defer zc.Close()
-			worker.ContextBinder = agent.NewReMeBinder(zc, "default")
-			log.Printf("Foreman: ReMe enabled (ZenContext Redis)")
+			worker.ContextBinder = agent.NewReMeBinder(zc, clusterID)
+			log.Printf("Foreman: ReMe enabled (ZenContext Redis, cluster=%s)", clusterID)
 		}
 	}
 	worker.Start(ctx)

@@ -24,6 +24,8 @@ type Worker struct {
 	Runner          TaskRunner
 	NumWorkers      int
 	SessionAffinity bool   // when true, route tasks by session to the same worker (Block 4 session-affinity)
+	// ClusterID is the cluster identifier for session/context lookups (default: "default").
+	ClusterID string
 	// ContextBinder optional: when set and Runner implements TaskRunnerWithContext, get session before run and write intermediate state after (Block 5.3).
 	ContextBinder ContextBinder
 	// LedgerClient optional: when set, record task completion in ZenLedger (Block 4 completeness) for cost/audit visibility.
@@ -141,6 +143,14 @@ func (w *Worker) setQueueDepth() {
 	}
 }
 
+// clusterID returns the configured cluster ID for session/context lookups, or "default".
+func (w *Worker) clusterID() string {
+	if w.ClusterID != "" {
+		return w.ClusterID
+	}
+	return "default"
+}
+
 func (w *Worker) runLoop(ctx context.Context, ch chan types.NamespacedName) {
 	for {
 		select {
@@ -206,7 +216,7 @@ func (w *Worker) processOne(ctx context.Context, nn types.NamespacedName) {
 	if w.ContextBinder != nil {
 		if runnerWithCtx, ok := w.Runner.(TaskRunnerWithContext); ok {
 			var sessionCtx *zenctx.SessionContext
-			clusterID := "default"
+			clusterID := w.clusterID()
 			sessionCtx, _ = w.ContextBinder.GetForContinuation(ctx, clusterID, task.Spec.SessionID, task.Name)
 			var updated *zenctx.SessionContext
 			updated, outcome, err = runnerWithCtx.RunWithContext(ctx, &task, sessionCtx)
