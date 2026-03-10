@@ -37,11 +37,15 @@ build-controller: ## Build Zen-Brain controller (Block 6; ZenProject/ZenCluster)
 
 build-all: build build-foreman build-apiserver build-controller ## Build all binaries
 
+COVERAGE_DIR := .artifacts/coverage
+COVERAGE_OUT := $(COVERAGE_DIR)/coverage.out
+
 test: ## Run tests
-	$(GOTEST) -v -race -coverprofile=coverage.out $(PKG_DIRS) $(INTERNAL_DIRS)
+	@mkdir -p $(COVERAGE_DIR)
+	$(GOTEST) -v -race -coverprofile=$(COVERAGE_OUT) $(PKG_DIRS) $(INTERNAL_DIRS)
 
 coverage: test ## Run tests and show coverage
-	$(GOCMD) tool cover -html=coverage.out
+	$(GOCMD) tool cover -html=$(COVERAGE_OUT)
 
 fmt: ## Format code
 	$(GOFMT) -w -s pkg internal cmd
@@ -52,6 +56,7 @@ lint: ## Run linter (requires golangci-lint)
 clean: ## Clean build artifacts
 	rm -rf bin/
 	rm -f coverage.out
+	rm -rf $(COVERAGE_DIR)
 
 deps: ## Download dependencies
 	$(GOMOD) download
