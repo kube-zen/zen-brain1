@@ -22,8 +22,16 @@ INTERNAL_DIRS := ./internal/...
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
-build: ## Build the binary
+build: ## Build the main binary
 	$(GOBUILD) $(LDFLAGS) -o bin/$(BINARY_NAME) $(CMD_DIR)
+
+build-foreman: ## Build Foreman controller (Block 4.2)
+	$(GOBUILD) $(LDFLAGS) -o bin/foreman ./cmd/foreman
+
+build-apiserver: ## Build API server (Block 3.4)
+	$(GOBUILD) $(LDFLAGS) -o bin/apiserver ./cmd/apiserver
+
+build-all: build build-foreman build-apiserver ## Build all binaries
 
 test: ## Run tests
 	$(GOTEST) -v -race -coverprofile=coverage.out $(PKG_DIRS) $(INTERNAL_DIRS)
@@ -58,8 +66,12 @@ db-up: ## Start local database (CockroachDB via Docker)
 db-down: ## Stop local database
 	docker stop zen-brain-db && docker rm zen-brain-db
 
-db-migrate: ## Run database migrations (requires db-up)
-	@echo "TODO: implement database migrations"
+# Default CockroachDB URL for local dev (use db-up first)
+DATABASE_URL ?= cockroachdb://root@localhost:26257/defaultdb?sslmode=disable
+
+db-migrate: ## Run database migrations (requires db-up; needs golang-migrate: go install -tags 'cockroachdb' github.com/golang-migrate/migrate/v4/cmd/migrate@latest)
+	@command -v migrate >/dev/null 2>&1 || { echo "migrate CLI not found. Install: go install -tags 'cockroachdb' github.com/golang-migrate/migrate/v4/cmd/migrate@latest"; exit 1; }
+	migrate -path migrations -database "$(DATABASE_URL)" -verbose up
 
 db-reset: db-down db-up ## Reset database (stop, remove, start)
 	@echo "Database reset complete"
@@ -81,8 +93,10 @@ dev-logs: ## Tail logs from all pods
 
 ## Code generation
 
-generate: ## Generate code (CRDs, deepcopy)
-	@echo "TODO: implement controller-tools generation"
+generate: ## Generate code (CRDs, deepcopy) - requires controller-gen
+	@command -v controller-gen >/dev/null 2>&1 || go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.19.0
+	controller-gen object paths=./api/...
+	controller-gen crd:allowDangerousTypes=true paths=./api/... output:crd:dir=./deployments/crds
 
 ## Repository management
 

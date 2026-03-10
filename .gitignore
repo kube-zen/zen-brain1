@@ -1,5 +1,7 @@
 # Binaries for programs and plugins
 bin/
+/apiserver
+/foreman
 *.exe
 *.exe~
 *.dll

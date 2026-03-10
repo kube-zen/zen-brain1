@@ -1,20 +1,10 @@
-// Package v1alpha1 contains API Schema definitions for the zen.kube-zen.com API group
-// +kubebuilder:object:generate=true
-// +groupName=zen.kube-zen.com
+// Package v1alpha1 defines the v1alpha1 API for zen-brain CRDs.
+// GroupName must match +groupName in doc.go (zen.kube-zen.com).
 package v1alpha1
 
-import (
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"sigs.k8s.io/controller-runtime/pkg/scheme"
-)
-
-var (
-	// GroupVersion is group version used to register these objects
-	GroupVersion = schema.GroupVersion{Group: "zen.kube-zen.com", Version: "v1alpha1"}
-
-	// SchemeBuilder is used to add go types to the GroupVersionKind scheme
-	SchemeBuilder = &scheme.Builder{GroupVersion: GroupVersion}
-
-	// AddToScheme adds the types in this group-version to the given scheme.
-	AddToScheme = SchemeBuilder.AddToScheme
+const (
+	// GroupName is the API group for zen-brain CRDs.
+	GroupName = "zen.kube-zen.com"
+	// Version is the API version.
+	Version = "v1alpha1"
 )
