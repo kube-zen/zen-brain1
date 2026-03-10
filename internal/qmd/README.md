@@ -2,6 +2,8 @@
 
 This package provides a Go adapter for the `qmd` CLI tool (Quick Markdown Search) and a scheduler-based orchestrator for periodic index refresh.
 
+**Real vs mock:** When the `qmd` CLI is available, the adapter uses it for real search and index updates. When it is not found, the adapter falls back to a mock client (if `FallbackToMock` is true, the default) so the app runs without qmd. See **docs/01-ARCHITECTURE/BLOCK5_QMD_POPULATION.md** (“Real vs mock”) for how to run with real QMD.
+
 ## Components
 
 ### Client (`adapter.go`)

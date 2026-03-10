@@ -29,6 +29,7 @@
 | **Funding aggregator** | Real | T661 + IRAP from Vault evidence. | `internal/funding/aggregator.go` |
 | **Agent–context binding** | Real | GetForContinuation / WriteIntermediate; TaskRunnerWithContext. | `internal/agent/binding.go`, `foreman/runner.go` |
 | **ReMe protocol** | Real | ReconstructSession in ZenContext; ReMeBinder wires it as agent continuation path (Worker.ContextBinder = NewReMeBinder). | `internal/context/composite.go`, `internal/agent/binding.go` (ReMeBinder) |
+| **Intelligence (Block 5)** | Real | ModelRouter wired into Planner (ModelRecommender); Planner records hypothesis evidence when EvidenceVault set; zen-brain wires both. ReMe + token recording + budget check. See BLOCK5_INTELLIGENCE_COMPLETENESS.md. | `internal/planner/`, `internal/intelligence/model_router.go`, `cmd/zen-brain` |
 | **Human Gatekeeper** | Real | Block 2.6: Gatekeeper interface, DefaultGatekeeper (approvals, reject, delegate, escalate, notifiers, audit). | `internal/gatekeeper/`, `internal/planner` (GetPendingApprovals) |
 | **K3d / deployment** | Partial | Block 6: dev-up, dev-down, dev-logs, dev-clean, dev-build; DEBUGGING.md. “Deploy Zen-Brain components” still TBD (no Helm/manifests for foreman/apiserver in-cluster). | `deployments/k3d/README.md`, `Makefile`, `docs/05-OPERATIONS/DEBUGGING.md` |
 | **Repo polish** | Partial | Makefile: repo-sync implemented (scripts/repo_sync.py, ZEN_KB_REPO_URL/DIR); pre-commit/repo-check exist. | `Makefile`, `scripts/repo_sync.py`, `scripts/ci/` |
@@ -37,9 +38,9 @@
 
 ## Suggested fix order (production / completeness)
 
-1. **Factory templates** – Replace or document echo-only “simulated” steps; add one real “run tests” path (e.g. `go test ./...` in workspace when Go project) or clearly label template tiers (real vs scaffold).
+1. **Factory templates** – Real "run tests" path done (BoundedExecutor); template tiers documented in FACTORY_TEMPLATE_TIERS.md. Optional: more real steps per work type.
 2. **API surface** – Auth done (ZEN_API_KEY). Add more endpoints as needed.
-3. **QMD** – Document “real vs mock” and how to run with real QMD; repo-sync for KB population optional (Block 5.1 Populate + docs done).
+3. ~~**QMD**~~ – Documented: BLOCK5_QMD_POPULATION "Real vs mock" + internal/qmd/README; repo-sync done (Block 5.1 Populate + docs).
 4. **K3d** – Add minimal deployable manifest or Helm placeholder for foreman + apiserver (or document “run binaries locally with kubeconfig” as the current path).
 5. ~~**ReMe**~~ – Done: ReMeBinder wires ReConstruct as agent continuation path.
 6. ~~**Jira**~~ – Done: webhooks (Watch), attachments (AddAttachment), JQL (Search); Block 2 complete.
@@ -53,4 +54,4 @@
 
 ---
 
-*Last updated from BLOCK3_4_PROGRESS and codebase scan. Used to drive production/completeness fixes: Factory template steps, k3d README + dependencies.yaml, Makefile repo-sync note.*
+*Last updated from BLOCK3_4_PROGRESS and codebase scan. Template tiers: FACTORY_TEMPLATE_TIERS.md; QMD real vs mock: BLOCK5_QMD_POPULATION.md.*

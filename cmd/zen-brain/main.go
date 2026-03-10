@@ -12,6 +12,8 @@ import (
 
 	"github.com/kube-zen/zen-brain1/internal/analyzer"
 	internalcontext "github.com/kube-zen/zen-brain1/internal/context"
+	"github.com/kube-zen/zen-brain1/internal/evidence"
+	"github.com/kube-zen/zen-brain1/internal/intelligence"
 	"github.com/kube-zen/zen-brain1/internal/context/tier1"
 	"github.com/kube-zen/zen-brain1/internal/context/tier3"
 	"github.com/kube-zen/zen-brain1/internal/factory"
@@ -316,6 +318,11 @@ func runVerticalSlice() {
 	plannerConfig.ZenContext = zenContext
 	plannerConfig.RequireApproval = false // Auto-approve for vertical slice
 	plannerConfig.AutoApproveCost = 100.0 // Approve everything
+	// Block 5: cost-aware model routing
+	modelRouter := intelligence.NewModelRouter(ledgerClient, plannerConfig.DefaultModel)
+	plannerConfig.ModelRecommender = planner.NewModelRouterRecommender(modelRouter)
+	// Block 5: hypothesis evidence recording
+	plannerConfig.EvidenceVault = evidence.NewMemoryVault()
 
 	plannerAgent, err := planner.New(plannerConfig)
 	if err != nil {

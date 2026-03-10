@@ -21,6 +21,12 @@ err := qmd.Populate(ctx, qmdClient, "/path/to/zen-docs", []string{"docs/"})
 - **Sources:** Curate which repos/directories are indexed (e.g. zen-docs only). Scope is effectively repository- and path-based.
 - **Scope assignment:** Documents are associated with domains/tags via qmd metadata; validate scope filtering with the golden set and `internal/qmd` scope/tag tests.
 
+## Real vs mock
+
+- **Real QMD:** The adapter uses the real `qmd` CLI when it is on PATH and the availability check passes. Tier 2 (ZenContext) then uses a real KB store: `Search` and `RefreshIndex`/`Populate` hit the indexed repo. Set `zen_context.tier2_qmd.repo_path` to the repo (e.g. after `make repo-sync` with `ZEN_KB_REPO_DIR` matching that path).
+- **Mock QMD:** If the `qmd` binary is not found at startup, the adapter uses **FallbackToMock** (default `true` in `internal/context/factory.go`): a mock client returns simulated search results. No repo or index is required; useful for local dev without installing qmd.
+- **How to run with real QMD:** (1) Install the qmd CLI (see `internal/qmd/README.md`). (2) Set `tier2_qmd.repo_path` in config to your KB repo path. (3) Run `make repo-sync` (and set `ZEN_KB_REPO_URL` if the repo is not yet cloned). (4) Run zen-brain or call `qmd.Populate` so the index is built. Tier 2 will use the real client as long as qmd is available at runtime.
+
 ## Validating search quality
 
 - **Golden set:** `internal/qmd/testdata/golden_queries.json` defines expected queries and expected document titles/domain/min score.
