@@ -59,6 +59,8 @@ Config can also set `zen_context.required`, `ledger.required`, `message_bus.requ
 
 **Runtime commands:** `zen-brain runtime doctor` (readable summary), `zen-brain runtime report` (JSON), `zen-brain runtime ping` (exit non-zero if required capability unhealthy).
 
+**Mock/degraded paths (Block 3/5):** By default, capabilities are optional. **QMD** can fall back to mock when the `qmd` CLI is missing or unavailable (Tier 2 warm store then disabled or mock). **Ledger** falls back to stub when no DSN is set or Cockroach is unreachable; the runtime report shows `ledger.mode: stub`. To require a capability and fail startup instead of using a fallback, set the corresponding `ZEN_BRAIN_REQUIRE_*` env or `required: true` in config.
+
 ## ZenContext Configuration
 
 ```yaml
