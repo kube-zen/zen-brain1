@@ -178,6 +178,10 @@ spec:
                 description: LastSyncTime is the last time the project was synced
                 format: date-time
                 type: string
+              observedGeneration:
+                description: ObservedGeneration is the .metadata.generation last reconciled
+                format: int64
+                type: integer
               phase:
                 description: Phase is the current phase of the project
                 type: string

@@ -3,6 +3,7 @@ package zencontroller
 
 import (
 	"context"
+	"time"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -13,30 +14,64 @@ import (
 	"github.com/kube-zen/zen-brain1/api/v1alpha1"
 )
 
-// ZenProjectReconciler reconciles ZenProject resources (status-only; Block 6 in-cluster).
+// ZenProjectReconciler reconciles ZenProject resources (Block 6: lifecycle + status).
 type ZenProjectReconciler struct {
 	client.Client
 }
 
-// Reconcile updates ZenProject status (ObservedGeneration, Phase, Ready condition).
+// Reconcile updates ZenProject status: validates ClusterRef, sets ObservedGeneration, Phase, conditions, LastSyncTime.
 func (r *ZenProjectReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 	var proj v1alpha1.ZenProject
 	if err := r.Get(ctx, req.NamespacedName, &proj); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
-	if proj.Status.Phase == "Ready" && len(proj.Status.Conditions) > 0 {
-		return ctrl.Result{}, nil
+
+	proj.Status.ObservedGeneration = proj.Generation
+	now := metav1.NewTime(time.Now().UTC())
+	proj.Status.LastSyncTime = &now
+
+	// Validate ClusterRef: referenced ZenCluster must exist in the same namespace
+	clusterRefValid := false
+	if proj.Spec.ClusterRef != "" {
+		var cluster v1alpha1.ZenCluster
+		err := r.Get(ctx, client.ObjectKey{Namespace: proj.Namespace, Name: proj.Spec.ClusterRef}, &cluster)
+		if err == nil {
+			clusterRefValid = true
+			meta.SetStatusCondition(&proj.Status.Conditions, metav1.Condition{
+				Type:    "ClusterRefValid",
+				Status:  metav1.ConditionTrue,
+				Reason:  "ClusterFound",
+				Message: "Referenced ZenCluster exists",
+			})
+		} else {
+			meta.SetStatusCondition(&proj.Status.Conditions, metav1.Condition{
+				Type:    "ClusterRefValid",
+				Status:  metav1.ConditionFalse,
+				Reason:  "ClusterNotFound",
+				Message: "ZenCluster " + proj.Spec.ClusterRef + " not found in namespace " + proj.Namespace,
+			})
+		}
 	}
-	if proj.Status.Phase == "" {
+
+	if clusterRefValid {
 		proj.Status.Phase = "Ready"
+		meta.SetStatusCondition(&proj.Status.Conditions, metav1.Condition{
+			Type:    "Ready",
+			Status:  metav1.ConditionTrue,
+			Reason:  "Reconciled",
+			Message: "ZenProject reconciled; cluster ref valid",
+		})
+	} else {
+		proj.Status.Phase = "Pending"
+		meta.SetStatusCondition(&proj.Status.Conditions, metav1.Condition{
+			Type:    "Ready",
+			Status:  metav1.ConditionFalse,
+			Reason:  "ClusterRefInvalid",
+			Message: "ClusterRef must reference an existing ZenCluster in the same namespace",
+		})
 	}
-	meta.SetStatusCondition(&proj.Status.Conditions, metav1.Condition{
-		Type:   "Ready",
-		Status: metav1.ConditionTrue,
-		Reason: "Reconciled",
-		Message: "ZenProject reconciled by zen-brain controller",
-	})
+
 	if err := r.Status().Update(ctx, &proj); err != nil {
 		logger.Error(err, "failed to update ZenProject status")
 		return ctrl.Result{}, err
