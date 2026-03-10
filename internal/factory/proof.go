@@ -133,6 +133,8 @@ func (p *proofOfWorkManagerImpl) generateSummary(result *ExecutionResult, spec *
 		WorkItemID:       result.WorkItemID,
 		SourceKey:         result.WorkItemID, // Same as WorkItemID for MVP
 		SourceSystem:      "",                // Will be populated by office adapter if needed
+		WorkType:          string(spec.WorkType),
+		WorkDomain:        string(spec.WorkDomain),
 		Title:             spec.Title,
 		Objective:         spec.Objective,
 		Result:            string(result.Status),

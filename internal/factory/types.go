@@ -165,6 +165,10 @@ type ProofOfWorkSummary struct {
 	SourceKey   string    `json:"source_key"` // e.g., "PROJ-123"
 	SourceSystem string   `json:"source_system,omitempty"` // e.g., "jira", "github"
 
+	// Work classification
+	WorkType    string    `json:"work_type"`
+	WorkDomain  string    `json:"work_domain"`
+
 	// Work summary
 	Title       string    `json:"title"`
 	Objective   string    `json:"objective"`
