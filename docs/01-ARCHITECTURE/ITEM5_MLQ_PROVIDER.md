@@ -237,9 +237,9 @@ llm:
 
 ## Related Documents
 
-- [Small Model Strategy](../../03-DESIGN/SMALL_MODEL_STRATEGY.md) - CPU-first design
-- [LLM Gateway](../../03-DESIGN/LLM_GATEWAY.md) - Provider-agnostic interface
-- [ZenLedger](../../03-DESIGN/ZEN_LEDGER.md) - Token/cost accounting
+- [Small Model Strategy](../03-DESIGN/SMALL_MODEL_STRATEGY.md) - CPU-first design
+- [LLM Gateway](../03-DESIGN/LLM_GATEWAY.md) - Provider-agnostic interface
+- [ZenLedger](../03-DESIGN/ZEN_LEDGER.md) - Token/cost accounting
 
 ## Team Notes
 
