@@ -286,7 +286,7 @@ func runVerticalSlice() {
 			sessionConfig.DataDir = d
 		}
 		if sessionConfig.DataDir == "" {
-			sessionConfig.DataDir = "./data/sessions"
+			sessionConfig.DataDir = filepath.Join(config.HomeDir(), "sessions")
 		}
 		if err := os.MkdirAll(sessionConfig.DataDir, 0755); err != nil {
 			if resumeSessionID != "" {
