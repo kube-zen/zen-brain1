@@ -55,6 +55,9 @@ func (b *BoundedExecutor) ExecuteStep(ctx context.Context, step *ExecutionStep, 
 		case "run tests", "go test", "test":
 			// Real execution: run Go tests when workspace has go.mod (Factory completeness)
 			cmdStr = "if [ -f go.mod ]; then go test ./... -count=1; else echo 'No go.mod, skipping go test'; fi"
+		case "build", "go build", "compile":
+			// Real execution: build Go project when go.mod present
+			cmdStr = "if [ -f go.mod ]; then go build ./...; else echo 'No go.mod, skipping go build'; fi"
 		case "validate results", "validate":
 			cmdStr = "echo 'Validating results' && echo 'All checks passed'"
 		default:

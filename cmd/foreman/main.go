@@ -14,6 +14,8 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"github.com/kube-zen/zen-brain1/api/v1alpha1"
+	"github.com/kube-zen/zen-brain1/internal/agent"
+	"github.com/kube-zen/zen-brain1/internal/context"
 	"github.com/kube-zen/zen-brain1/internal/evidence"
 	"github.com/kube-zen/zen-brain1/internal/factory"
 	"github.com/kube-zen/zen-brain1/internal/foreman"
@@ -39,6 +41,7 @@ func main() {
 	flag.BoolVar(&useFactory, "factory", envBool("ZEN_FOREMAN_FACTORY", false), "Run tasks via Factory (workspace + bounded executor + proof-of-work).")
 	sessionAffinity := flag.Bool("session-affinity", envBool("ZEN_FOREMAN_SESSION_AFFINITY", false), "Route tasks by session (same session → same worker).")
 	flag.StringVar(&factoryRuntimeDir, "factory-runtime-dir", envStr("ZEN_FACTORY_RUNTIME_DIR", "/tmp/zen-foreman-factory"), "Runtime dir for Factory workspaces and proof-of-work (when -factory).")
+	zenContextRedis := flag.String("zen-context-redis", envStr("ZEN_CONTEXT_REDIS_URL", ""), "Redis URL for ZenContext (ReMe). When set, Worker uses ReMeBinder for session context on continuation.")
 	flag.Parse()
 
 	ctx := ctrl.SetupSignalHandler()
@@ -68,6 +71,16 @@ func main() {
 
 	worker := foreman.NewWorker(mgr.GetClient(), runner, numWorkers)
 	worker.SessionAffinity = *sessionAffinity
+	if *zenContextRedis != "" {
+		zc, err := context.NewMinimalZenContext(*zenContextRedis, "default")
+		if err != nil {
+			log.Printf("Warning: ZenContext (ReMe) not available: %v", err)
+		} else {
+			defer zc.Close()
+			worker.ContextBinder = agent.NewReMeBinder(zc, "default")
+			log.Printf("Foreman: ReMe enabled (ZenContext Redis)")
+		}
+	}
 	worker.Start(ctx)
 
 	reconciler := &foreman.Reconciler{
