@@ -57,10 +57,10 @@ def normalize_link(src_path: str, link: str) -> str:
 
 
 def find_markdown_files(root: str) -> list[str]:
-    """Return list of .md files relative to root. Skip .git and vendor."""
+    """Return list of .md files relative to root. Skip .git, vendor, and .backup."""
     md_files = []
     for dirpath, _, filenames in os.walk(root):
-        if ".git" in dirpath or "vendor" in dirpath:
+        if ".git" in dirpath or "vendor" in dirpath or ".backup" in dirpath:
             continue
         for f in filenames:
             if f.endswith(".md"):
