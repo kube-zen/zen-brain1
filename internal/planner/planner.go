@@ -593,8 +593,7 @@ func (p *DefaultPlanner) ApproveSession(ctx context.Context, sessionID string, a
 
 	log.Printf("Session %s approved by %s", sessionID, approver)
 
-	// TODO: Schedule with Factory (Block 3)
-	// For now, transition to in_progress
+	// Deferred: create BrainTasks and submit to Foreman on approval (Block 4). For now, transition to in_progress.
 	if err := p.sessionManager.TransitionState(ctx, sessionID, contracts.SessionStateInProgress,
 		"Starting execution after approval", "planner"); err != nil {
 		return fmt.Errorf("failed to start execution: %v", err)

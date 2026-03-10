@@ -167,14 +167,14 @@ func (a *DefaultAnalyzer) AnalyzeBatch(ctx context.Context, workItems []*contrac
 }
 
 // GetAnalysisHistory returns analysis history for a work item.
+// Deferred: persistent analysis history storage (see docs/01-ARCHITECTURE/REMAINING_DRAGS.md).
 func (a *DefaultAnalyzer) GetAnalysisHistory(ctx context.Context, workItemID string) ([]*contracts.AnalysisResult, error) {
-	// TODO: Implement analysis history storage
 	return nil, fmt.Errorf("not implemented: GetAnalysisHistory")
 }
 
 // UpdateAnalysis updates an analysis based on new information.
+// Deferred: analysis update persistence (see docs/01-ARCHITECTURE/REMAINING_DRAGS.md).
 func (a *DefaultAnalyzer) UpdateAnalysis(ctx context.Context, result *contracts.AnalysisResult) error {
-	// TODO: Implement analysis update
 	return fmt.Errorf("not implemented: UpdateAnalysis")
 }
 
@@ -252,10 +252,8 @@ func (a *DefaultAnalyzer) combineStageResults(ctx context.Context, workItem *con
 		UpdatedAt:           time.Now(),
 	}
 
-	// Apply breakdown if available
-	if breakdown.Output != nil {
-		// TODO: Create multiple BrainTaskSpecs based on breakdown
-	}
+	// Apply breakdown if available (deferred: create multiple BrainTaskSpecs from breakdown; see REMAINING_DRAGS.md).
+	_ = breakdown.Output
 
 	return []contracts.BrainTaskSpec{spec}, nil
 }

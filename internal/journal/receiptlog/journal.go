@@ -226,18 +226,19 @@ func (j *receiptlogJournal) Verify(ctx context.Context) (int, error) {
 
 // Stats returns journal statistics.
 func (j *receiptlogJournal) Stats() journal.Stats {
-	// Get index statistics
 	indexStats := j.index.Stats()
-
-	// Get latest sequence and hash from receiptlog
-	// For simplicity, return empty stats for now
-	return journal.Stats{
+	st := journal.Stats{
 		TotalReceipts:   uint64(indexStats.TotalEntries),
-		LastSequence:    0,           // TODO: get from ledger
-		LastHash:        "",          // TODO: get from ledger
-		OldestTimestamp: time.Time{}, // TODO: compute from index
-		NewestTimestamp: time.Time{}, // TODO: compute from index
+		LastSequence:    indexStats.LastSequence,
+		OldestTimestamp: indexStats.OldestTimestamp,
+		NewestTimestamp: indexStats.NewestTimestamp,
 	}
+	if indexStats.LastSequence > 0 {
+		if r, err := j.ledger.Get(context.Background(), indexStats.LastSequence); err == nil && r != nil {
+			st.LastHash = r.Hash
+		}
+	}
+	return st
 }
 
 // Close closes the journal.

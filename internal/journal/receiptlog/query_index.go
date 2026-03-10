@@ -337,7 +337,7 @@ func (idx *QueryIndex) Stats() IndexStats {
 	idx.mu.RLock()
 	defer idx.mu.RUnlock()
 
-	return IndexStats{
+	st := IndexStats{
 		TotalEntries:      len(idx.ByTimestamp),
 		TotalEventTypes:   len(idx.ByEventType),
 		TotalCorrelations: len(idx.ByCorrelationID),
@@ -347,18 +347,27 @@ func (idx *QueryIndex) Stats() IndexStats {
 		TotalProjects:     len(idx.ByProjectID),
 		TotalSREDTags:     len(idx.BySREDTag),
 	}
+	if n := len(idx.ByTimestamp); n > 0 {
+		st.LastSequence = idx.ByTimestamp[n-1].Sequence
+		st.OldestTimestamp = idx.ByTimestamp[0].Timestamp
+		st.NewestTimestamp = idx.ByTimestamp[n-1].Timestamp
+	}
+	return st
 }
 
 // IndexStats holds query index statistics.
 type IndexStats struct {
-	TotalEntries      int `json:"total_entries"`
-	TotalEventTypes   int `json:"total_event_types"`
-	TotalCorrelations int `json:"total_correlations"`
-	TotalTasks        int `json:"total_tasks"`
-	TotalSessions     int `json:"total_sessions"`
-	TotalClusters     int `json:"total_clusters"`
-	TotalProjects     int `json:"total_projects"`
-	TotalSREDTags     int `json:"total_sred_tags"`
+	TotalEntries      int       `json:"total_entries"`
+	TotalEventTypes   int       `json:"total_event_types"`
+	TotalCorrelations int       `json:"total_correlations"`
+	TotalTasks        int       `json:"total_tasks"`
+	TotalSessions     int       `json:"total_sessions"`
+	TotalClusters     int       `json:"total_clusters"`
+	TotalProjects     int       `json:"total_projects"`
+	TotalSREDTags     int       `json:"total_sred_tags"`
+	LastSequence      uint64    `json:"last_sequence"`
+	OldestTimestamp   time.Time `json:"oldest_timestamp"`
+	NewestTimestamp   time.Time `json:"newest_timestamp"`
 }
 
 // FetchReceipts fetches receipts by sequences using a fetch function.
