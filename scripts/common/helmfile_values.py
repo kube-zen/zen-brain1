@@ -50,10 +50,11 @@ def render(env: str, config_path: str | None = None) -> None:
     with open(path, "w", encoding="utf-8") as f:
         yaml.safe_dump(deps_values, f, default_flow_style=False, sort_keys=False)
 
-    # zen-brain (core): apiserver exposure via chart values (no post-sync patch)
+    # zen-brain (core): use cluster registry ref so k3d image import matches (e.g. zen-brain-registry:5000/zen-brain)
+    reg_ref = _config.get_registry_cluster_ref(config_path)
     zen_values = {
-        "image": {"repository": "zen-brain", "tag": tag, "pullPolicy": "IfNotPresent"},
-        "ollama": {"baseUrl": "http://ollama:11434" if use_ollama else ""},
+        "image": {"repository": f"{reg_ref}/zen-brain", "tag": tag, "pullPolicy": "IfNotPresent"},
+        "ollama": {"baseUrl": "http://ollama:11434" if use_ollama else "", "timeoutSeconds": 600},
         "apiserver": {
             "service": {"type": "LoadBalancer", "externalPort": apiserver_port},
         },
