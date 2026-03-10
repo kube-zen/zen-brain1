@@ -16,7 +16,7 @@ func (jt *JiraTime) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &s); err != nil {
 		return err
 	}
-	
+
 	// Jira returns ISO 8601 timestamps like "2024-01-01T12:00:00.000+0000"
 	// Try multiple formats
 	formats := []string{
@@ -25,7 +25,7 @@ func (jt *JiraTime) UnmarshalJSON(data []byte) error {
 		"2006-01-02T15:04:05Z",
 		"2006-01-02T15:04:05",
 	}
-	
+
 	var t time.Time
 	var err error
 	for _, format := range formats {
@@ -35,7 +35,7 @@ func (jt *JiraTime) UnmarshalJSON(data []byte) error {
 			return nil
 		}
 	}
-	
+
 	return err
 }
 
@@ -45,8 +45,8 @@ type JiraIssue struct {
 	ID     string `json:"id"`
 	Self   string `json:"self"`
 	Fields struct {
-		Summary     string `json:"summary"`
-		Description string `json:"description"`
+		Summary     string   `json:"summary"`
+		Description string   `json:"description"`
 		Created     JiraTime `json:"created"`
 		Updated     JiraTime `json:"updated"`
 		Status      struct {
@@ -79,8 +79,8 @@ type JiraIssue struct {
 
 // JiraComment represents a comment in Jira.
 type JiraComment struct {
-	ID      string `json:"id"`
-	Author  struct {
+	ID     string `json:"id"`
+	Author struct {
 		DisplayName string `json:"displayName"`
 	} `json:"author"`
 	Body    string    `json:"body"`
@@ -99,18 +99,18 @@ type JiraTransition struct {
 
 // JiraSearchResult represents search results from Jira.
 type JiraSearchResult struct {
-	StartAt    int          `json:"startAt"`
-	MaxResults int          `json:"maxResults"`
-	Total      int          `json:"total"`
+	StartAt    int         `json:"startAt"`
+	MaxResults int         `json:"maxResults"`
+	Total      int         `json:"total"`
 	Issues     []JiraIssue `json:"issues"`
 }
 
 // JiraWebhookEvent represents a webhook event from Jira.
 type JiraWebhookEvent struct {
-	Timestamp int64 `json:"timestamp"`
-	WebhookEvent string `json:"webhookEvent"`
-	Issue       JiraIssue `json:"issue"`
-	User        struct {
+	Timestamp    int64     `json:"timestamp"`
+	WebhookEvent string    `json:"webhookEvent"`
+	Issue        JiraIssue `json:"issue"`
+	User         struct {
 		DisplayName string `json:"displayName"`
 	} `json:"user"`
 	Changelog *struct {

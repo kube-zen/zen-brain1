@@ -43,16 +43,16 @@ type Paths struct {
 func DefaultPaths() *Paths {
 	root := HomeDir()
 	return &Paths{
-		Root:    root,
-		Journal: filepath.Join(root, "journal"),
-		Context: filepath.Join(root, "context"),
-		Cache:   filepath.Join(root, "cache"),
-		Config:  filepath.Join(root, "config"),
-		Logs:    filepath.Join(root, "logs"),
-		Ledger:  filepath.Join(root, "ledger"),
+		Root:     root,
+		Journal:  filepath.Join(root, "journal"),
+		Context:  filepath.Join(root, "context"),
+		Cache:    filepath.Join(root, "cache"),
+		Config:   filepath.Join(root, "config"),
+		Logs:     filepath.Join(root, "logs"),
+		Ledger:   filepath.Join(root, "ledger"),
 		Evidence: filepath.Join(root, "evidence"),
-		KB:      filepath.Join(root, "kb"),
-		QMD:     filepath.Join(root, "qmd"),
+		KB:       filepath.Join(root, "kb"),
+		QMD:      filepath.Join(root, "qmd"),
 	}
 }
 

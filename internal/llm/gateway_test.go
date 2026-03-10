@@ -23,7 +23,7 @@ func TestNewGateway(t *testing.T) {
 	// Verify providers are registered
 	providers := gateway.ListProviders()
 	expectedProviders := []string{"local-worker", "planner", "fallback"}
-	
+
 	for _, expected := range expectedProviders {
 		found := false
 		for _, actual := range providers {
@@ -100,7 +100,7 @@ func TestGateway_Chat_PlannerRoute(t *testing.T) {
 		Messages: []llm.Message{
 			{Role: "user", Content: "I need to design a complete microservices architecture for a new e-commerce platform. Please provide a detailed plan including technology stack, deployment strategy, and risk assessment."},
 		},
-		TaskID: "complex-task-1",
+		TaskID:    "complex-task-1",
 		SessionID: "complex-session",
 	}
 
@@ -202,8 +202,8 @@ func TestGateway_Route_SimplePolicy(t *testing.T) {
 func TestGateway_Route_CostAwarePolicy(t *testing.T) {
 	config := DefaultGatewayConfig()
 	config.RoutingPolicy = "cost_aware"
-	config.LocalWorkerMaxCost = 0.05  // $0.05 max for local worker
-	config.PlannerMinCost = 0.10      // $0.10 min for planner
+	config.LocalWorkerMaxCost = 0.05 // $0.05 max for local worker
+	config.PlannerMinCost = 0.10     // $0.10 min for planner
 	gateway, _ := NewGateway(config)
 
 	// Note: Our simple cost estimator is very basic
@@ -292,7 +292,7 @@ func TestLocalWorkerProvider_Chat(t *testing.T) {
 	// Test with normal context (should succeed)
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
-	
+
 	_, err = provider.Chat(ctx, req)
 	if err != nil {
 		t.Errorf("Chat with normal context should succeed, got: %v", err)

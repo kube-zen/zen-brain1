@@ -14,9 +14,9 @@ import (
 
 // mockRedisClient is a mock implementation of RedisClient for testing.
 type mockRedisClient struct {
-	data       map[string]string
-	hashes     map[string]map[string]string
-	keys       []string
+	data        map[string]string
+	hashes      map[string]map[string]string
+	keys        []string
 	expirations map[string]time.Time
 
 	mu sync.RWMutex
@@ -24,9 +24,9 @@ type mockRedisClient struct {
 
 func newMockRedisClient() *mockRedisClient {
 	return &mockRedisClient{
-		data:       make(map[string]string),
-		hashes:     make(map[string]map[string]string),
-		keys:       []string{},
+		data:        make(map[string]string),
+		hashes:      make(map[string]map[string]string),
+		keys:        []string{},
 		expirations: make(map[string]time.Time),
 	}
 }
@@ -287,14 +287,11 @@ func TestStore_StoreSessionContext(t *testing.T) {
 
 	ctx := stdctx.Background()
 	session := &zenctx.SessionContext{
-		SessionID:     "session-123",
-		TaskID:        "task-456",
-		ClusterID:     "cluster-1",
-		ProjectID:     "project-789",
-		CreatedAt:     time.Now(),
-		
-		
-		
+		SessionID: "session-123",
+		TaskID:    "task-456",
+		ClusterID: "cluster-1",
+		ProjectID: "project-789",
+		CreatedAt: time.Now(),
 	}
 
 	err = store.StoreSessionContext(ctx, "cluster-1", session)
@@ -333,14 +330,12 @@ func TestStore_StoreAndGetSessionContext(t *testing.T) {
 
 	// Store session
 	session := &zenctx.SessionContext{
-		SessionID:   "session-123",
-		TaskID:      "task-456",
-		ClusterID:   "cluster-1",
-		ProjectID:   "project-789",
-		
-		
-		
-		Scratchpad:  []byte("test scratchpad data"),
+		SessionID: "session-123",
+		TaskID:    "task-456",
+		ClusterID: "cluster-1",
+		ProjectID: "project-789",
+
+		Scratchpad: []byte("test scratchpad data"),
 	}
 
 	err = store.StoreSessionContext(ctx, "cluster-1", session)
@@ -558,14 +553,12 @@ func TestStore_ReconstructSession(t *testing.T) {
 
 	// Store session first
 	session := &zenctx.SessionContext{
-		SessionID:   "session-123",
-		TaskID:      "task-456",
-		ClusterID:   "cluster-1",
-		ProjectID:   "project-789",
-		
-		
-		
-		Scratchpad:  []byte("reasoning data"),
+		SessionID: "session-123",
+		TaskID:    "task-456",
+		ClusterID: "cluster-1",
+		ProjectID: "project-789",
+
+		Scratchpad: []byte("reasoning data"),
 	}
 
 	err = store.StoreSessionContext(ctx, "cluster-1", session)

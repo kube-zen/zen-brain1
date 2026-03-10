@@ -258,8 +258,8 @@ func (s *Store) ReconstructSession(ctx stdctx.Context, req zenctx.ReMeRequest) (
 	}
 
 	return &zenctx.ReMeResponse{
-		SessionContext: sessionCtx,
-		JournalEntries: []interface{}{}, // No journal entries from Tier 3
+		SessionContext:  sessionCtx,
+		JournalEntries:  []interface{}{}, // No journal entries from Tier 3
 		ReconstructedAt: time.Now(),
 	}, nil
 }
@@ -275,12 +275,12 @@ func (s *Store) Stats(ctx stdctx.Context) (map[zenctx.Tier]interface{}, error) {
 
 	stats := map[zenctx.Tier]interface{}{
 		zenctx.TierCold: map[string]interface{}{
-			"type":            "s3",
-			"bucket":          s.config.Bucket,
-			"cluster_id":      s.config.ClusterID,
-			"session_count":   len(keys),
-			"retention_days":  s.config.RetentionDays,
-			"compression":     s.config.EnableGzip,
+			"type":           "s3",
+			"bucket":         s.config.Bucket,
+			"cluster_id":     s.config.ClusterID,
+			"session_count":  len(keys),
+			"retention_days": s.config.RetentionDays,
+			"compression":    s.config.EnableGzip,
 		},
 	}
 
@@ -516,7 +516,7 @@ func (s *Store) GetGlobalIndex(ctx stdctx.Context) (*GlobalIndex, error) {
 
 // GlobalIndex tracks session locations across clusters.
 type GlobalIndex struct {
-	Version  string                      `json:"version"`
+	Version  string                     `json:"version"`
 	Sessions map[string]SessionLocation `json:"sessions"`
 }
 

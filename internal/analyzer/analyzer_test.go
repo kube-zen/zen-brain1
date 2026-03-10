@@ -28,10 +28,10 @@ func (m *mockLLMProvider) SupportsTools() bool {
 
 func (m *mockLLMProvider) Chat(ctx context.Context, req llm.ChatRequest) (*llm.ChatResponse, error) {
 	return &llm.ChatResponse{
-		Content:         m.response,
+		Content:          m.response,
 		ReasoningContent: "",
-		FinishReason:    "stop",
-		Model:           "mock-model",
+		FinishReason:     "stop",
+		Model:            "mock-model",
 		Usage: &llm.TokenUsage{
 			InputTokens:  10,
 			OutputTokens: 20,
@@ -49,7 +49,7 @@ func (m *mockLLMProvider) Embed(ctx context.Context, req llm.EmbeddingRequest) (
 	if m.embeddingError != nil {
 		return nil, m.embeddingError
 	}
-	
+
 	return &llm.EmbeddingResponse{
 		Embedding: m.embedding,
 		Model:     "mock-embedding-model",
@@ -81,7 +81,7 @@ Confidence: 0.85`,
 
 	config := DefaultConfig()
 	config.EnabledStages = []Stage{StageClassification, StageFinalization} // Minimal pipeline for test
-	
+
 	analyzer, err := New(config, mockLLM, &mockKBStore{})
 	if err != nil {
 		t.Fatalf("Failed to create analyzer: %v", err)
@@ -89,16 +89,16 @@ Confidence: 0.85`,
 
 	// Create a test work item
 	workItem := &contracts.WorkItem{
-		ID:        "TEST-123",
-		Title:     "Test Work Item",
-		Summary:   "Test summary",
-		Body:      "This is a test work item description.",
-		WorkType:  contracts.WorkTypeImplementation,
+		ID:         "TEST-123",
+		Title:      "Test Work Item",
+		Summary:    "Test summary",
+		Body:       "This is a test work item description.",
+		WorkType:   contracts.WorkTypeImplementation,
 		WorkDomain: contracts.DomainCore,
-		Priority:  contracts.PriorityMedium,
-		Status:    contracts.StatusRequested,
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+		Priority:   contracts.PriorityMedium,
+		Status:     contracts.StatusRequested,
+		CreatedAt:  time.Now(),
+		UpdatedAt:  time.Now(),
 		Source: contracts.SourceMetadata{
 			System:    "test",
 			IssueKey:  "TEST-123",
@@ -157,7 +157,7 @@ Confidence: 0.9`,
 
 	config := DefaultConfig()
 	config.EnabledStages = []Stage{StageClassification, StageFinalization}
-	
+
 	analyzer, err := New(config, mockLLM, &mockKBStore{})
 	if err != nil {
 		t.Fatalf("Failed to create analyzer: %v", err)
@@ -166,28 +166,28 @@ Confidence: 0.9`,
 	// Create multiple test work items
 	workItems := []*contracts.WorkItem{
 		{
-			ID:        "TEST-1",
-			Title:     "Test 1",
-			Body:      "First test item",
-			WorkType:  contracts.WorkTypeDocumentation,
+			ID:         "TEST-1",
+			Title:      "Test 1",
+			Body:       "First test item",
+			WorkType:   contracts.WorkTypeDocumentation,
 			WorkDomain: contracts.DomainSDK,
-			Priority:  contracts.PriorityLow,
-			Status:    contracts.StatusRequested,
-			CreatedAt: time.Now(),
+			Priority:   contracts.PriorityLow,
+			Status:     contracts.StatusRequested,
+			CreatedAt:  time.Now(),
 			Source: contracts.SourceMetadata{
 				System:   "test",
 				IssueKey: "TEST-1",
 			},
 		},
 		{
-			ID:        "TEST-2",
-			Title:     "Test 2",
-			Body:      "Second test item",
-			WorkType:  contracts.WorkTypeImplementation,
+			ID:         "TEST-2",
+			Title:      "Test 2",
+			Body:       "Second test item",
+			WorkType:   contracts.WorkTypeImplementation,
 			WorkDomain: contracts.DomainCore,
-			Priority:  contracts.PriorityMedium,
-			Status:    contracts.StatusRequested,
-			CreatedAt: time.Now(),
+			Priority:   contracts.PriorityMedium,
+			Status:     contracts.StatusRequested,
+			CreatedAt:  time.Now(),
 			Source: contracts.SourceMetadata{
 				System:   "test",
 				IssueKey: "TEST-2",
@@ -207,26 +207,26 @@ Confidence: 0.9`,
 	}
 
 	for i, result := range results {
-		t.Logf("Result %d: %s, %d tasks, confidence %.2f", 
+		t.Logf("Result %d: %s, %d tasks, confidence %.2f",
 			i, result.WorkItem.ID, len(result.BrainTaskSpecs), result.Confidence)
 	}
 }
 
 func TestStageProcessors(t *testing.T) {
 	mockLLM := &mockLLMProvider{
-		name: "mock",
+		name:     "mock",
 		response: `Test response for all stages`,
 	}
 
 	workItem := &contracts.WorkItem{
-		ID:        "TEST",
-		Title:     "Test",
-		Body:      "Test body",
-		WorkType:  contracts.WorkTypeImplementation,
+		ID:         "TEST",
+		Title:      "Test",
+		Body:       "Test body",
+		WorkType:   contracts.WorkTypeImplementation,
 		WorkDomain: contracts.DomainCore,
-		Priority:  contracts.PriorityMedium,
-		Status:    contracts.StatusRequested,
-		CreatedAt: time.Now(),
+		Priority:   contracts.PriorityMedium,
+		Status:     contracts.StatusRequested,
+		CreatedAt:  time.Now(),
 		Source: contracts.SourceMetadata{
 			System: "test",
 		},
@@ -260,6 +260,6 @@ func TestStageProcessors(t *testing.T) {
 		t.Errorf("Expected positive estimated cost, got %v", costResult.Output["estimated_cost_usd"])
 	}
 
-	t.Logf("Stage tests passed: classification confidence %.2f, estimated cost $%.2f", 
+	t.Logf("Stage tests passed: classification confidence %.2f, estimated cost $%.2f",
 		classResult.Confidence, costResult.Output["estimated_cost_usd"].(float64))
 }

@@ -17,10 +17,10 @@ type RecommenderInterface = intelligence.FactoryRecommenderInterface
 // FactoryImpl implements the Factory interface.
 // It orchestrates task execution with bounded loops and proof-of-work generation.
 type FactoryImpl struct {
-	workspaceManager    WorkspaceManager
+	workspaceManager   WorkspaceManager
 	executor           Executor
-	proofOfWorkManager  ProofOfWorkManager
-	templateManager   *TemplateManager
+	proofOfWorkManager ProofOfWorkManager
+	templateManager    *TemplateManager
 	runtimeDir         string
 	tasks              map[string]*FactoryTaskSpec
 	tasksMutex         sync.RWMutex
@@ -36,12 +36,12 @@ func NewFactory(
 ) *FactoryImpl {
 	return &FactoryImpl{
 		workspaceManager:   workspaceManager,
-		executor:          executor,
+		executor:           executor,
 		proofOfWorkManager: proofOfWorkManager,
-		templateManager:   NewTemplateManager(),
-		runtimeDir:        runtimeDir,
-		tasks:             make(map[string]*FactoryTaskSpec),
-		recommender:       nil,
+		templateManager:    NewTemplateManager(),
+		runtimeDir:         runtimeDir,
+		tasks:              make(map[string]*FactoryTaskSpec),
+		recommender:        nil,
 	}
 }
 
@@ -202,6 +202,7 @@ func (f *FactoryImpl) CancelTask(ctx context.Context, taskID string) error {
 	// For MVP, we mark the task as canceled
 	return nil
 }
+
 // createExecutionPlan creates a bounded execution plan from task spec using templates.
 func (f *FactoryImpl) createExecutionPlan(spec *FactoryTaskSpec) []*ExecutionStep {
 	// Try to get template for work type
@@ -213,16 +214,10 @@ func (f *FactoryImpl) createExecutionPlan(spec *FactoryTaskSpec) []*ExecutionSte
 	}
 
 	// Expand template variables using task spec
-	rawSteps := f.templateManager.ExpandTemplateVariables(template, spec)
-	steps := make([]*ExecutionStep, len(rawSteps))
-	for i := range rawSteps {
-		steps[i] = &rawSteps[i]
-	}
+	steps := f.templateManager.ExpandTemplateVariables(template, spec)
 
 	log.Printf("[Factory] Created execution plan with %d steps for task %s (work_type=%s)",
 		len(steps), spec.ID, spec.WorkType)
 
 	return steps
 }
-
-

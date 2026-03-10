@@ -22,10 +22,10 @@ type KBStore struct {
 type KBStoreConfig struct {
 	// QMDClient is the qmd client to use for search
 	QMDClient qmdpkg.Client
-	
+
 	// RepoPath is the path to the zen-docs repository
 	RepoPath string
-	
+
 	// Verbose enables verbose logging
 	Verbose bool
 }
@@ -35,21 +35,21 @@ func NewKBStore(config *KBStoreConfig) (*KBStore, error) {
 	if config == nil {
 		return nil, fmt.Errorf("config is required")
 	}
-	
+
 	if config.QMDClient == nil {
 		return nil, fmt.Errorf("qmd client is required")
 	}
-	
+
 	if config.RepoPath == "" {
 		return nil, fmt.Errorf("repo_path is required")
 	}
-	
+
 	store := &KBStore{
 		qmdClient: config.QMDClient,
 		repoPath:  config.RepoPath,
 		verbose:   config.Verbose,
 	}
-	
+
 	return store, nil
 }
 
@@ -59,10 +59,10 @@ func (s *KBStore) Search(ctx context.Context, q kb.SearchQuery) ([]kb.SearchResu
 		log.Printf("[KBStore] Searching: query=%q, scopes=%v, tags=%v, limit=%d",
 			q.Query, q.KBScopes, q.Tags, q.Limit)
 	}
-	
+
 	// Build enhanced query with scopes and tags
 	enhancedQuery := s.buildEnhancedQuery(q)
-	
+
 	// Call qmd search
 	req := qmdpkg.SearchRequest{
 		RepoPath: s.repoPath,
@@ -70,18 +70,18 @@ func (s *KBStore) Search(ctx context.Context, q kb.SearchQuery) ([]kb.SearchResu
 		Limit:    q.Limit,
 		JSON:     true,
 	}
-	
+
 	jsonOutput, err := s.qmdClient.Search(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("qmd search failed: %w", err)
 	}
-	
+
 	// Parse qmd results
 	qmdResults, err := ParseSearchResults(jsonOutput)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse qmd results: %w", err)
 	}
-	
+
 	// Convert to kb.SearchResult format
 	results := make([]kb.SearchResult, 0, len(qmdResults))
 	for _, qr := range qmdResults {
@@ -90,28 +90,28 @@ func (s *KBStore) Search(ctx context.Context, q kb.SearchQuery) ([]kb.SearchResu
 			log.Printf("[KBStore] Warning: failed to convert result: %v", err)
 			continue
 		}
-		
+
 		// Filter by scopes if specified
 		if len(q.KBScopes) > 0 && !s.matchesScopes(kbResult.Doc, q.KBScopes) {
 			continue
 		}
-		
+
 		// Filter by tags if specified
 		if len(q.Tags) > 0 && !s.matchesTags(kbResult.Doc, q.Tags) {
 			continue
 		}
-		
+
 		results = append(results, kb.SearchResult{
 			Doc:     s.convertDocRef(kbResult.Doc),
 			Snippet: kbResult.Snippet,
 			Score:   kbResult.Score,
 		})
 	}
-	
+
 	if s.verbose {
 		log.Printf("[KBStore] Found %d results", len(results))
 	}
-	
+
 	return results, nil
 }
 
@@ -120,42 +120,42 @@ func (s *KBStore) Get(ctx context.Context, id string) (*kb.DocumentRef, error) {
 	if s.verbose {
 		log.Printf("[KBStore] Getting document: id=%q", id)
 	}
-	
+
 	// qmd doesn't have a direct "get by ID" command
 	// We can search for the ID in the query and pick the best match
 	req := kb.SearchQuery{
-		Query:    id,
-		Limit:    1,
+		Query: id,
+		Limit: 1,
 	}
-	
+
 	results, err := s.Search(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to search for document: %w", err)
 	}
-	
+
 	if len(results) == 0 {
 		return nil, fmt.Errorf("document not found: %s", id)
 	}
-	
+
 	return &results[0].Doc, nil
 }
 
 // buildEnhancedQuery builds an enhanced search query that includes scopes and tags.
 func (s *KBStore) buildEnhancedQuery(q kb.SearchQuery) string {
 	query := q.Query
-	
+
 	// Add scope filters to query
 	if len(q.KBScopes) > 0 {
 		scopeText := fmt.Sprintf(" (scope: %s)", joinOr(q.KBScopes))
 		query += scopeText
 	}
-	
+
 	// Add tag filters to query
 	if len(q.Tags) > 0 {
 		tagText := fmt.Sprintf(" (tags: %s)", joinOr(q.Tags))
 		query += tagText
 	}
-	
+
 	return query
 }
 
@@ -164,13 +164,13 @@ func (s *KBStore) matchesScopes(doc DocumentRef, scopes []string) bool {
 	if len(scopes) == 0 {
 		return true
 	}
-	
+
 	// Check if document has a scope that matches
 	for _, scope := range scopes {
 		if doc.Domain == scope {
 			return true
 		}
-		
+
 		// Check tags for scope matches
 		for _, tag := range doc.Tags {
 			if tag == scope {
@@ -178,7 +178,7 @@ func (s *KBStore) matchesScopes(doc DocumentRef, scopes []string) bool {
 			}
 		}
 	}
-	
+
 	return false
 }
 
@@ -187,19 +187,19 @@ func (s *KBStore) matchesTags(doc DocumentRef, tags []string) bool {
 	if len(tags) == 0 {
 		return true
 	}
-	
+
 	// Check if document has all required tags
 	tagMap := make(map[string]bool)
 	for _, tag := range doc.Tags {
 		tagMap[tag] = true
 	}
-	
+
 	for _, requiredTag := range tags {
 		if !tagMap[requiredTag] {
 			return false
 		}
 	}
-	
+
 	return true
 }
 
@@ -220,12 +220,12 @@ func joinOr(items []string) string {
 	if len(items) == 0 {
 		return ""
 	}
-	
+
 	result := items[0]
 	for i := 1; i < len(items); i++ {
 		result += " OR " + items[i]
 	}
-	
+
 	return result
 }
 

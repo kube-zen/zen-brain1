@@ -21,13 +21,13 @@ import (
 type MockClient struct {
 	// SearchResults is a map of query patterns to mock results
 	SearchResults map[string][]byte
-	
+
 	// Verbose enables verbose logging
 	Verbose bool
-	
+
 	// SimulateLatency adds artificial delay to simulate real qmd
 	SimulateLatency time.Duration
-	
+
 	// AlwaysFail makes all operations return errors (for testing)
 	AlwaysFail bool
 }
@@ -36,10 +36,10 @@ type MockClient struct {
 type MockConfig struct {
 	// Verbose enables verbose logging
 	Verbose bool
-	
+
 	// SimulateLatency adds artificial delay (default: 100ms)
 	SimulateLatency time.Duration
-	
+
 	// SearchResults can be pre-populated with mock results
 	SearchResults map[string][]byte
 }
@@ -58,12 +58,12 @@ func NewMockClient(config *MockConfig) (*MockClient, error) {
 	if config == nil {
 		config = DefaultMockConfig()
 	}
-	
+
 	// Initialize with some default search results if none provided
 	if len(config.SearchResults) == 0 {
 		config.SearchResults = defaultSearchResults()
 	}
-	
+
 	return &MockClient{
 		SearchResults:   config.SearchResults,
 		Verbose:         config.Verbose,
@@ -77,12 +77,12 @@ func (m *MockClient) RefreshIndex(ctx context.Context, req qmd.EmbedRequest) err
 	if m.AlwaysFail {
 		return fmt.Errorf("mock qmd: forced failure for RefreshIndex")
 	}
-	
+
 	if m.Verbose {
-		log.Printf("[MockQMD] RefreshIndex: repo=%s, paths=%v", 
+		log.Printf("[MockQMD] RefreshIndex: repo=%s, paths=%v",
 			req.RepoPath, req.Paths)
 	}
-	
+
 	// Simulate latency
 	if m.SimulateLatency > 0 {
 		select {
@@ -91,7 +91,7 @@ func (m *MockClient) RefreshIndex(ctx context.Context, req qmd.EmbedRequest) err
 			return ctx.Err()
 		}
 	}
-	
+
 	return nil
 }
 
@@ -102,12 +102,12 @@ func (m *MockClient) Search(ctx context.Context, req qmd.SearchRequest) ([]byte,
 	if m.AlwaysFail {
 		return nil, fmt.Errorf("mock qmd: forced failure for Search")
 	}
-	
+
 	if m.Verbose {
-		log.Printf("[MockQMD] Search: repo=%s, query=%q, limit=%d, json=%v", 
+		log.Printf("[MockQMD] Search: repo=%s, query=%q, limit=%d, json=%v",
 			req.RepoPath, req.Query, req.Limit, req.JSON)
 	}
-	
+
 	// Simulate latency
 	if m.SimulateLatency > 0 {
 		select {
@@ -116,19 +116,19 @@ func (m *MockClient) Search(ctx context.Context, req qmd.SearchRequest) ([]byte,
 			return nil, ctx.Err()
 		}
 	}
-	
+
 	// Check for exact match in SearchResults
 	if result, ok := m.SearchResults[req.Query]; ok {
 		return result, nil
 	}
-	
+
 	// Check for partial matches
 	for pattern, result := range m.SearchResults {
 		if containsQuery(req.Query, pattern) {
 			return result, nil
 		}
 	}
-	
+
 	// Return generic mock results
 	return genericMockResults(req.Query, req.Limit), nil
 }
@@ -136,7 +136,7 @@ func (m *MockClient) Search(ctx context.Context, req qmd.SearchRequest) ([]byte,
 // defaultSearchResults provides default mock search results for common queries.
 func defaultSearchResults() map[string][]byte {
 	results := make(map[string][]byte)
-	
+
 	// Architecture queries
 	results["three tier architecture"] = []byte(`{
 		"results": [
@@ -153,7 +153,7 @@ func defaultSearchResults() map[string][]byte {
 			}
 		]
 	}`)
-	
+
 	// Factory queries
 	results["factory execution bounded loop"] = []byte(`{
 		"results": [
@@ -170,7 +170,7 @@ func defaultSearchResults() map[string][]byte {
 			}
 		]
 	}`)
-	
+
 	// Jira queries
 	results["jira integration"] = []byte(`{
 		"results": [
@@ -187,7 +187,7 @@ func defaultSearchResults() map[string][]byte {
 			}
 		]
 	}`)
-	
+
 	// Proof of work queries
 	results["proof of work"] = []byte(`{
 		"results": [
@@ -204,7 +204,7 @@ func defaultSearchResults() map[string][]byte {
 			}
 		]
 	}`)
-	
+
 	return results
 }
 
@@ -213,7 +213,7 @@ func genericMockResults(query string, limit int) []byte {
 	if limit <= 0 {
 		limit = 5
 	}
-	
+
 	results := []map[string]interface{}{
 		{
 			"path":    "docs/general/overview.md",
@@ -238,12 +238,12 @@ func genericMockResults(query string, limit int) []byte {
 			},
 		},
 	}
-	
+
 	// Truncate to limit
 	if len(results) > limit {
 		results = results[:limit]
 	}
-	
+
 	// Wrap in "results" object to match qmd JSON format
 	wrapped := map[string]interface{}{
 		"results": results,
@@ -257,17 +257,17 @@ func containsQuery(query, pattern string) bool {
 	// Simple substring matching
 	queryLower := strings.ToLower(query)
 	patternLower := strings.ToLower(pattern)
-	
+
 	// First check if pattern is a substring of query
 	if strings.Contains(queryLower, patternLower) {
 		return true
 	}
-	
+
 	// Also check if query is a substring of pattern (for reversed matches)
 	if strings.Contains(patternLower, queryLower) {
 		return true
 	}
-	
+
 	// For queries with scope suffixes like "(scope: design OR execution)",
 	// try to match the main part before the scope
 	if idx := strings.Index(queryLower, " (scope:"); idx > 0 {
@@ -276,7 +276,7 @@ func containsQuery(query, pattern string) bool {
 			return true
 		}
 	}
-	
+
 	return false
 }
 

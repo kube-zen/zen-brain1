@@ -18,7 +18,7 @@ const ProofOfWorkVersion = "1.0.0"
 // proofOfWorkManagerImpl implements ProofOfWorkManager interface.
 // It manages proof-of-work artifact generation and storage.
 type proofOfWorkManagerImpl struct {
-	runtimeDir  string
+	runtimeDir string
 }
 
 // NewProofOfWorkManager creates a new proof-of-work manager.
@@ -102,7 +102,7 @@ func (p *proofOfWorkManagerImpl) GenerateComment(ctx context.Context, artifact *
 
 	// Use markdown as-is - let the office adapter convert to appropriate format
 	body := string(mdContent)
-	
+
 	// Note: Length limits are system-specific and should be enforced by the office adapter
 	// Factory returns the full canonical comment, adapter truncates if needed for target system
 
@@ -127,10 +127,10 @@ func (p *proofOfWorkManagerImpl) GenerateComment(ctx context.Context, artifact *
 // generateSummary creates a proof-of-work summary from execution result.
 func (p *proofOfWorkManagerImpl) generateSummary(result *ExecutionResult, spec *FactoryTaskSpec) *ProofOfWorkSummary {
 	summary := &ProofOfWorkSummary{
-	Version:           ProofOfWorkVersion,
-		TaskID:           result.TaskID,
+		Version:           ProofOfWorkVersion,
+		TaskID:            result.TaskID,
 		SessionID:         result.SessionID,
-		WorkItemID:       result.WorkItemID,
+		WorkItemID:        result.WorkItemID,
 		SourceKey:         result.WorkItemID, // Same as WorkItemID for MVP
 		SourceSystem:      "",                // Will be populated by office adapter if needed
 		WorkType:          string(spec.WorkType),
@@ -149,16 +149,16 @@ func (p *proofOfWorkManagerImpl) generateSummary(result *ExecutionResult, spec *
 		TestsPassed:       result.TestsPassed,
 		EvidenceItems:     result.SREDEvidence,
 		UnresolvedRisks:   extractRisks(result.SREDEvidence),
-		RecommendedAction:  result.Recommendation,
+		RecommendedAction: result.Recommendation,
 		RequiresApproval:  (result.Recommendation != "merge"),
 		GeneratedAt:       time.Now(),
 		ArtifactPaths: []string{
 			filepath.Join(filepath.Dir(result.WorkspacePath), "proof-of-work", "*.json"),
 			filepath.Join(filepath.Dir(result.WorkspacePath), "proof-of-work", "*.md"),
 		},
-		GitBranch:         "ai/" + result.WorkItemID,
-		GitCommit:         "",
-		PRURL:             "",
+		GitBranch: "ai/" + result.WorkItemID,
+		GitCommit: "",
+		PRURL:     "",
 	}
 
 	// Extract execution steps details
@@ -433,7 +433,7 @@ func (p *proofOfWorkManagerImpl) ListProofOfWorks(ctx context.Context, taskID st
 			MarkdownPath: filepath.Join(proofDir, entry.Name(), "proof-of-work.md"),
 			LogPath:      filepath.Join(proofDir, entry.Name(), "execution.log"),
 			Summary:      &summary,
-			CreatedAt:    func() time.Time {
+			CreatedAt: func() time.Time {
 				info, _ := entry.Info()
 				return info.ModTime()
 			}(),

@@ -14,7 +14,7 @@ import (
 // mockQMDClient is a mock qmd.Client for testing KBStore.
 type mockQMDClient struct {
 	searchResults []SearchResult
-	searchError  error
+	searchError   error
 }
 
 func (m *mockQMDClient) RefreshIndex(ctx context.Context, req qmdpkg.EmbedRequest) error {
@@ -28,9 +28,9 @@ func (m *mockQMDClient) Search(ctx context.Context, req qmdpkg.SearchRequest) ([
 
 	// Convert mock results to JSON
 	type MockResult struct {
-		Path     string   `json:"path"`
-		Title    string   `json:"title"`
-		Score    float64  `json:"score"`
+		Path     string    `json:"path"`
+		Title    string    `json:"title"`
+		Score    float64   `json:"score"`
 		Metadata *Metadata `json:"metadata,omitempty"`
 	}
 
@@ -401,13 +401,13 @@ func TestKBStore_matchesScopes(t *testing.T) {
 
 	doc := DocumentRef{
 		Domain: "architecture",
-		Tags:  []string{"architecture", "core"},
+		Tags:   []string{"architecture", "core"},
 	}
 
 	tests := []struct {
-		name    string
-		scopes  []string
-		want    bool
+		name   string
+		scopes []string
+		want   bool
 	}{
 		{
 			name:   "matching domain",
@@ -452,9 +452,9 @@ func TestKBStore_matchesTags(t *testing.T) {
 	}
 
 	tests := []struct {
-		name   string
-		tags   []string
-		want   bool
+		name string
+		tags []string
+		want bool
 	}{
 		{
 			name: "all tags match",

@@ -55,7 +55,7 @@ Reject:   /reject %s [reason]
 		req.Notes,
 		req.ID,
 		req.ID)
-	
+
 	log.Print(message)
 	return nil
 }
@@ -81,7 +81,7 @@ Reason: %s
 		decision.DecidedBy,
 		decision.DecidedAt.Format("2006-01-02 15:04"),
 		decision.Reason)
-	
+
 	log.Print(message)
 	return nil
 }
@@ -105,7 +105,7 @@ Reminder: This approval request is still pending. Please review.
 		req.EstimatedCostUSD,
 		req.Deadline.Format("2006-01-02 15:04"),
 		time.Until(*req.Deadline).Round(time.Minute))
-	
+
 	log.Print(message)
 	return nil
 }

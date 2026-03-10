@@ -16,51 +16,51 @@ import (
 type AgentRole string
 
 const (
-	RolePlanner   AgentRole = "planner"
-	RoleAnalyzer  AgentRole = "analyzer"
-	RoleWorker    AgentRole = "worker"
-	RoleApprover  AgentRole = "approver"
-	RoleMonitor   AgentRole = "monitor"
+	RolePlanner  AgentRole = "planner"
+	RoleAnalyzer AgentRole = "analyzer"
+	RoleWorker   AgentRole = "worker"
+	RoleApprover AgentRole = "approver"
+	RoleMonitor  AgentRole = "monitor"
 )
 
 // AgentState represents the serializable state of an agent.
 // This is stored in ZenContext SessionContext.State field.
 type AgentState struct {
 	// Identity
-	AgentID     string    `json:"agent_id"`
-	AgentRole   AgentRole `json:"agent_role"`
-	SessionID   string    `json:"session_id"`
-	TaskID      string    `json:"task_id"`
-	
+	AgentID   string    `json:"agent_id"`
+	AgentRole AgentRole `json:"agent_role"`
+	SessionID string    `json:"session_id"`
+	TaskID    string    `json:"task_id"`
+
 	// Current activity
-	CurrentStep string    `json:"current_step,omitempty"`
-	StepStarted time.Time `json:"step_started,omitempty"`
-	StepProgress float64  `json:"step_progress,omitempty"` // 0.0 to 1.0
-	
+	CurrentStep  string    `json:"current_step,omitempty"`
+	StepStarted  time.Time `json:"step_started,omitempty"`
+	StepProgress float64   `json:"step_progress,omitempty"` // 0.0 to 1.0
+
 	// Reasoning context
-	WorkingMemory []string          `json:"working_memory,omitempty"` // Recent thoughts/decisions
-	Decisions     []AgentDecision   `json:"decisions,omitempty"`
+	WorkingMemory []string           `json:"working_memory,omitempty"` // Recent thoughts/decisions
+	Decisions     []AgentDecision    `json:"decisions,omitempty"`
 	Observations  []AgentObservation `json:"observations,omitempty"`
-	
+
 	// Knowledge references
 	KnowledgeChunkIDs []string `json:"knowledge_chunk_ids,omitempty"` // IDs of retrieved KB chunks
 	KnowledgeQueries  []string `json:"knowledge_queries,omitempty"`   // Queries made during session
-	
+
 	// Model usage
-	ModelUsed    string    `json:"model_used,omitempty"`
-	TokenCount   int       `json:"token_count,omitempty"`
+	ModelUsed     string    `json:"model_used,omitempty"`
+	TokenCount    int       `json:"token_count,omitempty"`
 	LastModelCall time.Time `json:"last_model_call,omitempty"`
-	
+
 	// Performance metrics
-	StepsCompleted int       `json:"steps_completed"`
+	StepsCompleted    int          `json:"steps_completed"`
 	ErrorsEncountered []AgentError `json:"errors_encountered,omitempty"`
-	RetryCount     int       `json:"retry_count,omitempty"`
-	
+	RetryCount        int          `json:"retry_count,omitempty"`
+
 	// Timestamps
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
 	LastHeartbeat time.Time `json:"last_heartbeat,omitempty"`
-	
+
 	// Completion state
 	IsComplete   bool      `json:"is_complete"`
 	CompletedAt  time.Time `json:"completed_at,omitempty"`
@@ -70,47 +70,47 @@ type AgentState struct {
 
 // AgentDecision represents a decision made by the agent.
 type AgentDecision struct {
-	ID          string    `json:"id"`
-	Decision    string    `json:"decision"`
-	Reason      string    `json:"reason"`
-	Alternatives []string `json:"alternatives,omitempty"`
-	Confidence  float64   `json:"confidence"` // 0.0 to 1.0
-	MadeAt      time.Time `json:"made_at"`
+	ID           string    `json:"id"`
+	Decision     string    `json:"decision"`
+	Reason       string    `json:"reason"`
+	Alternatives []string  `json:"alternatives,omitempty"`
+	Confidence   float64   `json:"confidence"` // 0.0 to 1.0
+	MadeAt       time.Time `json:"made_at"`
 }
 
 // AgentObservation represents something the agent observed.
 type AgentObservation struct {
-	ID          string    `json:"id"`
-	Observation string    `json:"observation"`
-	Source      string    `json:"source"` // "system", "user", "tool", "knowledge"
-	Timestamp   time.Time `json:"timestamp"`
-	Significance float64  `json:"significance"` // 0.0 to 1.0
+	ID           string    `json:"id"`
+	Observation  string    `json:"observation"`
+	Source       string    `json:"source"` // "system", "user", "tool", "knowledge"
+	Timestamp    time.Time `json:"timestamp"`
+	Significance float64   `json:"significance"` // 0.0 to 1.0
 }
 
 // AgentError represents an error encountered by the agent.
 type AgentError struct {
-	ID          string    `json:"id"`
-	Error       string    `json:"error"`
-	Step        string    `json:"step"`
-	Recovered   bool      `json:"recovered"`
-	RecoveryAction string `json:"recovery_action,omitempty"`
-	OccurredAt  time.Time `json:"occurred_at"`
+	ID             string    `json:"id"`
+	Error          string    `json:"error"`
+	Step           string    `json:"step"`
+	Recovered      bool      `json:"recovered"`
+	RecoveryAction string    `json:"recovery_action,omitempty"`
+	OccurredAt     time.Time `json:"occurred_at"`
 }
 
 // NewAgentState creates a new agent state for a session.
 func NewAgentState(agentID string, role AgentRole, sessionID, taskID string) *AgentState {
 	now := time.Now()
 	return &AgentState{
-		AgentID:      agentID,
-		AgentRole:    role,
-		SessionID:    sessionID,
-		TaskID:       taskID,
-		CreatedAt:    now,
-		UpdatedAt:    now,
-		LastHeartbeat: now,
-		IsComplete:   false,
+		AgentID:        agentID,
+		AgentRole:      role,
+		SessionID:      sessionID,
+		TaskID:         taskID,
+		CreatedAt:      now,
+		UpdatedAt:      now,
+		LastHeartbeat:  now,
+		IsComplete:     false,
 		StepsCompleted: 0,
-		RetryCount:   0,
+		RetryCount:     0,
 	}
 }
 
@@ -161,12 +161,12 @@ func (s *AgentState) CompleteStep() {
 // AddDecision records a decision made by the agent.
 func (s *AgentState) AddDecision(decision, reason string, confidence float64, alternatives []string) {
 	dec := AgentDecision{
-		ID:          fmt.Sprintf("decision-%d", len(s.Decisions)+1),
-		Decision:    decision,
-		Reason:      reason,
+		ID:           fmt.Sprintf("decision-%d", len(s.Decisions)+1),
+		Decision:     decision,
+		Reason:       reason,
 		Alternatives: alternatives,
-		Confidence:  confidence,
-		MadeAt:      time.Now(),
+		Confidence:   confidence,
+		MadeAt:       time.Now(),
 	}
 	s.Decisions = append(s.Decisions, dec)
 	s.UpdatedAt = time.Now()
@@ -175,10 +175,10 @@ func (s *AgentState) AddDecision(decision, reason string, confidence float64, al
 // AddObservation records an observation made by the agent.
 func (s *AgentState) AddObservation(observation, source string, significance float64) {
 	obs := AgentObservation{
-		ID:          fmt.Sprintf("observation-%d", len(s.Observations)+1),
-		Observation: observation,
-		Source:      source,
-		Timestamp:   time.Now(),
+		ID:           fmt.Sprintf("observation-%d", len(s.Observations)+1),
+		Observation:  observation,
+		Source:       source,
+		Timestamp:    time.Now(),
 		Significance: significance,
 	}
 	s.Observations = append(s.Observations, obs)
@@ -188,12 +188,12 @@ func (s *AgentState) AddObservation(observation, source string, significance flo
 // AddError records an error encountered by the agent.
 func (s *AgentState) AddError(errStr, step string, recovered bool, recoveryAction string) {
 	err := AgentError{
-		ID:            fmt.Sprintf("error-%d", len(s.ErrorsEncountered)+1),
-		Error:         errStr,
-		Step:          step,
-		Recovered:     recovered,
+		ID:             fmt.Sprintf("error-%d", len(s.ErrorsEncountered)+1),
+		Error:          errStr,
+		Step:           step,
+		Recovered:      recovered,
 		RecoveryAction: recoveryAction,
-		OccurredAt:    time.Now(),
+		OccurredAt:     time.Now(),
 	}
 	s.ErrorsEncountered = append(s.ErrorsEncountered, err)
 	s.UpdatedAt = time.Now()
@@ -238,7 +238,7 @@ func (s *AgentState) Complete(result, reason string) {
 
 // StateManager manages agent state persistence in ZenContext.
 type StateManager struct {
-	zenctx zenctx.ZenContext
+	zenctx    zenctx.ZenContext
 	clusterID string
 }
 
@@ -258,13 +258,13 @@ func (m *StateManager) StoreAgentState(ctx context.Context, state *AgentState) e
 	if m.zenctx == nil {
 		return fmt.Errorf("ZenContext not configured")
 	}
-	
+
 	// Serialize state
 	stateBytes, err := state.Serialize()
 	if err != nil {
 		return fmt.Errorf("failed to serialize agent state: %w", err)
 	}
-	
+
 	// Get or create SessionContext
 	sessionCtx, err := m.zenctx.GetSessionContext(ctx, m.clusterID, state.SessionID)
 	if err != nil || sessionCtx == nil {
@@ -280,16 +280,16 @@ func (m *StateManager) StoreAgentState(ctx context.Context, state *AgentState) e
 		}
 		sessionCtx = resp.SessionContext
 	}
-	
+
 	// Update SessionContext with agent state
 	sessionCtx.State = stateBytes
 	sessionCtx.LastAccessedAt = time.Now()
-	
+
 	// Store back to ZenContext
 	if err := m.zenctx.StoreSessionContext(ctx, m.clusterID, sessionCtx); err != nil {
 		return fmt.Errorf("failed to store session context: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -298,7 +298,7 @@ func (m *StateManager) LoadAgentState(ctx context.Context, sessionID string) (*A
 	if m.zenctx == nil {
 		return nil, fmt.Errorf("ZenContext not configured")
 	}
-	
+
 	// Try to get SessionContext directly
 	sessionCtx, err := m.zenctx.GetSessionContext(ctx, m.clusterID, sessionID)
 	if err != nil || sessionCtx == nil {
@@ -313,18 +313,18 @@ func (m *StateManager) LoadAgentState(ctx context.Context, sessionID string) (*A
 		}
 		sessionCtx = resp.SessionContext
 	}
-	
+
 	// If no state stored, return nil (not an error)
 	if len(sessionCtx.State) == 0 {
 		return nil, nil
 	}
-	
+
 	// Deserialize agent state
 	state, err := DeserializeAgentState(sessionCtx.State)
 	if err != nil {
 		return nil, fmt.Errorf("failed to deserialize agent state: %w", err)
 	}
-	
+
 	return state, nil
 }
 
@@ -333,25 +333,25 @@ func (m *StateManager) QueryKnowledge(ctx context.Context, sessionID string, que
 	if m.zenctx == nil {
 		return nil, fmt.Errorf("ZenContext not configured")
 	}
-	
+
 	// Load agent state first
 	agentState, err := m.LoadAgentState(ctx, sessionID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load agent state: %w", err)
 	}
-	
+
 	// Execute query
 	opts := zenctx.QueryOptions{
-		Query:   query,
-		Scopes:  scopes,
-		Limit:   limit,
+		Query:  query,
+		Scopes: scopes,
+		Limit:  limit,
 	}
-	
+
 	chunks, err := m.zenctx.QueryKnowledge(ctx, opts)
 	if err != nil {
 		return nil, fmt.Errorf("knowledge query failed: %w", err)
 	}
-	
+
 	// Record query and chunk references in agent state
 	if agentState != nil {
 		agentState.RecordKnowledgeQuery(query)
@@ -364,7 +364,7 @@ func (m *StateManager) QueryKnowledge(ctx context.Context, sessionID string, que
 			fmt.Printf("Warning: failed to store agent state after knowledge query: %v\n", err)
 		}
 	}
-	
+
 	return chunks, nil
 }
 
@@ -374,19 +374,19 @@ func (m *StateManager) ReconstructAgent(ctx context.Context, sessionID, taskID s
 	if m.zenctx == nil {
 		return nil, nil, fmt.Errorf("ZenContext not configured")
 	}
-	
+
 	// Reconstruct session using ReMe protocol
 	req := zenctx.ReMeRequest{
 		SessionID: sessionID,
 		TaskID:    taskID,
 		ClusterID: m.clusterID,
 	}
-	
+
 	resp, err := m.zenctx.ReconstructSession(ctx, req)
 	if err != nil {
 		return nil, nil, fmt.Errorf("ReMe reconstruction failed: %w", err)
 	}
-	
+
 	// Deserialize agent state if exists
 	var agentState *AgentState
 	if len(resp.SessionContext.State) > 0 {
@@ -396,11 +396,11 @@ func (m *StateManager) ReconstructAgent(ctx context.Context, sessionID, taskID s
 			fmt.Printf("Warning: failed to deserialize agent state: %v\n", err)
 		}
 	}
-	
+
 	// If no agent state exists, create fresh one
 	if agentState == nil {
 		agentState = NewAgentState("", RolePlanner, sessionID, taskID)
 	}
-	
+
 	return agentState, resp.SessionContext.RelevantKnowledge, nil
 }

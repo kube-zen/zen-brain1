@@ -16,7 +16,7 @@ type mockProvider struct {
 	errMsg    string
 }
 
-func (m *mockProvider) Name() string { return m.name }
+func (m *mockProvider) Name() string        { return m.name }
 func (m *mockProvider) SupportsTools() bool { return true }
 func (m *mockProvider) Chat(ctx context.Context, req llm.ChatRequest) (*llm.ChatResponse, error) {
 	if m.shouldErr {
@@ -142,15 +142,15 @@ func TestExecuteWithFallback(t *testing.T) {
 	// Execute with fallback (prefers local-worker which fails, should fall back to planner)
 	ctx := context.Background()
 	resp, err := ExecuteWithFallback(ctx, chain, providers, req, "local-worker", nil, false)
-	
+
 	if err != nil {
 		t.Fatalf("ExecuteWithFallback failed: %v", err)
 	}
-	
+
 	if resp == nil {
 		t.Fatal("Expected response from planner provider")
 	}
-	
+
 	expectedContent := "Mock response from planner"
 	if resp.Content != expectedContent {
 		t.Errorf("Expected content %q, got %q", expectedContent, resp.Content)
@@ -159,29 +159,29 @@ func TestExecuteWithFallback(t *testing.T) {
 
 func TestRetryConfig(t *testing.T) {
 	config := RetryConfig()
-	
+
 	if config.MaxAttempts != 3 {
 		t.Errorf("Expected MaxAttempts=3, got %d", config.MaxAttempts)
 	}
-	
+
 	if config.InitialDelay != 200*time.Millisecond {
 		t.Errorf("Expected InitialDelay=200ms, got %v", config.InitialDelay)
 	}
-	
+
 	if config.MaxDelay != 5*time.Second {
 		t.Errorf("Expected MaxDelay=5s, got %v", config.MaxDelay)
 	}
-	
+
 	if !config.Jitter {
 		t.Error("Expected Jitter=true")
 	}
-	
+
 	// Test retryable errors function
 	retryableErr := errors.New("rate limit exceeded")
 	if !config.RetryableErrors(retryableErr) {
 		t.Error("Expected rate limit error to be retryable")
 	}
-	
+
 	nonRetryableErr := errors.New("invalid input")
 	if config.RetryableErrors(nonRetryableErr) {
 		t.Error("Expected invalid input to be non-retryable")
@@ -199,17 +199,17 @@ func TestSmartProviderOrder(t *testing.T) {
 		},
 		EnableSmartRouting: true,
 	}
-	
+
 	chain := NewDefaultFallbackChain(config, func(name string) bool {
 		return name == "local" || name == "cloud"
 	})
-	
+
 	// Test with tokens within local limit
 	order := chain.ProviderOrderForContext("", 3000, nil, false)
 	if len(order) == 0 || order[0] != "local" {
 		t.Errorf("Expected local first for 3000 tokens, got %v", order)
 	}
-	
+
 	// Test with tokens exceeding local limit
 	order = chain.ProviderOrderForContext("", 5000, nil, false)
 	if len(order) == 0 || order[0] != "cloud" {
@@ -222,16 +222,16 @@ func TestSessionContextAwareRouting(t *testing.T) {
 	chain := NewDefaultFallbackChain(config, func(name string) bool {
 		return name == "local-worker" || name == "planner" || name == "special"
 	})
-	
+
 	// Test with session context that includes special provider
 	sessionContext := []string{"special", "planner"}
 	order := chain.ProviderOrderForContext("", 3000, sessionContext, false)
-	
+
 	// Should prefer session context providers
 	if len(order) == 0 {
 		t.Error("Expected providers from session context")
 	}
-	
+
 	// Check that providers are from session context
 	for _, provider := range order {
 		found := false

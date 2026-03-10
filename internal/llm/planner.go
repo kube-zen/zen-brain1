@@ -39,7 +39,7 @@ func (p *PlannerProvider) SupportsTools() bool {
 // Chat sends a chat request to the planner.
 func (p *PlannerProvider) Chat(ctx context.Context, req llm.ChatRequest) (*llm.ChatResponse, error) {
 	startTime := time.Now()
-	
+
 	// Apply provider timeout
 	timeout := time.Duration(p.timeout) * time.Second
 	ctx, cancel := context.WithTimeout(ctx, timeout)
@@ -58,7 +58,7 @@ func (p *PlannerProvider) Chat(ctx context.Context, req llm.ChatRequest) (*llm.C
 
 	// Generate a comprehensive, planning-oriented response
 	content := generatePlannerResponse(req)
-	
+
 	// Check if tools were requested - planner is more likely to use tools
 	var toolCalls []llm.ToolCall
 	if len(req.Tools) > 0 && shouldCallPlannerTools(req) {
@@ -71,11 +71,11 @@ func (p *PlannerProvider) Chat(ctx context.Context, req llm.ChatRequest) (*llm.C
 	latency := time.Since(startTime).Milliseconds()
 
 	resp := &llm.ChatResponse{
-		Content:         content,
+		Content:          content,
 		ReasoningContent: reasoningContent,
-		FinishReason:    "stop",
-		Model:           p.model,
-		ToolCalls:       toolCalls,
+		FinishReason:     "stop",
+		Model:            p.model,
+		ToolCalls:        toolCalls,
 		Usage: &llm.TokenUsage{
 			InputTokens:  estimatePlannerTokens(req.Messages),
 			OutputTokens: estimateTokensFromContent(content) + estimateTokensFromContent(reasoningContent),
@@ -111,10 +111,10 @@ func generatePlannerResponse(req llm.ChatRequest) string {
 	}
 
 	lastMessage := req.Messages[len(req.Messages)-1].Content
-	
+
 	// Check for specific planning-related queries
 	lowerMsg := strings.ToLower(lastMessage)
-	
+
 	switch {
 	case strings.Contains(lowerMsg, "plan") || strings.Contains(lowerMsg, "strategy"):
 		return `Based on your request, I recommend a phased approach:
@@ -192,7 +192,7 @@ This design balances complexity with maintainability.`
 3. Create a phased implementation plan
 4. Establish success metrics and checkpoints
 
-Would you like me to elaborate on any of these aspects or proceed with creating a detailed plan?`, 
+Would you like me to elaborate on any of these aspects or proceed with creating a detailed plan?`,
 			truncateString(lastMessage, 150))
 	}
 }
@@ -244,7 +244,7 @@ func generatePlannerToolCalls(req llm.ChatRequest) []llm.ToolCall {
 
 	// Planner might call multiple tools for complex tasks
 	toolCalls := make([]llm.ToolCall, 0, min(3, len(req.Tools)))
-	
+
 	for i, tool := range req.Tools {
 		if i >= 3 { // Limit to 3 tool calls
 			break

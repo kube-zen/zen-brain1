@@ -3,9 +3,9 @@
 //
 // In Zen-Brain 1.0, qmd is used as a CLI tool with JSON output; no MCP integration
 // is required. The primary flow is:
-//   1. qmd indexes the `zen-docs` repository.
-//   2. Agents query qmd via CLI with `--json` flag.
-//   3. Results are parsed and used for planning/execution.
+//  1. qmd indexes the `zen-docs` repository.
+//  2. Agents query qmd via CLI with `--json` flag.
+//  3. Results are parsed and used for planning/execution.
 //
 // This interface abstracts the qmd interaction, allowing later replacement
 // with a direct Go binding or a different search backend.
@@ -23,10 +23,10 @@ type EmbedRequest struct {
 
 // SearchRequest defines a search request.
 type SearchRequest struct {
-	RepoPath string   `json:"repo_path"`
-	Query    string   `json:"query"`
-	Limit    int      `json:"limit,omitempty"`
-	JSON     bool     `json:"json,omitempty"`
+	RepoPath string `json:"repo_path"`
+	Query    string `json:"query"`
+	Limit    int    `json:"limit,omitempty"`
+	JSON     bool   `json:"json,omitempty"`
 }
 
 // Client is the interface for interacting with qmd.

@@ -20,7 +20,7 @@ type ExecutionStepTemplate struct {
 	Description string
 	Command     string            // Template with {{.var}} placeholders
 	Variables   map[string]string // Key-value pairs for template expansion
-	Timeout     int  // seconds
+	Timeout     int               // seconds
 	MaxRetries  int
 }
 
@@ -106,8 +106,8 @@ func (r *WorkTypeTemplateRegistry) registerTemplate(template *WorkTypeTemplate) 
 // registerDefaultTemplate registers a fallback template for unknown work types.
 func (r *WorkTypeTemplateRegistry) registerDefaultTemplate() {
 	template := &WorkTypeTemplate{
-		WorkType:   "default",
-		WorkDomain: "",
+		WorkType:    "default",
+		WorkDomain:  "",
 		Description: "Default execution plan for unknown work types",
 		Steps: []ExecutionStepTemplate{
 			{

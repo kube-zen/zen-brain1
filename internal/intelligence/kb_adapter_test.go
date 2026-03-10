@@ -15,11 +15,11 @@ func TestKBPatternAdapter_StorePatternSummary(t *testing.T) {
 		adapter := NewKBPatternAdapter(nil)
 
 		result := &MiningResult{
-			StartTime: time.Now(),
-			EndTime:   time.Now().Add(time.Hour),
-			Duration:  time.Hour,
-			ArtifactsFound: 5,
-			ArtifactsMined: 4,
+			StartTime:         time.Now(),
+			EndTime:           time.Now().Add(time.Hour),
+			Duration:          time.Hour,
+			ArtifactsFound:    5,
+			ArtifactsMined:    4,
 			PatternsExtracted: 10,
 		}
 
@@ -32,25 +32,25 @@ func TestKBPatternAdapter_StorePatternSummary(t *testing.T) {
 		adapter := NewKBPatternAdapter(nil)
 
 		result := &MiningResult{
-			StartTime: time.Date(2026, 3, 9, 12, 0, 0, 0, time.UTC),
-			EndTime:   time.Date(2026, 3, 9, 13, 0, 0, 0, time.UTC),
-			Duration:  time.Hour,
-			ArtifactsFound: 10,
-			ArtifactsMined: 8,
+			StartTime:         time.Date(2026, 3, 9, 12, 0, 0, 0, time.UTC),
+			EndTime:           time.Date(2026, 3, 9, 13, 0, 0, 0, time.UTC),
+			Duration:          time.Hour,
+			ArtifactsFound:    10,
+			ArtifactsMined:    8,
 			PatternsExtracted: 15,
 			WorkTypeStatistics: []WorkTypeStatistics{
 				{
-					WorkType:       "implementation",
-					WorkDomain:     "factory",
-					TotalRuns:      10,
-					SuccessfulRuns: 9,
+					WorkType:        "implementation",
+					WorkDomain:      "factory",
+					TotalRuns:       10,
+					SuccessfulRuns:  9,
 					AverageDuration: 5 * time.Minute,
 				},
 				{
-					WorkType:       "bugfix",
-					WorkDomain:     "core",
-					TotalRuns:      5,
-					SuccessfulRuns: 2,
+					WorkType:        "bugfix",
+					WorkDomain:      "core",
+					TotalRuns:       5,
+					SuccessfulRuns:  2,
 					AverageDuration: 8 * time.Minute,
 				},
 			},
@@ -70,11 +70,11 @@ func TestKBPatternAdapter_StorePatternSummary(t *testing.T) {
 			},
 			DurationStatistics: []DurationStatistics{
 				{
-					WorkType:      "implementation",
-					WorkDomain:    "factory",
-					Samples:       []time.Duration{4*time.Minute, 5*time.Minute, 6*time.Minute},
-					P95Duration:   6 * time.Minute,
-					P99Duration:   6 * time.Minute,
+					WorkType:    "implementation",
+					WorkDomain:  "factory",
+					Samples:     []time.Duration{4 * time.Minute, 5 * time.Minute, 6 * time.Minute},
+					P95Duration: 6 * time.Minute,
+					P99Duration: 6 * time.Minute,
 				},
 			},
 		}
@@ -139,10 +139,10 @@ func TestKBPatternAdapter_StorePatternSummary(t *testing.T) {
 				Duration:  time.Hour,
 				WorkTypeStatistics: []WorkTypeStatistics{
 					{
-						WorkType:       "implementation",
-						WorkDomain:     "factory",
-						TotalRuns:      5,
-						SuccessfulRuns: 5,
+						WorkType:        "implementation",
+						WorkDomain:      "factory",
+						TotalRuns:       5,
+						SuccessfulRuns:  5,
 						AverageDuration: 15 * time.Minute, // Slow
 					},
 				},
@@ -218,19 +218,19 @@ func TestPatternDocument_FormatDocument(t *testing.T) {
 	now := time.Date(2026, 3, 9, 12, 0, 0, 0, time.UTC)
 
 	result := &MiningResult{
-		StartTime: now,
-		EndTime:   now.Add(time.Hour),
-		Duration:  time.Hour,
-		ArtifactsFound: 10,
-		ArtifactsMined: 8,
+		StartTime:         now,
+		EndTime:           now.Add(time.Hour),
+		Duration:          time.Hour,
+		ArtifactsFound:    10,
+		ArtifactsMined:    8,
 		PatternsExtracted: 15,
 		WorkTypeStatistics: []WorkTypeStatistics{
 			{
-				WorkType:       "implementation",
-				WorkDomain:     "factory",
-				TotalRuns:      10,
-				SuccessfulRuns: 9,
-				SuccessRate:    0.9, // Explicitly set for test
+				WorkType:        "implementation",
+				WorkDomain:      "factory",
+				TotalRuns:       10,
+				SuccessfulRuns:  9,
+				SuccessRate:     0.9, // Explicitly set for test
 				AverageDuration: 5 * time.Minute,
 			},
 		},

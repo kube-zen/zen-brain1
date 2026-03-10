@@ -39,7 +39,7 @@ func (p *LocalWorkerProvider) SupportsTools() bool {
 // Chat sends a chat request to the local worker.
 func (p *LocalWorkerProvider) Chat(ctx context.Context, req llm.ChatRequest) (*llm.ChatResponse, error) {
 	startTime := time.Now()
-	
+
 	// Apply provider timeout
 	timeout := time.Duration(p.timeout) * time.Second
 	ctx, cancel := context.WithTimeout(ctx, timeout)
@@ -58,7 +58,7 @@ func (p *LocalWorkerProvider) Chat(ctx context.Context, req llm.ChatRequest) (*l
 
 	// Generate a simple response
 	content := generateLocalWorkerResponse(req)
-	
+
 	// Check if tools were requested
 	var toolCalls []llm.ToolCall
 	if len(req.Tools) > 0 && shouldCallTools(req) {
@@ -107,7 +107,7 @@ func generateLocalWorkerResponse(req llm.ChatRequest) string {
 	}
 
 	lastMessage := req.Messages[len(req.Messages)-1].Content
-	
+
 	// Simple response generation based on input
 	// In production, this would be replaced with actual model inference
 	if strings.Contains(strings.ToLower(lastMessage), "hello") || strings.Contains(strings.ToLower(lastMessage), "hi") {
@@ -123,7 +123,7 @@ func generateLocalWorkerResponse(req llm.ChatRequest) string {
 	}
 
 	// Default response
-	return fmt.Sprintf("I've processed your request about: %s...\n\nAs a local worker, I can handle this task efficiently.", 
+	return fmt.Sprintf("I've processed your request about: %s...\n\nAs a local worker, I can handle this task efficiently.",
 		truncateString(lastMessage, 100))
 }
 

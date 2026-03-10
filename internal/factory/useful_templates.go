@@ -21,8 +21,8 @@ func (r *WorkTypeTemplateRegistry) registerUsefulTemplates() {
 // registerRealImplementationTemplate creates a template that generates real files.
 func (r *WorkTypeTemplateRegistry) registerRealImplementationTemplate() {
 	template := &WorkTypeTemplate{
-		WorkType:   "implementation",
-		WorkDomain: "real",
+		WorkType:    "implementation",
+		WorkDomain:  "real",
 		Description: "Real implementation: creates actual files, documentation, and tests",
 		Steps: []ExecutionStepTemplate{
 			{
@@ -73,8 +73,8 @@ func (r *WorkTypeTemplateRegistry) registerRealImplementationTemplate() {
 // registerRealDocumentationTemplate creates a template for documentation work.
 func (r *WorkTypeTemplateRegistry) registerRealDocumentationTemplate() {
 	template := &WorkTypeTemplate{
-		WorkType:   "docs",
-		WorkDomain: "real",
+		WorkType:    "docs",
+		WorkDomain:  "real",
 		Description: "Real documentation: creates actual markdown files with content",
 		Steps: []ExecutionStepTemplate{
 			{
@@ -117,8 +117,8 @@ func (r *WorkTypeTemplateRegistry) registerRealDocumentationTemplate() {
 // registerRealBugFixTemplate creates a template for bug fixes.
 func (r *WorkTypeTemplateRegistry) registerRealBugFixTemplate() {
 	template := &WorkTypeTemplate{
-		WorkType:   "bugfix",
-		WorkDomain: "real",
+		WorkType:    "bugfix",
+		WorkDomain:  "real",
 		Description: "Real bug fix: creates analysis, fix code, tests, and documentation",
 		Steps: []ExecutionStepTemplate{
 			{
@@ -161,8 +161,8 @@ func (r *WorkTypeTemplateRegistry) registerRealBugFixTemplate() {
 // registerRealRefactorTemplate creates a template for code refactoring.
 func (r *WorkTypeTemplateRegistry) registerRealRefactorTemplate() {
 	template := &WorkTypeTemplate{
-		WorkType:   "refactor",
-		WorkDomain: "real",
+		WorkType:    "refactor",
+		WorkDomain:  "real",
 		Description: "Real refactoring: creates analysis, refactored code, tests, and documentation",
 		Steps: []ExecutionStepTemplate{
 			{
@@ -205,8 +205,8 @@ func (r *WorkTypeTemplateRegistry) registerRealRefactorTemplate() {
 // registerRealPythonTemplate creates a template for Python implementation.
 func (r *WorkTypeTemplateRegistry) registerRealPythonTemplate() {
 	template := &WorkTypeTemplate{
-		WorkType:   "implementation",
-		WorkDomain: "python",
+		WorkType:    "implementation",
+		WorkDomain:  "python",
 		Description: "Real Python implementation: creates Python project with source code, tests, and documentation",
 		Steps: []ExecutionStepTemplate{
 			{
@@ -320,17 +320,17 @@ This is the implementation for work item %s.
 
 ## Structure
 
-- ` + "`cmd" + ` - Command-line applications
-- ` + "`internal" + ` - Internal packages
-- ` + "`pkg" + ` - Public packages
-- ` + "`docs" + ` - Documentation
-- ` + "`tests" + ` - Tests
+- `+"`cmd"+` - Command-line applications
+- `+"`internal"+` - Internal packages
+- `+"`pkg"+` - Public packages
+- `+"`docs"+` - Documentation
+- `+"`tests"+` - Tests
 
 ## Getting Started
 
-1. Install dependencies: ` + "`go mod download`" + `
-2. Run tests: ` + "`go test ./...`" + `
-3. Build: ` + "`go build ./...`" + `
+1. Install dependencies: `+"`go mod download`"+`
+2. Run tests: `+"`go test ./...`"+`
+3. Build: `+"`go build ./...`"+`
 
 ## Generated
 
@@ -499,7 +499,7 @@ This document describes the API for %s.
 
 ### Feature
 
-The ` + "`Feature`" + ` type is the main component that implements the feature logic.
+The `+"`Feature`"+` type is the main component that implements the feature logic.
 
 #### Methods
 
@@ -507,29 +507,29 @@ The ` + "`Feature`" + ` type is the main component that implements the feature l
 
 Creates a new feature instance.
 
-` + "```go" + `
+`+"```go"+`
 func NewFeature() *Feature
-` + "```" + `
+`+"```"+`
 
 ##### Initialize()
 
 Initializes the feature.
 
-` + "```go" + `
+`+"```go"+`
 func (f *Feature) Initialize() error
-` + "```" + `
+`+"```"+`
 
 ##### Execute()
 
 Executes the feature logic.
 
-` + "```go" + `
+`+"```go"+`
 func (f *Feature) Execute() error
-` + "```" + `
+`+"```"+`
 
 ## Usage Example
 
-` + "```go" + `
+`+"```go"+`
 package main
 
 import (
@@ -551,7 +551,7 @@ func main() {
 	
 	fmt.Println("Feature executed successfully")
 }
-` + "```" + `
+`+"```"+`
 `, title, workItemID)
 
 	apiDocPath := filepath.Join(workspacePath, "docs", "API.md")
@@ -590,18 +590,18 @@ func generateProofOfWorkSummary(workItemID, title string) ([]string, error) {
 ## Files Created
 
 ### Configuration
-- ` + "`go.mod`" + ` - Go module definition
+- `+"`go.mod`"+` - Go module definition
 
 ### Source Code
-- ` + "`cmd/main.go`" + ` - Main application entry point
-- ` + "`internal/feature.go`" + ` - Core feature implementation
+- `+"`cmd/main.go`"+` - Main application entry point
+- `+"`internal/feature.go`"+` - Core feature implementation
 
 ### Documentation
-- ` + "`README.md`" + ` - Project overview and getting started
-- ` + "`docs/API.md`" + ` - API documentation
+- `+"`README.md`"+` - Project overview and getting started
+- `+"`docs/API.md`"+` - API documentation
 
 ### Tests
-- ` + "`internal/feature_test.go`" + ` - Feature tests
+- `+"`internal/feature_test.go`"+` - Feature tests
 
 ## Next Steps
 

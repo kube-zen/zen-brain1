@@ -51,14 +51,14 @@ type TimeRangeEntry struct {
 // NewQueryIndex creates a new empty query index.
 func NewQueryIndex() *QueryIndex {
 	return &QueryIndex{
-		ByEventType:      make(map[journal.EventType][]uint64),
-		ByCorrelationID:  make(map[string][]uint64),
+		ByEventType:     make(map[journal.EventType][]uint64),
+		ByCorrelationID: make(map[string][]uint64),
 		ByTaskID:        make(map[string][]uint64),
-		BySessionID:      make(map[string][]uint64),
-		BySREDTag:        make(map[contracts.SREDTag][]uint64),
-		ByTimestamp:      make([]TimeRangeEntry, 0),
-		ByClusterID:      make(map[string][]uint64),
-		ByProjectID:      make(map[string][]uint64),
+		BySessionID:     make(map[string][]uint64),
+		BySREDTag:       make(map[contracts.SREDTag][]uint64),
+		ByTimestamp:     make([]TimeRangeEntry, 0),
+		ByClusterID:     make(map[string][]uint64),
+		ByProjectID:     make(map[string][]uint64),
 	}
 }
 
@@ -338,27 +338,27 @@ func (idx *QueryIndex) Stats() IndexStats {
 	defer idx.mu.RUnlock()
 
 	return IndexStats{
-		TotalEntries:    len(idx.ByTimestamp),
-		TotalEventTypes:  len(idx.ByEventType),
+		TotalEntries:      len(idx.ByTimestamp),
+		TotalEventTypes:   len(idx.ByEventType),
 		TotalCorrelations: len(idx.ByCorrelationID),
-		TotalTasks:      len(idx.ByTaskID),
-		TotalSessions:    len(idx.BySessionID),
-		TotalClusters:    len(idx.ByClusterID),
-		TotalProjects:    len(idx.ByProjectID),
-		TotalSREDTags:    len(idx.BySREDTag),
+		TotalTasks:        len(idx.ByTaskID),
+		TotalSessions:     len(idx.BySessionID),
+		TotalClusters:     len(idx.ByClusterID),
+		TotalProjects:     len(idx.ByProjectID),
+		TotalSREDTags:     len(idx.BySREDTag),
 	}
 }
 
 // IndexStats holds query index statistics.
 type IndexStats struct {
-	TotalEntries     int `json:"total_entries"`
-	TotalEventTypes  int `json:"total_event_types"`
+	TotalEntries      int `json:"total_entries"`
+	TotalEventTypes   int `json:"total_event_types"`
 	TotalCorrelations int `json:"total_correlations"`
-	TotalTasks       int `json:"total_tasks"`
-	TotalSessions    int `json:"total_sessions"`
-	TotalClusters    int `json:"total_clusters"`
-	TotalProjects    int `json:"total_projects"`
-	TotalSREDTags    int `json:"total_sred_tags"`
+	TotalTasks        int `json:"total_tasks"`
+	TotalSessions     int `json:"total_sessions"`
+	TotalClusters     int `json:"total_clusters"`
+	TotalProjects     int `json:"total_projects"`
+	TotalSREDTags     int `json:"total_sred_tags"`
 }
 
 // FetchReceipts fetches receipts by sequences using a fetch function.

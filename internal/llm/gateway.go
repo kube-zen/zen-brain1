@@ -20,18 +20,18 @@ import (
 // GatewayConfig holds configuration for the LLM Gateway.
 type GatewayConfig struct {
 	// Provider configurations
-	LocalWorkerModel   string  `yaml:"local_worker_model" json:"local_worker_model"`
-	PlannerModel       string  `yaml:"planner_model" json:"planner_model"`
-	FallbackModel      string  `yaml:"fallback_model" json:"fallback_model"`
+	LocalWorkerModel string `yaml:"local_worker_model" json:"local_worker_model"`
+	PlannerModel     string `yaml:"planner_model" json:"planner_model"`
+	FallbackModel    string `yaml:"fallback_model" json:"fallback_model"`
 
 	// Cost thresholds (USD)
 	LocalWorkerMaxCost float64 `yaml:"local_worker_max_cost" json:"local_worker_max_cost"`
 	PlannerMinCost     float64 `yaml:"planner_min_cost" json:"planner_min_cost"`
 
 	// Timeouts (seconds)
-	LocalWorkerTimeout int     `yaml:"local_worker_timeout" json:"local_worker_timeout"`
-	PlannerTimeout     int     `yaml:"planner_timeout" json:"planner_timeout"`
-	RequestTimeout     int     `yaml:"request_timeout" json:"request_timeout"`
+	LocalWorkerTimeout int `yaml:"local_worker_timeout" json:"local_worker_timeout"`
+	PlannerTimeout     int `yaml:"planner_timeout" json:"planner_timeout"`
+	RequestTimeout     int `yaml:"request_timeout" json:"request_timeout"`
 
 	// Model capabilities
 	LocalWorkerSupportsTools bool `yaml:"local_worker_supports_tools" json:"local_worker_supports_tools"`
@@ -49,28 +49,28 @@ type GatewayConfig struct {
 // DefaultGatewayConfig returns the default gateway configuration.
 func DefaultGatewayConfig() *GatewayConfig {
 	return &GatewayConfig{
-		LocalWorkerModel:    "qwen3.5:0.8b",  // Small local model
-		PlannerModel:        "glm-4.7",       // Cloud model for complex tasks
-		FallbackModel:       "glm-4.7",       // Fallback to cloud
-		LocalWorkerMaxCost:  0.01,            // $0.01 max for local worker
-		PlannerMinCost:      0.10,            // $0.10 min for planner (cloud costs)
-		LocalWorkerTimeout:  30,              // 30 seconds
-		PlannerTimeout:      60,              // 60 seconds
-		RequestTimeout:      120,             // 120 seconds overall
-		LocalWorkerSupportsTools: true,       // Local models support tools
-		PlannerSupportsTools:     true,       // Cloud models support tools
-		AutoEscalateComplexTasks: true,       // Auto-escalate complex tasks
-		RoutingPolicy:            "simple",   // Simple routing policy
-		EnableFallbackChain:      true,       // Enable intelligent provider fallback
-		StrictPreferred:          false,     // Allow fallback to other providers
+		LocalWorkerModel:         "qwen3.5:0.8b", // Small local model
+		PlannerModel:             "glm-4.7",      // Cloud model for complex tasks
+		FallbackModel:            "glm-4.7",      // Fallback to cloud
+		LocalWorkerMaxCost:       0.01,           // $0.01 max for local worker
+		PlannerMinCost:           0.10,           // $0.10 min for planner (cloud costs)
+		LocalWorkerTimeout:       30,             // 30 seconds
+		PlannerTimeout:           60,             // 60 seconds
+		RequestTimeout:           120,            // 120 seconds overall
+		LocalWorkerSupportsTools: true,           // Local models support tools
+		PlannerSupportsTools:     true,           // Cloud models support tools
+		AutoEscalateComplexTasks: true,           // Auto-escalate complex tasks
+		RoutingPolicy:            "simple",       // Simple routing policy
+		EnableFallbackChain:      true,           // Enable intelligent provider fallback
+		StrictPreferred:          false,          // Allow fallback to other providers
 	}
 }
 
 // Gateway implements the LLM Provider, Router, and ProviderFactory interfaces.
 // It provides a unified gateway with local worker and planner escalation lanes.
 type Gateway struct {
-	config    *GatewayConfig
-	mu        sync.RWMutex
+	config *GatewayConfig
+	mu     sync.RWMutex
 
 	// Provider registry
 	providers map[string]llm.Provider
@@ -93,15 +93,15 @@ type GatewayStats struct {
 	mu sync.RWMutex
 
 	// Counters
-	TotalRequests      int64 `json:"total_requests"`
+	TotalRequests       int64 `json:"total_requests"`
 	LocalWorkerRequests int64 `json:"local_worker_requests"`
 	PlannerRequests     int64 `json:"planner_requests"`
-	FallbackRequests   int64 `json:"fallback_requests"`
-	TimeoutErrors      int64 `json:"timeout_errors"`
-	RoutingErrors      int64 `json:"routing_errors"`
+	FallbackRequests    int64 `json:"fallback_requests"`
+	TimeoutErrors       int64 `json:"timeout_errors"`
+	RoutingErrors       int64 `json:"routing_errors"`
 
 	// Latencies (ms)
-	TotalLatencyMs     int64 `json:"total_latency_ms"`
+	TotalLatencyMs       int64 `json:"total_latency_ms"`
 	LocalWorkerLatencyMs int64 `json:"local_worker_latency_ms"`
 	PlannerLatencyMs     int64 `json:"planner_latency_ms"`
 
@@ -119,12 +119,12 @@ func (g *Gateway) retryWithRetryable(ctx context.Context, providerName string, f
 
 	// Configure retry for LLM provider calls
 	retryConfig := zenretry.Config{
-		MaxAttempts:    3, // Retry up to 3 times
-		InitialDelay:   200 * time.Millisecond, // Start with 200ms
-		MaxDelay:       5 * time.Second, // Max 5s between retries
-		Multiplier:     2.0, // Exponential backoff (2x)
-		Jitter:         true, // Add jitter to prevent thundering herd
-		JitterPercent:   0.1, // 10% jitter
+		MaxAttempts:   3,                      // Retry up to 3 times
+		InitialDelay:  200 * time.Millisecond, // Start with 200ms
+		MaxDelay:      5 * time.Second,        // Max 5s between retries
+		Multiplier:    2.0,                    // Exponential backoff (2x)
+		Jitter:        true,                   // Add jitter to prevent thundering herd
+		JitterPercent: 0.1,                    // 10% jitter
 		RetryableErrors: func(err error) bool {
 			// Retry on transient errors: timeouts, rate limits, server errors
 			if err == nil {
@@ -182,7 +182,6 @@ func (g *Gateway) retryWithRetryable(ctx context.Context, providerName string, f
 
 	return nil, lastErr
 }
-
 
 // NewGateway creates a new LLM Gateway.
 func NewGateway(config *GatewayConfig) (*Gateway, error) {
@@ -357,7 +356,7 @@ func (g *Gateway) Chat(ctx context.Context, req llm.ChatRequest) (*llm.ChatRespo
 			g.fallbackChain,
 			g.providers,
 			req,
-			"", // No preferred provider
+			"",  // No preferred provider
 			nil, // No session context
 			g.config.StrictPreferred,
 		)

@@ -23,9 +23,9 @@ type Journal interface {
 // Composite implements the ZenContext interface by combining
 // Tier 1 (Hot), Tier 2 (Warm), and Tier 3 (Cold) storage.
 type Composite struct {
-	hot  Store  // Tier 1: Redis/tmpfs
-	warm Store  // Tier 2: QMD (via adapter)
-	cold Store  // Tier 3: S3 archival
+	hot  Store // Tier 1: Redis/tmpfs
+	warm Store // Tier 2: QMD (via adapter)
+	cold Store // Tier 3: S3 archival
 
 	// Optional: Journal for ReMe protocol (Block 1.1)
 	journal Journal
@@ -216,8 +216,8 @@ func (c *Composite) ReconstructSession(ctx stdctx.Context, req zenctx.ReMeReques
 			fmt.Printf("[ZenContext] Session found in Tier 1 (Hot) - skipping reconstruction\n")
 		}
 		return &zenctx.ReMeResponse{
-			SessionContext: sessionCtx,
-			JournalEntries: []interface{}{},
+			SessionContext:  sessionCtx,
+			JournalEntries:  []interface{}{},
 			ReconstructedAt: time.Now(),
 		}, nil
 	}
@@ -234,8 +234,8 @@ func (c *Composite) ReconstructSession(ctx stdctx.Context, req zenctx.ReMeReques
 				fmt.Printf("[ZenContext] Warning: failed to store in Tier 1: %v\n", err)
 			}
 			return &zenctx.ReMeResponse{
-				SessionContext: sessionCtx,
-				JournalEntries: []interface{}{},
+				SessionContext:  sessionCtx,
+				JournalEntries:  []interface{}{},
 				ReconstructedAt: time.Now(),
 			}, nil
 		}
@@ -243,11 +243,11 @@ func (c *Composite) ReconstructSession(ctx stdctx.Context, req zenctx.ReMeReques
 
 	// Step 3: Create a fresh session (neither Tier 1 nor Tier 3 has it)
 	sessionCtx = &zenctx.SessionContext{
-		SessionID:     req.SessionID,
-		TaskID:        req.TaskID,
-		ClusterID:     req.ClusterID,
-		ProjectID:     req.ProjectID,
-		CreatedAt:     time.Now(),
+		SessionID:      req.SessionID,
+		TaskID:         req.TaskID,
+		ClusterID:      req.ClusterID,
+		ProjectID:      req.ProjectID,
+		CreatedAt:      time.Now(),
 		LastAccessedAt: time.Now(),
 	}
 
@@ -274,8 +274,8 @@ func (c *Composite) ReconstructSession(ctx stdctx.Context, req zenctx.ReMeReques
 	if c.warm != nil && req.TaskID != "" {
 		// Use a simple query based on task ID
 		opts := zenctx.QueryOptions{
-			Query:   fmt.Sprintf("task: %s", req.TaskID),
-			Limit:   5,
+			Query:     fmt.Sprintf("task: %s", req.TaskID),
+			Limit:     5,
 			ClusterID: req.ClusterID,
 			ProjectID: req.ProjectID,
 		}
@@ -300,8 +300,8 @@ func (c *Composite) ReconstructSession(ctx stdctx.Context, req zenctx.ReMeReques
 	}
 
 	return &zenctx.ReMeResponse{
-		SessionContext: sessionCtx,
-		JournalEntries: journalEntries,
+		SessionContext:  sessionCtx,
+		JournalEntries:  journalEntries,
 		ReconstructedAt: time.Now(),
 	}, nil
 }

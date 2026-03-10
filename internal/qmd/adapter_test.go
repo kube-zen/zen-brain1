@@ -52,11 +52,11 @@ func TestNewClient_WithNilConfig(t *testing.T) {
 
 func TestNewClient_WithCustomConfig(t *testing.T) {
 	config := &Config{
-		QMDPath: "/usr/local/bin/qmd",
-		Timeout: 10 * time.Second,
-		Verbose: true,
+		QMDPath:               "/usr/local/bin/qmd",
+		Timeout:               10 * time.Second,
+		Verbose:               true,
 		SkipAvailabilityCheck: true,
-		FallbackToMock: false, // Don't use mock in tests
+		FallbackToMock:        false, // Don't use mock in tests
 	}
 
 	clientInterface, err := NewClient(config)
@@ -86,8 +86,8 @@ func TestNewClient_WithCustomConfig(t *testing.T) {
 
 func TestNewClient_WithInvalidQMDPath(t *testing.T) {
 	config := &Config{
-		QMDPath: "/nonexistent/path/to/qmd",
-		Timeout: 5 * time.Second,
+		QMDPath:        "/nonexistent/path/to/qmd",
+		Timeout:        5 * time.Second,
 		FallbackToMock: false, // Don't use mock - we want error
 	}
 

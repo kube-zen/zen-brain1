@@ -7,8 +7,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/kube-zen/zen-sdk/pkg/scheduler"
 	"github.com/kube-zen/zen-brain1/pkg/qmd"
+	"github.com/kube-zen/zen-sdk/pkg/scheduler"
 )
 
 // Orchestrator manages scheduled QMD index refresh jobs.

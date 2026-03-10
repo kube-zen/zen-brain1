@@ -22,8 +22,8 @@ func (tm *TemplateManager) GetTemplate(workType, workDomain string) (*WorkTypeTe
 }
 
 // ExpandTemplateVariables expands template variables using task spec values.
-func (tm *TemplateManager) ExpandTemplateVariables(template *WorkTypeTemplate, spec *FactoryTaskSpec) []ExecutionStep {
-	steps := make([]ExecutionStep, 0, len(template.Steps))
+func (tm *TemplateManager) ExpandTemplateVariables(template *WorkTypeTemplate, spec *FactoryTaskSpec) []*ExecutionStep {
+	steps := make([]*ExecutionStep, 0, len(template.Steps))
 
 	for i, stepTemplate := range template.Steps {
 		// Build variables map
@@ -33,15 +33,15 @@ func (tm *TemplateManager) ExpandTemplateVariables(template *WorkTypeTemplate, s
 		command := tm.registry.ExpandVariables(stepTemplate.Command, variables)
 
 		// Create execution step
-		step := ExecutionStep{
-			StepID:          fmt.Sprintf("%s-step-%d", spec.ID, i+1),
-			TaskID:          spec.ID,
-			Name:             stepTemplate.Name,
-			Description:      stepTemplate.Description,
-			Command:          command,
-			Status:           StepStatusPending,
-			TimeoutSeconds:   int64(stepTemplate.Timeout),
-			MaxRetries:      stepTemplate.MaxRetries,
+		step := &ExecutionStep{
+			StepID:         fmt.Sprintf("%s-step-%d", spec.ID, i+1),
+			TaskID:         spec.ID,
+			Name:           stepTemplate.Name,
+			Description:    stepTemplate.Description,
+			Command:        command,
+			Status:         StepStatusPending,
+			TimeoutSeconds: int64(stepTemplate.Timeout),
+			MaxRetries:     stepTemplate.MaxRetries,
 		}
 
 		steps = append(steps, step)

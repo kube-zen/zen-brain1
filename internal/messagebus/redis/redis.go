@@ -33,11 +33,11 @@ type Config struct {
 // DefaultConfig returns a default configuration.
 func DefaultConfig() *Config {
 	return &Config{
-		RedisURL:      "redis://localhost:6379",
-		MaxPending:    1000,
-		ConsumerName:  "",
-		BlockTimeout:  5 * time.Second,
-		ClaimTimeout:  30 * time.Second,
+		RedisURL:     "redis://localhost:6379",
+		MaxPending:   1000,
+		ConsumerName: "",
+		BlockTimeout: 5 * time.Second,
+		ClaimTimeout: 30 * time.Second,
 	}
 }
 
@@ -50,14 +50,14 @@ type redisBus struct {
 
 // redisSubscription implements messagebus.Subscription.
 type redisSubscription struct {
-	client      *redis.Client
-	stream      string
-	group       string
-	consumer    string
-	events      chan *messagebus.Event
-	errors      chan error
-	ctx         context.Context
-	cancel      context.CancelFunc
+	client       *redis.Client
+	stream       string
+	group        string
+	consumer     string
+	events       chan *messagebus.Event
+	errors       chan error
+	ctx          context.Context
+	cancel       context.CancelFunc
 	blockTimeout time.Duration
 }
 
@@ -284,8 +284,8 @@ func (s *redisSubscription) Close() error {
 // entryToEvent converts a Redis stream entry to a messagebus.Event.
 func entryToEvent(entry redis.XMessage) (*messagebus.Event, error) {
 	event := &messagebus.Event{
-		ID:          entry.ID,
-		Metadata:    make(map[string]string),
+		ID:       entry.ID,
+		Metadata: make(map[string]string),
 	}
 
 	// Extract known fields

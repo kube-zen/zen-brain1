@@ -18,12 +18,12 @@ import (
 
 // DocumentRef references a single document in the knowledge base.
 type DocumentRef struct {
-	ID       string   `json:"id"`
-	Path     string   `json:"path"`
-	Title    string   `json:"title"`
-	Domain   string   `json:"domain,omitempty"`
-	Tags     []string `json:"tags,omitempty"`
-	Source   string   `json:"source"` // "git", "confluence", "internal"
+	ID     string   `json:"id"`
+	Path   string   `json:"path"`
+	Title  string   `json:"title"`
+	Domain string   `json:"domain,omitempty"`
+	Tags   []string `json:"tags,omitempty"`
+	Source string   `json:"source"` // "git", "confluence", "internal"
 }
 
 // SearchQuery represents a query to the knowledge base.
@@ -36,9 +36,9 @@ type SearchQuery struct {
 
 // SearchResult represents a single search result.
 type SearchResult struct {
-	Doc      DocumentRef `json:"doc"`
-	Snippet  string      `json:"snippet,omitempty"`
-	Score    float64     `json:"score,omitempty"`
+	Doc     DocumentRef `json:"doc"`
+	Snippet string      `json:"snippet,omitempty"`
+	Score   float64     `json:"score,omitempty"`
 }
 
 // Store is the interface for knowledge base search and retrieval.

@@ -115,12 +115,12 @@ func (b *BoundedExecutor) ExecutePlan(ctx context.Context, steps []*ExecutionSte
 	}
 
 	result := &ExecutionResult{
-		TotalSteps:      len(steps),
-		CompletedSteps:  0,
-		ExecutionSteps:  make([]*ExecutionStep, 0),
-		FailedSteps:     make([]*ExecutionStep, 0),
-		Status:          ExecutionStatusRunning,
-		WorkspacePath:   workspacePath,
+		TotalSteps:     len(steps),
+		CompletedSteps: 0,
+		ExecutionSteps: make([]*ExecutionStep, 0),
+		FailedSteps:    make([]*ExecutionStep, 0),
+		Status:         ExecutionStatusRunning,
+		WorkspacePath:  workspacePath,
 	}
 
 	// Execute each step with retry logic

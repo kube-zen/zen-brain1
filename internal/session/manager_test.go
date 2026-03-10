@@ -17,13 +17,13 @@ func TestDefaultManager_CreateSession(t *testing.T) {
 
 	ctx := context.Background()
 	workItem := &contracts.WorkItem{
-		ID:        "TEST-123",
-		Title:     "Test Work Item",
-		WorkType:  contracts.WorkTypeImplementation,
+		ID:         "TEST-123",
+		Title:      "Test Work Item",
+		WorkType:   contracts.WorkTypeImplementation,
 		WorkDomain: contracts.DomainCore,
-		Priority:  contracts.PriorityMedium,
-		Status:    contracts.StatusRequested,
-		CreatedAt: time.Now(),
+		Priority:   contracts.PriorityMedium,
+		Status:     contracts.StatusRequested,
+		CreatedAt:  time.Now(),
 		Source: contracts.SourceMetadata{
 			System:   "test",
 			IssueKey: "TEST-123",
@@ -224,7 +224,7 @@ func TestDefaultManager_ListSessions(t *testing.T) {
 	defer manager.Close()
 
 	ctx := context.Background()
-	
+
 	// Create multiple sessions with different states
 	workItems := []*contracts.WorkItem{
 		{ID: "TEST-1", Title: "Test 1", WorkType: contracts.WorkTypeImplementation, CreatedAt: time.Now(), Source: contracts.SourceMetadata{System: "test", IssueKey: "TEST-1"}},
@@ -331,7 +331,7 @@ func TestDefaultManager_CleanupStaleSessions(t *testing.T) {
 	defer manager.Close()
 
 	ctx := context.Background()
-	
+
 	// Create a stale session (will be old due to time travel)
 	workItem := &contracts.WorkItem{
 		ID:        "TEST-STALE",

@@ -37,9 +37,9 @@ const (
 type InferenceType string
 
 const (
-	InferenceChat     InferenceType = "chat"
-	InferenceEmbed    InferenceType = "embedding"
-	InferenceRerank   InferenceType = "rerank"
+	InferenceChat   InferenceType = "chat"
+	InferenceEmbed  InferenceType = "embedding"
+	InferenceRerank InferenceType = "rerank"
 )
 
 // Source indicates whether inference was local or API.
@@ -52,29 +52,29 @@ const (
 
 // TokenRecord represents a single LLM usage record.
 type TokenRecord struct {
-	SessionID       string        `json:"session_id"`
-	TaskID          string        `json:"task_id"`
-	AgentRole       string        `json:"agent_role"`
-	ModelID         string        `json:"model_id"`
-	InferenceType   InferenceType `json:"inference_type"`
-	Source          Source        `json:"source"`
+	SessionID     string        `json:"session_id"`
+	TaskID        string        `json:"task_id"`
+	AgentRole     string        `json:"agent_role"`
+	ModelID       string        `json:"model_id"`
+	InferenceType InferenceType `json:"inference_type"`
+	Source        Source        `json:"source"`
 
 	// Cost side
-	TokensInput     int64   `json:"tokens_input"`
-	TokensOutput    int64   `json:"tokens_output"`
-	TokensCached    int64   `json:"tokens_cached"`
-	CostUSD         float64 `json:"cost_usd"`
-	LatencyMs       int64   `json:"latency_ms"`
+	TokensInput  int64   `json:"tokens_input"`
+	TokensOutput int64   `json:"tokens_output"`
+	TokensCached int64   `json:"tokens_cached"`
+	CostUSD      float64 `json:"cost_usd"`
+	LatencyMs    int64   `json:"latency_ms"`
 
 	// Yield side
-	Outcome         Outcome       `json:"outcome"`
-	EvidenceClass   EvidenceClass `json:"evidence_class"`
-	HumanCorrections int          `json:"human_corrections"`
-	SREDEligible    bool          `json:"sred_eligible"`
+	Outcome          Outcome       `json:"outcome"`
+	EvidenceClass    EvidenceClass `json:"evidence_class"`
+	HumanCorrections int           `json:"human_corrections"`
+	SREDEligible     bool          `json:"sred_eligible"`
 
-	Timestamp       time.Time `json:"timestamp"`
-	ClusterID       string    `json:"cluster_id"`
-	ProjectID       string    `json:"project_id"`
+	Timestamp time.Time `json:"timestamp"`
+	ClusterID string    `json:"cluster_id"`
+	ProjectID string    `json:"project_id"`
 }
 
 // ModelEfficiency represents historical efficiency data for a model.

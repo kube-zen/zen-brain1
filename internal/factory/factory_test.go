@@ -17,18 +17,18 @@ func TestFactoryImpl_ExecuteTask(t *testing.T) {
 
 	// Create task spec
 	spec := &FactoryTaskSpec{
-		ID:         "test-task-1",
-		SessionID:   "test-session-1",
-		WorkItemID:  "PROJ-123",
-		Title:       "Test Task",
-		Objective:   "Execute test objective",
-		WorkType:    contracts.WorkTypeImplementation,
-		WorkDomain:  contracts.DomainFactory,
-		Priority:    contracts.PriorityMedium,
+		ID:             "test-task-1",
+		SessionID:      "test-session-1",
+		WorkItemID:     "PROJ-123",
+		Title:          "Test Task",
+		Objective:      "Execute test objective",
+		WorkType:       contracts.WorkTypeImplementation,
+		WorkDomain:     contracts.DomainFactory,
+		Priority:       contracts.PriorityMedium,
 		TimeoutSeconds: 300,
-		MaxRetries:    2,
-		CreatedAt:     time.Now(),
-		UpdatedAt:     time.Now(),
+		MaxRetries:     2,
+		CreatedAt:      time.Now(),
+		UpdatedAt:      time.Now(),
 	}
 
 	// Execute
@@ -116,18 +116,18 @@ func TestFactoryImpl_ListTasks(t *testing.T) {
 	// Add tasks
 	spec1 := &FactoryTaskSpec{
 		ID:        "task-1",
-		SessionID:  "session-1",
-		Title:      "Task 1",
-		CreatedAt:  time.Now(),
-		UpdatedAt:  time.Now(),
+		SessionID: "session-1",
+		Title:     "Task 1",
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
 	}
 
 	spec2 := &FactoryTaskSpec{
 		ID:        "task-2",
-		SessionID:  "session-2",
-		Title:      "Task 2",
-		CreatedAt:  time.Now(),
-		UpdatedAt:  time.Now(),
+		SessionID: "session-2",
+		Title:     "Task 2",
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
 	}
 
 	ctx := context.Background()
@@ -157,10 +157,10 @@ func TestFactoryImpl_GetTask(t *testing.T) {
 	// Add task
 	spec := &FactoryTaskSpec{
 		ID:        "get-test-task",
-		SessionID:  "get-session",
-		Title:      "Get Test Task",
-		CreatedAt:  time.Now(),
-		UpdatedAt:  time.Now(),
+		SessionID: "get-session",
+		Title:     "Get Test Task",
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
 	}
 
 	ctx := context.Background()
@@ -197,10 +197,10 @@ func TestFactoryImpl_CancelTask(t *testing.T) {
 	// Add task
 	spec := &FactoryTaskSpec{
 		ID:        "cancel-test-task",
-		SessionID:  "cancel-session",
-		Title:      "Cancel Test Task",
-		CreatedAt:  time.Now(),
-		UpdatedAt:  time.Now(),
+		SessionID: "cancel-session",
+		Title:     "Cancel Test Task",
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
 	}
 
 	ctx := context.Background()
@@ -302,13 +302,13 @@ func TestBoundedExecutor_ExecuteStep(t *testing.T) {
 
 	// Create step
 	step := &ExecutionStep{
-		StepID:      "step-1",
-		TaskID:      "task-1",
-		Name:        "Test Step",
-		Description: "Execute test step",
-		Status:      StepStatusPending,
+		StepID:         "step-1",
+		TaskID:         "task-1",
+		Name:           "Test Step",
+		Description:    "Execute test step",
+		Status:         StepStatusPending,
 		TimeoutSeconds: 10,
-		MaxRetries:    0,
+		MaxRetries:     0,
 	}
 
 	// Execute
@@ -348,22 +348,22 @@ func TestBoundedExecutor_ExecutePlan(t *testing.T) {
 	// Create steps
 	steps := []*ExecutionStep{
 		{
-			StepID:      "step-1",
-			TaskID:      "task-1",
-			Name:        "Step 1",
-			Description: "Execute step 1",
-			Status:      StepStatusPending,
+			StepID:         "step-1",
+			TaskID:         "task-1",
+			Name:           "Step 1",
+			Description:    "Execute step 1",
+			Status:         StepStatusPending,
 			TimeoutSeconds: 10,
-			MaxRetries:    0,
+			MaxRetries:     0,
 		},
 		{
-			StepID:      "step-2",
-			TaskID:      "task-1",
-			Name:        "Step 2",
-			Description: "Execute step 2",
-			Status:      StepStatusPending,
+			StepID:         "step-2",
+			TaskID:         "task-1",
+			Name:           "Step 2",
+			Description:    "Execute step 2",
+			Status:         StepStatusPending,
 			TimeoutSeconds: 10,
-			MaxRetries:    0,
+			MaxRetries:     0,
 		},
 	}
 
@@ -396,4 +396,3 @@ func TestBoundedExecutor_ExecutePlan(t *testing.T) {
 		t.Error("Success should be true")
 	}
 }
-

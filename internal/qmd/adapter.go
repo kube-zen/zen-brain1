@@ -19,16 +19,16 @@ import (
 const (
 	// DefaultTimeout is the default timeout for qmd commands
 	DefaultTimeout = 30 * time.Second
-	
+
 	// MaxSearchResults is the default maximum number of search results
 	MaxSearchResults = 10
 )
 
 // Client implements the qmd.Client interface by wrapping the qmd CLI tool.
 type Client struct {
-	qmdPath    string
-	timeout    time.Duration
-	verbose    bool
+	qmdPath string
+	timeout time.Duration
+	verbose bool
 }
 
 // Config holds configuration for the qmd client.
@@ -109,11 +109,11 @@ func NewClient(config *Config) (qmd.Client, error) {
 func (c *Client) checkQmdAvailable(ctx context.Context) error {
 	// Try to run qmd --version or similar
 	cmd := exec.CommandContext(ctx, c.qmdPath, "--version")
-	
+
 	if c.verbose {
 		log.Printf("[QMD] Checking availability: %s --version", c.qmdPath)
 	}
-	
+
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		// qmd might not have --version, try a different approach
@@ -124,11 +124,11 @@ func (c *Client) checkQmdAvailable(ctx context.Context) error {
 			return fmt.Errorf("qmd command failed: %w, output: %s", err, string(output))
 		}
 	}
-	
+
 	if c.verbose {
 		log.Printf("[QMD] qmd is available: %s", strings.TrimSpace(string(output)))
 	}
-	
+
 	return nil
 }
 
@@ -137,46 +137,46 @@ func (c *Client) RefreshIndex(ctx context.Context, req qmd.EmbedRequest) error {
 	if req.RepoPath == "" {
 		return fmt.Errorf("repo_path is required")
 	}
-	
+
 	// Set default paths if not specified
 	paths := req.Paths
 	if len(paths) == 0 {
 		paths = []string{"docs/"}
 	}
-	
+
 	// Build command: qmd embed --repo <path> --paths <paths> [--verbose]
 	args := []string{
 		"embed",
 		"--repo", req.RepoPath,
 		"--paths", strings.Join(paths, ","),
 	}
-	
+
 	if c.verbose {
 		args = append(args, "--verbose")
 	}
-	
+
 	// Set timeout
 	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
-	
+
 	cmd := exec.CommandContext(ctx, c.qmdPath, args...)
-	
+
 	if c.verbose {
 		log.Printf("[QMD] Running: %s %s", c.qmdPath, strings.Join(args, " "))
 	}
-	
+
 	startTime := time.Now()
 	output, err := cmd.CombinedOutput()
 	elapsed := time.Since(startTime)
-	
+
 	if c.verbose {
 		log.Printf("[QMD] Refresh completed in %v, output: %s", elapsed, string(output))
 	}
-	
+
 	if err != nil {
 		return fmt.Errorf("qmd refresh failed: %w, output: %s", err, string(output))
 	}
-	
+
 	return nil
 }
 
@@ -185,17 +185,17 @@ func (c *Client) Search(ctx context.Context, req qmd.SearchRequest) ([]byte, err
 	if req.RepoPath == "" {
 		return nil, fmt.Errorf("repo_path is required")
 	}
-	
+
 	if req.Query == "" {
 		return nil, fmt.Errorf("query is required")
 	}
-	
+
 	// Set default limit if not specified
 	limit := req.Limit
 	if limit <= 0 {
 		limit = MaxSearchResults
 	}
-	
+
 	// Build command: qmd search --repo <path> --query <query> --json [--limit N] [--verbose]
 	args := []string{
 		"search",
@@ -204,33 +204,33 @@ func (c *Client) Search(ctx context.Context, req qmd.SearchRequest) ([]byte, err
 		"--json",
 		"--limit", fmt.Sprintf("%d", limit),
 	}
-	
+
 	if c.verbose {
 		args = append(args, "--verbose")
 	}
-	
+
 	// Set timeout
 	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
-	
+
 	cmd := exec.CommandContext(ctx, c.qmdPath, args...)
-	
+
 	if c.verbose {
 		log.Printf("[QMD] Running: %s %s", c.qmdPath, strings.Join(args, " "))
 	}
-	
+
 	startTime := time.Now()
 	output, err := cmd.CombinedOutput()
 	elapsed := time.Since(startTime)
-	
+
 	if c.verbose {
 		log.Printf("[QMD] Search completed in %v", elapsed)
 	}
-	
+
 	if err != nil {
 		return nil, fmt.Errorf("qmd search failed: %w, output: %s", err, string(output))
 	}
-	
+
 	return output, nil
 }
 
@@ -239,29 +239,29 @@ func ParseSearchResults(jsonData []byte) ([]SearchResult, error) {
 	var results struct {
 		Results []SearchResult `json:"results"`
 	}
-	
+
 	if err := json.Unmarshal(jsonData, &results); err != nil {
 		return nil, fmt.Errorf("failed to parse search results: %w", err)
 	}
-	
+
 	return results.Results, nil
 }
 
 // SearchResult represents a single search result from qmd.
 type SearchResult struct {
-	Path     string  `json:"path"`
-	Title    string  `json:"title,omitempty"`
-	Content  string  `json:"content,omitempty"`
-	Score    float64 `json:"score,omitempty"`
+	Path     string    `json:"path"`
+	Title    string    `json:"title,omitempty"`
+	Content  string    `json:"content,omitempty"`
+	Score    float64   `json:"score,omitempty"`
 	Metadata *Metadata `json:"metadata,omitempty"`
 }
 
 // Metadata contains additional metadata about a search result.
 type Metadata struct {
-	ID       string   `json:"id,omitempty"`
-	Domain   string   `json:"domain,omitempty"`
-	Tags     []string `json:"tags,omitempty"`
-	Source   string   `json:"source,omitempty"`
+	ID     string   `json:"id,omitempty"`
+	Domain string   `json:"domain,omitempty"`
+	Tags   []string `json:"tags,omitempty"`
+	Source string   `json:"source,omitempty"`
 }
 
 // ToKBSearchResult converts a qmd SearchResult to a kb.SearchResult.
@@ -355,10 +355,10 @@ func ParseRefreshOutput(output []byte) (*RefreshResult, error) {
 
 // RefreshResult represents the result of a refresh operation.
 type RefreshResult struct {
-	Summary     string `json:"summary"`
+	Summary      string `json:"summary"`
 	FilesIndexed int    `json:"files_indexed"`
-	TotalChunks int    `json:"total_chunks"`
-	DurationMs  int64  `json:"duration_ms"`
+	TotalChunks  int    `json:"total_chunks"`
+	DurationMs   int64  `json:"duration_ms"`
 }
 
 // ensure Client implements qmd.Client interface

@@ -25,7 +25,7 @@ func NewStubStore() *StubStore {
 // Search always returns empty results.
 func (s *StubStore) Search(ctx context.Context, q kb.SearchQuery) ([]kb.SearchResult, error) {
 	log.Printf("[StubKB] Search called: query=%q, scopes=%v, limit=%d", q.Query, q.KBScopes, q.Limit)
-	
+
 	// Return empty slice; analyzer will work without KB results
 	return []kb.SearchResult{}, nil
 }
@@ -33,11 +33,11 @@ func (s *StubStore) Search(ctx context.Context, q kb.SearchQuery) ([]kb.SearchRe
 // Get returns a document by ID (if it exists in the stub).
 func (s *StubStore) Get(ctx context.Context, id string) (*kb.DocumentRef, error) {
 	log.Printf("[StubKB] Get called: id=%s", id)
-	
+
 	if doc, ok := s.documents[id]; ok {
 		return &doc, nil
 	}
-	
+
 	return nil, nil // Not found; return nil, nil (consistent with interface)
 }
 

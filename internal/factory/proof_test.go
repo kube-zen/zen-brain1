@@ -18,17 +18,17 @@ func TestProofOfWorkManager_CreateProofOfWork(t *testing.T) {
 
 	// Create execution result
 	result := &ExecutionResult{
-		TaskID:       "task-1",
-		SessionID:    "session-1",
-		WorkItemID:   "PROJ-123",
-		Status:       ExecutionStatusCompleted,
-		Success:      true,
-		CompletedAt:  time.Now(),
-		Duration:     5 * time.Minute,
+		TaskID:        "task-1",
+		SessionID:     "session-1",
+		WorkItemID:    "PROJ-123",
+		Status:        ExecutionStatusCompleted,
+		Success:       true,
+		CompletedAt:   time.Now(),
+		Duration:      5 * time.Minute,
 		WorkspacePath: "/tmp/workspace",
-		FilesChanged: []string{"file1.go", "file2.go"},
-		TestsRun:     []string{"test1", "test2"},
-		TestsPassed:  true,
+		FilesChanged:  []string{"file1.go", "file2.go"},
+		TestsRun:      []string{"test1", "test2"},
+		TestsPassed:   true,
 		SREDEvidence: []contracts.EvidenceItem{
 			{
 				ID:          "evidence-1",
@@ -45,10 +45,10 @@ func TestProofOfWorkManager_CreateProofOfWork(t *testing.T) {
 	// Create task spec
 	spec := &FactoryTaskSpec{
 		ID:         "task-1",
-		SessionID:   "session-1",
-		WorkItemID:  "PROJ-123",
-		Title:       "Test Task",
-		Objective:   "Execute test objective",
+		SessionID:  "session-1",
+		WorkItemID: "PROJ-123",
+		Title:      "Test Task",
+		Objective:  "Execute test objective",
 	}
 
 	// Create proof-of-work
@@ -118,24 +118,24 @@ func TestProofOfWorkManager_ListProofOfWorks(t *testing.T) {
 
 	// Create a proof-of-work artifact first
 	result := &ExecutionResult{
-		TaskID:      "list-test-task",
-		SessionID:   "list-test-session",
-		WorkItemID:  "PROJ-456",
-		Status:      ExecutionStatusCompleted,
-		Success:     true,
-		CompletedAt:  time.Now(),
-		Duration:     1 * time.Minute,
-		WorkspacePath: "/tmp/workspace",
+		TaskID:         "list-test-task",
+		SessionID:      "list-test-session",
+		WorkItemID:     "PROJ-456",
+		Status:         ExecutionStatusCompleted,
+		Success:        true,
+		CompletedAt:    time.Now(),
+		Duration:       1 * time.Minute,
+		WorkspacePath:  "/tmp/workspace",
 		ExecutionSteps: []*ExecutionStep{},
-		SREDEvidence: []contracts.EvidenceItem{},
+		SREDEvidence:   []contracts.EvidenceItem{},
 	}
 
 	spec := &FactoryTaskSpec{
 		ID:         "list-test-task",
-		SessionID:   "list-test-session",
-		WorkItemID:  "PROJ-456",
-		Title:       "List Test Task",
-		Objective:   "List test objective",
+		SessionID:  "list-test-session",
+		WorkItemID: "PROJ-456",
+		Title:      "List Test Task",
+		Objective:  "List test objective",
 	}
 
 	ctx := context.Background()
@@ -165,24 +165,24 @@ func TestProofOfWorkManager_GetProofOfWork(t *testing.T) {
 
 	// Create a proof-of-work artifact
 	result := &ExecutionResult{
-		TaskID:      "get-test-task",
-		SessionID:   "get-test-session",
-		WorkItemID:  "PROJ-789",
-		Status:      ExecutionStatusCompleted,
-		Success:     true,
-		CompletedAt:  time.Now(),
-		Duration:     2 * time.Minute,
-		WorkspacePath: "/tmp/workspace",
+		TaskID:         "get-test-task",
+		SessionID:      "get-test-session",
+		WorkItemID:     "PROJ-789",
+		Status:         ExecutionStatusCompleted,
+		Success:        true,
+		CompletedAt:    time.Now(),
+		Duration:       2 * time.Minute,
+		WorkspacePath:  "/tmp/workspace",
 		ExecutionSteps: []*ExecutionStep{},
-		SREDEvidence: []contracts.EvidenceItem{},
+		SREDEvidence:   []contracts.EvidenceItem{},
 	}
 
 	spec := &FactoryTaskSpec{
 		ID:         "get-test-task",
-		SessionID:   "get-test-session",
-		WorkItemID:  "PROJ-789",
-		Title:       "Get Test Task",
-		Objective:   "Get test objective",
+		SessionID:  "get-test-session",
+		WorkItemID: "PROJ-789",
+		Title:      "Get Test Task",
+		Objective:  "Get test objective",
 	}
 
 	ctx := context.Background()
@@ -217,22 +217,22 @@ func TestProofOfWorkManager_CleanupProofOfWorks(t *testing.T) {
 	// Create multiple proof-of-work artifacts
 	for i := 0; i < 3; i++ {
 		result := &ExecutionResult{
-			TaskID:       fmt.Sprintf("cleanup-task-%d", i),
-			SessionID:    "cleanup-session",
-			WorkItemID:  "PROJ-123",
-			Status:       ExecutionStatusCompleted,
-			Success:      true,
-			CompletedAt:  time.Now(),
-			Duration:     time.Duration(i) * time.Minute,
-			WorkspacePath: "/tmp/workspace",
+			TaskID:         fmt.Sprintf("cleanup-task-%d", i),
+			SessionID:      "cleanup-session",
+			WorkItemID:     "PROJ-123",
+			Status:         ExecutionStatusCompleted,
+			Success:        true,
+			CompletedAt:    time.Now(),
+			Duration:       time.Duration(i) * time.Minute,
+			WorkspacePath:  "/tmp/workspace",
 			ExecutionSteps: []*ExecutionStep{},
-			SREDEvidence: []contracts.EvidenceItem{},
+			SREDEvidence:   []contracts.EvidenceItem{},
 		}
 
 		spec := &FactoryTaskSpec{
-			ID:       fmt.Sprintf("cleanup-task-%d", i),
+			ID:        fmt.Sprintf("cleanup-task-%d", i),
 			SessionID: "cleanup-session",
-			Title:    fmt.Sprintf("Cleanup Task %d", i),
+			Title:     fmt.Sprintf("Cleanup Task %d", i),
 			Objective: fmt.Sprintf("Cleanup objective %d", i),
 		}
 
@@ -273,24 +273,24 @@ func TestProofOfWorkManager_GenerateMarkdown(t *testing.T) {
 	// Generate markdown
 	// We need to test the private method indirectly through CreateProofOfWork
 	result := &ExecutionResult{
-		TaskID:        "markdown-test-task",
+		TaskID:         "markdown-test-task",
 		SessionID:      "markdown-test-session",
-		WorkItemID:    "PROJ-111",
+		WorkItemID:     "PROJ-111",
 		Status:         ExecutionStatusCompleted,
 		Success:        true,
 		CompletedAt:    time.Now(),
 		Duration:       1 * time.Hour,
-		WorkspacePath:   runtimeDir,
-		ExecutionSteps:  []*ExecutionStep{},
+		WorkspacePath:  runtimeDir,
+		ExecutionSteps: []*ExecutionStep{},
 		SREDEvidence:   []contracts.EvidenceItem{},
 	}
 
 	spec := &FactoryTaskSpec{
 		ID:         "markdown-test-task",
-		SessionID:   "markdown-test-session",
-		WorkItemID:  "PROJ-111",
-		Title:       "Markdown Test Task",
-		Objective:   "Test markdown generation",
+		SessionID:  "markdown-test-session",
+		WorkItemID: "PROJ-111",
+		Title:      "Markdown Test Task",
+		Objective:  "Test markdown generation",
 	}
 
 	ctx := context.Background()
@@ -337,24 +337,24 @@ func TestProofOfWorkManager_GenerateJSON(t *testing.T) {
 
 	// Generate JSON
 	result := &ExecutionResult{
-		TaskID:        "json-test-task",
+		TaskID:         "json-test-task",
 		SessionID:      "json-test-session",
-		WorkItemID:    "PROJ-222",
+		WorkItemID:     "PROJ-222",
 		Status:         ExecutionStatusCompleted,
 		Success:        true,
 		CompletedAt:    time.Now(),
 		Duration:       30 * time.Minute,
-		WorkspacePath:   runtimeDir,
-		ExecutionSteps:  []*ExecutionStep{},
+		WorkspacePath:  runtimeDir,
+		ExecutionSteps: []*ExecutionStep{},
 		SREDEvidence:   []contracts.EvidenceItem{},
 	}
 
 	spec := &FactoryTaskSpec{
 		ID:         "json-test-task",
-		SessionID:   "json-test-session",
-		WorkItemID:  "PROJ-222",
-		Title:       "JSON Test Task",
-		Objective:   "Test JSON generation",
+		SessionID:  "json-test-session",
+		WorkItemID: "PROJ-222",
+		Title:      "JSON Test Task",
+		Objective:  "Test JSON generation",
 	}
 
 	ctx := context.Background()
@@ -410,28 +410,28 @@ func TestProofOfWorkManager_FailedTask(t *testing.T) {
 
 	// Create failed execution result
 	result := &ExecutionResult{
-		TaskID:        "failed-task",
+		TaskID:         "failed-task",
 		SessionID:      "failed-session",
-		WorkItemID:    "PROJ-333",
+		WorkItemID:     "PROJ-333",
 		Status:         ExecutionStatusFailed,
 		Success:        false,
 		CompletedAt:    time.Now(),
 		Duration:       10 * time.Minute,
-		WorkspacePath:   "/tmp/workspace",
+		WorkspacePath:  "/tmp/workspace",
 		Error:          "Step execution failed after retries",
 		ErrorCode:      "STEP_EXECUTION_FAILED",
 		NeedsRetry:     true,
-		Recommendation:  "retry",
-		ExecutionSteps:  []*ExecutionStep{},
+		Recommendation: "retry",
+		ExecutionSteps: []*ExecutionStep{},
 		SREDEvidence:   []contracts.EvidenceItem{},
 	}
 
 	spec := &FactoryTaskSpec{
 		ID:         "failed-task",
-		SessionID:   "failed-session",
-		WorkItemID:  "PROJ-333",
-		Title:       "Failed Task",
-		Objective:   "Test failed task proof-of-work",
+		SessionID:  "failed-session",
+		WorkItemID: "PROJ-333",
+		Title:      "Failed Task",
+		Objective:  "Test failed task proof-of-work",
 	}
 
 	ctx := context.Background()
@@ -495,24 +495,24 @@ func TestProofOfWorkManager_EvidenceItems(t *testing.T) {
 	}
 
 	result := &ExecutionResult{
-		TaskID:        "evidence-task",
+		TaskID:         "evidence-task",
 		SessionID:      "evidence-session",
-		WorkItemID:    "PROJ-444",
+		WorkItemID:     "PROJ-444",
 		Status:         ExecutionStatusCompleted,
 		Success:        true,
 		CompletedAt:    time.Now(),
 		Duration:       15 * time.Minute,
-		WorkspacePath:   "/tmp/workspace",
+		WorkspacePath:  "/tmp/workspace",
 		SREDEvidence:   evidenceItems,
-		ExecutionSteps:  []*ExecutionStep{},
+		ExecutionSteps: []*ExecutionStep{},
 	}
 
 	spec := &FactoryTaskSpec{
 		ID:         "evidence-task",
-		SessionID:   "evidence-session",
-		WorkItemID:  "PROJ-444",
-		Title:       "Evidence Task",
-		Objective:   "Test evidence collection",
+		SessionID:  "evidence-session",
+		WorkItemID: "PROJ-444",
+		Title:      "Evidence Task",
+		Objective:  "Test evidence collection",
 	}
 
 	ctx := context.Background()
@@ -568,27 +568,27 @@ func TestProofOfWorkManager_NoChanges(t *testing.T) {
 
 	// Create result with no changes
 	result := &ExecutionResult{
-		TaskID:        "no-changes-task",
+		TaskID:         "no-changes-task",
 		SessionID:      "no-changes-session",
-		WorkItemID:    "PROJ-555",
+		WorkItemID:     "PROJ-555",
 		Status:         ExecutionStatusCompleted,
 		Success:        true,
 		CompletedAt:    time.Now(),
 		Duration:       5 * time.Minute,
-		WorkspacePath:   "/tmp/workspace",
+		WorkspacePath:  "/tmp/workspace",
 		FilesChanged:   []string{},
 		TestsRun:       []string{},
 		TestsPassed:    true,
 		SREDEvidence:   []contracts.EvidenceItem{},
-		ExecutionSteps:  []*ExecutionStep{},
+		ExecutionSteps: []*ExecutionStep{},
 	}
 
 	spec := &FactoryTaskSpec{
 		ID:         "no-changes-task",
-		SessionID:   "no-changes-session",
-		WorkItemID:  "PROJ-555",
-		Title:       "No Changes Task",
-		Objective:   "Test task with no changes",
+		SessionID:  "no-changes-session",
+		WorkItemID: "PROJ-555",
+		Title:      "No Changes Task",
+		Objective:  "Test task with no changes",
 	}
 
 	ctx := context.Background()
@@ -625,28 +625,28 @@ func TestProofOfWorkManager_GenerateComment(t *testing.T) {
 
 	// Create proof-of-work artifact
 	result := &ExecutionResult{
-		TaskID:        "jira-comment-task",
+		TaskID:         "jira-comment-task",
 		SessionID:      "jira-comment-session",
-		WorkItemID:    "PROJ-999",
+		WorkItemID:     "PROJ-999",
 		Status:         ExecutionStatusCompleted,
 		Success:        true,
 		CompletedAt:    time.Now(),
 		Duration:       10 * time.Minute,
-		WorkspacePath:   runtimeDir,
+		WorkspacePath:  runtimeDir,
 		FilesChanged:   []string{"test.go"},
 		TestsRun:       []string{"test1"},
 		TestsPassed:    true,
 		Recommendation: "merge",
-		ExecutionSteps:  []*ExecutionStep{},
+		ExecutionSteps: []*ExecutionStep{},
 		SREDEvidence:   []contracts.EvidenceItem{},
 	}
 
 	spec := &FactoryTaskSpec{
 		ID:         "jira-comment-task",
-		SessionID:   "jira-comment-session",
-		WorkItemID:  "PROJ-999",
-		Title:       "Jira Comment Test Task",
-		Objective:   "Test Jira comment generation",
+		SessionID:  "jira-comment-session",
+		WorkItemID: "PROJ-999",
+		Title:      "Jira Comment Test Task",
+		Objective:  "Test Jira comment generation",
 	}
 
 	ctx := context.Background()
