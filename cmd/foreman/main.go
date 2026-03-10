@@ -4,9 +4,9 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"log"
 	"os"
+	"strconv"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -165,8 +165,7 @@ func envBool(key string, defaultVal bool) bool {
 
 func envInt(key string, defaultVal int) int {
 	if v := os.Getenv(key); v != "" {
-		var n int
-		if _, err := fmt.Sscanf(v, "%d", &n); err == nil {
+		if n, err := strconv.Atoi(v); err == nil {
 			return n
 		}
 	}

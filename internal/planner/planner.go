@@ -289,6 +289,7 @@ func (p *DefaultPlanner) analyzeAndPlan(ctx context.Context, sessionID string, w
 			Reason:           "Fallback due to selection error",
 			EstimatedCostUSD: analysisResult.EstimatedTotalCostUSD,
 			Confidence:       0.5,
+			Source:           "fallback",
 		}
 	}
 
@@ -298,6 +299,25 @@ func (p *DefaultPlanner) analyzeAndPlan(ctx context.Context, sessionID string, w
 			session.WorkItemID, modelSelection.ModelID, modelSelection.Reason); err != nil {
 			log.Printf("Failed to record model selection: %v", err)
 		}
+	}
+
+	// Block 5: persist minimal model-selection evidence for provenance
+	if p.sessionManager != nil {
+		evContent := fmt.Sprintf("model=%s source=%s confidence=%.2f cost=$%.2f",
+			modelSelection.ModelID, modelSelection.Source, modelSelection.Confidence, modelSelection.EstimatedCostUSD)
+		if modelSelection.SampleSize > 0 {
+			evContent += fmt.Sprintf(" sample_size=%d", modelSelection.SampleSize)
+		}
+		item := contracts.EvidenceItem{
+			ID:          fmt.Sprintf("model-selection-%s", sessionID),
+			SessionID:   sessionID,
+			Type:        contracts.EvidenceTypeHypothesis,
+			Content:     evContent,
+			Metadata:    map[string]string{"work_item_id": session.WorkItemID, "model_id": modelSelection.ModelID},
+			CollectedAt: time.Now(),
+			CollectedBy: "planner",
+		}
+		_ = p.sessionManager.AddEvidence(ctx, sessionID, item)
 	}
 
 	// Step 6: Check if approval is required
@@ -345,6 +365,7 @@ func (p *DefaultPlanner) selectOptimalModel(ctx context.Context, session *contra
 				Reason:           reason,
 				EstimatedCostUSD: analysis.EstimatedTotalCostUSD,
 				Confidence:       confidence,
+				Source:           "recommender",
 			}, nil
 		}
 		// Fall through to ledger path on error or empty
@@ -363,6 +384,7 @@ func (p *DefaultPlanner) selectOptimalModel(ctx context.Context, session *contra
 			Reason:           "No efficiency data available, using default",
 			EstimatedCostUSD: analysis.EstimatedTotalCostUSD,
 			Confidence:       0.5,
+			Source:           "default",
 		}, nil
 	}
 
@@ -399,6 +421,7 @@ func (p *DefaultPlanner) selectOptimalModel(ctx context.Context, session *contra
 			Reason:           "No suitable model found in efficiency data",
 			EstimatedCostUSD: analysis.EstimatedTotalCostUSD,
 			Confidence:       0.5,
+			Source:           "default",
 		}, nil
 	}
 
@@ -411,11 +434,12 @@ func (p *DefaultPlanner) selectOptimalModel(ctx context.Context, session *contra
 	}
 
 	return &ModelSelection{
-		ModelID: bestModel.ModelID,
-		Reason: fmt.Sprintf("Best efficiency: %.1f%% success rate, $%.3f avg cost",
-			bestModel.SuccessRate*100, bestModel.AvgCostPerTask),
+		ModelID:          bestModel.ModelID,
+		Reason:           fmt.Sprintf("Best efficiency: %.1f%% success rate, $%.3f avg cost", bestModel.SuccessRate*100, bestModel.AvgCostPerTask),
 		EstimatedCostUSD: analysis.EstimatedTotalCostUSD,
 		Confidence:       bestModel.SuccessRate,
+		Source:           "ledger",
+		SampleSize:       bestModel.SampleSize,
 		Alternatives:     alternatives,
 	}, nil
 }

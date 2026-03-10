@@ -112,17 +112,13 @@ func (r *Recommender) applyFailureAwareDowngrade(
 		return confidence, reasoning
 	}
 
-	// Only downgrade when there's meaningful failure signal
-	// Minimum 3 recent failures or total failures >= recent successes
+	// Only downgrade when there's meaningful failure signal (e.g. >= 3 failures)
 	recentFailures := 0
-	for _, count := range failureStats.FailureModes {
-		// Count failures that might be recent (approximate based on last failure time)
-		if failureStats.LastFailureAt.After(time.Now().Add(-recentWindow)) {
-			recentFailures += count
-		}
+	if failureStats.LastFailureAt.After(time.Now().Add(-recentWindow)) {
+		recentFailures = failureStats.TotalFailures
 	}
 
-	if recentFailures < 3 && failureStats.TotalFailures < stats.RecentRuns-stats.RecentSuccessfulRuns {
+	if recentFailures < 3 && failureStats.TotalFailures < 3 {
 		// Not enough failure signal to downgrade
 		return confidence, reasoning
 	}
@@ -218,15 +214,33 @@ func (r *Recommender) RecommendAll(ctx context.Context, workType contracts.WorkT
 // parseTemplateName returns (workType, workDomain) parsed from template name.
 // Supports "workType:workDomain", "workType/workDomain", or "workType".
 func parseTemplateName(name string) (workType, workDomain string) {
-	if name == "" || name == "default" {
-		return "default", ""
+	wt, wd, _ := parseTemplateIdentity(name)
+	return wt, wd
+}
+
+// parseTemplateIdentity parses template name into work type and domain.
+// Supports "default", "<workType>:<workDomain>", "<workType>/<workDomain>", "<workType>".
+// Returns (workType, workDomain, true) when parsing succeeded.
+func parseTemplateIdentity(templateName string) (tmplWorkType, tmplWorkDomain string, ok bool) {
+	if templateName == "" || templateName == "default" {
+		return "default", "", true
 	}
 	for _, sep := range []string{":", "/"} {
-		if idx := strings.Index(name, sep); idx >= 0 {
-			return strings.TrimSpace(name[:idx]), strings.TrimSpace(name[idx+1:])
+		if idx := strings.Index(templateName, sep); idx >= 0 {
+			return strings.TrimSpace(templateName[:idx]), strings.TrimSpace(templateName[idx+1:]), true
 		}
 	}
-	return name, ""
+	return templateName, "", true
+}
+
+// isTemplateCompatible returns true if the template is compatible with the requested work type.
+// Same work type is compatible (domain is used for ranking in selectBestTemplateWithMatch, not for filtering).
+func isTemplateCompatible(templateName string, workType contracts.WorkType, workDomain contracts.WorkDomain) bool {
+	tWT, _, ok := parseTemplateIdentity(templateName)
+	if !ok || tWT == "default" || tWT == "" {
+		return true // default is compatible with everything
+	}
+	return tWT == string(workType)
 }
 
 // selectBestTemplateWithMatch selects the best template that is compatible with the requested workType/workDomain.
@@ -244,6 +258,9 @@ func (r *Recommender) selectBestTemplateWithMatch(ctx context.Context, workType 
 	// Filter to templates compatible with requested work type (never pick unrelated e.g. docs/bugfix for implementation)
 	var exactMatch, workTypeMatch []TemplateStatistics
 	for _, t := range allTemplateStats {
+		if !isTemplateCompatible(t.TemplateName, workType, workDomain) {
+			continue
+		}
 		tWT, tWD := parseTemplateName(t.TemplateName)
 		if tWT == "default" || tWT == "" {
 			continue
@@ -322,10 +339,10 @@ func (r *Recommender) calculateRecencyAwareConfidence(stats *WorkTypeStatistics,
 		confidence := r.calculateConfidence(stats.RecentRuns)
 		daysAgo := getDaysSince(stats.LastSeenAt)
 		if daysAgo >= 0 {
-			reasoning = fmt.Sprintf("Recommended from recent exact-match history (%d recent runs, %.1f%% success); last seen %d days ago",
+			reasoning = fmt.Sprintf("Exact-match history: %d runs, %.0f%% success; last seen %d days ago",
 				stats.RecentRuns, stats.RecentSuccessRate*100, daysAgo)
 		} else {
-			reasoning = fmt.Sprintf("Recommended from recent exact-match history (%d recent runs, %.1f%% success)",
+			reasoning = fmt.Sprintf("Exact-match history: %d runs, %.0f%% success",
 				stats.RecentRuns, stats.RecentSuccessRate*100)
 		}
 		return score * confidence, reasoning
@@ -336,10 +353,10 @@ func (r *Recommender) calculateRecencyAwareConfidence(stats *WorkTypeStatistics,
 		confidence := r.calculateConfidence(stats.TotalRuns)
 		daysAgo := getDaysSince(stats.LastSeenAt)
 		if daysAgo >= 0 {
-			reasoning = fmt.Sprintf("Recommended from older exact-match history (%d total runs, %.1f%% success); last seen %d days ago; freshness penalty applied",
+			reasoning = fmt.Sprintf("Exact-match history: %d runs, %.0f%% success; last seen %d days ago; freshness penalty applied",
 				stats.TotalRuns, stats.SuccessRate*100, daysAgo)
 		} else {
-			reasoning = fmt.Sprintf("Recommended from older exact-match history (%d total runs, %.1f%% success); freshness penalty applied",
+			reasoning = fmt.Sprintf("Exact-match history: %d runs, %.0f%% success; freshness penalty applied",
 				stats.TotalRuns, stats.SuccessRate*100)
 		}
 		// Reduce confidence for stale data
@@ -352,11 +369,11 @@ func (r *Recommender) calculateRecencyAwareConfidence(stats *WorkTypeStatistics,
 	// Fallback to default
 	switch matchKind {
 	case "exact":
-		reasoning = fmt.Sprintf("Insufficient recent data for %s/%s; falling back to default", wtStr, wdStr)
+		reasoning = fmt.Sprintf("Default selected because compatible history is insufficient for %s/%s", wtStr, wdStr)
 	case "work_type_only":
-		reasoning = fmt.Sprintf("Insufficient recent data for %s/%s; falling back to default", wtStr, wdStr)
+		reasoning = fmt.Sprintf("Work-type fallback used; no exact domain history for %s/%s", wtStr, wdStr)
 	default:
-		reasoning = fmt.Sprintf("No matching template for %s/%s; using default template", wtStr, wdStr)
+		reasoning = fmt.Sprintf("Default selected because compatible history is insufficient for %s/%s", wtStr, wdStr)
 	}
 	return 0.0, reasoning
 }

@@ -112,12 +112,14 @@ func DefaultConfig() *Config {
 	}
 }
 
-// ModelSelection represents a model selected for a task.
+// ModelSelection represents a model selected for a task, with provenance for evidence.
 type ModelSelection struct {
 	ModelID          string   `json:"model_id"`
 	Reason           string   `json:"reason"`
 	EstimatedCostUSD float64  `json:"estimated_cost_usd"`
 	Confidence       float64  `json:"confidence"`
+	Source           string   `json:"source,omitempty"`    // "ledger", "fallback", "default", "recommender"
+	SampleSize       int      `json:"sample_size,omitempty"`
 	Alternatives     []string `json:"alternatives,omitempty"`
 }
 

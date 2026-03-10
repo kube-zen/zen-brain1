@@ -25,9 +25,12 @@ type ProofOfWorkSummary struct {
 	StartedAt          time.Time     `json:"started_at"`
 	CompletedAt        time.Time     `json:"completed_at"`
 	Duration           time.Duration `json:"duration"`
-	ModelUsed          string        `json:"model_used"`
-	TemplateUsed       string        `json:"template_used,omitempty"` // Actual template; prefer over ModelUsed when present
-	FilesChanged       []string      `json:"files_changed,omitempty"`
+	ModelUsed           string  `json:"model_used"`
+	TemplateUsed        string  `json:"template_used,omitempty"`        // Actual template; prefer over ModelUsed when present
+	SelectionSource     string  `json:"selection_source,omitempty"`     // e.g. "recommended", "static"
+	SelectionConfidence float64 `json:"selection_confidence,omitempty"`
+	SelectionReasoning  string  `json:"selection_reasoning,omitempty"`
+	FilesChanged        []string `json:"files_changed,omitempty"`
 	TestsFailed        []string      `json:"tests_failed,omitempty"`
 	ErrorLog           string        `json:"error_log,omitempty"`
 	OutputLog          string        `json:"output_log,omitempty"`

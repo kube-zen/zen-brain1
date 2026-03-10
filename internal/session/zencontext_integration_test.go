@@ -398,3 +398,75 @@ func TestCheckpointPreservesRelevantKnowledge(t *testing.T) {
 		t.Errorf("KnowledgeSourcePaths not preserved: %v", read.KnowledgeSourcePaths)
 	}
 }
+
+func TestGetExecutionCheckpointSummary_RendersStableText(t *testing.T) {
+	mockZC := newMockZenContext()
+	config := DefaultConfig()
+	config.ZenContext = mockZC
+	manager, err := New(config, NewMemoryStore())
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	defer manager.Close()
+	ctx := context.Background()
+
+	workItem := &contracts.WorkItem{ID: "W4", Title: "T", WorkType: contracts.WorkTypeImplementation, CreatedAt: time.Now(), Source: contracts.SourceMetadata{IssueKey: "W4"}}
+	session, err := manager.CreateSession(ctx, workItem)
+	if err != nil {
+		t.Fatalf("CreateSession: %v", err)
+	}
+
+	checkpoint := &ExecutionCheckpoint{
+		Stage:              "proof_attached",
+		SessionID:          session.ID,
+		WorkItemID:         "W4",
+		BrainTaskIDs:       []string{"t1"},
+		ProofPaths:         []string{"/p.json"},
+		SelectedModel:      "glm-4.7",
+		LastRecommendation: "merge",
+		UpdatedAt:          time.Now(),
+	}
+	if err := manager.UpdateExecutionCheckpoint(ctx, session.ID, checkpoint); err != nil {
+		t.Fatalf("UpdateExecutionCheckpoint: %v", err)
+	}
+
+	summary, err := manager.GetExecutionCheckpointSummary(ctx, session.ID)
+	if err != nil {
+		t.Fatalf("GetExecutionCheckpointSummary: %v", err)
+	}
+	if summary == "" {
+		t.Fatal("summary should be non-empty")
+	}
+	if !bytes.Contains([]byte(summary), []byte("proof_attached")) || !bytes.Contains([]byte(summary), []byte(session.ID)) {
+		t.Errorf("summary should contain stage and session id: %s", summary)
+	}
+	if !bytes.Contains([]byte(summary), []byte("merge")) {
+		t.Errorf("summary should contain last recommendation: %s", summary)
+	}
+	// SelectedModel and AnalysisSummary are included when present on the checkpoint
+	if !bytes.Contains([]byte(summary), []byte("Tasks:")) || !bytes.Contains([]byte(summary), []byte("Proof Artifacts:")) {
+		t.Errorf("summary should contain task and proof counts: %s", summary)
+	}
+}
+
+func TestShouldSkipReplayForResume(t *testing.T) {
+	tests := []struct {
+		name     string
+		cp       *ExecutionCheckpoint
+		wantSkip bool
+	}{
+		{"nil", nil, false},
+		{"no proofs", &ExecutionCheckpoint{Stage: "proof_attached", ProofPaths: nil}, false},
+		{"proof_attached with paths", &ExecutionCheckpoint{Stage: "proof_attached", ProofPaths: []string{"/p.json"}}, true},
+		{"execution_complete with paths", &ExecutionCheckpoint{Stage: "execution_complete", ProofPaths: []string{"/p.json"}}, true},
+		{"in_progress with paths", &ExecutionCheckpoint{Stage: "in_progress", ProofPaths: []string{"/p.json"}}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ShouldSkipReplayForResume(tt.cp)
+			if got != tt.wantSkip {
+				t.Errorf("ShouldSkipReplayForResume() = %v, want %v", got, tt.wantSkip)
+			}
+		})
+	}
+}
