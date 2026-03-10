@@ -1,0 +1,97 @@
+# Zen-Brain cluster configuration (127.0.1.x to avoid collision with zen-platform 127.0.0.x).
+# Single canonical source for deployment lifecycle (scripts/zen.py).
+
+registry:
+  container_name: zen-brain-registry
+  host_port: 5001
+
+clusters:
+  sandbox:
+    enabled: true
+    provider: k3d-local
+    context_name: k3d-zen-brain-sandbox
+    env_ip: 127.0.1.6
+    domains:
+      - api.zen-brain-sandbox.local
+    dns:
+      mode: loopback
+    hosts:
+      manage: false
+    k3d:
+      cluster_name: zen-brain-sandbox
+      servers: 1
+      agents: 0
+      api_port: "127.0.1.6:6443"
+      lb_ports:
+        http: "127.0.1.6:80:80"
+        https: "127.0.1.6:443:443"
+        apiserver: "127.0.1.6:8080:8080"
+      disable:
+        - traefik
+    image_tags:
+      zen_brain: "dev"
+    deploy:
+      use_zencontext: false
+      in_cluster: true
+      apiserver_external_port: 8080
+      require_destroy_confirm: true
+
+  staging:
+    enabled: true
+    provider: k3d-local
+    context_name: k3d-zen-brain-staging
+    env_ip: 127.0.1.2
+    domains:
+      - api.zen-brain-staging.local
+    dns:
+      mode: loopback
+    hosts:
+      manage: false
+    k3d:
+      cluster_name: zen-brain-staging
+      servers: 1
+      agents: 0
+      api_port: "127.0.1.2:6443"
+      lb_ports:
+        http: "127.0.1.2:80:80"
+        https: "127.0.1.2:443:443"
+        apiserver: "127.0.1.2:8080:8080"
+      disable:
+        - traefik
+    image_tags:
+      zen_brain: "dev"
+    deploy:
+      use_zencontext: false
+      in_cluster: true
+      apiserver_external_port: 8080
+      require_destroy_confirm: true
+
+  uat:
+    enabled: true
+    provider: k3d-local
+    context_name: k3d-zen-brain-uat
+    env_ip: 127.0.1.3
+    domains:
+      - api.zen-brain-uat.local
+    dns:
+      mode: loopback
+    hosts:
+      manage: false
+    k3d:
+      cluster_name: zen-brain-uat
+      servers: 1
+      agents: 1
+      api_port: "127.0.1.3:6443"
+      lb_ports:
+        http: "127.0.1.3:80:80"
+        https: "127.0.1.3:443:443"
+        apiserver: "127.0.1.3:8080:8080"
+      disable:
+        - traefik
+    image_tags:
+      zen_brain: "dev"
+    deploy:
+      use_zencontext: false
+      in_cluster: true
+      apiserver_external_port: 8080
+      require_destroy_confirm: true

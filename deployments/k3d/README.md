@@ -6,9 +6,52 @@ This directory contains Kubernetes manifests for deploying Zen‑Brain on a loca
 
 - [k3d](https://k3d.io/) v5.6.0+
 - [kubectl](https://kubernetes.io/docs/tasks/tools/)
-- [helm](https://helm.sh/) (optional)
+- Docker
+- Python 3 with PyYAML (for config-driven lifecycle)
 
-## Quick Start
+## Canonical path (config-driven)
+
+Deployment is driven by **config/clusters.yaml** (127.0.1.x, zen-brain-registry:5001). Single entrypoint: **scripts/zen.py**.
+
+- **Bring up sandbox (cluster + registry + manifests + image + rollout):**
+
+  ```bash
+  make dev-up
+  ```
+  or explicitly:
+  ```bash
+  python3 scripts/zen.py env redeploy --env sandbox
+  ```
+
+- **Tear down:**
+
+  ```bash
+  make dev-down
+  ```
+  or:
+  ```bash
+  CONFIRM_DESTROY=1 python3 scripts/zen.py env destroy --env sandbox --confirm-destroy
+  ```
+
+- **Build and load image only (cluster already up):**
+
+  ```bash
+  make dev-image
+  ```
+  or:
+  ```bash
+  python3 scripts/zen.py image build --env sandbox
+  ```
+
+- **Status:**
+
+  ```bash
+  python3 scripts/zen.py env status --env sandbox
+  ```
+
+Environments: `sandbox` (127.0.1.6), `staging` (127.0.1.2), `uat` (127.0.1.3). Apiserver is exposed at `http://<env_ip>:8080/healthz` after redeploy.
+
+## Quick Start (manual)
 
 1. Create a k3d cluster and apply dependencies (includes zen-context namespace):
 
@@ -16,7 +59,7 @@ This directory contains Kubernetes manifests for deploying Zen‑Brain on a loca
    make dev-up
    ```
 
-   Or manually:
+   Or manually (legacy; prefer canonical path above):
 
    ```bash
    k3d cluster create zen-brain-dev -p "8080:80@loadbalancer" -p "26257:26257@loadbalancer" --registry-create zen-registry:5000
@@ -105,4 +148,5 @@ Use `make dev-up` and `make dev-down` (see root Makefile) to manage the cluster.
 
 ## Configuration
 
-For in-cluster deploy, edit the YAML files in this directory (e.g. `foreman.yaml` env, `apiserver.yaml` env or Secret for `ZEN_API_KEY`) to customize.
+- **Cluster lifecycle:** Edit **config/clusters.yaml** (registry port, env IPs, k3d servers/agents, deploy options). No hidden defaults; scripts fail fast if env or keys are missing.
+- **In-cluster deploy:** Edit the YAML files in this directory (e.g. `foreman.yaml` env, `apiserver.yaml` env or Secret for `ZEN_API_KEY`) to customize.
