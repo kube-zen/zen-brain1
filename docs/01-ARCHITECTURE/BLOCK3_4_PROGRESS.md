@@ -28,12 +28,12 @@
 | **3.1 Message Bus** | Done | `pkg/messagebus`, `internal/messagebus/redis`; vertical slice publishes `session.created` / `session.completed` when `ZEN_BRAIN_MESSAGE_BUS=redis` and REDIS_URL set; zen-sdk dedup |
 | **3.2 State Synchronization** | Done | ZenContext (tiered state), Session Manager (session state), ReMe (reconstruction from journal + tiers); optional message bus for events; no separate cache layer |
 | **3.3 ZenJournal** | Done | `pkg/journal`, `internal/journal/receiptlog` (zen-sdk receiptlog); query API; composite uses for ReMe |
-| **3.4 API Server** | Done | `internal/apiserver`: `/healthz`, `/readyz`, `/`, `/api/v1/sessions`, `/api/v1/health`, `/api/v1/version`; optional SessionLister and ledger ping; API key auth when `ZEN_API_KEY` set |
+| **3.4 API Server** | Done | `internal/apiserver`: `/healthz`, `/readyz`, `/`, `/api/v1/sessions`, `/api/v1/health`, `/api/v1/version`, `/api/v1/evidence?session_id=` (optional vault); optional SessionLister and ledger ping; API key auth when `ZEN_API_KEY` set; handler tests in `handlers_test.go` |
 | **3.5 KB / QMD Adapter and Index Orchestration** | Done | `internal/qmd`: adapter (CLI wrapper), kb_store, Populate, Orchestrator (zen-sdk scheduler); BLOCK5_QMD_POPULATION.md; Tier 2 uses QMD store |
 | **3.6 ZenLedger** | Done | `internal/ledger/cockroach.go`; zen-brain uses CockroachLedger when `ZEN_LEDGER_DSN` or `LEDGER_DATABASE_URL` set via `ledgerClientOrStub()` |
 | **3.7 CockroachDB** | Done | `make db-up`, `make db-down`, `make db-migrate`, `make db-reset`; `migrations/001_*.sql`, `migrations/002_*.sql` |
 
-**API server:** `make build-apiserver && ./bin/apiserver` — serves `/healthz`, `/readyz`, `/`, `/api/v1/sessions`, `/api/v1/health`, `/api/v1/version` (version from `API_VERSION` env or `dev`).
+**API server:** `make build-apiserver && ./bin/apiserver` — serves `/healthz`, `/readyz`, `/`, `/api/v1/sessions`, `/api/v1/health`, `/api/v1/version`, `/api/v1/evidence?session_id=` (version from `API_VERSION` env or `dev`). Handlers tested in `internal/apiserver/handlers_test.go`.
 
 ## Block 4 (Factory) – Complete
 
@@ -50,11 +50,11 @@
 | **4.3 Worker pool** | Implemented | `internal/foreman/worker.go`: Worker implements TaskDispatcher; queue + N goroutines; processOne: Running → TaskRunner.Run → Completed/Failed; `runner.go`: TaskRunner + PlaceholderRunner |
 | **Worktree manager** | Interface + stub | `internal/worktree/manager.go`: Manager.Prepare(ctx, taskID, sessionID) (dir, cleanup, err); StubManager uses os.MkdirTemp |
 | **Foreman + BrainQueue** | Wired | BrainTaskSpec.QueueName optional; Foreman skips scheduling when queue exists and Phase == Paused (requeue) |
-| **Foreman cmd** | Worker + flag | cmd/foreman uses Worker(PlaceholderRunner, -workers=2), Start(ctx) before mgr.Start(ctx) |
-| **FactoryTaskRunner** | Added | `internal/foreman/factory_runner.go`: converts BrainTask → FactoryTaskSpec, calls Factory.ExecuteTask; use NewFactoryTaskRunner(f) when Factory available |
-| **Foreman + Factory** | Wired | cmd/foreman: `-factory` / `ZEN_FOREMAN_FACTORY=true` uses FactoryTaskRunner; `-factory-runtime-dir` / `ZEN_FACTORY_RUNTIME_DIR` (default `/tmp/zen-foreman-factory`) |
+| **Foreman cmd** | Worker + Factory | cmd/foreman uses Worker with FactoryTaskRunner by default; `-workers`, `-factory-runtime-dir`, `-factory-workspace-home`, `-factory-prefer-real-templates` (env: `ZEN_FOREMAN_RUNTIME_DIR`, `ZEN_FOREMAN_WORKSPACE_HOME`, `ZEN_FOREMAN_PREFER_REAL_TEMPLATES`) |
+| **FactoryTaskRunner** | Default | `internal/foreman/factory_runner.go`: NewFactoryTaskRunner(cfg) builds Factory; converts BrainTask → FactoryTaskSpec; Run returns TaskRunOutcome; Worker persists outcome to BrainTask annotations |
+| **Foreman + Factory** | Default path | cmd/foreman builds FactoryTaskRunner from config (no PlaceholderRunner); runtime/workspace dirs and prefer-real-templates via flags/env |
 
-**Foreman:** `make build-foreman && ./bin/foreman` — needs kubeconfig; apply CRDs then run. Uses ZenGate stub, Worker pool. Default runner: PlaceholderRunner. With `-factory` (or `ZEN_FOREMAN_FACTORY=true`): FactoryTaskRunner with workspace manager, BoundedExecutor, proof-of-work in `-factory-runtime-dir`. Tasks flow Pending → Scheduled → (dispatched) → Running → Factory.ExecuteTask → Completed/Failed.
+**Foreman:** `make build-foreman && ./bin/foreman` — needs kubeconfig; apply CRDs then run. Uses ZenGate stub, Worker pool. **Default runner: FactoryTaskRunner** (runtime dir, workspace home, prefer-real-templates from env). Tasks flow Pending → Scheduled → (dispatched) → Running → Factory.ExecuteTask → Completed/Failed; outcome annotations on BrainTask.
 
 | **Observability** | Added | `internal/foreman/metrics.go`: Prometheus counters (scheduled, admission_denied, dispatched, completed, failed), histogram (reconcile_duration_seconds), gauge (worker_queue_depth); exposed on -metrics-bind-address |
 | **Session-affinity** | Added | Worker.SessionAffinity; when true, per-worker queues and sticky session→worker; `-session-affinity` / `ZEN_FOREMAN_SESSION_AFFINITY` |
