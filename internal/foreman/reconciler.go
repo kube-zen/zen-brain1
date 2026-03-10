@@ -93,8 +93,9 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 				SessionID:   task.Spec.SessionID,
 				TaskID:      task.Name,
 				Action:      policy.ActionExecuteTask,
-				Resource:    policy.Resource{Type: "task", ID: task.Name},
+				Resource:    policy.Resource{Type: "task", ID: task.Name, Attributes: map[string]interface{}{"estimated_cost_usd": task.Spec.EstimatedCostUSD}},
 				Subject:     policy.Subject{Type: "system", ID: "foreman"},
+				Payload:     map[string]interface{}{"model_id": task.Annotations["zen.kube-zen.com/planned-model"]},
 				Timestamp:   time.Now(),
 			}
 			resp, err := r.Gate.Admit(ctx, admissionReq)

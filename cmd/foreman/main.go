@@ -55,7 +55,7 @@ func main() {
 	flag.BoolVar(&reuseSessionWorktree, "factory-reuse-session-worktree", envBool("ZEN_FOREMAN_REUSE_SESSION_WORKTREE", false), "Reuse one worktree per session when using git worktrees.")
 	zenContextRedis := flag.String("zen-context-redis", envStr("ZEN_CONTEXT_REDIS_URL", ""), "Redis URL for ZenContext (ReMe). When set, Worker uses ReMeBinder for session context on continuation.")
 	sessionAffinity := flag.Bool("session-affinity", envBool("ZEN_FOREMAN_SESSION_AFFINITY", false), "Route tasks by session (same session → same worker).")
-	gateMode := flag.String("gate", envStr("ZEN_FOREMAN_GATE", "log"), "Gate mode: stub (allow all, no log), log (audit log, allow all).")
+	gateMode := flag.String("gate", envStr("ZEN_FOREMAN_GATE", "policy"), "Gate mode: stub (allow all), log (audit only), policy (enforce BrainPolicy when present).")
 	guardianMode := flag.String("guardian", envStr("ZEN_FOREMAN_GUARDIAN", "log"), "Guardian mode: stub (allow all, no log), log (audit log, allow all), circuit-breaker (log + per-session rate limit).")
 	guardianCircuitMax := flag.Int("guardian-circuit-max-per-session-per-min", envInt("ZEN_FOREMAN_GUARDIAN_CIRCUIT_MAX_PER_SESSION_PER_MIN", 0), "Max tasks per session per minute when guardian=circuit-breaker; 0 = no limit.")
 	flag.Parse()
@@ -133,12 +133,18 @@ func main() {
 	}
 	var zenGate gatepkg.ZenGate
 	switch *gateMode {
+	case "stub":
+		zenGate = gate.NewStubGate()
+		log.Printf("Foreman: Gate=stub (allow all)")
 	case "log":
 		zenGate = gate.NewLogGate()
-		log.Printf("Foreman: Gate=log (audit log)")
+		log.Printf("Foreman: Gate=log (audit only)")
+	case "policy":
+		zenGate = gate.NewPolicyGate(mgr.GetClient())
+		log.Printf("Foreman: Gate=policy (enforce BrainPolicy)")
 	default:
-		zenGate = gate.NewStubGate()
-		log.Printf("Foreman: Gate=stub (no audit)")
+		zenGate = gate.NewPolicyGate(mgr.GetClient())
+		log.Printf("Foreman: Gate=policy (enforce BrainPolicy)")
 	}
 	reconciler := &foreman.Reconciler{
 		Client:     mgr.GetClient(),
