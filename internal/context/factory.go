@@ -226,7 +226,7 @@ func createTier2Store(config *ZenContextConfig) (Store, error) {
 		QMDPath:               config.Tier2QMD.QMDBinaryPath,
 		Timeout:               30 * time.Second,
 		Verbose:               config.Tier2QMD.Verbose,
-		FallbackToMock:        true, // Use mock when qmd not available
+		FallbackToMock:        false, // Require real qmd client (npx @tobilu/qmd)
 		SkipAvailabilityCheck: false,
 	}
 	client, err := internalkb.NewClient(qmdConfig)
