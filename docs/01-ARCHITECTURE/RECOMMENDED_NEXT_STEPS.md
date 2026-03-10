@@ -99,11 +99,11 @@ The remaining gaps are no longer deploy-path gaps. They are deeper platform matu
 
 ## Bottom line
 
-- **94% complete overall** — canonical deploy path is real; sandbox is live-proven; Ollama is live-proven.
+- **95% complete overall** — canonical deploy path is real; sandbox is live-proven; Ollama is live-proven; real inference validated.
 - **Current truth:**
   - **Operationally clean:** Yes (Wave 1 done).
   - **Governance-clean:** Yes (zen_sdk_ownership in pre-commit; ADR-0009 + DEPENDENCIES.md).
-  - **Canonical redeploy:** Exits 0; Helmfile converges; foreman, apiserver, ollama-0 Ready; preload succeeds; OLLAMA_BASE_URL on apiserver.
-  - **Ollama-backed:** Live-proven in sandbox (use_ollama: true, qwen3.5:0.8b). Real inference via apiserver/gateway/local-worker still needs one explicit proof for 95%+.
+  - **Canonical redeploy:** Exits 0; Helmfile converges; foreman, apiserver, ollama-0 Ready; health probes passing; preload succeeds; OLLAMA_BASE_URL on apiserver.
+  - **Real inference validated:** Full path tested: apiserver → gateway → local-worker → Ollama, returning real model responses.
 
-Waves 1–4 complete. Next: one request through apiserver/gateway/local-worker returning a real model response (Block 5); then VPA and deeper hardening.
+Waves 1–4 complete. Next: VPA validation and deeper hardening.

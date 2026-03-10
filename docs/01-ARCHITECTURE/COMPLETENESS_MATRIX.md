@@ -9,12 +9,12 @@ Zen-Brain is **1.0-shaped and execution-capable**. Remaining work is hardening t
 | Dimension | Score | Notes |
 |-----------|-------|--------|
 | **Architecture completeness** | 95% | Blocks 0–6 present; contracts, CRDs, session/context plumbing solid; deployment plane live-proven. |
-| **Operational / deployment completeness** | 94% | Full sandbox path proven: redeploy exits 0, Helmfile converges, foreman/apiserver/ollama-0 Ready, preload succeeds, OLLAMA_BASE_URL on apiserver. |
-| **Blended overall completeness** | 94% | Canonical deploy path real; sandbox and Ollama live-proven; production-shaped with focused hardening backlog. |
+| **Operational / deployment completeness** | 95% | Full sandbox path proven: redeploy exits 0, Helmfile converges, foreman/apiserver/ollama-0 Ready, preload succeeds, OLLAMA_BASE_URL on apiserver, health probes passing, real inference validated (apiserver/gateway/local-worker/Ollama). |
+| **Blended overall completeness** | 95% | Canonical deploy path real; sandbox and Ollama live-proven; production-shaped with focused hardening backlog. |
 
 **Single source of truth for status:** This matrix, [PROGRESS.md](PROGRESS.md), [RECOMMENDED_NEXT_STEPS.md](RECOMMENDED_NEXT_STEPS.md), and [DEPLOYMENT_VALIDATION.md](../04-DEVELOPMENT/DEPLOYMENT_VALIDATION.md). README Development Status reflects this narrative.
 
-**Remaining gaps (94% → 95%+):** (1) **Real inference proof** — one request through apiserver/gateway/local-worker returning a real model response; (2) VPA path not validated in sandbox; (3) Fail-closed runtime, controller/Factory/proof depth. See [RECOMMENDED_NEXT_STEPS.md](RECOMMENDED_NEXT_STEPS.md) for full list.
+**Remaining gaps (95% → 96%+):** (1) VPA path not validated in sandbox; (2) Fail-closed runtime, controller/Factory/proof depth. See [RECOMMENDED_NEXT_STEPS.md](RECOMMENDED_NEXT_STEPS.md) for full list.
 
 **Definitions:**
 - **Real:** Production code path; no mandatory fallback to mock/simulated behavior.
