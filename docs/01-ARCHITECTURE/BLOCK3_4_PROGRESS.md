@@ -48,7 +48,10 @@
 | **Foreman + Gate** | Wired | Reconciler accepts optional Gate and Dispatcher; cmd/foreman uses NewStubGate() and NoOpDispatcher; Admit before Pending→Scheduled |
 | **TaskDispatcher** | Interface + no-op | `internal/foreman/dispatcher.go`: TaskDispatcher.Dispatch(ctx, task); NoOpDispatcher for 4.3 placeholder |
 | **4.3 Worker pool** | Implemented | `internal/foreman/worker.go`: Worker implements TaskDispatcher; queue + N goroutines; processOne: Running → TaskRunner.Run → Completed/Failed; `runner.go`: TaskRunner + PlaceholderRunner |
-| **Worktree manager** | Interface + stub | `internal/worktree/manager.go`: Manager.Prepare(ctx, taskID, sessionID) (dir, cleanup, err); StubManager uses os.MkdirTemp |
+| **Worktree manager** | Real when configured | `internal/worktree/manager.go`: Manager interface; `internal/worktree/git_manager.go`: GitManager creates real local git worktrees (`git worktree add --detach`), cleanup via `worktree remove --force`. StubManager remains for non-worktree mode. |
+| **Foreman + git worktree** | Wired | When `ZEN_FOREMAN_USE_GIT_WORKTREE=true` and `ZEN_FOREMAN_SOURCE_REPO` set, Foreman uses GitManager + GitWorkspaceManager; tasks execute in a real writable worktree. Execution mode (`workspace` \| `git-worktree`) in outcome and `zen.kube-zen.com/factory-execution-mode` annotation. |
+| **Proof-of-work** | Honest artifact paths | Proof bundle records actual artifact paths (JSON, MD, log); OutputLog aggregated from execution steps (not result.Error); git evidence paths (`review/git-status.txt`, `review/git-diff-stat.txt`) when present; branch/commit in result/summary. |
+| **review:real lane** | Canonical real lane | `review:real` template: workspace/git inventory, language-aware checks (Go test, Python py_compile), REVIEW.md from real observations; repo-aware when run in a git worktree. |
 | **Foreman + BrainQueue** | Wired | BrainTaskSpec.QueueName optional; Foreman skips scheduling when queue exists and Phase == Paused (requeue) |
 | **Foreman cmd** | Worker + Factory | cmd/foreman uses Worker with FactoryTaskRunner by default; `-workers`, `-factory-runtime-dir`, `-factory-workspace-home`, `-factory-prefer-real-templates` (env: `ZEN_FOREMAN_RUNTIME_DIR`, `ZEN_FOREMAN_WORKSPACE_HOME`, `ZEN_FOREMAN_PREFER_REAL_TEMPLATES`) |
 | **FactoryTaskRunner** | Default | `internal/foreman/factory_runner.go`: NewFactoryTaskRunner(cfg) builds Factory; converts BrainTask → FactoryTaskSpec; Run returns TaskRunOutcome; Worker persists outcome to BrainTask annotations |
@@ -64,7 +67,7 @@
 | **ZenGuardian** | Added | `pkg/guardian/interface.go`: ZenGuardian (RecordEvent, CheckSafety); `internal/guardian/stub.go`: StubGuardian; Foreman Reconciler optional Guardian (CheckSafety before schedule, RecordEvent after) |
 | **API auth** | Added | When `ZEN_API_KEY` set, API requires X-API-Key or Authorization: Bearer; /healthz, /readyz, / exempt. `internal/apiserver/auth.go`, Server.AuthAPIKey, cmd/apiserver |
 
-**Block 4 complete:** CRDs (BrainTask, BrainAgent, BrainQueue, BrainPolicy), Foreman with Gate + Guardian + Dispatcher, worker pool, FactoryTaskRunner, worktree manager, observability, session-affinity, queue status, ZenContext in-cluster, ZenGate/ZenGuardian stubs. Real Guardian/Gate implementations are optional extensions.
+**Block 4 complete:** CRDs (BrainTask, BrainAgent, BrainQueue, BrainPolicy), Foreman with Gate + Guardian + Dispatcher, worker pool, FactoryTaskRunner, **real local git worktree manager when configured**, GitWorkspaceManager (no deferred placeholders), proof-of-work with real artifact paths and git evidence, **review:real** as canonical trustworthy lane, execution mode in outcome/annotations, observability, session-affinity, queue status, ZenContext in-cluster, ZenGate/ZenGuardian stubs. **Still out of scope for Block 4:** no remote clone/fork/PR, no distributed worktree pool, no in-cluster git cache/bare-repo manager; in-cluster Foreman/API deploy remains TBD.
 
 **Block 3 complete:** Message bus, state sync (ZenContext/Session/ReMe), ZenJournal, API server (sessions, health, version), KB/QMD adapter and orchestration, ZenLedger, CockroachDB provisioning.
 

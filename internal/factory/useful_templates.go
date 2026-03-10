@@ -17,7 +17,18 @@ func (r *WorkTypeTemplateRegistry) registerUsefulTemplates() {
 	r.registerRealRefactorTemplate()
 	r.registerRealPythonTemplate()
 	r.registerRealReviewTemplate()
+
+	// Batch II: Additional work types (stubs; not part of Block 4 scope)
+	r.registerCICDTemplate()
+	r.registerJavaScriptTemplate()
+	r.registerDatabaseMigrationTemplate()
+	r.registerMonitoringTemplate()
 }
+
+func (r *WorkTypeTemplateRegistry) registerCICDTemplate()           {}
+func (r *WorkTypeTemplateRegistry) registerJavaScriptTemplate()     {}
+func (r *WorkTypeTemplateRegistry) registerDatabaseMigrationTemplate() {}
+func (r *WorkTypeTemplateRegistry) registerMonitoringTemplate()    {}
 
 // registerRealImplementationTemplate creates a template that generates real files.
 func (r *WorkTypeTemplateRegistry) registerRealImplementationTemplate() {
@@ -293,8 +304,6 @@ func (r *WorkTypeTemplateRegistry) registerRealReviewTemplate() {
 	}
 	r.registerTemplate(template)
 }
-
-// Real command handlers for the templates
 
 // These are placeholder handlers that would be implemented as real commands
 // For now, they generate real files in the workspace

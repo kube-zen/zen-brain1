@@ -138,6 +138,12 @@ The warm pool + worktree approach balances latency, isolation, and git‑friendl
 - [ADR‑0004](0004_MULTI_CLUSTER_CRDS.md) – Multi‑cluster topology (worker pools are per‑cluster).
 - Construction Plan, Section 3.5 – Warm Worker Pool with Session Affinity (A+C Hybrid).
 
+## Implementation status (Block 4, 2026-03-10)
+
+- **Local git worktree manager:** Implemented in `internal/worktree/git_manager.go`. Creates real worktrees via `git worktree add --detach`, cleanup via `worktree remove --force`. Path stays under configured BasePath; no network fetch in this implementation.
+- **Foreman + Factory:** When `ZEN_FOREMAN_USE_GIT_WORKTREE=true` and `ZEN_FOREMAN_SOURCE_REPO` are set, Foreman runs tasks in a real writable worktree. Execution mode (`workspace` | `git-worktree`) is recorded in TaskRunOutcome and in BrainTask annotation `zen.kube-zen.com/factory-execution-mode`.
+- **Not yet implemented:** In-cluster shared `/factory` volume, bare-repo manager, distributed worktree pool, remote clone/fork/PR.
+
 ## References
 
 - Construction Plan, Section 3.5 – detailed architecture diagram and implementation notes.

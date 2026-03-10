@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -176,6 +177,45 @@ func TestProofOfWorkManager_OutputLogFromSteps(t *testing.T) {
 	}
 	if artifact.Summary.ErrorLog != "some error" {
 		t.Errorf("ErrorLog should hold result.Error: got %q", artifact.Summary.ErrorLog)
+	}
+}
+
+func TestProofOfWorkManager_GitReviewArtifactsInProof(t *testing.T) {
+	runtimeDir := t.TempDir()
+	reviewDir := filepath.Join(runtimeDir, "review")
+	if err := os.MkdirAll(reviewDir, 0755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(reviewDir, "git-status.txt"), []byte(" M file.go"), 0644); err != nil {
+		t.Fatalf("WriteFile git-status: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(reviewDir, "git-diff-stat.txt"), []byte(" 1 file changed"), 0644); err != nil {
+		t.Fatalf("WriteFile git-diff-stat: %v", err)
+	}
+	powManager := NewProofOfWorkManager(t.TempDir())
+	result := &ExecutionResult{
+		TaskID: "task-git", SessionID: "s1", WorkItemID: "W-1",
+		Status: ExecutionStatusCompleted, Success: true, CompletedAt: time.Now(), Duration: time.Minute,
+		WorkspacePath: runtimeDir, ExecutionSteps: []*ExecutionStep{},
+	}
+	spec := &FactoryTaskSpec{ID: "task-git", SessionID: "s1", WorkItemID: "W-1", Title: "T", Objective: "O"}
+	ctx := context.Background()
+	artifact, err := powManager.CreateProofOfWork(ctx, result, spec)
+	if err != nil {
+		t.Fatalf("CreateProofOfWork: %v", err)
+	}
+	expectedStatus := filepath.Join(runtimeDir, "review", "git-status.txt")
+	expectedDiff := filepath.Join(runtimeDir, "review", "git-diff-stat.txt")
+	if artifact.Summary.GitStatusPath != expectedStatus {
+		t.Errorf("GitStatusPath: got %q, want %q", artifact.Summary.GitStatusPath, expectedStatus)
+	}
+	if artifact.Summary.GitDiffStatPath != expectedDiff {
+		t.Errorf("GitDiffStatPath: got %q, want %q", artifact.Summary.GitDiffStatPath, expectedDiff)
+	}
+	md, _ := os.ReadFile(artifact.MarkdownPath)
+	mdStr := string(md)
+	if !strings.Contains(mdStr, "Git status path") || !strings.Contains(mdStr, "git-diff-stat") {
+		t.Error("Markdown should include git evidence paths")
 	}
 }
 
