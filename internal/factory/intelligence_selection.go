@@ -31,18 +31,18 @@ func (f *FactoryImpl) chooseTemplateAndConfig(ctx context.Context, spec *Factory
 	templateIdentity := "default"
 
 	if f.recommender == nil {
-		// Static: prefer exact match, then (workType, "real") when domain empty, then (workType, ""), then default
+		// Static: when domain empty prefer (workType, "real"); else exact (workType has this domain); else (workType, ""); else default
 		var selWorkType, selWorkDomain string
-		if f.templateManager.HasTemplate(workType, workDomain) {
+		if workDomain == "" && f.templateManager.HasExactTemplate(workType, "real") {
+			selWorkType, selWorkDomain = workType, "real"
+			templateIdentity = workType + ":real"
+		} else if f.templateManager.HasExactTemplate(workType, workDomain) {
 			selWorkType, selWorkDomain = workType, workDomain
 			templateIdentity = workType + ":" + workDomain
 			if workDomain == "" {
 				templateIdentity = workType
 			}
-		} else if workDomain == "" && f.templateManager.HasTemplate(workType, "real") {
-			selWorkType, selWorkDomain = workType, "real"
-			templateIdentity = workType + ":real"
-		} else if f.templateManager.HasTemplate(workType, "") {
+		} else if f.templateManager.HasExactTemplate(workType, "") {
 			selWorkType, selWorkDomain = workType, ""
 			templateIdentity = workType
 		} else {
