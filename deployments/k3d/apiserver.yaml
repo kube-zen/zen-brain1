@@ -28,6 +28,10 @@ spec:
           env:
             - name: API_SERVER_PORT
               value: "8080"
+            - name: OLLAMA_BASE_URL
+              value: "http://ollama:11434"
+            - name: OLLAMA_TIMEOUT_SECONDS
+              value: "120"
             # Optional: set ZEN_API_KEY (e.g. from a Secret) to enable API key auth.
             # - name: ZEN_API_KEY
             #   valueFrom:

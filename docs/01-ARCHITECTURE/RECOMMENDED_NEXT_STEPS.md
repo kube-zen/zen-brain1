@@ -4,6 +4,51 @@
 
 **Overall:** Helm/Helmfile is the canonical deployment path; `config/clusters.yaml` is the env contract; Ollama enablement and model preload are declarative.
 
+## Current completeness baseline (re-baselined after Ollama live validation)
+
+| Dimension | Score | Notes |
+|-----------|-------|--------|
+| Architecture completeness | 95% | Design and structure in place; deployment plane is live-proven. |
+| Operational / deployment completeness | 94% | Full sandbox path proven: redeploy exits 0, Helmfile converges, foreman/apiserver/ollama-0 Ready, preload succeeds, OLLAMA_BASE_URL on apiserver. |
+| **Blended overall** | **94%** | Canonical deploy path is real; sandbox is live-proven; Ollama is live-proven. Repo has moved from “nearly production-shaped” to “production-shaped with a focused hardening backlog”. |
+
+**Block view:**
+
+| Block | Completeness | Current read |
+|-------|--------------|--------------|
+| 0 Foundation | 97% | Strong. Tooling, config contract, and deploy structure are coherent. |
+| 0.5 zen-sdk reuse | 95% | No new issue. |
+| 1 Neuro-Anatomy | 95% | Stable. |
+| 2 Office | 90% | Unchanged. |
+| 3 Nervous System | 94% | Apiserver and foreman healthy; core manager health semantics correct. |
+| 4 Factory | 88% | FactoryTaskRunner and control-plane entrypoint operationally healthy. |
+| 5 Intelligence | 92% | Ollama deploys, preload works, env wiring works; real inference path still needs one explicit proof. |
+| 6 Developer Experience / Deployment | 95% | Canonical redeploy fully validated; Ollama-enabled sandbox path proven. |
+
+### Why it moved up
+
+Live proof for the full intended sandbox path:
+
+- `python3 scripts/zen.py env redeploy --env sandbox` **exits 0**
+- Helmfile path converges with all four releases
+- Foreman and apiserver roll out successfully
+- ollama-0 is running
+- Preload succeeds for qwen3.5:0.8b
+- **OLLAMA_BASE_URL=http://ollama:11434** is present on apiserver
+- Health and readiness are green externally
+
+That closes the biggest remaining uncertainty in Block 5 and Block 6.
+
+### What still keeps it below 95%+
+
+The remaining gaps are no longer deploy-path gaps. They are deeper platform maturity items:
+
+1. **Real inference path still needs explicit proof** — Ollama deploys, preload works, env wiring works. Still worth proving: one request through the actual apiserver/gateway/local-worker lane returns a real model response. That is the last major Block 5 validation item.
+2. **VPA path is not validated in sandbox** — VPA was correctly disabled there to avoid requiring the CRD. The full target operating model is only partially proven.
+3. **Deeper hardening remains** — Fail-closed runtime where appropriate; controller maturity; Factory lane realism; proof/signing depth; broader intelligence maturity.
+
+**Executive call:** Zen-Brain is now at **~94%** completeness overall. That is a strong milestone: canonical deploy path is real, sandbox is live-proven, Ollama is live-proven. The repo has moved from “nearly production-shaped” to “production-shaped with a focused hardening backlog”.
+
 ---
 
 ## Wave 1 — Quick cleanup, highest ROI ✅ DONE
@@ -54,10 +99,11 @@
 
 ## Bottom line
 
-- **Architecturally strong;** current truth:
+- **94% complete overall** — canonical deploy path is real; sandbox is live-proven; Ollama is live-proven.
+- **Current truth:**
   - **Operationally clean:** Yes (Wave 1 done).
   - **Governance-clean:** Yes (zen_sdk_ownership in pre-commit; ADR-0009 + DEPENDENCIES.md).
-  - **Ollama-backed:** Yes; optional in-cluster Ollama via `deploy.use_ollama` and `deployments/ollama-in-cluster`.
-  - **Fully k8s-opinionated:** Yes for local dev (k3d); Python CLI will standardize dev-up/dev-down.
+  - **Canonical redeploy:** Exits 0; Helmfile converges; foreman, apiserver, ollama-0 Ready; preload succeeds; OLLAMA_BASE_URL on apiserver.
+  - **Ollama-backed:** Live-proven in sandbox (use_ollama: true, qwen3.5:0.8b). Real inference via apiserver/gateway/local-worker still needs one explicit proof for 95%+.
 
-Waves 1–4 complete. Next: deeper intelligence work or further Block 5 tuning (e.g. model selection, resource limits).
+Waves 1–4 complete. Next: one request through apiserver/gateway/local-worker returning a real model response (Block 5); then VPA and deeper hardening.

@@ -53,9 +53,8 @@ fmt: ## Format code
 lint: ## Run linter (requires golangci-lint)
 	golangci-lint run ./...
 
-clean: ## Clean build artifacts
+clean: ## Clean build artifacts (coverage lives in .artifacts/coverage/)
 	rm -rf bin/
-	rm -f coverage.out
 	rm -rf $(COVERAGE_DIR)
 
 deps: ## Download dependencies
@@ -108,8 +107,10 @@ dev-build: build-all ## Build all binaries (foreman, apiserver, zen-brain).
 dev-image: ## Build zen-brain image and load into k3d (thin wrapper: zen.py image build --env $(ZEN_DEV_ENV))
 	python3 scripts/zen.py image build --env $(ZEN_DEV_ENV)
 
-# Apply in-cluster stack (Block 6). Prefer: make dev-up (includes apply). Standalone apply when cluster already exists.
-dev-apply: ## Apply zen-brain namespace, foreman, apiserver to k3d (context from config)
+# Deprecated: canonical deploy is Helmfile (make dev-up). Use only if you need a one-off raw apply without Helmfile.
+dev-apply: ## [Deprecated] Raw kubectl apply; prefer: make dev-up (Helmfile sync)
+	@echo "Deprecated: canonical path is 'make dev-up' (Helmfile). Use 'make dev-up' or 'python3 scripts/zen.py env redeploy --env $${ZEN_DEV_ENV:-sandbox}'."
+	@echo "To apply without cluster create: python3 scripts/zen.py env redeploy --env $${ZEN_DEV_ENV:-sandbox} --skip-registry --skip-k3d --skip-build --skip-image-load"
 	kubectl apply -f deployments/k3d/zen-brain-namespace.yaml
 	kubectl apply -f deployments/k3d/foreman.yaml
 	kubectl apply -f deployments/k3d/apiserver.yaml
