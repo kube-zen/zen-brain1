@@ -4,16 +4,18 @@ package foreman
 import (
 	"context"
 	"fmt"
+	"log"
 	"sync"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
+	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/kube-zen/zen-brain1/api/v1alpha1"
 	zenctx "github.com/kube-zen/zen-brain1/pkg/context"
+	"github.com/kube-zen/zen-brain1/pkg/ledger"
 )
 
 // Worker is a TaskDispatcher that runs tasks in a pool of goroutines and updates status (Block 4.3).
@@ -23,14 +25,16 @@ type Worker struct {
 	NumWorkers      int
 	SessionAffinity bool   // when true, route tasks by session to the same worker (Block 4 session-affinity)
 	// ContextBinder optional: when set and Runner implements TaskRunnerWithContext, get session before run and write intermediate state after (Block 5.3).
-	ContextBinder   ContextBinder
-	queue           chan types.NamespacedName   // used when !SessionAffinity
-	queues          []chan types.NamespacedName // used when SessionAffinity (one per worker)
-	affinityMu      sync.Mutex
+	ContextBinder ContextBinder
+	// LedgerClient optional: when set, record task completion in ZenLedger (Block 4 completeness) for cost/audit visibility.
+	LedgerClient ledger.ZenLedgerClient
+	queue        chan types.NamespacedName   // used when !SessionAffinity
+	queues       []chan types.NamespacedName // used when SessionAffinity (one per worker)
+	affinityMu   sync.Mutex
 	sessionToWorker map[string]int // sessionID -> worker index
-	workerLoad      []int          // in-flight + queued per worker (for least-loaded)
-	startOnce       sync.Once
-	stop            func()
+	workerLoad     []int          // in-flight + queued per worker (for least-loaded)
+	startOnce      sync.Once
+	stop           func()
 }
 
 // NewWorker returns a Worker that will process up to numWorkers tasks concurrently.
@@ -173,7 +177,7 @@ func (w *Worker) runLoopFrom(ctx context.Context, ch chan types.NamespacedName, 
 }
 
 func (w *Worker) processOne(ctx context.Context, nn types.NamespacedName) {
-	logger := log.FromContext(ctx)
+	logger := ctrllog.FromContext(ctx)
 	var task v1alpha1.BrainTask
 	if err := w.Client.Get(ctx, nn, &task); err != nil {
 		if errors.IsNotFound(err) {
@@ -223,6 +227,20 @@ func (w *Worker) processOne(ctx context.Context, nn types.NamespacedName) {
 		TasksCompletedTotal.Inc()
 		task.Status.Phase = v1alpha1.BrainTaskPhaseCompleted
 		task.Status.Message = "Completed"
+	}
+	// Record task outcome in ZenLedger when configured (Block 4 completeness)
+	if w.LedgerClient != nil {
+		sessionID := task.Spec.SessionID
+		if sessionID == "" {
+			sessionID = task.Namespace + "/" + task.Name
+		}
+		reason := "completed"
+		if task.Status.Phase == v1alpha1.BrainTaskPhaseFailed {
+			reason = "failed"
+		}
+		if recordErr := w.LedgerClient.RecordPlannedModelSelection(ctx, sessionID, task.Name, "factory", reason); recordErr != nil {
+			log.Printf("[Worker] ledger RecordPlannedModelSelection: %v", recordErr)
+		}
 	}
 	task.Status.Conditions = append(task.Status.Conditions, metav1.Condition{
 		Type:               "Executed",

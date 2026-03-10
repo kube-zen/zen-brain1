@@ -677,3 +677,95 @@ func TestMinerSupportsOldArtifactsWithOnlyModelUsed(t *testing.T) {
 		t.Errorf("expected 1 run for bugfix:core (from model_used fallback), got %d", ts.TotalRuns)
 	}
 }
+
+// TestClassifyFailure_* verifies the failure classifier maps test/timeout/workspace/policy/infra/runtime correctly.
+func TestClassifyFailure_TestMode(t *testing.T) {
+	s := &ProofOfWorkSummary{Result: "failed", TestsFailed: []string{"TestFoo"}}
+	if got := classifyFailure(s); got != FailureTest {
+		t.Errorf("classifyFailure(test failed) = %v, want test", got)
+	}
+}
+
+func TestClassifyFailure_TimeoutMode(t *testing.T) {
+	s := &ProofOfWorkSummary{Result: "failed", ErrorLog: "context deadline exceeded"}
+	if got := classifyFailure(s); got != FailureTimeout {
+		t.Errorf("classifyFailure(timeout) = %v, want timeout", got)
+	}
+}
+
+func TestClassifyFailure_WorkspaceMode(t *testing.T) {
+	s := &ProofOfWorkSummary{Result: "failed", ErrorLog: "git clone failed: repository not found"}
+	if got := classifyFailure(s); got != FailureWorkspace {
+		t.Errorf("classifyFailure(workspace) = %v, want workspace", got)
+	}
+}
+
+func TestClassifyFailure_PolicyMode(t *testing.T) {
+	s := &ProofOfWorkSummary{Result: "failed", ErrorLog: "approval required by policy"}
+	if got := classifyFailure(s); got != FailurePolicy {
+		t.Errorf("classifyFailure(policy) = %v, want policy", got)
+	}
+}
+
+func TestClassifyFailure_InfraMode(t *testing.T) {
+	s := &ProofOfWorkSummary{Result: "failed", ErrorLog: "connection refused dial tcp"}
+	if got := classifyFailure(s); got != FailureInfra {
+		t.Errorf("classifyFailure(infra) = %v, want infra", got)
+	}
+}
+
+func TestClassifyFailure_RuntimeMode(t *testing.T) {
+	s := &ProofOfWorkSummary{Result: "failed", ErrorLog: "panic: nil pointer"}
+	if got := classifyFailure(s); got != FailureRuntime {
+		t.Errorf("classifyFailure(runtime) = %v, want runtime", got)
+	}
+}
+
+func TestClassifyFailure_CompletedNotFailure(t *testing.T) {
+	s := &ProofOfWorkSummary{Result: "completed"}
+	if got := classifyFailure(s); got != "" {
+		t.Errorf("classifyFailure(completed) = %v, want empty", got)
+	}
+}
+
+// TestFailureStatsPersistReload verifies failure statistics persist and reload correctly.
+func TestFailureStatsPersistReload(t *testing.T) {
+	ctx := context.Background()
+	tmpDir := t.TempDir()
+	store, err := NewJSONPatternStore(tmpDir)
+	if err != nil {
+		t.Fatalf("NewJSONPatternStore: %v", err)
+	}
+
+	// Store failure stats via MiningResult
+	result := &MiningResult{
+		FailureStatistics: []FailureStatistics{
+			{
+				WorkType:          "implementation",
+				WorkDomain:        "backend",
+				TotalFailures:     5,
+				FailureModes:     map[string]int{"test": 3, "timeout": 2},
+				RecommendedActions: map[string]int{"retry": 2},
+				LastFailureAt:    time.Now().Add(-time.Hour),
+			},
+		},
+	}
+	if err := store.StorePatterns(ctx, result); err != nil {
+		t.Fatalf("StorePatterns: %v", err)
+	}
+
+	// Reload and compare
+	got, err := store.GetFailureStats(ctx, "implementation", "backend")
+	if err != nil {
+		t.Fatalf("GetFailureStats: %v", err)
+	}
+	if got.TotalFailures != 5 {
+		t.Errorf("TotalFailures = %d, want 5", got.TotalFailures)
+	}
+	if got.FailureModes["test"] != 3 || got.FailureModes["timeout"] != 2 {
+		t.Errorf("FailureModes = %v", got.FailureModes)
+	}
+	if got.RecommendedActions["retry"] != 2 {
+		t.Errorf("RecommendedActions = %v", got.RecommendedActions)
+	}
+}

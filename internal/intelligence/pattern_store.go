@@ -445,6 +445,7 @@ func (s *InMemoryPatternStore) ClearPatterns(ctx context.Context) error {
 	s.workTypeStats = make(map[string]*WorkTypeStatistics)
 	s.templateStats = make(map[string]*TemplateStatistics)
 	s.durationStats = make(map[string]*DurationStatistics)
+	s.failureStats = make(map[string]*FailureStatistics)
 	s.miningResult = nil
 
 	return nil

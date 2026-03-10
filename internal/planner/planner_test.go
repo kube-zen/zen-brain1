@@ -3,6 +3,7 @@ package planner
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -157,6 +158,10 @@ func (m *mockSessionManager) UpdateExecutionCheckpoint(ctx context.Context, sess
 
 func (m *mockSessionManager) GetExecutionCheckpoint(ctx context.Context, sessionID string) (*session.ExecutionCheckpoint, error) {
 	return nil, nil
+}
+
+func (m *mockSessionManager) GetExecutionCheckpointSummary(ctx context.Context, sessionID string) (string, error) {
+	return "", nil
 }
 
 func (m *mockSessionManager) Close() error {
@@ -619,4 +624,119 @@ func TestDefaultPlanner_ZenContextIntegration(t *testing.T) {
 	}
 	// Optionally deserialize and verify agent state
 	t.Logf("ZenContext integration verified: agent state stored (%d bytes)", len(sessionCtx.State))
+}
+
+// TestModelSelectionProvenanceRecorded verifies that when the planner selects a model (ledger path),
+// it records model-selection provenance in session evidence.
+func TestModelSelectionProvenanceRecorded(t *testing.T) {
+	sessionManager := newMockSessionManager()
+	ledgerClient := &mockLedgerClient{
+		efficiencies: []ledger.ModelEfficiency{
+			{ModelID: "glm-4.7", AvgCostPerTask: 0.5, SuccessRate: 0.9, SampleSize: 50},
+		},
+	}
+	config := &Config{
+		OfficeManager:    office.NewManager(),
+		Analyzer:         &mockAnalyzer{},
+		SessionManager:   sessionManager,
+		LedgerClient:     ledgerClient,
+		DefaultModel:     "glm-4.7",
+		RequireApproval:  false,
+		AutoApproveCost:  100,
+		AnalysisTimeout:  300,
+		ExecutionTimeout: 3600,
+	}
+	planner, err := New(config)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	defer planner.Close()
+
+	workItem := &contracts.WorkItem{
+		ID:         "PROV-1",
+		Title:      "Provenance Test",
+		WorkType:   contracts.WorkTypeImplementation,
+		WorkDomain: contracts.DomainCore,
+		Priority:   contracts.PriorityMedium,
+		Status:     contracts.StatusRequested,
+		CreatedAt:  time.Now(),
+		Source:     contracts.SourceMetadata{IssueKey: "PROV-1"},
+	}
+	ctx := context.Background()
+	if err := planner.ProcessWorkItem(ctx, workItem); err != nil {
+		t.Fatalf("ProcessWorkItem: %v", err)
+	}
+	time.Sleep(150 * time.Millisecond)
+
+	sess, err := sessionManager.GetSessionByWorkItem(ctx, workItem.ID)
+	if err != nil || sess == nil {
+		t.Fatalf("GetSessionByWorkItem: %v", err)
+	}
+	var found bool
+	for _, ev := range sess.EvidenceItems {
+		if strings.Contains(ev.Content, "model=") && strings.Contains(ev.Content, "source=") {
+			found = true
+			if !strings.Contains(ev.Content, "confidence=") {
+				t.Error("evidence should contain confidence=")
+			}
+			break
+		}
+	}
+	if !found {
+		t.Error("expected session evidence to contain model-selection provenance (model=, source=)")
+	}
+}
+
+// TestFallbackRecordsSaneProvenance verifies that when the planner falls back to default model (no ledger data),
+// it still records sane provenance (source=default).
+func TestFallbackRecordsSaneProvenance(t *testing.T) {
+	sessionManager := newMockSessionManager()
+	ledgerClient := &mockLedgerClient{efficiencies: nil} // no data -> default model
+	config := &Config{
+		OfficeManager:    office.NewManager(),
+		Analyzer:         &mockAnalyzer{},
+		SessionManager:   sessionManager,
+		LedgerClient:     ledgerClient,
+		DefaultModel:     "glm-4.7",
+		RequireApproval:  false,
+		AutoApproveCost:  100,
+		AnalysisTimeout:  300,
+		ExecutionTimeout: 3600,
+	}
+	planner, err := New(config)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	defer planner.Close()
+
+	workItem := &contracts.WorkItem{
+		ID:         "FALL-1",
+		Title:      "Fallback Test",
+		WorkType:   contracts.WorkTypeImplementation,
+		WorkDomain: contracts.DomainCore,
+		Priority:   contracts.PriorityMedium,
+		Status:     contracts.StatusRequested,
+		CreatedAt:  time.Now(),
+		Source:     contracts.SourceMetadata{IssueKey: "FALL-1"},
+	}
+	ctx := context.Background()
+	if err := planner.ProcessWorkItem(ctx, workItem); err != nil {
+		t.Fatalf("ProcessWorkItem: %v", err)
+	}
+	time.Sleep(150 * time.Millisecond)
+
+	sess, err := sessionManager.GetSessionByWorkItem(ctx, workItem.ID)
+	if err != nil || sess == nil {
+		t.Fatalf("GetSessionByWorkItem: %v", err)
+	}
+	var found bool
+	for _, ev := range sess.EvidenceItems {
+		if strings.Contains(ev.Content, "source=default") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("expected session evidence to contain source=default when falling back")
+	}
 }

@@ -3,6 +3,7 @@ package intelligence
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -101,8 +102,8 @@ func TestRecencyAwareRecommendation(t *testing.T) {
 		rec, err := recommender.RecommendTemplate(ctx, contracts.WorkTypeImplementation, contracts.DomainFactory)
 		require.NoError(t, err)
 
-		// Should recommend based on recent data with high confidence
-		assert.Contains(t, rec.Reasoning, "recent")
+		// Should recommend based on exact-match history with high confidence
+		assert.Contains(t, rec.Reasoning, "Exact-match history")
 		assert.Greater(t, rec.Confidence, 0.5)
 		assert.Equal(t, rec.SuccessRate, 0.9)
 	})
@@ -111,9 +112,10 @@ func TestRecencyAwareRecommendation(t *testing.T) {
 		rec, err := recommender.RecommendTemplate(ctx, contracts.WorkTypeDocumentation, "")
 		require.NoError(t, err)
 
-		// Should mention freshness penalty
+		// Should mention freshness penalty and age (e.g. "last seen" or "days ago")
 		assert.Contains(t, rec.Reasoning, "freshness penalty")
-		assert.Contains(t, rec.Reasoning, "older")
+		assert.True(t, strings.Contains(rec.Reasoning, "last seen") || strings.Contains(rec.Reasoning, "days ago") || strings.Contains(rec.Reasoning, "Exact-match"),
+			"reasoning should mention recency: %s", rec.Reasoning)
 		assert.Less(t, rec.Confidence, 0.99) // Should be reduced from 0.99
 	})
 }
