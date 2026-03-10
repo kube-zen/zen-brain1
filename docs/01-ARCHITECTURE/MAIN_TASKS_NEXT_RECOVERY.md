@@ -2,7 +2,7 @@
 
 **Purpose:** Single place to resume work on the zen-brain vertical slice. These are the **five main tasks** to tackle next (as of the last planning session).
 
-**Progress (2026-03-09):** Task 1 proven — `zen-brain vertical-slice --mock` runs E2E (Office → Analyze → Plan → Session → Factory → Proof-of-work → Status). Single proof-of-work source: main uses Factory’s artifact via `GetProofOfWork` when present; no duplicate creation. Task 3: persistent session store (SQLite via ZEN_BRAIN_SESSION_STORE=sqlite or when using --resume); vertical-slice --resume <session-id> continues from stored session.
+**Progress (2026-03-09):** Task 1 proven — `zen-brain vertical-slice --mock` runs E2E (Office → Analyze → Plan → Session → Factory → Proof-of-work → Status). Single proof-of-work source: main uses Factory’s artifact via `GetProofOfWork` when present; no duplicate creation. Task 2 (Item #2): deterministic proof (sorted slices), failure summary in proof markdown, factory errors pkg; committed. Task 3: persistent session store (SQLite via ZEN_BRAIN_SESSION_STORE=sqlite or when using --resume); vertical-slice --resume <session-id> continues from stored session; ZenContext session state updated after proof attachment.
 
 ---
 
@@ -39,12 +39,11 @@
 - Cleaner proof generation  
 - State continuity  
 
-**Current state:** Item #2 is in progress (~75%). Templates were upgraded from echo-only to real file-creating steps; proof artifacts and state continuity are partially improved.
+**Current state:** Item #2 largely done. Deterministic proof (all string slices sorted in proof), failure summary block in proof markdown when result != completed, factory errors pkg, test fix (NewFactory).
 
 **Recovery / next steps:**
 
-- See [ITEM2_MAKE_SLICE_MORE_USEFUL.md](./ITEM2_MAKE_SLICE_MORE_USEFUL.md).
-- Harden: deterministic proof-of-work format, clear failure paths, workspace/session state carried across steps.
+- See [ITEM2_MAKE_SLICE_MORE_USEFUL.md](./ITEM2_MAKE_SLICE_MORE_USEFUL.md). Optional: schema version in proof markdown, extra state continuity (e.g. workspace file list in proof).
 
 ---
 
@@ -56,8 +55,8 @@
 
 **Recovery / next steps:**
 
-- Session manager already stores/updates ZenContext on create and transition; `--resume <session-id>` uses persisted session (SQLite when `ZEN_BRAIN_SESSION_STORE=sqlite` or when resuming).
-- Ensure every step of the vertical slice reads/writes session context where appropriate (e.g. planner, factory, proof-of-work attachment).
+- Session manager already stores/updates ZenContext on create and transition; `--resume <session-id>` uses persisted session (SQLite when `ZEN_BRAIN_SESSION_STORE=sqlite` or when resuming). ZenContext SessionContext.State is updated after proof-of-work attachment (vertical slice in main.go).
+- Ensure remaining steps read session context where useful (e.g. planner already has ZenContext; factory could accept session ID for logging).
 - Use [ZEN_CONTEXT.md](../03-DESIGN/ZEN_CONTEXT.md) and session/zencontext integration tests as reference.
 - Goal: resume/reconstruct sessions and carry state across runs; use `zen-brain vertical-slice --resume <id>` with persistent store.
 
