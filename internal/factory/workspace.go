@@ -11,6 +11,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/kube-zen/zen-brain1/internal/worktree"
 )
 
 // staleLockThreshold defines how old a lock file can be before considered stale.
@@ -380,33 +382,71 @@ func (w *WorkspaceManagerImpl) CleanupStaleWorkspaces(ctx context.Context) (int,
 	return cleaned, nil
 }
 
-// GitWorkspaceManager integrates with zen-brain's worktree manager.
+// GitWorkspaceManager integrates with zen-brain's worktree manager for real git worktree execution.
 type GitWorkspaceManager struct {
-	worktreeManager interface{}
+	wt     worktree.Manager
+	cleanups map[string]func()
+	mu     sync.Mutex
 }
 
-func NewGitWorkspaceManager(worktreeManager interface{}) *GitWorkspaceManager {
+// NewGitWorkspaceManager returns a WorkspaceManager that uses the given worktree Manager (e.g. worktree.GitManager).
+func NewGitWorkspaceManager(wt worktree.Manager) *GitWorkspaceManager {
 	return &GitWorkspaceManager{
-		worktreeManager: worktreeManager,
+		wt:       wt,
+		cleanups: make(map[string]func()),
 	}
 }
 
 func (g *GitWorkspaceManager) CreateWorkspace(ctx context.Context, taskID, sessionID string) (*WorkspaceMetadata, error) {
+	workDir, cleanup, err := g.wt.Prepare(ctx, taskID, sessionID)
+	if err != nil {
+		return nil, fmt.Errorf("worktree prepare: %w", err)
+	}
+	g.mu.Lock()
+	g.cleanups[workDir] = cleanup
+	g.mu.Unlock()
+
 	metadata := &WorkspaceMetadata{
 		TaskID:      taskID,
 		SessionID:   sessionID,
-		Path:        "",
-		Initialized: false,
-		Clean:       false,
+		Path:        workDir,
+		Initialized: true,
+		Clean:       true,
 		Locked:      false,
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
 	}
-	log.Printf("[GitWorkspaceManager] Git workspace creation deferred to zen-brain worktree manager: task_id=%s session_id=%s", taskID, sessionID)
+	if branch, commit, err := g.getGitInfo(workDir); err == nil {
+		metadata.Branch = branch
+		metadata.BaseCommit = commit
+	}
+	log.Printf("[GitWorkspaceManager] Workspace created: task_id=%s session_id=%s path=%s", taskID, sessionID, workDir)
 	return metadata, nil
 }
 
+func (g *GitWorkspaceManager) getGitInfo(path string) (branch, commit string, err error) {
+	if path == "" {
+		return "", "", nil
+	}
+	checkCmd := exec.CommandContext(context.Background(), "git", "-C", path, "rev-parse", "--is-inside-work-tree")
+	if out, err := checkCmd.Output(); err != nil || strings.TrimSpace(string(out)) != "true" {
+		return "", "", nil
+	}
+	branchCmd := exec.CommandContext(context.Background(), "git", "-C", path, "rev-parse", "--abbrev-ref", "HEAD")
+	if out, err := branchCmd.Output(); err == nil {
+		branch = strings.TrimSpace(string(out))
+	}
+	commitCmd := exec.CommandContext(context.Background(), "git", "-C", path, "rev-parse", "HEAD")
+	if out, err := commitCmd.Output(); err == nil {
+		commit = strings.TrimSpace(string(out))
+	}
+	return branch, commit, nil
+}
+
 func (g *GitWorkspaceManager) ValidateWorkspace(ctx context.Context, path string) (bool, error) {
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return false, nil
+	}
 	return true, nil
 }
 
@@ -415,13 +455,13 @@ func (g *GitWorkspaceManager) LockWorkspace(ctx context.Context, path string) er
 	if err := os.WriteFile(lockPath, []byte(time.Now().Format(time.RFC3339)), 0644); err != nil {
 		return fmt.Errorf("failed to create lock marker: %w", err)
 	}
-	log.Printf("[GitWorkspaceManager] Git workspace locked: path=%s", path)
+	log.Printf("[GitWorkspaceManager] Workspace locked: path=%s", path)
 	return nil
 }
 
 func (g *GitWorkspaceManager) UnlockWorkspace(ctx context.Context, path string) error {
 	os.Remove(filepath.Join(path, ".zen-lock"))
-	log.Printf("[GitWorkspaceManager] Git workspace unlocked: path=%s", path)
+	log.Printf("[GitWorkspaceManager] Workspace unlocked: path=%s", path)
 	return nil
 }
 
@@ -434,10 +474,57 @@ func (g *GitWorkspaceManager) GetWorkspaceMetadata(ctx context.Context, path str
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
 	}
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		metadata.Initialized = false
+		return metadata, nil
+	}
+	if branch, commit, err := g.getGitInfo(path); err == nil {
+		metadata.Branch = branch
+		metadata.BaseCommit = commit
+	}
+	lockPath := filepath.Join(path, ".zen-lock")
+	if _, err := os.Stat(lockPath); err == nil {
+		metadata.Locked = true
+	}
 	return metadata, nil
 }
 
+func (g *GitWorkspaceManager) ListWorkspaceFiles(ctx context.Context, path string) ([]string, error) {
+	var files []string
+	err := filepath.WalkDir(path, func(full string, d os.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+		if d.IsDir() {
+			return nil
+		}
+		base := filepath.Base(full)
+		if strings.HasPrefix(base, ".") || strings.HasPrefix(base, ".zen-") {
+			return nil
+		}
+		rel, _ := filepath.Rel(path, full)
+		files = append(files, rel)
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	sort.Strings(files)
+	return files, nil
+}
+
 func (g *GitWorkspaceManager) DeleteWorkspace(ctx context.Context, path string) error {
-	log.Printf("[GitWorkspaceManager] Git workspace deletion deferred to zen-brain worktree manager: path=%s", path)
+	g.mu.Lock()
+	cleanup, ok := g.cleanups[path]
+	if ok {
+		delete(g.cleanups, path)
+	}
+	g.mu.Unlock()
+	if cleanup != nil {
+		cleanup()
+		log.Printf("[GitWorkspaceManager] Workspace deleted (cleanup): path=%s", path)
+		return nil
+	}
+	log.Printf("[GitWorkspaceManager] Workspace delete (no cleanup registered): path=%s", path)
 	return nil
 }

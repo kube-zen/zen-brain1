@@ -4,11 +4,14 @@ package foreman
 import (
 	"context"
 	"fmt"
+	"log"
+	"path/filepath"
 	"time"
 
 	"github.com/kube-zen/zen-brain1/api/v1alpha1"
 	"github.com/kube-zen/zen-brain1/internal/evidence"
 	"github.com/kube-zen/zen-brain1/internal/factory"
+	"github.com/kube-zen/zen-brain1/internal/worktree"
 	"github.com/kube-zen/zen-brain1/pkg/contracts"
 )
 
@@ -17,6 +20,13 @@ type FactoryTaskRunnerConfig struct {
 	RuntimeDir          string // e.g. /tmp/zen-brain-factory
 	WorkspaceHome       string // e.g. /tmp/zen-brain-factory (workspaces created under WorkspaceHome/workspaces)
 	PreferRealTemplates bool   // when true, empty workDomain + supported workType -> use "real" domain
+
+	// Git worktree execution (Block 4 real worktree lane)
+	UseGitWorktree       bool   // when true, use real git worktrees from SourceRepoPath
+	SourceRepoPath       string // path to git repo (required if UseGitWorktree)
+	WorktreeBasePath     string // base dir for worktrees (default <RuntimeDir>/worktrees)
+	SourceRef            string // git ref e.g. HEAD or main (default HEAD)
+	ReuseSessionWorktree bool   // reuse one worktree per session when true
 }
 
 // FactoryTaskRunner runs a BrainTask by converting it to FactoryTaskSpec and calling Factory.ExecuteTask.
@@ -28,6 +38,7 @@ type FactoryTaskRunner struct {
 }
 
 // NewFactoryTaskRunner builds a FactoryTaskRunner from config (creates/owns FactoryImpl).
+// When UseGitWorktree is true, uses real git worktrees from SourceRepoPath; otherwise uses WorkspaceHome/workspaces.
 func NewFactoryTaskRunner(cfg FactoryTaskRunnerConfig) (*FactoryTaskRunner, error) {
 	if cfg.RuntimeDir == "" {
 		cfg.RuntimeDir = "/tmp/zen-brain-factory"
@@ -35,7 +46,32 @@ func NewFactoryTaskRunner(cfg FactoryTaskRunnerConfig) (*FactoryTaskRunner, erro
 	if cfg.WorkspaceHome == "" {
 		cfg.WorkspaceHome = cfg.RuntimeDir
 	}
-	workspaceManager := factory.NewWorkspaceManager(cfg.WorkspaceHome)
+	var workspaceManager factory.WorkspaceManager
+	if cfg.UseGitWorktree {
+		if cfg.SourceRepoPath == "" {
+			return nil, fmt.Errorf("UseGitWorktree requires SourceRepoPath")
+		}
+		if cfg.WorktreeBasePath == "" {
+			cfg.WorktreeBasePath = filepath.Join(cfg.RuntimeDir, "worktrees")
+		}
+		if cfg.SourceRef == "" {
+			cfg.SourceRef = "HEAD"
+		}
+		gitCfg := worktree.GitManagerConfig{
+			RepoPath:       cfg.SourceRepoPath,
+			BasePath:       cfg.WorktreeBasePath,
+			DefaultRef:     cfg.SourceRef,
+			BranchPrefix:   "ai",
+			ReuseSessionWT: cfg.ReuseSessionWorktree,
+		}
+		gitMgr, err := worktree.NewGitManager(gitCfg)
+		if err != nil {
+			return nil, fmt.Errorf("git worktree manager: %w", err)
+		}
+		workspaceManager = factory.NewGitWorkspaceManager(gitMgr)
+	} else {
+		workspaceManager = factory.NewWorkspaceManager(cfg.WorkspaceHome)
+	}
 	executor := factory.NewBoundedExecutor()
 	powManager := factory.NewProofOfWorkManager(cfg.RuntimeDir)
 	f := factory.NewFactory(workspaceManager, executor, powManager, cfg.RuntimeDir)
@@ -74,6 +110,10 @@ func (r *FactoryTaskRunner) Run(ctx context.Context, task *v1alpha1.BrainTask) (
 		}
 		_ = r.Vault.Store(ctx, item) // best effort
 	}
+	mode := "workspace"
+	if r.cfg.UseGitWorktree {
+		mode = "git-worktree"
+	}
 	outcome := &TaskRunOutcome{
 		WorkspacePath:   result.WorkspacePath,
 		ProofOfWorkPath: result.ProofOfWorkPath,
@@ -82,7 +122,9 @@ func (r *FactoryTaskRunner) Run(ctx context.Context, task *v1alpha1.BrainTask) (
 		ResultStatus:    string(result.Status),
 		Recommendation:  result.Recommendation,
 		DurationSeconds: int64(result.Duration.Seconds()),
+		ExecutionMode:   mode,
 	}
+	log.Printf("[FactoryTaskRunner] task_id=%s execution_mode=%s workspace=%s template=%s", task.Name, mode, result.WorkspacePath, result.TemplateKey)
 	return outcome, nil
 }
 
