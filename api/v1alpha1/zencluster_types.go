@@ -61,6 +61,8 @@ type ClusterCapacity struct {
 
 // ZenClusterStatus defines the observed state of ZenCluster
 type ZenClusterStatus struct {
+	// ObservedGeneration is the .metadata.generation last reconciled
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 	// Phase is the current phase of the cluster
 	Phase string `json:"phase,omitempty"`
 

@@ -24,7 +24,12 @@ func (r *ZenClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	if err := r.Get(ctx, req.NamespacedName, &cluster); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
+	cluster.Status.ObservedGeneration = cluster.Generation
 	if cluster.Status.Phase == "Ready" && len(cluster.Status.Conditions) > 0 {
+		if err := r.Status().Update(ctx, &cluster); err != nil {
+			logger.Error(err, "failed to update ZenCluster status (observedGeneration)")
+			return ctrl.Result{}, err
+		}
 		return ctrl.Result{}, nil
 	}
 	if cluster.Status.Phase == "" {

@@ -244,8 +244,14 @@ func runVerticalSlice() {
 	if officeManager == nil {
 		officeManager = office.NewManager()
 	}
+	clusterID := "default"
+	if cfg != nil && cfg.ZenContext.ClusterID != "" {
+		clusterID = cfg.ZenContext.ClusterID
+	} else if v := os.Getenv("CLUSTER_ID"); v != "" {
+		clusterID = v
+	}
 	if jiraMode == "" && !useMock {
-		jiraConnector, err := jira.NewFromEnv("jira", "default")
+		jiraConnector, err := jira.NewFromEnv("jira", clusterID)
 		if err != nil {
 			fmt.Printf("  ! Jira connector initialization failed: %v\n", err)
 			fmt.Println("  ! Falling back to mock mode")
@@ -254,7 +260,7 @@ func runVerticalSlice() {
 		} else {
 			if err := officeManager.Register("jira", jiraConnector); err != nil {
 				log.Printf("  ! Register Jira: %v", err)
-			} else if err := officeManager.RegisterForCluster("default", "jira"); err != nil {
+			} else if err := officeManager.RegisterForCluster(clusterID, "jira"); err != nil {
 				log.Printf("  ! Register Jira for cluster: %v", err)
 			} else {
 				jiraMode = "env"
@@ -541,7 +547,7 @@ func runVerticalSlice() {
 			workItem = createMockWorkItem()
 		} else {
 			fmt.Printf("  Fetching Jira ticket: %s\n", jiraKey)
-			fetchedItem, err := officeManager.Fetch(ctx, "default", jiraKey)
+			fetchedItem, err := officeManager.Fetch(ctx, clusterID, jiraKey)
 			if err != nil {
 				log.Fatalf("Error fetching work item: %v", err)
 			}
@@ -638,7 +644,7 @@ func runVerticalSlice() {
 
 	// Once work starts, set Jira status to running (if not mock)
 	if !useMock {
-		if err := officeManager.UpdateStatus(ctx, "default", workItem.ID, contracts.StatusRunning); err != nil {
+		if err := officeManager.UpdateStatus(ctx, clusterID, workItem.ID, contracts.StatusRunning); err != nil {
 			log.Printf("Warning: Failed to set Jira status to running: %v", err)
 		}
 	}
@@ -719,7 +725,7 @@ func runVerticalSlice() {
 					proofComment, err := powManager.GenerateComment(ctx, powArtifact)
 					if err != nil {
 						log.Printf("Warning: could not generate proof comment: %v", err)
-					} else if err := officeManager.AddComment(ctx, "default", workItem.ID, proofComment); err != nil {
+					} else if err := officeManager.AddComment(ctx, clusterID, workItem.ID, proofComment); err != nil {
 						log.Printf("Warning: could not post proof comment to Jira: %v", err)
 					} else {
 						commentPosted = true
@@ -778,7 +784,7 @@ func runVerticalSlice() {
 				Size:        int64(len(content)),
 				CreatedAt:   time.Now(),
 			}
-			if err := officeManager.AddAttachment(ctx, "default", workItem.ID, att, content); err != nil {
+			if err := officeManager.AddAttachment(ctx, clusterID, workItem.ID, att, content); err != nil {
 				log.Printf("Warning: could not attach %s to Jira: %v", filename, err)
 			} else {
 				attachmentsUploaded++
@@ -796,7 +802,7 @@ func runVerticalSlice() {
 	}
 	var knowledgeChunkIDs, knowledgeSourcePaths []string
 	if zenContext != nil {
-		if sc, err := zenContext.GetSessionContext(ctx, "default", workSession.ID); err == nil && sc != nil && len(sc.RelevantKnowledge) > 0 {
+		if sc, err := zenContext.GetSessionContext(ctx, clusterID, workSession.ID); err == nil && sc != nil && len(sc.RelevantKnowledge) > 0 {
 			for _, k := range sc.RelevantKnowledge {
 				knowledgeChunkIDs = append(knowledgeChunkIDs, k.ID)
 				knowledgeSourcePaths = append(knowledgeSourcePaths, k.SourcePath)
@@ -851,7 +857,7 @@ func runVerticalSlice() {
 		}
 		fmt.Println()
 		fmt.Println("Updating Jira status...")
-		if err := officeManager.UpdateStatus(ctx, "default", workItem.ID, finalStatus); err != nil {
+		if err := officeManager.UpdateStatus(ctx, clusterID, workItem.ID, finalStatus); err != nil {
 			log.Printf("Warning: Failed to update Jira status: %v", err)
 		} else {
 			statusUpdated = true

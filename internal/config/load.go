@@ -287,6 +287,10 @@ func (c *Config) loadFromEnv() {
 		c.MessageBus.Enabled = true
 		c.MessageBus.Kind = "redis"
 	}
+	// Cluster ID for session/context/office lookups (config file overrides this when set)
+	if c.ZenContext.ClusterID == "" {
+		c.ZenContext.ClusterID = os.Getenv("CLUSTER_ID")
+	}
 }
 
 // setDefaults sets default values for missing configuration.
