@@ -74,7 +74,9 @@ func (f *FactoryImpl) ExecuteTask(ctx context.Context, spec *FactoryTaskSpec) (*
 	// Allocate workspace
 	workspaceMetadata, err := f.workspaceManager.CreateWorkspace(ctx, spec.ID, spec.SessionID)
 	if err != nil {
-		return f.createErrorResult(spec, err, "failed to allocate workspace"), err
+		wsErr := WorkspaceError(ErrWorkspaceAllocation, "failed to allocate workspace", "", err).
+			WithTaskID(spec.ID)
+		return f.createErrorResult(spec, wsErr, "failed to allocate workspace"), wsErr
 	}
 
 	// Set workspace path in spec
@@ -83,7 +85,9 @@ func (f *FactoryImpl) ExecuteTask(ctx context.Context, spec *FactoryTaskSpec) (*
 
 	// Lock workspace for exclusive access
 	if err := f.workspaceManager.LockWorkspace(ctx, workspaceMetadata.Path); err != nil {
-		return f.createErrorResult(spec, err, "failed to lock workspace"), err
+		wsErr := WorkspaceError(ErrWorkspaceLock, "failed to lock workspace", workspaceMetadata.Path, err).
+			WithTaskID(spec.ID)
+		return f.createErrorResult(spec, wsErr, "failed to lock workspace"), wsErr
 	}
 	defer f.workspaceManager.UnlockWorkspace(ctx, workspaceMetadata.Path)
 
@@ -105,6 +109,15 @@ func (f *FactoryImpl) ExecuteTask(ctx context.Context, spec *FactoryTaskSpec) (*
 	result.CompletedAt = time.Now()
 	result.Duration = time.Since(startTime)
 	result.Success = (result.Status == ExecutionStatusCompleted)
+
+	// Scan workspace for file changes (state continuity)
+	if files, err := f.workspaceManager.ListWorkspaceFiles(ctx, workspaceMetadata.Path); err == nil {
+		result.FilesChanged = files
+		// For now, treat all files as new (simplification)
+		// In future, would compare with baseline snapshot
+	} else {
+		log.Printf("[Factory] Failed to scan workspace files: task_id=%s error=%v", spec.ID, err)
+	}
 
 	// Generate proof-of-work
 	artifact, err := f.proofOfWorkManager.CreateProofOfWork(ctx, result, spec)
@@ -176,16 +189,35 @@ func (f *FactoryImpl) GetTask(ctx context.Context, taskID string) (*FactoryTaskS
 
 // createErrorResult creates a failed execution result with error details.
 func (f *FactoryImpl) createErrorResult(spec *FactoryTaskSpec, err error, message string) *ExecutionResult {
+	errorCode := "WORKSPACE_ERROR"
+	recommendation := "retry"
+	
+	// Extract structured error information if available
+	if fe, ok := err.(*FactoryError); ok {
+		errorCode = string(fe.Code)
+		// Set recommendation based on error type
+		switch fe.Code {
+		case ErrStepTimeout, ErrStepMaxRetriesExceeded:
+			recommendation = "escalate"
+		case ErrContextCanceled:
+			recommendation = "review"
+		case ErrInvalidInput:
+			recommendation = "review"
+		default:
+			recommendation = "retry"
+		}
+	}
+	
 	return &ExecutionResult{
 		TaskID:         spec.ID,
 		SessionID:      spec.SessionID,
 		WorkItemID:     spec.WorkItemID,
 		Status:         ExecutionStatusFailed,
 		Success:        false,
-		Error:          message,
-		ErrorCode:      "WORKSPACE_ERROR",
+		Error:          fmt.Sprintf("%s: %v", message, err),
+		ErrorCode:      errorCode,
 		CompletedAt:    time.Now(),
-		Recommendation: "retry",
+		Recommendation: recommendation,
 	}
 }
 

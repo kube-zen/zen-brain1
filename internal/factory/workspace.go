@@ -70,11 +70,17 @@ func (w *WorkspaceManagerImpl) CreateWorkspace(ctx context.Context, taskID, sess
 		return nil, fmt.Errorf("workspace ownership validation failed: %w", err)
 	}
 
+	// Create workspace marker file
+	markerPath := filepath.Join(workspacePath, ".zen-workspace")
+	if err := os.WriteFile(markerPath, []byte(fmt.Sprintf("task_id=%s\nsession_id=%s\ncreated_at=%s\n", taskID, sessionID, time.Now().Format(time.RFC3339))), 0644); err != nil {
+		return nil, fmt.Errorf("failed to create workspace marker: %w", err)
+	}
+
 	metadata := &WorkspaceMetadata{
 		TaskID:      taskID,
 		SessionID:   sessionID,
 		Path:        workspacePath,
-		Initialized: false,
+		Initialized: true,
 		Clean:       true,
 		Locked:      false,
 		CreatedAt:   time.Now(),
@@ -156,16 +162,81 @@ func (w *WorkspaceManagerImpl) GetWorkspaceMetadata(ctx context.Context, path st
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
+	
+	// Check if workspace directory exists
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		metadata.Initialized = false
+		metadata.Clean = true
+		return metadata, nil
+	}
+	
+	metadata.Initialized = true
+	
+	// Check for initialization marker
 	markerPath := filepath.Join(path, ".zen-workspace")
 	if _, err := os.Stat(markerPath); err == nil {
 		metadata.Initialized = true
 	}
+	
+	// Check lock
 	lockPath := filepath.Join(path, ".zen-lock")
 	if _, err := os.Stat(lockPath); err == nil {
 		metadata.Locked = true
 	}
-	metadata.Clean = true
+	
+	// Scan for files to determine clean/dirty state
+	files, err := w.scanWorkspaceFiles(path)
+	if err != nil {
+		return metadata, fmt.Errorf("failed to scan workspace files: %w", err)
+	}
+	
+	metadata.DirtyFiles = files
+	metadata.Clean = len(files) == 0
+	
+	// Try to get git information if workspace is a git repo
+	if branch, commit, err := w.getGitInfo(path); err == nil {
+		metadata.Branch = branch
+		metadata.BaseCommit = commit
+	}
+	
 	return metadata, nil
+}
+
+// scanWorkspaceFiles returns list of non-hidden files in workspace (excluding markers)
+func (w *WorkspaceManagerImpl) scanWorkspaceFiles(path string) ([]string, error) {
+	var files []string
+	err := filepath.WalkDir(path, func(filePath string, d os.DirEntry, err error) error {
+		if err != nil {
+			return nil // skip errors
+		}
+		if d.IsDir() {
+			return nil
+		}
+		// Skip hidden files and marker files
+		base := filepath.Base(filePath)
+		if strings.HasPrefix(base, ".") || strings.HasPrefix(base, ".zen-") {
+			return nil
+		}
+		relPath, err := filepath.Rel(path, filePath)
+		if err != nil {
+			return nil
+		}
+		files = append(files, relPath)
+		return nil
+	})
+	return files, err
+}
+
+// ListWorkspaceFiles returns all non-hidden files in the workspace.
+func (w *WorkspaceManagerImpl) ListWorkspaceFiles(ctx context.Context, path string) ([]string, error) {
+	return w.scanWorkspaceFiles(path)
+}
+
+// getGitInfo returns git branch and commit for workspace if it's a git repo
+func (w *WorkspaceManagerImpl) getGitInfo(path string) (branch, commit string, err error) {
+	// This is a stub implementation
+	// In real implementation, would run git commands
+	return "", "", fmt.Errorf("git not implemented")
 }
 
 func (w *WorkspaceManagerImpl) DeleteWorkspace(ctx context.Context, path string) error {

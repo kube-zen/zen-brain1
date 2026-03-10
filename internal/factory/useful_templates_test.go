@@ -158,7 +158,10 @@ func TestFactoryWithUsefulTemplate(t *testing.T) {
 	ctx := context.Background()
 
 	// Create Factory with temp directory
-	factory := NewFactoryImpl(tempDir)
+	workspaceManager := NewWorkspaceManager(tempDir)
+	executor := NewBoundedExecutor()
+	powManager := NewProofOfWorkManager(tempDir)
+	factory := NewFactory(workspaceManager, executor, powManager, tempDir)
 
 	// Create a task spec that uses the "real" implementation template
 	taskID := "real-impl-task-" + fmt.Sprint(time.Now().Unix())
@@ -247,7 +250,10 @@ func TestRefactorTemplate(t *testing.T) {
 	defer os.RemoveAll(baseDir)
 
 	// Create factory
-	factory := NewFactoryImpl(baseDir)
+	workspaceManager := NewWorkspaceManager(baseDir)
+	executor := NewBoundedExecutor()
+	powManager := NewProofOfWorkManager(baseDir)
+	factory := NewFactory(workspaceManager, executor, powManager, baseDir)
 
 	// Create a task spec that uses the refactor template
 	taskID := "refactor-task-" + fmt.Sprint(time.Now().Unix())
@@ -314,7 +320,10 @@ func TestPythonTemplate(t *testing.T) {
 	defer os.RemoveAll(baseDir)
 
 	// Create factory
-	factory := NewFactoryImpl(baseDir)
+	workspaceManager := NewWorkspaceManager(baseDir)
+	executor := NewBoundedExecutor()
+	powManager := NewProofOfWorkManager(baseDir)
+	factory := NewFactory(workspaceManager, executor, powManager, baseDir)
 
 	// Create a task spec that uses the Python implementation template
 	taskID := "python-task-" + fmt.Sprint(time.Now().Unix())
