@@ -373,7 +373,7 @@ This is a major step toward the complete vertical slice.
 
 ### 2. ZenContext Integration Complete ✅
 - **Three-Tier Memory**: Redis (Tier 1), QMD (Tier 2), MinIO S3 (Tier 3)
-- **Docker Compose**: `docker-compose.zencontext.yml` for local Redis + MinIO
+- **Canonical local path**: k3d + `deployments/k3d/dependencies.yaml` and `deployments/zencontext-in-cluster/` (k8s-first; no Docker Compose)
 - **S3 Key Fix**: Fixed `sessionKey` and `scratchpadKey` to use `clusterID` parameter (was causing `XMinioInvalidObjectName` error)
 - **Configuration**: Updated `configs/config.dev.yaml` with MinIO endpoint and credentials
 - **Integration**: ZenContext factory creates real stores with graceful fallback to mock
@@ -417,7 +417,7 @@ This is a major step toward the complete vertical slice.
 9. ✅ Factory execution with workspace isolation
 10. ✅ ZenContext three-tier memory (Redis + QMD + MinIO)
 11. ✅ Knowledge base queries via QMD (mock fallback)
-12. ✅ Real infrastructure integration (Docker Compose)
+12. ✅ Real infrastructure integration (k3d / in-cluster dependencies)
 
 ### 6. Remaining Work
 1. **Session Manager Integration** - Wire Session Manager for session lifecycle
