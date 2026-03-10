@@ -12,6 +12,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"github.com/kube-zen/zen-brain1/api/v1alpha1"
@@ -73,6 +74,12 @@ func main() {
 	})
 	if err != nil {
 		os.Exit(1)
+	}
+	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
+		log.Fatalf("Foreman: failed to add healthz check: %v", err)
+	}
+	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
+		log.Fatalf("Foreman: failed to add readyz check: %v", err)
 	}
 
 	cfg := foreman.FactoryTaskRunnerConfig{
