@@ -47,17 +47,23 @@ func (b *BoundedExecutor) ExecuteStep(ctx context.Context, step *ExecutionStep, 
 		cmdStr = step.Command
 	} else {
 		// Generate default command based on step name
-		switch strings.ToLower(step.Name) {
+		switch strings.ToLower(strings.TrimSpace(step.Name)) {
 		case "initialize workspace", "init workspace":
 			cmdStr = "echo 'Initializing workspace for task execution' && pwd && ls -la"
 		case "execute objective", "run objective":
 			cmdStr = "echo 'Executing task objective' && echo 'Simulating work: sleep 0.1s' && sleep 0.1"
-		case "run tests", "go test", "test":
+		case "run tests", "go test", "test", "test feature", "execute tests", "verify refactoring":
 			// Real execution: run Go tests when workspace has go.mod (Factory completeness)
 			cmdStr = "if [ -f go.mod ]; then go test ./... -count=1; else echo 'No go.mod, skipping go test'; fi"
 		case "build", "go build", "compile":
 			// Real execution: build Go project when go.mod present
 			cmdStr = "if [ -f go.mod ]; then go build ./...; else echo 'No go.mod, skipping go build'; fi"
+		case "lint", "go vet", "vet":
+			// Real execution: run go vet when go.mod present
+			cmdStr = "if [ -f go.mod ]; then go vet ./...; else echo 'No go.mod, skipping go vet'; fi"
+		case "format", "fmt", "gofmt":
+			// Real execution: list and write formatted Go files when go.mod present
+			cmdStr = "if [ -f go.mod ]; then gofmt -l -w . 2>/dev/null || true; else echo 'No go.mod, skipping gofmt'; fi"
 		case "validate results", "validate":
 			cmdStr = "echo 'Validating results' && echo 'All checks passed'"
 		default:
