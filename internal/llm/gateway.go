@@ -42,8 +42,9 @@ type GatewayConfig struct {
 	RoutingPolicy            string `yaml:"routing_policy" json:"routing_policy"` // "simple", "cost_aware", "performance"
 
 	// Fallback chain configuration
-	EnableFallbackChain bool `yaml:"enable_fallback_chain" json:"enable_fallback_chain"`
-	StrictPreferred     bool `yaml:"strict_preferred" json:"strict_preferred"` // Only use preferred provider if true
+	EnableFallbackChain  bool `yaml:"enable_fallback_chain" json:"enable_fallback_chain"`
+	StrictPreferred      bool `yaml:"strict_preferred" json:"strict_preferred"`             // Only use preferred provider if true
+	LocalWorkerMaxTokens int  `yaml:"local_worker_max_tokens" json:"local_worker_max_tokens"` // Skip local worker when estimated tokens exceed this (0 = no limit)
 }
 
 // DefaultGatewayConfig returns the default gateway configuration.
@@ -261,7 +262,8 @@ func (g *Gateway) initializeFallbackChain() {
 				SupportsTools:    g.config.PlannerSupportsTools,
 			},
 		},
-		EnableSmartRouting: true,
+		EnableSmartRouting:   true,
+		LocalWorkerMaxTokens: g.config.LocalWorkerMaxTokens,
 	}
 
 	// Create fallback chain with provider checker

@@ -361,10 +361,12 @@ type EvidenceItem struct {
 type EvidenceType string
 
 const (
-	EvidenceTypeHypothesis  EvidenceType = "hypothesis"
-	EvidenceTypeExperiment  EvidenceType = "experiment"
-	EvidenceTypeObservation EvidenceType = "observation"
-	EvidenceTypeMeasurement EvidenceType = "measurement"
-	EvidenceTypeAnalysis    EvidenceType = "analysis"
-	EvidenceTypeConclusion  EvidenceType = "conclusion"
+	EvidenceTypeHypothesis    EvidenceType = "hypothesis"
+	EvidenceTypeExperiment   EvidenceType = "experiment"
+	EvidenceTypeObservation  EvidenceType = "observation"
+	EvidenceTypeMeasurement  EvidenceType = "measurement"
+	EvidenceTypeAnalysis     EvidenceType = "analysis"
+	EvidenceTypeConclusion   EvidenceType = "conclusion"
+	EvidenceTypeProofOfWork  EvidenceType = "proof_of_work"  // Factory proof-of-work artifact
+	EvidenceTypeExecutionLog EvidenceType = "execution_log"  // Command/execution audit trail
 )
