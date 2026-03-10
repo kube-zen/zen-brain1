@@ -6,6 +6,8 @@ bin/
 *.so
 *.dylib
 demo_*
+demo_qmd
+demo_qmd.go
 
 # Test binary, built with `go test -c`
 *.test
