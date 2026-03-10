@@ -38,7 +38,7 @@ func Doctor(ctx context.Context, cfg *config.Config, report *RuntimeReport) {
 		report.Ledger.Mode, report.Ledger.Healthy, report.Ledger.Required, report.Ledger.Message)
 	fmt.Printf("MessageBus:       %s  healthy=%v  required=%v  %s\n",
 		report.MessageBus.Mode, report.MessageBus.Healthy, report.MessageBus.Required, report.MessageBus.Message)
-	fmt.Println("Strict flags:     ZEN_BRAIN_STRICT_RUNTIME, ZEN_BRAIN_REQUIRE_* (env)")
+	fmt.Println("Strict flags:     ZEN_RUNTIME_PROFILE=prod | ZEN_BRAIN_STRICT_RUNTIME | ZEN_BRAIN_REQUIRE_* (env)")
 }
 
 // ReportJSON prints the RuntimeReport as JSON.
