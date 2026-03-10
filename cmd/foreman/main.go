@@ -14,6 +14,7 @@ import (
 
 	"github.com/kube-zen/zen-brain1/api/v1alpha1"
 	"github.com/kube-zen/zen-brain1/internal/foreman"
+	"github.com/kube-zen/zen-brain1/internal/gate"
 )
 
 var scheme = runtime.NewScheme()
@@ -40,7 +41,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&foreman.Reconciler{Client: mgr.GetClient()}).SetupWithManager(mgr); err != nil {
+	reconciler := &foreman.Reconciler{
+		Client:     mgr.GetClient(),
+		Gate:       gate.NewStubGate(),
+		Dispatcher: foreman.NoOpDispatcher{},
+	}
+	if err = reconciler.SetupWithManager(mgr); err != nil {
 		os.Exit(1)
 	}
 

@@ -19,6 +19,7 @@ import (
 	"github.com/kube-zen/zen-brain1/internal/office"
 	"github.com/kube-zen/zen-brain1/internal/office/jira"
 	"github.com/kube-zen/zen-brain1/internal/messagebus/redis"
+	internalLedger "github.com/kube-zen/zen-brain1/internal/ledger"
 	"github.com/kube-zen/zen-brain1/internal/planner"
 	"github.com/kube-zen/zen-brain1/internal/session"
 	"github.com/kube-zen/zen-brain1/pkg/messagebus"
@@ -303,11 +304,15 @@ func runVerticalSlice() {
 
 	// Step 6: Initialize Planner
 	fmt.Println("[6/7] Initializing Planner...")
+	ledgerClient := ledgerClientOrStub() // Block 3.6: CockroachDB when ZEN_LEDGER_DSN or LEDGER_DATABASE_URL set
+	if closer, ok := ledgerClient.(interface{ Close() error }); ok {
+		defer func() { _ = closer.Close() }()
+	}
 	plannerConfig := planner.DefaultConfig()
 	plannerConfig.OfficeManager = officeManager
 	plannerConfig.Analyzer = intentAnalyzer
 	plannerConfig.SessionManager = sessionManager
-	plannerConfig.LedgerClient = &mockLedgerClient{}
+	plannerConfig.LedgerClient = ledgerClient
 	plannerConfig.ZenContext = zenContext
 	plannerConfig.RequireApproval = false // Auto-approve for vertical slice
 	plannerConfig.AutoApproveCost = 100.0 // Approve everything
@@ -832,6 +837,19 @@ func (m *mockLedgerClient) GetCostBudgetStatus(ctx context.Context, projectID st
 
 func (m *mockLedgerClient) RecordPlannedModelSelection(ctx context.Context, sessionID, taskID, modelID, reason string) error {
 	return nil
+}
+
+// ledgerClientOrStub returns a ZenLedgerClient: CockroachDB when ZEN_LEDGER_DSN or LEDGER_DATABASE_URL is set, else stub.
+func ledgerClientOrStub() ledger.ZenLedgerClient {
+	dsn := os.Getenv("ZEN_LEDGER_DSN")
+	if dsn == "" {
+		dsn = os.Getenv("LEDGER_DATABASE_URL")
+	}
+	cl, err := internalLedger.NewCockroachLedger(dsn)
+	if err != nil || cl == nil {
+		return &mockLedgerClient{}
+	}
+	return cl
 }
 
 // createRealZenContext creates a production ZenContext with Redis + MinIO
