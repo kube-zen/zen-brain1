@@ -10,10 +10,12 @@ Steps in these templates are **scaffold/echo** by default: they run shell comman
 
 **Exception:** The **BoundedExecutor** (`internal/factory/bounded_executor.go`) overrides the command for certain step **names** when the template does not set an explicit `Command`:
 
-- Step name **“Run tests”**, **“go test”**, or **“test”** → runs **real** `go test ./... -count=1` in the workspace when `go.mod` exists; otherwise prints “No go.mod, skipping go test”.
-- Step name **“build”**, **“go build”**, or **“compile”** → runs **real** `go build ./...` when `go.mod` exists; otherwise prints “No go.mod, skipping go build”.
+- **Test:** **“Run tests”**, **“go test”**, **“test”**, **“Test feature”**, **“Execute tests”**, **“Verify refactoring”** → runs **real** `go test ./... -count=1` when `go.mod` exists; otherwise “No go.mod, skipping go test”.
+- **Build:** **“build”**, **“go build”**, **“compile”** → runs **real** `go build ./...` when `go.mod` exists; otherwise “No go.mod, skipping go build”.
+- **Lint:** **“lint”**, **“go vet”**, **“vet”** → runs **real** `go vet ./...` when `go.mod` exists; otherwise skipped.
+- **Format:** **“format”**, **“fmt”**, **“gofmt”** → runs **real** `gofmt -l -w .` when `go.mod` exists; otherwise skipped.
 
-So for any work type that uses those step names, execution is **real** for Go workspaces; all other steps in `work_templates.go` remain echo/scaffold unless a template sets an explicit real `Command`.
+So for any work type that uses those step names (and leaves `Command` unset), execution is **real** for Go workspaces; all other steps in `work_templates.go` remain echo/scaffold unless a template sets an explicit real `Command`.
 
 ## Tier 2: “Useful” templates (real artifacts)
 
@@ -31,7 +33,7 @@ All steps in these templates run shell commands that write files (e.g. `echo '..
 
 | Source                 | Default behavior   | Override / exception                          |
 |------------------------|--------------------|-----------------------------------------------|
-| work_templates.go      | Scaffold/echo      | BoundedExecutor: “Run tests”/“go test”/“test” → real `go test` when go.mod present |
+| work_templates.go      | Scaffold/echo      | BoundedExecutor: test/build/lint/format step names → real `go test` / `go build` / `go vet` / `gofmt` when go.mod present |
 | useful_templates.go    | Real (create files)| Same override for test steps                 |
 
 ## References
