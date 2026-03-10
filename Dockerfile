@@ -30,13 +30,14 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -mod=vendor -ldflags="-s -w -
 # Runtime stage (minimal Alpine image)
 FROM alpine:3.19
 
-RUN apk --no-cache add ca-certificates
-RUN adduser -D -s /bin/sh zenuser
+# Install ca-certificates and create user in single layer (reduces layers)
+RUN apk --no-cache add ca-certificates && \
+    adduser -D -s /bin/sh -u 1000 zenuser
 
 # In-cluster binaries under /app (Block 6 bootstrap)
+# Use --chown to set ownership during copy (eliminates separate chown layer)
 WORKDIR /app
-COPY --from=builder /build/zen-brain /build/foreman /build/apiserver /build/controller .
-RUN chown -R zenuser:zenuser /app
+COPY --from=builder --chown=zenuser:zenuser /build/zen-brain /build/foreman /build/apiserver /build/controller .
 
 USER zenuser
 ENTRYPOINT ["./zen-brain"]

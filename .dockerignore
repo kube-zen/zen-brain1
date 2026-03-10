@@ -1,9 +1,43 @@
-# Reduce build context
+# Reduce build context - exclude unnecessary files from Docker build
+
+# Git
 .git
 .gitignore
+.gitattributes
+
+# Binaries and test outputs
 bin/
+*.out
 coverage.out
+coverage.html
+
+# Environment files
 .env
 .env.*
+.envrc
+
+# IDE files
 .idea
 .vscode
+*.swp
+*.swo
+*~
+
+# Documentation and scripts (not needed for build)
+docs/
+scripts/ci/
+*.md
+
+# Config files (not needed for build)
+configs/
+
+# Test files (not needed for production build)
+*_test.go
+test_*.go
+
+# Vendor (copied explicitly via Dockerfile, exclude from . copy)
+# vendor/
+
+# Development files
+DEBUGGING.md
+TODO.md
