@@ -39,6 +39,7 @@ See [TEMPLATE.md](TEMPLATE.md) for the full template.
 | [0006](0006_WARM_WORKER_POOLS.md) | Use warm worker pools with session affinity and git worktrees | Accepted | 2026‑03‑07 |
 | [0007](0007_QMD_FOR_KNOWLEDGE_BASE.md) | Use qmd for knowledge base search with git as source of truth | Accepted | 2026‑03‑07 |
 | [0008](0008_MESSAGE_BUS_REDIS_STREAMS.md) | Use Redis Streams for the message bus with deduplication | Proposed | 2026‑03‑08 |
+| [0009](0009_ZEN_SDK_OWNERSHIP_ALLOWLIST.md) | Approve zen-sdk ownership gate allowlist for domain usage | Accepted | 2026‑03‑10 |
 
 ## Creating a New ADR
 

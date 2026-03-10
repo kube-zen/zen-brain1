@@ -1,0 +1,46 @@
+# Ollama (Block 5). One shared instance per cluster; StatefulSet + PVC; VPA with updateMode: Initial.
+# Prerequisites: Metrics Server + VPA installed in cluster (see deploy/README.md).
+
+enabled: true
+kind: StatefulSet
+replicas: 1
+
+image: ollama/ollama:latest
+
+# OLLAMA_KEEP_ALIVE: lower than default (5m) for aggressive memory reuse when many models
+keepAlive: "2m"  # e.g. "2m", "5m"
+
+models: []  # e.g. ["qwen3.5:0.8b"]; preload Job pulls declaratively
+
+persistence:
+  enabled: true
+  size: 50Gi
+  storageClassName: ""  # default
+
+service:
+  port: 11434
+
+resources:
+  requests:
+    memory: "2Gi"
+    cpu: "500m"
+  limits:
+    memory: "32Gi"
+    cpu: "8"
+
+# VPA: default updateMode Initial (rightsizing on pod create/restart; no in-place resize yet)
+vpa:
+  enabled: true
+  updateMode: Initial
+  minAllowed:
+    cpu: "500m"
+    memory: "2Gi"
+  maxAllowed:
+    cpu: "8"
+    memory: "32Gi"
+
+preload:
+  image: curlimages/curl:latest
+  backoffLimit: 10
+
+extraEnv: []  # optional key/value pairs

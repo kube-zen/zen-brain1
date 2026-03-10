@@ -1,0 +1,4 @@
+# Optional base overrides for sandbox. Most values are generated from config/clusters.yaml.
+# Uncomment to override chart defaults.
+# image:
+#   tag: dev

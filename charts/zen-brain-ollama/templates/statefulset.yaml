@@ -1,0 +1,82 @@
+{{- if .Values.enabled }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: ollama
+  namespace: zen-brain
+  labels:
+    app: ollama
+    app.kubernetes.io/part-of: zen-brain
+spec:
+  serviceName: ollama
+  replicas: {{ .Values.replicas | default 1 }}
+  selector:
+    matchLabels:
+      app: ollama
+  template:
+    metadata:
+      labels:
+        app: ollama
+        app.kubernetes.io/part-of: zen-brain
+    spec:
+      containers:
+        - name: ollama
+          image: {{ .Values.image }}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port | default 11434 }}
+          env:
+            - name: OLLAMA_KEEP_ALIVE
+              value: {{ .Values.keepAlive | default "2m" | quote }}
+            {{- range .Values.extraEnv }}
+            - name: {{ .name }}
+              value: {{ .value | quote }}
+            {{- end }}
+          volumeMounts:
+            - name: models
+              mountPath: /root/.ollama
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 20
+  {{- if .Values.persistence.enabled }}
+  volumeClaimTemplates:
+    - metadata:
+        name: models
+        labels:
+          app: ollama
+          app.kubernetes.io/part-of: zen-brain
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.persistence.size | default "50Gi" }}
+        {{- if .Values.persistence.storageClassName }}
+        storageClassName: {{ .Values.persistence.storageClassName | quote }}
+        {{- end }}
+  {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ollama
+  namespace: zen-brain
+  labels:
+    app: ollama
+    app.kubernetes.io/part-of: zen-brain
+spec:
+  ports:
+    - name: http
+      port: {{ .Values.service.port | default 11434 }}
+      targetPort: http
+  selector:
+    app: ollama
+  clusterIP: None
+  # Headless for StatefulSet; clients use ollama:11434 or ollama-0.ollama.zen-brain.svc
+{{- end }}

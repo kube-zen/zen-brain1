@@ -83,6 +83,16 @@ else
 fi
 echo ""
 
+# 7. zen-sdk ownership (no local reimplementation of SDK concerns without allowlist)
+echo "📦 Checking zen-sdk ownership..."
+if python3 scripts/ci/zen_sdk_ownership_gate.py 2>/dev/null; then
+    echo -e "${GREEN}✅ zen-sdk ownership OK${NC}"
+else
+    echo -e "${RED}❌ zen-sdk ownership violation${NC}"
+    FAILED=1
+fi
+echo ""
+
 if [[ $FAILED -eq 0 ]]; then
     echo -e "${GREEN}✓ All pre‑commit checks passed.${NC}"
     exit 0

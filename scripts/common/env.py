@@ -50,40 +50,21 @@ def _cluster_exists(cluster_name: str) -> bool:
     return _k3d._cluster_exists(cluster_name)
 
 
-def _apply_manifests(context_name: str, use_zencontext: bool) -> None:
+def _run_helmfile(env: str, config_path: str | None, context_name: str) -> None:
+    """Canonical deployment: render values from clusters.yaml then helmfile sync."""
+    import helmfile_values  # noqa: E402
     root = _repo_root()
-    deps = os.path.join(root, "deployments", "k3d", "dependencies.yaml")
-    crds_dir = os.path.join(root, "deployments", "crds")
-    ns = os.path.join(root, "deployments", "k3d", "zen-brain-namespace.yaml")
-    foreman = os.path.join(root, "deployments", "k3d", "foreman.yaml")
-    apiserver = os.path.join(root, "deployments", "k3d", "apiserver.yaml")
-    _log("Applying dependencies...")
-    _run(["kubectl", "--context", context_name, "apply", "-f", deps], timeout=30)
-    _log("Applying CRDs...")
-    _run(["kubectl", "--context", context_name, "apply", "-f", crds_dir], timeout=60)
-    if use_zencontext:
-        zc_ns = os.path.join(root, "deployments", "zencontext-in-cluster", "namespace.yaml")
-        zc_redis = os.path.join(root, "deployments", "zencontext-in-cluster", "redis.yaml")
-        if os.path.isfile(zc_ns):
-            _run(["kubectl", "--context", context_name, "apply", "-f", zc_ns], timeout=15)
-        if os.path.isfile(zc_redis):
-            _run(["kubectl", "--context", context_name, "apply", "-f", zc_redis], timeout=30)
-    _log("Applying zen-brain namespace, foreman, apiserver...")
-    _run(["kubectl", "--context", context_name, "apply", "-f", ns], timeout=15)
-    _run(["kubectl", "--context", context_name, "apply", "-f", foreman], timeout=30)
-    _run(["kubectl", "--context", context_name, "apply", "-f", apiserver], timeout=30)
-
-
-def _patch_apiserver_external(context_name: str, env: str, config_path: str | None) -> None:
-    port = _config.get_deploy_apiserver_external_port(env, config_path)
-    _log("Patching apiserver Service to LoadBalancer for external access...")
-    _kubectl(
-        [
-            "patch", "svc", "apiserver", "-n", "zen-brain",
-            "-p", f'{{"spec":{{"type":"LoadBalancer","ports":[{{"port":{port},"targetPort":{port},"name":"http"}}]}}}}',
-        ],
-        context_name,
-        timeout=15,
+    _log("Rendering Helm values from config/clusters.yaml...")
+    helmfile_values.render(env, config_path)
+    helmfile_path = os.path.join(root, "deploy", "helmfile", "zen-brain", "helmfile.yaml.gotmpl")
+    if not os.path.isfile(helmfile_path):
+        _err(f"ERROR: Helmfile not found: {helmfile_path}")
+        raise FileNotFoundError(helmfile_path)
+    _log("Running Helmfile (canonical deployment path)...")
+    _run(
+        ["helmfile", "-e", env, "-f", helmfile_path, "sync"],
+        timeout=300,
+        cwd=root,
     )
 
 
@@ -106,11 +87,6 @@ def _build_and_load_image(env: str, config_path: str | None, build: bool) -> Non
     cluster_name = str(k3d_block.get("cluster_name") or f"zen-brain-{env}").strip()
     _log("Importing image into k3d cluster...")
     _run(["k3d", "image", "import", f"{reg_ref}/zen-brain:{tag}", "-c", cluster_name], timeout=120)
-
-
-def _rollout_restart(context_name: str) -> None:
-    _kubectl(["rollout", "restart", "deployment/foreman", "-n", "zen-brain"], context_name, timeout=30)
-    _kubectl(["rollout", "restart", "deployment/apiserver", "-n", "zen-brain"], context_name, timeout=30)
 
 
 def _wait_rollout(context_name: str) -> None:
@@ -156,12 +132,10 @@ def cmd_redeploy(
         rc = _k3d.cmd_ensure(env, config_path, force_recreate)
         if rc != 0:
             return rc
-    if not skip_manifests:
-        _apply_manifests(context_name, use_zencontext)
     if not skip_image_load:
         _build_and_load_image(env, config_path, build=not skip_build)
-    _patch_apiserver_external(context_name, env, config_path)
-    _rollout_restart(context_name)
+    if not skip_manifests:
+        _run_helmfile(env, config_path, context_name)
     _wait_rollout(context_name)
 
     _log("")

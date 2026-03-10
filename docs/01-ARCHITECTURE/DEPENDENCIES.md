@@ -48,6 +48,15 @@ The following are plan-required but **not yet imported** in zen-brain; use when 
 2. **New generic capabilities:** If a new capability is generic and reusable across Zen projects, add it to zen-sdk first, then import it into zen-brain.
 3. **Exceptions:** Any local replacement for a zen-sdk concern requires an approved ADR and a note in this document.
 
+### Allowlist (zen_sdk_ownership_gate)
+
+The gate `scripts/ci/zen_sdk_ownership_gate.py` flags directories that match SDK package names and .go files containing SDK-like keywords. Entries in `scripts/ci/zen_sdk_allowlist.txt` are **allowed** because they are either:
+
+- **Domain usage:** The file uses the same vocabulary (e.g. "Retry", "Schedule", "Health") for domain concepts (e.g. factory step retry, session state, API health detail), and **imports** zen-sdk for the actual implementation where applicable; or
+- **Approved exception:** The path is explicitly documented (e.g. `internal/journal/receiptlog` uses zen-sdk receiptlog; journal is the only approved local receiptlog wrapper).
+
+Adding a new allowlist entry requires a comment in the allowlist file and, if it is a true local reimplementation, an ADR. See [REPO_RULES.md](../04-DEVELOPMENT/REPO_RULES.md) and [RECOMMENDED_NEXT_STEPS.md](RECOMMENDED_NEXT_STEPS.md).
+
 ---
 
 ## Other External Dependencies
