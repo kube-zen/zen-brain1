@@ -104,13 +104,45 @@ To raise Block 4 completeness further without changing scope:
 | **5.3 Agent–context binding** | Done | `internal/agent/binding.go`: AgentContextBinder (GetForContinuation, WriteIntermediate), ZenContextBinder; `foreman`: ContextBinder interface, TaskRunnerWithContext (RunWithContext); Worker uses binder + RunWithContext when set |
 | **5.4 Funding evidence aggregator** | Done | `internal/funding/aggregator.go`: Aggregator from Vault; T661Narrative (Line 242/244/246), IRAPReport, FundingReport; AggregateForSession(s); T661Text(), IRAPMarkdown() |
 
-**ReMe:** Use `agent.NewReMeBinder(zenContext, "default")` as Worker.ContextBinder to run the full ReMe protocol on continuation (reconstruct from Tier 1/3 + Journal + KB). SessionContext now includes JournalEntries (causal chain) for the agent.  
-**Agent-context binding:** Use `agent.NewZenContextBinder(zenContext, "default")` for Tier-1-only continuation. Use a runner that implements `TaskRunnerWithContext` to read/write session context.  
-**Token recording:** When ZenLedger is CockroachLedger, call `gateway.SetTokenRecorder(ledgerClient)` so Chat() records token usage (Block 5).  
+**ReMe:** Use `agent.NewReMeBinder(zenContext, "default")` as Worker.ContextBinder to run the full ReMe protocol on continuation (reconstruct from Tier 1/3 + Journal + KB). SessionContext now includes JournalEntries (causal chain) for the agent.
+**Agent-context binding:** Use `agent.NewZenContextBinder(zenContext, "default")` for Tier-1-only continuation. Use a runner that implements `TaskRunnerWithContext` to read/write session context.
+**Token recording:** When ZenLedger is CockroachLedger, call `gateway.SetTokenRecorder(ledgerClient)` so Chat() records token usage (Block 5).
 **Model routing:** Planner uses ModelRecommender when set (zen-brain wires `NewModelRouterRecommender(NewModelRouter(ledger, defaultModel))`); else GetModelEfficiency + RecordPlannedModelSelection; budget check via GetCostBudgetStatus before planning.
-**Evidence:** Planner records hypothesis evidence when EvidenceVault is set (zen-brain uses MemoryVault). See BLOCK5_INTELLIGENCE_COMPLETENESS.md.  
-**QMD:** See `docs/01-ARCHITECTURE/BLOCK5_QMD_POPULATION.md`. Validate with `go test ./internal/qmd/... -run KBQuality`.  
+**Evidence:** Planner records hypothesis evidence when EvidenceVault is set (zen-brain uses MemoryVault).
+**QMD:** See `docs/01-ARCHITECTURE/BLOCK5_QMD_POPULATION.md`. Validate with `go test ./internal/qmd/... -run KBQuality`.
 **Funding reports:** `funding.NewAggregator(vault).AggregateForSession(ctx, sessionID, "Project Title")` returns T661 narrative and IRAP report; use `.T661.T661Text()` or `.IRAP.IRAPMarkdown()` for export.
+
+### Block 5 Wiring Guide
+
+**ReMe (Recursive Memory)**
+- **ReConstructSession** in `internal/context/composite.go`: Tier 1 (Hot) → Tier 3 (Cold) → Journal + Tier 2 (KB). Populates `SessionContext.JournalEntries` and `RelevantKnowledge`.
+- **ReMeBinder** (`internal/agent/binding.go`): Implements `AgentContextBinder` using ReConstructSession. When the Worker has a task, it can call `GetForContinuation` to get full session context (journal + KB) before running.
+- **Wiring:** Set `Worker.ContextBinder = agent.NewReMeBinder(zenContext, "default")` when Foreman has ZenContext (e.g. when running with Redis and optional Journal). cmd/foreman does not set ContextBinder today; add ZenContext + ReMeBinder when in-cluster or co-located with ZenContext.
+
+**Memory Tiers**
+- **Tier 1 (Hot):** Redis; sub-ms session context. See `COMPONENT_CONTEXT.md` for full architecture.
+- **Tier 2 (Warm):** QMD KB; semantic search for relevant knowledge during ReMe. See `KB_QMD_STRATEGY.md`.
+- **Tier 3 (Cold):** S3/MinIO; archival.
+- **SessionContext:** Carries `State`, `JournalEntries`, `RelevantKnowledge`; written back via `StoreSessionContext` / `WriteIntermediate`.
+
+**Model Routing**
+- **ModelRouter** (`internal/intelligence/model_router.go`): Uses ZenLedger `GetModelEfficiency` to recommend a model by project and task type (success rate, cost).
+- **Planner:** When `Config.ModelRecommender` is set (adapter from ModelRouter), `selectOptimalModel` uses it; otherwise uses ledger directly. **zen-brain** wires `planner.NewModelRouterRecommender(intelligence.NewModelRouter(ledgerClient, defaultModel))` so the vertical slice uses cost-aware routing.
+
+**Advanced Evidence**
+- **Evidence types** (`pkg/contracts`): hypothesis, experiment, observation, measurement, analysis, conclusion, proof_of_work, execution_log.
+- **Planner → hypothesis:** When `Config.EvidenceVault` is set, the planner records an `EvidenceItem` with type `hypothesis` after producing a plan (session ID, task count, confidence). **zen-brain** sets `EvidenceVault = evidence.NewMemoryVault()` so each planned session gets a hypothesis record.
+- **Factory → proof_of_work:** FactoryTaskRunner stores `proof_of_work` evidence when a task succeeds and has a proof path (see REMAINING_DRAGS / Factory).
+- **Funding:** `internal/funding/aggregator.go` aggregates vault evidence into T661 narrative and IRAP report.
+
+### Block 5 Wiring Checklist
+
+| Component        | Where to wire | Status |
+|-----------------|---------------|--------|
+| ModelRouter → Planner | cmd/zen-brain: ModelRecommender = NewModelRouterRecommender(NewModelRouter(ledger, defaultModel)) | ✅ Done |
+| EvidenceVault → Planner | cmd/zen-brain: EvidenceVault = NewMemoryVault() | ✅ Done |
+| ReMeBinder → Worker | cmd/foreman: set -zen-context-redis or ZEN_CONTEXT_REDIS_URL to enable ReMe (Worker.ContextBinder = NewReMeBinder) | ✅ Done (optional flag) |
+| Token recording | cmd/zen-brain: gateway.SetTokenRecorder(ledgerClient) when ledger is CockroachLedger | ✅ Done |
 
 ## Block 6 (Developer Experience) – Complete
 
@@ -122,3 +154,30 @@ To raise Block 4 completeness further without changing scope:
 | **6.4 Debugging guide** | Done | `docs/05-OPERATIONS/DEBUGGING.md`: workers, KB/QMD, LLM, k3d patterns |
 
 **Block 6 complete:** k3d dev cluster, make targets, local config, debugging doc. Foreman and API server can be deployed in-cluster via `deployments/k3d/foreman.yaml` and `deployments/k3d/apiserver.yaml` (see `deployments/k3d/README.md`); image build with `make dev-image`.
+
+## Item #2: Make the Slice More Useful – Complete (2026-03-10)
+
+Transformed the zen-brain vertical slice from MVP to genuinely useful:
+
+- **Real Execution Templates**: 10 working templates (Go, Python, JavaScript, CI/CD, Migrations, Monitoring, Documentation, Bugfix, Refactor, Review)
+- **Enhanced Proof Artifacts**: Schema v2.0.0 with SHA256 checksums, environment metadata, signature support, verification API
+- **Better State Continuity**: Real file tracking, workspace locking, structured execution logs
+- **Better Status Semantics**: Granular step status (pending/running/completed/failed/skipped/canceled) with detailed error information
+
+**Test Coverage**: 22+ passing tests; vertical-slice contract gate passes
+
+**Commit**: 9e4ec3d - "feat(Item #2): Enhanced proof artifacts with versioning, checksums, verification"
+
+## Item #5: MLQ/Provider – In Progress (60% Complete)
+
+**Current State** (2026-03-09):
+- Provider set: Small and simple (3 providers, 2 model types) ✅
+- Prompt tuning: Basic, mostly simulation responses ⚠️
+- Calibration: Missing (no model capability registry, evaluation harness, warmup, performance tracking) ⚠️
+
+**Outstanding Work**:
+- **Phase 1**: Prompt system enhancement (YAML/JSON templates, role-based profiles, actual LLM calls)
+- **Phase 2**: Calibration system (model capability registry, evaluation harness, warmup, performance tracking)
+- **Phase 3**: Provider set optimization (evaluate reducing to 2 providers, smart routing, graceful degradation)
+
+**Implementation Plan**: See `docs/03-DESIGN/SMALL_MODEL_STRATEGY.md` and `docs/03-DESIGN/LLM_GATEWAY.md`

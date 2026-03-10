@@ -123,7 +123,6 @@ spec:
                   description: SREDTag represents SR&ED uncertainty categories.
                   type: string
                 type: array
-                uniqueItems: true
               timeoutSeconds:
                 format: int64
                 minimum: 0

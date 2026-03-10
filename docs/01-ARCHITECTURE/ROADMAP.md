@@ -283,7 +283,7 @@ These concepts should be elevated to first-class architecture before implementat
 **Date:** 2026-03-09
 **Status:** Complete
 **Details:**
-- Schema design document created (BLOCK1.1_ZEN_JOURNAL_SCHEMA.md, 18.5 KB)
+- Schema design document created (COMPONENT_JOURNAL.md, 18.5 KB)
 - QueryIndex implementation created (internal/journal/receiptlog/query_index.go, 10.7 KB)
 - Journal integration updated to use QueryIndex
 - Tagged and pushed (commit acd7e53)
