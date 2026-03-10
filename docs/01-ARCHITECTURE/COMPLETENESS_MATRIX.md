@@ -31,7 +31,7 @@
 | **ReMe protocol** | Real | ReconstructSession in ZenContext; ReMeBinder wires it as agent continuation path (Worker.ContextBinder = NewReMeBinder). | `internal/context/composite.go`, `internal/agent/binding.go` (ReMeBinder) |
 | **Intelligence (Block 5)** | Real | ModelRouter wired into Planner (ModelRecommender); Planner records hypothesis evidence when EvidenceVault set; zen-brain wires both. ReMe + token recording + budget check. See BLOCK5_INTELLIGENCE_COMPLETENESS.md. | `internal/planner/`, `internal/intelligence/model_router.go`, `cmd/zen-brain` |
 | **Human Gatekeeper** | Real | Block 2.6: Gatekeeper interface, DefaultGatekeeper (approvals, reject, delegate, escalate, notifiers, audit). | `internal/gatekeeper/`, `internal/planner` (GetPendingApprovals) |
-| **K3d / deployment** | Partial | Block 6: dev-up, dev-down, dev-logs, dev-clean, dev-build; DEBUGGING.md. Current path: run foreman/apiserver/zen-brain locally (k3d README). In-cluster Helm/manifests TBD. | `deployments/k3d/README.md`, `Makefile`, `docs/05-OPERATIONS/DEBUGGING.md` |
+| **K3d / deployment** | Real | Block 6: dev-up, dev-down, dev-logs, dev-build, dev-image; in-cluster Foreman + API server via `deployments/k3d/foreman.yaml`, `apiserver.yaml` (see k3d README). DEBUGGING.md. | `deployments/k3d/README.md`, `Makefile`, `Dockerfile`, `docs/05-OPERATIONS/DEBUGGING.md` |
 | **Repo polish** | Partial | Makefile: repo-sync implemented (scripts/repo_sync.py, ZEN_KB_REPO_URL/DIR); pre-commit/repo-check exist. | `Makefile`, `scripts/repo_sync.py`, `scripts/ci/` |
 
 ---

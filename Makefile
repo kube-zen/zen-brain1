@@ -95,7 +95,12 @@ dev-logs: ## Tail logs from all pods
 dev-clean: ## Reset databases (local Docker: db-reset; for k3d full reset run dev-down then dev-up)
 	$(MAKE) db-reset
 
-dev-build: build-all ## Build all binaries (foreman, apiserver, zen-brain). To load image into k3d: docker build -t zen-brain:dev . && k3d image import zen-brain:dev -c zen-brain-dev (when Dockerfile exists)
+dev-build: build-all ## Build all binaries (foreman, apiserver, zen-brain).
+
+# Build Docker image and load into k3d (Block 6 in-cluster deploy). Run after dev-up.
+dev-image: ## Build zen-brain:dev image and import into k3d cluster zen-brain-dev
+	docker build -t zen-brain:dev .
+	k3d image import zen-brain:dev -c zen-brain-dev
 
 ## Code generation
 

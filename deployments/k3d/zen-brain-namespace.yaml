@@ -1,0 +1,7 @@
+# Namespace for Zen-Brain in-cluster workloads (Foreman, API server).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: zen-brain
+  labels:
+    app.kubernetes.io/name: zen-brain

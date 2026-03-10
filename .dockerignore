@@ -1,0 +1,9 @@
+# Reduce build context
+.git
+.gitignore
+bin/
+coverage.out
+.env
+.env.*
+.idea
+.vscode
