@@ -1,22 +1,37 @@
-# Multi-stage build for Foreman and API server (Block 6 in-cluster deploy).
-# Builds both binaries; Deployments override CMD to run foreman or apiserver.
-FROM golang:1.25-alpine AS builder
-RUN apk add --no-cache git
-WORKDIR /src
+# Multi-stage Dockerfile for zen-brain1
+# Build from repo root: docker build -t zen-brain:dev .
+# For k3d local registry: docker build -t localhost:5000/zen-brain:dev .
 
+# Build stage
+FROM golang:1.25-alpine AS builder
+
+# Set working directory
+WORKDIR /build
+
+# Copy go.mod and go.sum for better caching
 COPY go.mod go.sum ./
-RUN go mod download
+
+# Copy source code
 COPY . .
 
-ARG VERSION=dev
-ARG BUILD_TIME
-RUN CGO_ENABLED=0 go build -ldflags "-X main.Version=${VERSION} -X main.BuildTime=${BUILD_TIME}" -o /foreman ./cmd/foreman && \
-    CGO_ENABLED=0 go build -ldflags "-X main.Version=${VERSION} -X main.BuildTime=${BUILD_TIME}" -o /apiserver ./cmd/apiserver
+# Build all in-cluster binaries (Block 6: foreman, apiserver, controller)
+ARG BUILD_SHA=""
+ARG VERSION="dev"
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w -X main.version=${VERSION} -X main.buildCommit=${BUILD_SHA}" -o zen-brain ./cmd/zen-brain && \
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o foreman ./cmd/foreman && \
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o apiserver ./cmd/apiserver && \
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o controller ./cmd/controller
 
+# Runtime stage (minimal Alpine image)
 FROM alpine:3.19
+
 RUN apk --no-cache add ca-certificates
+RUN adduser -D -s /bin/sh zenuser
+
+# In-cluster binaries under /app (Block 6 bootstrap)
 WORKDIR /app
-COPY --from=builder /foreman /app/foreman
-COPY --from=builder /apiserver /app/apiserver
-# Default entrypoint; override in Deployment with command.
-ENTRYPOINT ["/app/foreman"]
+COPY --from=builder /build/zen-brain /build/foreman /build/apiserver /build/controller .
+RUN chown -R zenuser:zenuser /app
+
+USER zenuser
+ENTRYPOINT ["./zen-brain"]

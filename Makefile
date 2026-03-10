@@ -32,7 +32,10 @@ build-foreman: ## Build Foreman controller (Block 4.2)
 build-apiserver: ## Build API server (Block 3.4)
 	$(GOBUILD) $(LDFLAGS) -o bin/apiserver ./cmd/apiserver
 
-build-all: build build-foreman build-apiserver ## Build all binaries
+build-controller: ## Build Zen-Brain controller (Block 6; ZenProject/ZenCluster)
+	$(GOBUILD) $(LDFLAGS) -o bin/controller ./cmd/controller
+
+build-all: build build-foreman build-apiserver build-controller ## Build all binaries
 
 test: ## Run tests
 	$(GOTEST) -v -race -coverprofile=coverage.out $(PKG_DIRS) $(INTERNAL_DIRS)
@@ -101,6 +104,13 @@ dev-build: build-all ## Build all binaries (foreman, apiserver, zen-brain).
 dev-image: ## Build zen-brain:dev image and import into k3d cluster zen-brain-dev
 	docker build -t zen-brain:dev .
 	k3d image import zen-brain:dev -c zen-brain-dev
+
+# Apply in-cluster stack (Block 6 bootstrap). Run after: make dev-up, kubectl apply -f deployments/crds/, make dev-image.
+dev-apply: ## Apply zen-brain namespace, foreman, apiserver, and controller to k3d
+	kubectl apply -f deployments/k3d/zen-brain-namespace.yaml
+	kubectl apply -f deployments/k3d/foreman.yaml
+	kubectl apply -f deployments/k3d/apiserver.yaml
+	kubectl apply -f deployments/k3d/controller.yaml
 
 ## Code generation
 
