@@ -4,6 +4,7 @@ package foreman
 
 import (
 	"context"
+	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -12,11 +13,17 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/kube-zen/zen-brain1/api/v1alpha1"
+	"github.com/kube-zen/zen-brain1/pkg/gate"
+	"github.com/kube-zen/zen-brain1/pkg/policy"
 )
 
 // Reconciler reconciles BrainTask resources (Block 4.2 Foreman).
 type Reconciler struct {
 	client.Client
+	// Gate is optional; when set, Admit is called before scheduling. Block 4.6.
+	Gate gate.ZenGate
+	// Dispatcher is optional; when set, Dispatch is called after scheduling. Block 4.3.
+	Dispatcher TaskDispatcher
 }
 
 // Reconcile performs the reconciliation loop for a BrainTask.
@@ -50,10 +57,40 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		return ctrl.Result{}, nil
 	}
 
-	// For now: transition Pending -> Scheduled (actual worker dispatch is Block 4.3+).
+	// Pending -> Scheduled: optional admission, then status update and optional dispatch.
 	if task.Status.Phase == v1alpha1.BrainTaskPhasePending {
+		if r.Gate != nil {
+			admissionReq := gate.AdmissionRequest{
+				RequestID:   string(task.UID),
+				WorkItemID:  task.Spec.WorkItemID,
+				SessionID:   task.Spec.SessionID,
+				TaskID:      task.Name,
+				Action:      policy.ActionExecuteTask,
+				Resource:    policy.Resource{Type: "task", ID: task.Name},
+				Subject:     policy.Subject{Type: "system", ID: "foreman"},
+				Timestamp:   time.Now(),
+			}
+			resp, err := r.Gate.Admit(ctx, admissionReq)
+			if err != nil {
+				logger.Error(err, "admission check failed", "task", task.Name)
+				return ctrl.Result{}, err
+			}
+			if resp != nil && !resp.Allowed {
+				task.Status.Conditions = append(task.Status.Conditions, metav1.Condition{
+					Type:               "AdmissionDenied",
+					Status:             metav1.ConditionTrue,
+					Reason:             "GateDenied",
+					Message:            resp.Reason,
+					LastTransitionTime: metav1.Now(),
+					ObservedGeneration: task.Generation,
+				})
+				_ = r.Status().Update(ctx, &task)
+				return ctrl.Result{Requeue: true}, nil
+			}
+		}
+
 		task.Status.Phase = v1alpha1.BrainTaskPhaseScheduled
-		task.Status.Message = "Scheduled by Foreman (worker dispatch not yet implemented)"
+		task.Status.Message = "Scheduled by Foreman"
 		task.Status.ObservedGeneration = task.Generation
 		task.Status.Conditions = append(task.Status.Conditions, metav1.Condition{
 			Type:               "Scheduled",
@@ -65,6 +102,12 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		})
 		if err := r.Status().Update(ctx, &task); err != nil {
 			return ctrl.Result{}, err
+		}
+		if r.Dispatcher != nil {
+			if err := r.Dispatcher.Dispatch(ctx, &task); err != nil {
+				logger.Error(err, "dispatch failed", "task", task.Name)
+				// Task remains Scheduled; caller may retry or handle
+			}
 		}
 		logger.Info("BrainTask scheduled", "name", task.Name)
 		return ctrl.Result{}, nil
