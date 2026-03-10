@@ -8,13 +8,13 @@ Zen-Brain is **1.0-shaped and execution-capable**. Remaining work is hardening t
 
 | Dimension | Score | Notes |
 |-----------|-------|--------|
-| **Architecture completeness** | 94–95% | Blocks 0–6 present; contracts, CRDs, conversions, session/context plumbing solid. |
-| **Operational completeness** | 88–90% | Runtime allows degraded modes by design (QMD mock, ledger stub); controller status-only. |
-| **Production-hard completeness** | ~91% blended | Low-90s overall; production-shaped. |
+| **Architecture completeness** | 95% | Blocks 0–6 present; contracts, CRDs, session/context plumbing solid; deployment plane live-proven. |
+| **Operational / deployment completeness** | 94% | Full sandbox path proven: redeploy exits 0, Helmfile converges, foreman/apiserver/ollama-0 Ready, preload succeeds, OLLAMA_BASE_URL on apiserver. |
+| **Blended overall completeness** | 94% | Canonical deploy path real; sandbox and Ollama live-proven; production-shaped with focused hardening backlog. |
 
-**Single source of truth for status:** This matrix, [PROGRESS.md](PROGRESS.md), and [CUTOVER.md](../05-OPERATIONS/CUTOVER.md). README Development Status reflects this narrative.
+**Single source of truth for status:** This matrix, [PROGRESS.md](PROGRESS.md), [RECOMMENDED_NEXT_STEPS.md](RECOMMENDED_NEXT_STEPS.md), and [DEPLOYMENT_VALIDATION.md](../04-DEVELOPMENT/DEPLOYMENT_VALIDATION.md). README Development Status reflects this narrative.
 
-**Remaining gaps (92% → 95%+):** (1) Runtime: use `ZEN_RUNTIME_PROFILE=prod` for fail-closed; (2) Controller: ZenProject validates ClusterRef and sets Phase Pending/Ready; ZenCluster sets LastHeartbeatTime and AvailableCapacity—cluster-aware scheduling and cost rollups still out of scope; (3) Factory: many templates still scaffold/echo-heavy; (4) Proof: optional HMAC-SHA256 signing when `ZEN_PROOF_SIGNING_KEY` set; full key-based crypto (e.g. age/signify) still optional; (5) Doc/code alignment: defaults and “stub” language kept in sync above; (6) Intelligence/KB: provider/MLQ maturity and publish paths still early.
+**Remaining gaps (94% → 95%+):** (1) **Real inference proof** — one request through apiserver/gateway/local-worker returning a real model response; (2) VPA path not validated in sandbox; (3) Fail-closed runtime, controller/Factory/proof depth. See [RECOMMENDED_NEXT_STEPS.md](RECOMMENDED_NEXT_STEPS.md) for full list.
 
 **Definitions:**
 - **Real:** Production code path; no mandatory fallback to mock/simulated behavior.

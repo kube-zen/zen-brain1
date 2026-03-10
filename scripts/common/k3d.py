@@ -112,7 +112,6 @@ def _create_cluster(cfg: dict, config_path: str | None, repo_root: str) -> None:
     cluster_name = cfg["cluster_name"]
     context_name = cfg["context_name"]
     reg_container = _config.get_registry_container_name(config_path)
-    reg_cluster_ref = _config.get_registry_cluster_ref(config_path)
 
     def parse_port(p: str) -> tuple[str, str]:
         parts = (p or "").split(":")
@@ -139,7 +138,8 @@ def _create_cluster(cfg: dict, config_path: str | None, repo_root: str) -> None:
         args += ["--port", f"{apiserver_spec}:{apiserver_svc}@loadbalancer"]
     for d in cfg["disable"]:
         args += ["--k3s-arg", f"--disable={d}@server:*"]
-    args += ["--registry-use", reg_cluster_ref]
+    # Use external registry only after create: connect to k3d network (below).
+    # --registry-use requires a k3d-managed registry; our registry is standalone.
     if cfg["servers"] == 1:
         args += ["--k3s-arg", "--cluster-init@server:*"]
     args += ["--wait", "--timeout", "120s"]

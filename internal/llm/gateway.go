@@ -347,6 +347,16 @@ func (g *Gateway) SupportsTools() bool {
 // Chat sends a chat request through the gateway.
 // It routes the request to the appropriate provider based on routing policy.
 func (g *Gateway) Chat(ctx context.Context, req llm.ChatRequest) (*llm.ChatResponse, error) {
+	return g.chatWithPreferred(ctx, req, "", false)
+}
+
+// ChatWithPreferred sends a chat request using only the preferred provider when preferred is non-empty (no fallback).
+// Use for proof/testing to force the local-worker (Ollama) path. When preferred is "", behaves like Chat.
+func (g *Gateway) ChatWithPreferred(ctx context.Context, req llm.ChatRequest, preferred string) (*llm.ChatResponse, error) {
+	return g.chatWithPreferred(ctx, req, preferred, preferred != "")
+}
+
+func (g *Gateway) chatWithPreferred(ctx context.Context, req llm.ChatRequest, preferred string, strictPreferred bool) (*llm.ChatResponse, error) {
 	startTime := time.Now()
 	g.stats.mu.Lock()
 	g.stats.TotalRequests++
@@ -364,15 +374,15 @@ func (g *Gateway) Chat(ctx context.Context, req llm.ChatRequest) (*llm.ChatRespo
 
 	// Use fallback chain for intelligent provider routing if enabled
 	if g.config.EnableFallbackChain && g.fallbackChain != nil {
-		// Use ExecuteWithFallback for automatic provider fallback
+		// Use ExecuteWithFallback for automatic provider fallback (or single provider when strictPreferred)
 		resp, err = routing.ExecuteWithFallback(
 			ctx,
 			g.fallbackChain,
 			g.providers,
 			req,
-			"",  // No preferred provider
+			preferred,
 			nil, // No session context
-			g.config.StrictPreferred,
+			strictPreferred,
 		)
 
 		// Determine which provider was used from the response or error

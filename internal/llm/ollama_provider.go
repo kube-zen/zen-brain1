@@ -47,7 +47,8 @@ type ollamaChatResponse struct {
 	DoneReason         string `json:"done_reason"`
 	PromptEvalCount    int64  `json:"prompt_eval_count"`
 	EvalCount          int64  `json:"eval_count"`
-	TotalDuration      int64  `json:"total_duration"` // nanoseconds
+	LoadDuration       int64  `json:"load_duration"` // nanoseconds; 0 when model already warm
+	TotalDuration      int64  `json:"total_duration"`
 	PromptEvalDuration int64  `json:"prompt_eval_duration"`
 	EvalDuration       int64  `json:"eval_duration"`
 }
@@ -129,7 +130,11 @@ func (p *OllamaProvider) Chat(ctx context.Context, req llm.ChatRequest) (*llm.Ch
 		inTok = int64(len(strings.Join(messagesToContent(req.Messages), "")) / 4)
 		outTok = int64(len(out.Message.Content) / 4)
 	}
-	log.Printf("[Ollama] Chat: model=%s latency=%dms in=%d out=%d", model, latencyMs, inTok, outTok)
+	if out.LoadDuration > 0 {
+		log.Printf("[Ollama] Chat: model=%s latency=%dms in=%d out=%d load_duration=%dms (cold)", model, latencyMs, inTok, outTok, out.LoadDuration/1e6)
+	} else {
+		log.Printf("[Ollama] Chat: model=%s latency=%dms in=%d out=%d (warm)", model, latencyMs, inTok, outTok)
+	}
 	return &llm.ChatResponse{
 		Content:      out.Message.Content,
 		FinishReason: out.DoneReason,
@@ -160,3 +165,4 @@ func (p *OllamaProvider) ChatStream(ctx context.Context, req llm.ChatRequest, ca
 func (p *OllamaProvider) Embed(ctx context.Context, req llm.EmbeddingRequest) (*llm.EmbeddingResponse, error) {
 	return nil, llm.ErrEmbeddingNotSupported
 }
+

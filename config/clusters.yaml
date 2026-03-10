@@ -33,19 +33,19 @@ clusters:
       zen_brain: "dev"
     deploy:
       use_zencontext: false
-      use_ollama: false
+      use_ollama: true
       ollama:
-        enabled: false
+        enabled: true
         kind: StatefulSet
         replicas: 1
-        models: []
+        models: ["qwen3.5:0.8b"]
         keepAlive: "2m"
         persistence:
           enabled: true
           size: 50Gi
           storageClassName: ""
         vpa:
-          enabled: true
+          enabled: false
           updateMode: Initial
           minAllowed:
             cpu: "500m"
@@ -127,6 +127,7 @@ clusters:
       manage: false
     k3d:
       cluster_name: zen-brain-uat
+      k8s_image: rancher/k3s:v1.35.2-k3s1
       servers: 1
       agents: 1
       api_port: "127.0.1.3:6443"

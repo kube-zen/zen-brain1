@@ -8,10 +8,13 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
+	"time"
 
 	"github.com/kube-zen/zen-brain1/internal/apiserver"
 	"github.com/kube-zen/zen-brain1/internal/config"
+	"github.com/kube-zen/zen-brain1/internal/llm"
 	"github.com/kube-zen/zen-brain1/internal/runtime"
 )
 
@@ -48,6 +51,36 @@ func main() {
 	srv.Handle("/api/v1/sessions/", apiserver.SessionDetailHandler(nil))
 	srv.Handle("/api/v1/health", apiserver.RuntimeReportHandler(rt.Report))
 	srv.Handle("/api/v1/evidence", apiserver.EvidenceHandler(nil))
+	gwCfg := llm.DefaultGatewayConfig()
+	if s := os.Getenv("OLLAMA_TIMEOUT_SECONDS"); s != "" {
+		if sec, err := strconv.Atoi(s); err == nil && sec > 0 {
+			gwCfg.LocalWorkerTimeout = sec
+			if sec > gwCfg.RequestTimeout {
+				gwCfg.RequestTimeout = sec
+			}
+		}
+	}
+	gateway, errGW := llm.NewGateway(gwCfg)
+	var warmup *llm.OllamaWarmupCoordinator
+	if errGW != nil {
+		log.Printf("LLM gateway not available: %v", errGW)
+		srv.Handle("/api/v1/chat", apiserver.ChatHandler(nil, nil))
+	} else {
+		if baseURL := os.Getenv("OLLAMA_BASE_URL"); baseURL != "" {
+			model := gwCfg.LocalWorkerModel
+			keepAlive := os.Getenv("OLLAMA_KEEP_ALIVE")
+			if keepAlive == "" {
+				keepAlive = llm.DefaultKeepAlive
+			}
+			warmupSec := gwCfg.LocalWorkerTimeout
+			if warmupSec <= 0 {
+				warmupSec = 300
+			}
+			warmup = llm.NewOllamaWarmupCoordinator(baseURL, model, keepAlive, warmupSec)
+			go warmup.DoWarmup(context.Background())
+		}
+		srv.Handle("/api/v1/chat", apiserver.ChatHandler(gateway, warmup))
+	}
 	if v := os.Getenv("API_VERSION"); v != "" {
 		srv.Handle("/api/v1/version", apiserver.VersionHandler(v))
 	} else {

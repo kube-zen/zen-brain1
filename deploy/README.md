@@ -1,6 +1,6 @@
 # Zen-Brain deployment (Helmfile)
 
-**Canonical path:** Helm/Helmfile. No manual `kubectl apply`, `kubectl exec ... ollama pull`, or post-sync patch in the standard flow.
+**Canonical path:** Helm/Helmfile. No manual `kubectl apply`, `kubectl exec ... ollama pull`, or post-sync patch in the standard flow. The full deployment plane (`deploy/`, `charts/`) is in the repo and included in git archive.
 
 - **Env contract:** `config/clusters.yaml` (includes `k3d.k8s_image` for Kubernetes version, e.g. 1.35.x)
 - **Entrypoint:** `python3 scripts/zen.py env redeploy --env <env>` (or `make dev-up`)
@@ -22,3 +22,5 @@
 - **One shared Ollama per cluster:** StatefulSet, one replica, PVC for model cache.
 - **VPA:** Optional; default `updateMode: Initial` (rightsizing on pod create/restart; VPA does not yet support in-place resize in 1.35). Requires **Metrics Server** and **VPA** installed in the cluster (install separately; not shipped in-chart).
 - **Config:** `deploy.use_ollama: true`, `deploy.ollama.models`, `deploy.ollama.keepAlive` (e.g. `"2m"`), `deploy.ollama.vpa.enabled`, `updateMode`, `minAllowed`/`maxAllowed`. Model preload is a Helm hook Job; no manual `kubectl exec ... ollama pull`.
+
+**Validation:** See [DEPLOYMENT_VALIDATION.md](../docs/04-DEVELOPMENT/DEPLOYMENT_VALIDATION.md) for the full end-to-end checklist (offline checks + live `make dev-up` → Helmfile → workloads → Ollama preload → apiserver inference).
