@@ -255,25 +255,43 @@ func (r *WorkTypeTemplateRegistry) registerRealPythonTemplate() {
 		r.registerTemplate(template)
 }
 
-// registerRealReviewTemplate creates a template for code/work review (Task 4 rescue).
+// registerRealReviewTemplate creates a template for repo-aware code/work review (Block 4).
+// Step 1: inventory workspace (files.txt, summary.txt). Step 2: run Go/Python checks when safe (skip markers if tool absent).
+// Step 3: generate REVIEW.md from actual observations.
 func (r *WorkTypeTemplateRegistry) registerRealReviewTemplate() {
 	template := &WorkTypeTemplate{
 		WorkType:    "review",
 		WorkDomain:  "real",
-		Description: "Real review: creates review checklist and REVIEW.md artifact",
+		Description: "Real review: repo-aware inventory, language checks (Go/Python), REVIEW.md from observations",
 		Steps: []ExecutionStepTemplate{
 			{
-				Name:        "Create review checklist",
-				Description: "Create review checklist file",
-				Command:     "mkdir -p review && echo '# Review Checklist' > review/CHECKLIST.md && echo '' >> review/CHECKLIST.md && echo '## Work Item: {{.work_item_id}}' >> review/CHECKLIST.md && echo '## Title: {{.title}}' >> review/CHECKLIST.md && echo '' >> review/CHECKLIST.md && echo '- [ ] Functional correctness' >> review/CHECKLIST.md && echo '- [ ] Code quality and style' >> review/CHECKLIST.md && echo '- [ ] Security considerations' >> review/CHECKLIST.md && echo '- [ ] Tests and coverage' >> review/CHECKLIST.md && echo '- [ ] Documentation' >> review/CHECKLIST.md && echo 'Checklist created' > .review_checklist",
+				Name:        "Inventory workspace",
+				Description: "Create review dir, list files (sorted), write top-level summary",
+				Command:     "mkdir -p review && find . -maxdepth 4 -type f ! -path './.git/*' ! -path './.zen-*' | sort > review/files.txt && (echo 'Work Item: {{.work_item_id}}'; echo 'Title: {{.title}}'; echo 'File count:'; wc -l < review/files.txt) > review/summary.txt",
 				Variables:   map[string]string{},
 				Timeout:     30,
 				MaxRetries:  1,
 			},
 			{
-				Name:        "Generate proof-of-work summary",
-				Description: "Create REVIEW.md summary",
-				Command:     "echo '# Review Summary' > REVIEW.md && echo '' >> REVIEW.md && echo '- Work Item: {{.work_item_id}}' >> REVIEW.md && echo '- Title: {{.title}}' >> REVIEW.md && echo '- Objective: {{.objective}}' >> REVIEW.md && echo '' >> REVIEW.md && echo '## Checklist' >> REVIEW.md && echo 'See review/CHECKLIST.md' >> REVIEW.md && echo 'Proof of work generated' > .pow_generated",
+				Name:        "Run Go checks when safe",
+				Description: "Run go test ./... if go.mod and go exist; otherwise write skip marker",
+				Command:     "if [ -f go.mod ] && command -v go >/dev/null 2>&1; then go test ./... 2>&1 | tee review/go-test.txt; else echo 'skipped (no go.mod or go not in PATH)' > review/go-test.txt; fi",
+				Variables:   map[string]string{},
+				Timeout:     120,
+				MaxRetries:  1,
+			},
+			{
+				Name:        "Run Python checks when safe",
+				Description: "Lightweight Python check if pyproject.toml or setup.py and python3 exist; otherwise write skip marker",
+				Command:     "if ( [ -f pyproject.toml ] || [ -f setup.py ] ) && command -v python3 >/dev/null 2>&1; then (python3 -m pytest --collect-only -q 2>/dev/null || python3 -m py_compile setup.py 2>/dev/null || echo 'no pytest/py_compile') 2>&1 | tee review/python-test.txt; else echo 'skipped (no pyproject.toml/setup.py or python3 not in PATH)' > review/python-test.txt; fi",
+				Variables:   map[string]string{},
+				Timeout:     60,
+				MaxRetries:  1,
+			},
+			{
+				Name:        "Generate REVIEW.md",
+				Description: "Create REVIEW.md from work item, inventory location, and whether Go/Python checks ran",
+				Command:     "echo '# Review' > REVIEW.md && echo '' >> REVIEW.md && echo '- **Work Item:** {{.work_item_id}}' >> REVIEW.md && echo '- **Title:** {{.title}}' >> REVIEW.md && echo '- **Objective:** {{.objective}}' >> REVIEW.md && echo '' >> REVIEW.md && echo '## Files inventory' >> REVIEW.md && echo '- `review/files.txt`' >> REVIEW.md && echo '' >> REVIEW.md && echo '## Checks' >> REVIEW.md && (grep -q 'skipped' review/go-test.txt 2>/dev/null && echo '- Go checks ran: no' >> REVIEW.md || echo '- Go checks ran: yes' >> REVIEW.md) && (grep -q 'skipped' review/python-test.txt 2>/dev/null && echo '- Python checks ran: no' >> REVIEW.md || echo '- Python checks ran: yes' >> REVIEW.md) && echo '' >> REVIEW.md && echo '## Next action' >> REVIEW.md && echo 'Review artifacts in `review/`. Recommend: inspect REVIEW.md and run tests locally if needed.' >> REVIEW.md",
 				Variables:   map[string]string{},
 				Timeout:     30,
 				MaxRetries:  1,

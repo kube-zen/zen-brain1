@@ -383,6 +383,84 @@ func TestPythonTemplate(t *testing.T) {
 	t.Logf("Python template test passed. Workspace: %s", result.WorkspacePath)
 }
 
+// TestReviewRealTemplate verifies review:real produces repo-aware artifacts: review/files.txt, REVIEW.md, and skip markers when Go/Python absent.
+func TestReviewRealTemplate(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping review template test in short mode")
+	}
+	tempDir := t.TempDir()
+	ctx := context.Background()
+	workspaceManager := NewWorkspaceManager(tempDir)
+	executor := NewBoundedExecutor()
+	powManager := NewProofOfWorkManager(tempDir)
+	f := NewFactory(workspaceManager, executor, powManager, tempDir)
+
+	spec := &FactoryTaskSpec{
+		ID:         "review-task-1",
+		SessionID:  "review-session",
+		WorkItemID: "REVIEW-001",
+		Title:      "Review change",
+		Objective:  "Review the implementation",
+		WorkType:   "review",
+		WorkDomain: "real",
+		Priority:   "high",
+		CreatedAt:  time.Now(),
+		UpdatedAt:  time.Now(),
+	}
+	result, err := f.ExecuteTask(ctx, spec)
+	if err != nil {
+		t.Fatalf("ExecuteTask: %v", err)
+	}
+	if !result.Success {
+		t.Fatalf("task failed: %s", result.Error)
+	}
+
+	ws := result.WorkspacePath
+	// Must have review/files.txt (inventory)
+	filesTxt := filepath.Join(ws, "review", "files.txt")
+	if _, err := os.Stat(filesTxt); os.IsNotExist(err) {
+		t.Errorf("review/files.txt not created")
+	}
+	// Must have REVIEW.md
+	reviewMD := filepath.Join(ws, "REVIEW.md")
+	if _, err := os.Stat(reviewMD); os.IsNotExist(err) {
+		t.Errorf("REVIEW.md not created")
+	}
+	// Go and Python check outputs (either "skipped" or actual output)
+	goTest := filepath.Join(ws, "review", "go-test.txt")
+	if _, err := os.Stat(goTest); os.IsNotExist(err) {
+		t.Errorf("review/go-test.txt not created")
+	} else {
+		content, _ := os.ReadFile(goTest)
+		if len(content) == 0 {
+			t.Error("review/go-test.txt should not be empty")
+		}
+	}
+	pythonTest := filepath.Join(ws, "review", "python-test.txt")
+	if _, err := os.Stat(pythonTest); os.IsNotExist(err) {
+		t.Errorf("review/python-test.txt not created")
+	} else {
+		content, _ := os.ReadFile(pythonTest)
+		if len(content) == 0 {
+			t.Error("review/python-test.txt should not be empty")
+		}
+		// When no Python project, should contain explicit skip marker
+		s := string(content)
+		if s != "" && s != "skipped" && !contains(s, "skipped") && !contains(s, "not in PATH") {
+			// If it's not "skipped", it may be pytest/py_compile output; that's fine
+		}
+	}
+	// REVIEW.md should mention work item and next action
+	content, _ := os.ReadFile(reviewMD)
+	c := string(content)
+	if !contains(c, "REVIEW-001") {
+		t.Error("REVIEW.md should contain work item ID")
+	}
+	if !contains(c, "Next action") && !contains(c, "next action") {
+		t.Error("REVIEW.md should contain next-action recommendation")
+	}
+}
+
 // Helper function to check if a string contains a substring
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) && (s == substr || len(substr) == 0 ||

@@ -3,6 +3,7 @@ package foreman
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -197,21 +198,22 @@ func (w *Worker) processOne(ctx context.Context, nn types.NamespacedName) {
 
 	// Execute: use RunWithContext when binder is set and runner supports it (Block 5.3 agent-context binding)
 	var err error
+	var outcome *TaskRunOutcome
 	if w.ContextBinder != nil {
 		if runnerWithCtx, ok := w.Runner.(TaskRunnerWithContext); ok {
 			var sessionCtx *zenctx.SessionContext
 			clusterID := "default"
 			sessionCtx, _ = w.ContextBinder.GetForContinuation(ctx, clusterID, task.Spec.SessionID, task.Name)
 			var updated *zenctx.SessionContext
-			updated, err = runnerWithCtx.RunWithContext(ctx, &task, sessionCtx)
+			updated, outcome, err = runnerWithCtx.RunWithContext(ctx, &task, sessionCtx)
 			if err == nil && updated != nil {
 				_ = w.ContextBinder.WriteIntermediate(ctx, clusterID, updated)
 			}
 		} else {
-			err = w.Runner.Run(ctx, &task)
+			outcome, err = w.Runner.Run(ctx, &task)
 		}
 	} else {
-		err = w.Runner.Run(ctx, &task)
+		outcome, err = w.Runner.Run(ctx, &task)
 	}
 	if err != nil {
 		TasksFailedTotal.Inc()
@@ -230,6 +232,34 @@ func (w *Worker) processOne(ctx context.Context, nn types.NamespacedName) {
 		LastTransitionTime: metav1.Now(),
 		ObservedGeneration: task.Generation,
 	})
+	// Persist run outcome to annotations when available (Block 4 factory execution)
+	if outcome != nil {
+		base := task.DeepCopy()
+		if task.Annotations == nil {
+			task.Annotations = make(map[string]string)
+		}
+		if outcome.WorkspacePath != "" {
+			task.Annotations["zen.kube-zen.com/factory-workspace"] = outcome.WorkspacePath
+		}
+		if outcome.ProofOfWorkPath != "" {
+			task.Annotations["zen.kube-zen.com/factory-proof"] = outcome.ProofOfWorkPath
+		}
+		if outcome.TemplateKey != "" {
+			task.Annotations["zen.kube-zen.com/factory-template"] = outcome.TemplateKey
+		}
+		if outcome.FilesChanged > 0 {
+			task.Annotations["zen.kube-zen.com/factory-files-changed"] = fmt.Sprintf("%d", outcome.FilesChanged)
+		}
+		if outcome.DurationSeconds > 0 {
+			task.Annotations["zen.kube-zen.com/factory-duration-seconds"] = fmt.Sprintf("%d", outcome.DurationSeconds)
+		}
+		if outcome.Recommendation != "" {
+			task.Annotations["zen.kube-zen.com/factory-recommendation"] = outcome.Recommendation
+		}
+		if patchErr := w.Client.Patch(ctx, &task, client.MergeFrom(base)); patchErr != nil {
+			logger.Error(patchErr, "patch task annotations with outcome", "task", nn.String())
+		}
+	}
 	if patchErr := w.Client.Status().Update(ctx, &task); patchErr != nil {
 		logger.Error(patchErr, "update task to Completed/Failed", "task", nn.String())
 	}

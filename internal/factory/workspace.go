@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -225,7 +226,11 @@ func (w *WorkspaceManagerImpl) scanWorkspaceFiles(path string) ([]string, error)
 		files = append(files, relPath)
 		return nil
 	})
-	return files, err
+	if err != nil {
+		return nil, err
+	}
+	sort.Strings(files)
+	return files, nil
 }
 
 // ListWorkspaceFiles returns all non-hidden files in the workspace.
@@ -234,25 +239,33 @@ func (w *WorkspaceManagerImpl) ListWorkspaceFiles(ctx context.Context, path stri
 }
 
 // getGitInfo returns git branch and commit for workspace if it's a git repo.
-// Runs git rev-parse in path; returns error if not a git repo or git unavailable.
+// If not a git repo or git binary is missing, returns empty branch/commit and nil error (no hard failure).
 func (w *WorkspaceManagerImpl) getGitInfo(path string) (branch, commit string, err error) {
 	if path == "" {
-		return "", "", fmt.Errorf("path is empty")
+		return "", "", nil
 	}
-	// Branch: git rev-parse --abbrev-ref HEAD
-	branchCmd := exec.CommandContext(context.Background(), "git", "rev-parse", "--abbrev-ref", "HEAD")
-	branchCmd.Dir = path
+	// Check if inside a git work tree first
+	checkCmd := exec.CommandContext(context.Background(), "git", "-C", path, "rev-parse", "--is-inside-work-tree")
+	checkOut, checkErr := checkCmd.Output()
+	if checkErr != nil {
+		// Not a git repo, git missing, or not inside work tree: return empty, no error
+		return "", "", nil
+	}
+	if strings.TrimSpace(string(checkOut)) != "true" {
+		return "", "", nil
+	}
+	// Branch: git -C <path> rev-parse --abbrev-ref HEAD
+	branchCmd := exec.CommandContext(context.Background(), "git", "-C", path, "rev-parse", "--abbrev-ref", "HEAD")
 	branchOut, err := branchCmd.Output()
 	if err != nil {
-		return "", "", fmt.Errorf("git branch: %w", err)
+		return "", "", nil
 	}
 	branch = strings.TrimSpace(string(branchOut))
-	// Commit: git rev-parse HEAD
-	commitCmd := exec.CommandContext(context.Background(), "git", "rev-parse", "HEAD")
-	commitCmd.Dir = path
+	// Commit: git -C <path> rev-parse HEAD
+	commitCmd := exec.CommandContext(context.Background(), "git", "-C", path, "rev-parse", "HEAD")
 	commitOut, err := commitCmd.Output()
 	if err != nil {
-		return branch, "", fmt.Errorf("git commit: %w", err)
+		return branch, "", nil
 	}
 	commit = strings.TrimSpace(string(commitOut))
 	return branch, commit, nil
