@@ -14,7 +14,7 @@
 
 | Subsystem | Status | Notes | Key files |
 |-----------|--------|-------|-----------|
-| **Office / Jira** | Partial | Real: fetch, update, search. Partial: webhooks, attachments, JQL. | `internal/office/jira/connector.go`, `README.md` (TODOs) |
+| **Office / Jira** | Real | Fetch, update, search, AddAttachment, Search (JQL), Watch (webhook server + HMAC). Block 2 complete. | `internal/office/jira/connector.go`, `README.md` |
 | **Session manager** | Real | Create, get, resume, evidence; SQLite/memory; ZenContext write. | `internal/session/manager.go`, `sqlite_store.go` |
 | **ZenContext (Tier 1/2/3)** | Real | Redis, QMD store, S3; composite; ReConstruct. Mock: QMD falls back to mock when CLI absent. | `internal/context/composite.go`, `tier1/`, `tier2/`, `tier3/`, `internal/qmd/` |
 | **QMD / KB** | Partial | Real when `qmd` CLI present; FallbackToMock when not. Block 5.1: Populate() + BLOCK5_QMD_POPULATION.md, golden-query tests. | `internal/qmd/adapter.go`, `kb_store.go`, `populate.go` |
@@ -27,6 +27,7 @@
 | **Funding aggregator** | Real | T661 + IRAP from Vault evidence. | `internal/funding/aggregator.go` |
 | **Agent–context binding** | Real | GetForContinuation / WriteIntermediate; TaskRunnerWithContext. | `internal/agent/binding.go`, `foreman/runner.go` |
 | **ReMe protocol** | Real | ReconstructSession in ZenContext; ReMeBinder wires it as agent continuation path (Worker.ContextBinder = NewReMeBinder). | `internal/context/composite.go`, `internal/agent/binding.go` (ReMeBinder) |
+| **Human Gatekeeper** | Real | Block 2.6: Gatekeeper interface, DefaultGatekeeper (approvals, reject, delegate, escalate, notifiers, audit). | `internal/gatekeeper/`, `internal/planner` (GetPendingApprovals) |
 | **K3d / deployment** | Partial | README + make dev-up; “Deploy Zen-Brain components” still TBD (no Helm/manifests for foreman/apiserver in-cluster). | `deployments/k3d/README.md`, `Makefile` dev-up |
 | **Repo polish** | Partial | Makefile: repo-sync TODO; pre-commit/repo-check exist. | `Makefile`, `scripts/ci/` |
 
@@ -39,7 +40,7 @@
 3. **QMD** – Document “real vs mock” and how to run with real QMD; repo-sync for KB population optional (Block 5.1 Populate + docs done).
 4. **K3d** – Add minimal deployable manifest or Helm placeholder for foreman + apiserver (or document “run binaries locally with kubeconfig” as the current path).
 5. ~~**ReMe**~~ – Done: ReMeBinder wires ReConstruct as agent continuation path.
-6. **Jira** – Close webhooks/attachments/JQL or document as post-1.0.
+6. ~~**Jira**~~ – Done: webhooks (Watch), attachments (AddAttachment), JQL (Search); Block 2 complete.
 7. **repo-sync** – Implement or document; reference in COMPLETENESS_MATRIX.
 
 ---

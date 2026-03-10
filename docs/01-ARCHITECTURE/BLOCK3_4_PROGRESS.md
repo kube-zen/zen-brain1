@@ -3,6 +3,24 @@
 **Date:** 2026-03-09  
 **Construction Plan:** V6.1
 
+## Block 0 & 0.5 – Complete
+
+- **Block 0:** Repo, layout, configurable home (`ZEN_BRAIN_HOME`, `internal/config/home.go`, `paths.go`), cutover plan (`docs/05-OPERATIONS/CUTOVER.md`).
+- **Block 0.5:** zen-sdk reuse contract satisfied; audit and deferred packages documented. See **`docs/01-ARCHITECTURE/BLOCK0_5_ZEN_SDK.md`** for package audit, reuse contract, and deferred items (dlq, observability, leader, logging, events, crypto).
+
+## Block 2 (Office) – Complete
+
+| Item | Status | Notes |
+|------|--------|------|
+| **2.1 ZenOffice interface** | Done | `pkg/office`, `internal/office/base.go`; Fetch, FetchBySourceKey, UpdateStatus, AddComment, AddAttachment, Search, Watch |
+| **2.2 Jira connector** | Done | `internal/office/jira`: fetch/update/search, AI attribution, AddAttachment (REST), Search (JQL), Watch (webhook server + HMAC validation); see `internal/office/jira/README.md` |
+| **2.3 Intent Analyzer** | Done | Wired in vertical slice; `internal/analyzer` |
+| **2.4 Session Manager** | Done | `internal/session/manager.go`; ZenContext integration |
+| **2.5 Planner Agent** | Done | `internal/planner`; ZenContext, ZenLedgerClient, GetPendingApprovals |
+| **2.6 Human Gatekeeper** | Done | `internal/gatekeeper`: Gatekeeper interface, DefaultGatekeeper (Approve, Reject, Delegate, Escalate, notifiers, audit log); Planner.GetPendingApprovals; console notifier |
+
+**Block 2 complete:** Office abstraction, Jira connector (including webhooks, attachments, JQL), Intent Analyzer, Session Manager, Planner, Human Gatekeeper. Optional hardening (e.g. Jira webhook auth tuning, Gatekeeper HTTP UI) is post-1.0.
+
 ## Block 3 (Nervous System) – In progress
 
 | Item | Status | Notes |

@@ -10,9 +10,9 @@ Implements the `ZenOffice` interface for Atlassian Jira, providing bidirectional
 - ✅ **Comment Sync**: Comments flow both ways with AI attribution preserved
 - ✅ **Proof-of-Work Integration**: Complete workflow support for execution results and proof summaries
 - ✅ **Status Transitions**: Configurable workflow transitions with proper mapping
-- 🔄 **Webhook Support**: Real-time updates via Jira webhooks (TODO)
-- 🔄 **Attachment Support**: Evidence attachment synchronization (TODO)
-- 🔄 **JQL Search**: Advanced search capabilities (TODO)
+- ✅ **Webhook Support**: Real-time updates via Jira webhooks; call `Watch(ctx, clusterID)` to start the webhook server and receive `WorkItemEvent` on the returned channel; HMAC-SHA256 signature validation when `webhook_secret` is set
+- ✅ **Attachment Support**: Evidence attachment upload via `AddAttachment`; Jira REST API `/rest/api/3/issue/{id}/attachments`
+- ✅ **JQL Search**: `Search(ctx, clusterID, query)` accepts JQL (or free text); optional project scoping via `project_key`; returns `[]WorkItem`
 
 ## Configuration
 
