@@ -84,20 +84,19 @@ def main() -> int:
     root = _repo_root()
     allowed = load_allowlist(root)
     
-    # Scan markdown files
+    # Scan markdown files (skip .git and vendor to stay within timeout)
     md_files = []
     for dirpath, _, filenames in os.walk(root):
-        # Skip .git directory
-        if ".git" in dirpath:
+        if ".git" in dirpath or "vendor" in dirpath:
             continue
         for f in filenames:
             if f.endswith(".md"):
                 md_files.append(os.path.join(dirpath, f))
     
-    # Scan Go source files (for comments)
+    # Scan Go source files for comments (skip .git and vendor)
     go_files = []
     for dirpath, _, filenames in os.walk(root):
-        if ".git" in dirpath:
+        if ".git" in dirpath or "vendor" in dirpath:
             continue
         for f in filenames:
             if f.endswith(".go"):
