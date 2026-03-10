@@ -13,9 +13,9 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-# Get the directory of the script
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-cd "$SCRIPT_DIR" || exit 1
+# Run from repository root (hook may be in .git/hooks so script dir would be wrong)
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT" || exit 1
 
 # Track if any checks failed
 FAILED=0
