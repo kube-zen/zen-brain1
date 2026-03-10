@@ -80,7 +80,8 @@
 **ReMe:** Use `agent.NewReMeBinder(zenContext, "default")` as Worker.ContextBinder to run the full ReMe protocol on continuation (reconstruct from Tier 1/3 + Journal + KB). SessionContext now includes JournalEntries (causal chain) for the agent.  
 **Agent-context binding:** Use `agent.NewZenContextBinder(zenContext, "default")` for Tier-1-only continuation. Use a runner that implements `TaskRunnerWithContext` to read/write session context.  
 **Token recording:** When ZenLedger is CockroachLedger, call `gateway.SetTokenRecorder(ledgerClient)` so Chat() records token usage (Block 5).  
-**Model routing:** Planner uses GetModelEfficiency and RecordPlannedModelSelection; budget check via GetCostBudgetStatus before planning. `internal/intelligence.ModelRouter` provides cost-aware RecommendModel(projectID, taskType).  
+**Model routing:** Planner uses ModelRecommender when set (zen-brain wires `NewModelRouterRecommender(NewModelRouter(ledger, defaultModel))`); else GetModelEfficiency + RecordPlannedModelSelection; budget check via GetCostBudgetStatus before planning.
+**Evidence:** Planner records hypothesis evidence when EvidenceVault is set (zen-brain uses MemoryVault). See BLOCK5_INTELLIGENCE_COMPLETENESS.md.  
 **QMD:** See `docs/01-ARCHITECTURE/BLOCK5_QMD_POPULATION.md`. Validate with `go test ./internal/qmd/... -run KBQuality`.  
 **Funding reports:** `funding.NewAggregator(vault).AggregateForSession(ctx, sessionID, "Project Title")` returns T661 narrative and IRAP report; use `.T661.T661Text()` or `.IRAP.IRAPMarkdown()` for export.
 

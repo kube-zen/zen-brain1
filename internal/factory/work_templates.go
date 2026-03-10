@@ -1,6 +1,11 @@
 // Package factory provides execution templates for the Factory.
 //
-// Template tiers: (1) work_templates.go — generic plans; some steps run real commands (e.g. go test ./... when present), others echo progress. (2) useful_templates.go — "real" templates that create actual files (e.g. cmd/main.go, README.md, proof-of-work). BoundedExecutor runs all steps in a real shell in the workspace.
+// Template tiers (see docs/01-ARCHITECTURE/FACTORY_TEMPLATE_TIERS.md):
+//   - work_templates.go: steps are scaffold/echo by default (echo-only commands).
+//     BoundedExecutor overrides step names "Run tests", "go test", "test" to run real
+//     "go test ./... -count=1" when go.mod exists; all other steps here remain echo.
+//   - useful_templates.go: real templates that create actual files (cmd/main.go,
+//     README.md, PROOF_OF_WORK.md, etc.). BoundedExecutor runs all steps in the workspace.
 package factory
 
 // registerBugFixTemplates registers bug fix execution plans.

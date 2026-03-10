@@ -10,6 +10,7 @@ import (
 
 	"github.com/kube-zen/zen-brain1/internal/agent"
 	"github.com/kube-zen/zen-brain1/internal/analyzer"
+	"github.com/kube-zen/zen-brain1/internal/evidence"
 	"github.com/kube-zen/zen-brain1/internal/factory"
 	"github.com/kube-zen/zen-brain1/internal/office"
 	"github.com/kube-zen/zen-brain1/internal/session"
@@ -24,13 +25,15 @@ type DefaultPlanner struct {
 	mu     sync.RWMutex
 
 	// Component references
-	officeManager  *office.Manager
-	analyzer       analyzer.IntentAnalyzer
-	sessionManager session.Manager
-	ledgerClient   ledger.ZenLedgerClient
-	zenctx         zenctx.ZenContext
-	factory        factory.Factory
-	stateManager   *agent.StateManager
+	officeManager     *office.Manager
+	analyzer          analyzer.IntentAnalyzer
+	sessionManager    session.Manager
+	ledgerClient      ledger.ZenLedgerClient
+	zenctx            zenctx.ZenContext
+	factory           factory.Factory
+	stateManager     *agent.StateManager
+	modelRecommender ModelRecommender // optional: cost-aware routing (Block 5)
+	evidenceVault    evidence.Vault   // optional: record hypothesis when plan produced (Block 5)
 
 	// Internal state
 	activeSessions map[string]*contracts.Session
@@ -75,10 +78,12 @@ func New(config *Config) (*DefaultPlanner, error) {
 		ledgerClient:   config.LedgerClient,
 		zenctx:         config.ZenContext,
 		factory:        config.Factory,
-		stateManager:   stateManager,
-		activeSessions: make(map[string]*contracts.Session),
-		approvalQueue:  make([]*contracts.Session, 0),
-		shutdownChan:   make(chan struct{}),
+		stateManager:     stateManager,
+		modelRecommender: config.ModelRecommender,
+		evidenceVault:    config.EvidenceVault,
+		activeSessions:   make(map[string]*contracts.Session),
+		approvalQueue:    make([]*contracts.Session, 0),
+		shutdownChan:     make(chan struct{}),
 	}
 
 	// Start background goroutines
@@ -251,6 +256,22 @@ func (p *DefaultPlanner) analyzeAndPlan(ctx context.Context, sessionID string, w
 		return
 	}
 
+	// Record hypothesis evidence when vault is configured (Block 5 advanced evidence)
+	if p.evidenceVault != nil && len(session.BrainTaskSpecs) > 0 {
+		summary := fmt.Sprintf("Plan: %d task(s) for work item %s (confidence %.2f)",
+			len(session.BrainTaskSpecs), session.WorkItemID, analysisResult.Confidence)
+		item := contracts.EvidenceItem{
+			ID:          fmt.Sprintf("hypothesis-%s", sessionID),
+			SessionID:   sessionID,
+			Type:        contracts.EvidenceTypeHypothesis,
+			Content:     summary,
+			Metadata:    map[string]string{"work_item_id": session.WorkItemID, "task_count": fmt.Sprintf("%d", len(session.BrainTaskSpecs))},
+			CollectedAt: time.Now(),
+			CollectedBy: "planner",
+		}
+		_ = p.evidenceVault.Store(ctx, item)
+	}
+
 	// Step 3: Transition to analyzed state
 	if err := p.sessionManager.TransitionState(ctx, sessionID, contracts.SessionStateAnalyzed,
 		"Intent analysis complete", "analyzer"); err != nil {
@@ -309,12 +330,28 @@ func (p *DefaultPlanner) analyzeAndPlan(ctx context.Context, sessionID string, w
 }
 
 // selectOptimalModel selects the optimal model for a session.
+// Uses ModelRecommender when set (Block 5 routing); otherwise queries ledger directly.
 func (p *DefaultPlanner) selectOptimalModel(ctx context.Context, session *contracts.Session,
 	analysis *contracts.AnalysisResult) (*ModelSelection, error) {
 
-	// Get efficiency data from ledger
 	taskType := string(session.WorkItem.WorkType)
-	efficiencies, err := p.ledgerClient.GetModelEfficiency(ctx, "default", taskType)
+	projectID := "default"
+
+	if p.modelRecommender != nil {
+		modelID, reason, confidence, err := p.modelRecommender.RecommendModel(ctx, projectID, taskType)
+		if err == nil && modelID != "" {
+			return &ModelSelection{
+				ModelID:          modelID,
+				Reason:           reason,
+				EstimatedCostUSD: analysis.EstimatedTotalCostUSD,
+				Confidence:       confidence,
+			}, nil
+		}
+		// Fall through to ledger path on error or empty
+	}
+
+	// Get efficiency data from ledger
+	efficiencies, err := p.ledgerClient.GetModelEfficiency(ctx, projectID, taskType)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get model efficiency: %w", err)
 	}

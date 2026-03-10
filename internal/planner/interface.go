@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"github.com/kube-zen/zen-brain1/internal/analyzer"
+	"github.com/kube-zen/zen-brain1/internal/evidence"
 	"github.com/kube-zen/zen-brain1/internal/factory"
 	"github.com/kube-zen/zen-brain1/internal/office"
 	"github.com/kube-zen/zen-brain1/internal/session"
@@ -58,6 +59,12 @@ type SessionStatus struct {
 	ProgressPercent  float64 `json:"progress_percent,omitempty"`
 }
 
+// ModelRecommender provides cost-aware model recommendation (Block 5).
+// When set, Planner uses it for model selection; otherwise uses LedgerClient directly.
+type ModelRecommender interface {
+	RecommendModel(ctx context.Context, projectID, taskType string) (modelID, reason string, confidence float64, err error)
+}
+
 // Config holds configuration for the Planner Agent.
 type Config struct {
 	// Component references
@@ -67,6 +74,12 @@ type Config struct {
 	LedgerClient   ledger.ZenLedgerClient  `yaml:"-" json:"-"`
 	ZenContext     zenctx.ZenContext       `yaml:"-" json:"-"`
 	Factory        factory.Factory         `yaml:"-" json:"-"`
+
+	// Optional: cost-aware model routing (Block 5). When set, used for model selection.
+	ModelRecommender ModelRecommender `yaml:"-" json:"-"`
+
+	// Optional: evidence vault for SR&ED hypothesis/plan recording (Block 5). When set, planner records hypothesis after producing a plan.
+	EvidenceVault evidence.Vault `yaml:"-" json:"-"`
 
 	// Model selection
 	DefaultModel  string  `yaml:"default_model" json:"default_model"`
