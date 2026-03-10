@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	internalllm "github.com/kube-zen/zen-brain1/internal/llm"
 	"github.com/kube-zen/zen-brain1/pkg/contracts"
 	"github.com/kube-zen/zen-brain1/pkg/kb"
 	"github.com/kube-zen/zen-brain1/pkg/llm"
@@ -82,10 +83,30 @@ Confidence: 0.85`,
 	config := DefaultConfig()
 	config.EnabledStages = []Stage{StageClassification, StageFinalization} // Minimal pipeline for test
 
-	analyzer, err := New(config, mockLLM, &mockKBStore{})
-	if err != nil {
-		t.Fatalf("Failed to create analyzer: %v", err)
+	// Create analyzer manually with test prompt manager (bypass InitializeDefaultManager)
+	promptManager := internalllm.NewPromptManager()
+	// Register a simple classification template for test
+	classTemplate := &internalllm.PromptTemplate{
+		Name:         "classification",
+		Role:         internalllm.RoleAnalyzer,
+		SystemPrompt: "Test system prompt",
+		UserTemplate: "Test user template",
+		Temperature:  0.1,
+		MaxTokens:    500,
+		Version:      "1.0",
+		Variables:    []string{},
 	}
+	if err := promptManager.RegisterTemplate(classTemplate); err != nil {
+		t.Fatalf("Failed to register test template: %v", err)
+	}
+
+	analyzer := &DefaultAnalyzer{
+		config:        config,
+		llm:           mockLLM,
+		kbStore:       &mockKBStore{},
+		promptManager: promptManager,
+	}
+	analyzer.buildPipeline()
 
 	// Create a test work item
 	workItem := &contracts.WorkItem{
@@ -158,10 +179,30 @@ Confidence: 0.9`,
 	config := DefaultConfig()
 	config.EnabledStages = []Stage{StageClassification, StageFinalization}
 
-	analyzer, err := New(config, mockLLM, &mockKBStore{})
-	if err != nil {
-		t.Fatalf("Failed to create analyzer: %v", err)
+	// Create analyzer manually with test prompt manager (bypass InitializeDefaultManager)
+	promptManager := internalllm.NewPromptManager()
+	// Register a simple classification template for test
+	classTemplate := &internalllm.PromptTemplate{
+		Name:         "classification",
+		Role:         internalllm.RoleAnalyzer,
+		SystemPrompt: "Test system prompt",
+		UserTemplate: "Test user template",
+		Temperature:  0.1,
+		MaxTokens:    500,
+		Version:      "1.0",
+		Variables:    []string{},
 	}
+	if err := promptManager.RegisterTemplate(classTemplate); err != nil {
+		t.Fatalf("Failed to register test template: %v", err)
+	}
+
+	analyzer := &DefaultAnalyzer{
+		config:        config,
+		llm:           mockLLM,
+		kbStore:       &mockKBStore{},
+		promptManager: promptManager,
+	}
+	analyzer.buildPipeline()
 
 	// Create multiple test work items
 	workItems := []*contracts.WorkItem{
@@ -235,8 +276,25 @@ func TestStageProcessors(t *testing.T) {
 	ctx := context.Background()
 	prevResults := make(map[Stage]StageResult)
 
+	// Create prompt manager for tests
+	promptManager := internalllm.NewPromptManager()
+	// Register a test classification template (simple, no variables for test)
+	testTemplate := &internalllm.PromptTemplate{
+		Name:         "classification",
+		Role:         internalllm.RoleAnalyzer,
+		SystemPrompt: "Test system prompt",
+		UserTemplate: "Test user template",
+		Temperature:  0.1,
+		MaxTokens:    500,
+		Version:      "1.0",
+		Variables:    []string{},
+	}
+	if err := promptManager.RegisterTemplate(testTemplate); err != nil {
+		t.Fatalf("Failed to register test template: %v", err)
+	}
+
 	// Test classification stage
-	classStage := &classificationStage{llm: mockLLM}
+	classStage := &classificationStage{llm: mockLLM, promptManager: promptManager}
 	classResult, err := classStage.Process(ctx, workItem, prevResults)
 	if err != nil {
 		t.Errorf("Classification stage failed: %v", err)
@@ -246,7 +304,7 @@ func TestStageProcessors(t *testing.T) {
 	}
 
 	// Test cost estimation stage
-	costStage := &costEstimationStage{llm: mockLLM, config: DefaultConfig()}
+	costStage := &costEstimationStage{llm: mockLLM, config: DefaultConfig(), promptManager: promptManager}
 	costResult, err := costStage.Process(ctx, workItem, prevResults)
 	if err != nil {
 		t.Errorf("Cost estimation stage failed: %v", err)
