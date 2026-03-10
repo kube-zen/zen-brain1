@@ -64,12 +64,15 @@ make build
 make run
 ```
 
+**Image build:** The canonical image is built from the **root Dockerfile** (`docker build -t zen-brain:dev .` or `make dev-image` when using k3d).
+
 ## Configuration
 
-Zen‑Brain uses a configurable home directory:
+Zen‑Brain uses a configurable home directory for **runtime state only** (no repo-local runtime files):
 
-- Default: `~/.zen‑brain/`
-- Override: Set `ZEN_BRAIN_HOME` environment variable
+- **Default:** `~/.zen-brain/` (override: `ZEN_BRAIN_HOME`)
+- **Runtime config:** `$ZEN_BRAIN_HOME/config.yaml` (copy from `configs/` in repo; repo `configs/` is templates only)
+- **Session persistence:** `$ZEN_BRAIN_HOME/sessions` when using SQLite store
 
 ## Dependencies
 
