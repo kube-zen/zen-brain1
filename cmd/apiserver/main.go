@@ -45,6 +45,7 @@ func main() {
 		log.Println("API auth enabled (ZEN_API_KEY set); /healthz and /readyz are exempt")
 	}
 	srv.Handle("/api/v1/sessions", apiserver.SessionsHandler(nil))
+	srv.Handle("/api/v1/sessions/", apiserver.SessionDetailHandler(nil))
 	srv.Handle("/api/v1/health", apiserver.RuntimeReportHandler(rt.Report))
 	srv.Handle("/api/v1/evidence", apiserver.EvidenceHandler(nil))
 	if v := os.Getenv("API_VERSION"); v != "" {

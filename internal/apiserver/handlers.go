@@ -3,8 +3,10 @@ package apiserver
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/kube-zen/zen-brain1/internal/evidence"
@@ -20,6 +22,17 @@ type SessionSummary struct {
 	State      string `json:"state"`
 	CreatedAt  string `json:"created_at,omitempty"`
 	UpdatedAt  string `json:"updated_at,omitempty"`
+}
+
+// SessionDetailResponse is the response for GET /api/v1/sessions/:id.
+type SessionDetailResponse struct {
+	ID              string   `json:"id"`
+	WorkItemID      string   `json:"work_item_id"`
+	SourceKey       string   `json:"source_key"`
+	State           string   `json:"state"`
+	BrainTaskSpecs  int      `json:"brain_task_specs_count,omitempty"`
+	CreatedAt       string   `json:"created_at,omitempty"`
+	UpdatedAt string `json:"updated_at,omitempty"`
 }
 
 // SessionsHandler returns an http.Handler that lists sessions (GET with optional limit query).
@@ -58,6 +71,51 @@ func SessionsHandler(manager session.Manager) http.Handler {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{"sessions": summaries, "count": len(summaries)})
+	})
+}
+
+// SessionDetailHandler returns an http.Handler for GET /api/v1/sessions/:id (single session by ID).
+// When manager is nil, returns 503.
+func SessionDetailHandler(manager session.Manager) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		if manager == nil {
+			http.Error(w, "sessions not available", http.StatusServiceUnavailable)
+			return
+		}
+		// Path is /api/v1/sessions/:id (pattern registered as /api/v1/sessions/)
+		id := strings.TrimPrefix(r.URL.Path, "/api/v1/sessions/")
+		if id == "" {
+			http.Error(w, "session id required", http.StatusBadRequest)
+			return
+		}
+		s, err := manager.GetSession(r.Context(), id)
+		if err != nil {
+			if errors.Is(err, session.ErrSessionNotFound) {
+				http.Error(w, "session not found", http.StatusNotFound)
+				return
+			}
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if s == nil {
+			http.Error(w, "session not found", http.StatusNotFound)
+			return
+		}
+		resp := SessionDetailResponse{
+			ID:             s.ID,
+			WorkItemID:     s.WorkItemID,
+			SourceKey:      s.SourceKey,
+			State:          string(s.State),
+			BrainTaskSpecs: len(s.BrainTaskSpecs),
+			CreatedAt:      formatTime(s.CreatedAt),
+			UpdatedAt:      formatTime(s.UpdatedAt),
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
 	})
 }
 

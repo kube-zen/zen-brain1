@@ -174,6 +174,60 @@ func TestSessionsHandler_LimitQuery(t *testing.T) {
 	}
 }
 
+func TestSessionDetailHandler_NilManager(t *testing.T) {
+	handler := SessionDetailHandler(nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/sessions/sess-1", nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Errorf("nil manager: got status %d", rec.Code)
+	}
+}
+
+func TestSessionDetailHandler_NotFound(t *testing.T) {
+	cfg := session.DefaultConfig()
+	cfg.CleanupInterval = 0
+	mgr, err := session.New(cfg, session.NewMemoryStore())
+	if err != nil {
+		t.Fatalf("session manager: %v", err)
+	}
+	handler := SessionDetailHandler(mgr)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/sessions/nonexistent", nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("not found: got status %d", rec.Code)
+	}
+}
+
+func TestSessionDetailHandler_Found(t *testing.T) {
+	cfg := session.DefaultConfig()
+	cfg.CleanupInterval = 0
+	mgr, err := session.New(cfg, session.NewMemoryStore())
+	if err != nil {
+		t.Fatalf("session manager: %v", err)
+	}
+	wi := &contracts.WorkItem{ID: "W1", Title: "Test", WorkType: contracts.WorkTypeImplementation, WorkDomain: contracts.DomainCore}
+	sess, err := mgr.CreateSession(context.Background(), wi)
+	if err != nil {
+		t.Fatalf("create session: %v", err)
+	}
+	handler := SessionDetailHandler(mgr)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/sessions/"+sess.ID, nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Errorf("got status %d: %s", rec.Code, rec.Body.String())
+	}
+	var out SessionDetailResponse
+	if err := json.NewDecoder(rec.Body).Decode(&out); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if out.ID != sess.ID || out.WorkItemID != "W1" {
+		t.Errorf("response: id=%s work_item_id=%s", out.ID, out.WorkItemID)
+	}
+}
+
 func TestRequireAPIKey_EmptyKey(t *testing.T) {
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(200) })
 	wrapped := RequireAPIKey("", DefaultSkipPaths)(next)

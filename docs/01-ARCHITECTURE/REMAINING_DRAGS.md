@@ -12,11 +12,11 @@ Known gaps and polish items after blocks 0–6 and 1.2.3 start. Not blocking the
 4. ~~**Block 2 analysis persistence**~~ — Analysis history durable; audit fields; GetAnalysisHistory/UpdateAnalysis wired.
 5. ~~**Block 2 analyzer multi-task breakdown**~~ — combineStageResults now creates multiple BrainTaskSpecs when breakdown stage outputs multiple subtasks (extractSubtasksFromBreakdown).
 6. ~~**Jira logging**~~ — Webhook server error and event-channel-full now use log.Printf with [Jira] prefix.
-7. **Factory** — getGitInfo real; BoundedExecutor real steps: "run tests"/"go test" and "build"/"go build"/"compile" when go.mod present; FactoryTaskRunner + proof-of-work to Vault; FACTORY_TEMPLATE_TIERS.md. Further: more real steps per work type.
-8. **Intelligence** — ReMe wired in Foreman via -zen-context-redis (ReMeBinder); ModelRouter + hypothesis evidence in zen-brain; BLOCK5_INTELLIGENCE_COMPLETENESS.md. Further: richer agent reasoning.
+7. **Factory** — getGitInfo real; BoundedExecutor real steps: "run tests"/"go test" and "build"/"go build"/"compile" when go.mod present; FactoryTaskRunner + proof-of-work to Vault; FACTORY_TEMPLATE_TIERS.md. Proof signing: optional HMAC-SHA256 when `ZEN_PROOF_SIGNING_KEY` set (done). Further: more real steps per work type.
+8. **Intelligence** — ReMe wired in Foreman via -zen-context-redis (ReMeBinder); ModelRouter + hypothesis evidence in zen-brain; ITEM3_INTELLIGENCE_MINING.md. Further: richer agent reasoning.
 
 ## References
 
 - Completeness: [COMPLETENESS_MATRIX.md](COMPLETENESS_MATRIX.md)
 - Suggested fix order: same doc, “Suggested fix order” section
-- Block progress: [BLOCK3_4_PROGRESS.md](BLOCK3_4_PROGRESS.md)
+- Block progress: [PROGRESS.md](PROGRESS.md)
