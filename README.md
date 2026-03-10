@@ -137,18 +137,20 @@ Comprehensive documentation is available in the `docs/` directory:
 
 ## Development Status
 
-**Current Phase:** Block 1 – Schema Hardening Complete
+**Executive summary:** The first trustworthy vertical slice is implemented—Office intake → analyze → plan → session → Factory execution → proof-of-work → status update. Blocks 0–5 are complete; Block 6 (k3d, local dev) is available.
 
-- ✅ Block 0: Clean foundation (scaffold, go.mod, Makefile, README)
-- ✅ Block 0.5: SDK package audit (26 reusable packages in `zen‑sdk`)
-- ✅ Block 1: Neuro‑Anatomy – canonical contracts, structured tags, SR&ED taxonomy, multi‑cluster CRDs
-- 🚧 Block 2: Office – Jira connector with AI attribution (in progress)
-- 📋 Block 3: Nervous System – message bus, ZenJournal, KB, ZenLedger, DB provisioning
-- 📋 Block 4: Factory – K8s execution, warm workers, multi‑cluster agent
-- 📋 Block 5: Intelligence – QMD, ReMe, Funding Evidence Aggregator
-- 📋 Block 6: Developer Experience – k3d cluster, local‑first workflow
+| Block | Name | Status |
+|-------|------|--------|
+| 0 | Foundation | ✅ Complete |
+| 0.5 | zen-sdk reuse | ✅ Complete |
+| 1 | Neuro-Anatomy | ✅ Complete |
+| 2 | Office | ✅ Complete |
+| 3 | Nervous System | ✅ Complete |
+| 4 | Factory | ✅ Complete |
+| 5 | Intelligence | ✅ Complete |
+| 6 | Developer Experience | ✅ Available |
 
-See `docs/01-ARCHITECTURE/CONSTRUCTION_PLAN.md` for the full build roadmap.
+**Single source of truth for status:** [Construction Plan (V6.1)](docs/01-ARCHITECTURE/CONSTRUCTION_PLAN.md) is the canonical roadmap. For completion detail and next actions, see [Block Completion Matrix](docs/01-ARCHITECTURE/BLOCK_COMPLETION_MATRIX.md) and [Completeness Matrix](docs/01-ARCHITECTURE/COMPLETENESS_MATRIX.md).
 
 ## License
 
