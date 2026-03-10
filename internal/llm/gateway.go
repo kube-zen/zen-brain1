@@ -35,6 +35,9 @@ type GatewayConfig struct {
 	PlannerTimeout     int `yaml:"planner_timeout" json:"planner_timeout"`
 	RequestTimeout     int `yaml:"request_timeout" json:"request_timeout"`
 
+	// Ollama keep_alive (e.g. "30m", "-1"); sent on preload, verify, and real chat so model stays resident
+	LocalWorkerKeepAlive string `yaml:"local_worker_keep_alive" json:"local_worker_keep_alive"`
+
 	// Model capabilities
 	LocalWorkerSupportsTools bool `yaml:"local_worker_supports_tools" json:"local_worker_supports_tools"`
 	PlannerSupportsTools     bool `yaml:"planner_supports_tools" json:"planner_supports_tools"`
@@ -60,6 +63,7 @@ func DefaultGatewayConfig() *GatewayConfig {
 		LocalWorkerTimeout:       30,             // 30 seconds
 		PlannerTimeout:           60,             // 60 seconds
 		RequestTimeout:           120,            // 120 seconds overall
+		LocalWorkerKeepAlive:     "30m",         // keep model resident
 		LocalWorkerSupportsTools: true,           // Local models support tools
 		PlannerSupportsTools:     true,           // Cloud models support tools
 		AutoEscalateComplexTasks: true,           // Auto-escalate complex tasks
@@ -226,7 +230,11 @@ func NewGateway(config *GatewayConfig) (*Gateway, error) {
 func (g *Gateway) registerBuiltinProviders() error {
 	var localWorker llm.Provider
 	if baseURL := os.Getenv("OLLAMA_BASE_URL"); baseURL != "" {
-		localWorker = NewOllamaProvider(baseURL, g.config.LocalWorkerModel, g.config.LocalWorkerTimeout)
+		keepAlive := g.config.LocalWorkerKeepAlive
+		if keepAlive == "" {
+			keepAlive = DefaultKeepAlive
+		}
+		localWorker = NewOllamaProvider(baseURL, g.config.LocalWorkerModel, g.config.LocalWorkerTimeout, keepAlive)
 		log.Printf("[LLM Gateway] local-worker lane: Ollama at %s (model=%s)", baseURL, g.config.LocalWorkerModel)
 	} else {
 		localWorker = NewLocalWorkerProvider(g.config.LocalWorkerModel, g.config.LocalWorkerTimeout)

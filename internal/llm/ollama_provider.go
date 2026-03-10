@@ -11,26 +11,34 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/kube-zen/zen-brain1/pkg/llm"
 )
 
+// ollamaWarmupTTL is how long we consider a model warmed after a tiny chat probe (zen-brain 0.1 pattern).
+const ollamaWarmupTTL = 5 * time.Minute
+
 // OllamaProvider implements the Provider interface by calling the Ollama HTTP API.
-// Use when OLLAMA_BASE_URL is set; otherwise the gateway uses the simulated LocalWorkerProvider.
+// Uses ResponseHeaderTimeout (not full Client.Timeout) so cold model load can complete; provider-side TTL warmup fallback on every Chat.
 type OllamaProvider struct {
-	baseURL string
-	model   string
-	client  *http.Client
-	timeout time.Duration
+	baseURL    string
+	model      string
+	keepAlive  string
+	client     *http.Client
+	headerTo   time.Duration
+	warmupMu   sync.Mutex
+	warmupAt   map[string]time.Time
 }
 
 // ollamaChatRequest is the request body for Ollama /api/chat.
 type ollamaChatRequest struct {
-	Model    string          `json:"model"`
-	Messages []ollamaMessage `json:"messages"`
-	Stream   bool            `json:"stream"`
-	Options  map[string]any  `json:"options,omitempty"`
+	Model     string          `json:"model"`
+	Messages  []ollamaMessage `json:"messages"`
+	Stream    bool            `json:"stream"`
+	KeepAlive string          `json:"keep_alive,omitempty"`
+	Options   map[string]any  `json:"options,omitempty"`
 }
 
 type ollamaMessage struct {
@@ -54,21 +62,34 @@ type ollamaChatResponse struct {
 }
 
 // NewOllamaProvider creates a provider that calls the Ollama API at baseURL (e.g. http://localhost:11434).
-// timeoutSeconds is the only timeout: it sets both the HTTP client timeout and the per-request deadline (no separate client knob).
-func NewOllamaProvider(baseURL, model string, timeoutSeconds int) *OllamaProvider {
+// timeoutSeconds sets ResponseHeaderTimeout only (time to first response headers); Client.Timeout is 0 so body read can complete (zen-brain 0.1 behavior).
+// keepAlive is sent on chat requests so the model stays resident (e.g. "30m", "-1").
+func NewOllamaProvider(baseURL, model string, timeoutSeconds int, keepAlive string) *OllamaProvider {
 	baseURL = strings.TrimSuffix(baseURL, "/")
 	if model == "" {
 		model = "qwen3.5:0.8b"
 	}
-	t := time.Duration(timeoutSeconds) * time.Second
-	if t <= 0 {
-		t = 30 * time.Second
+	headerTo := time.Duration(timeoutSeconds) * time.Second
+	if headerTo <= 0 {
+		headerTo = 30 * time.Second
+	}
+	if keepAlive == "" {
+		keepAlive = DefaultKeepAlive
+	}
+	transport := &http.Transport{
+		ResponseHeaderTimeout: headerTo, // cold model load: only limit time to first headers
+	}
+	client := &http.Client{
+		Transport: transport,
+		Timeout:   0, // no overall limit — body can stream/read; headers must arrive within ResponseHeaderTimeout
 	}
 	return &OllamaProvider{
-		baseURL: baseURL,
-		model:   model,
-		timeout: t,
-		client:  &http.Client{Timeout: t},
+		baseURL:   baseURL,
+		model:     model,
+		keepAlive: keepAlive,
+		client:    client,
+		headerTo:  headerTo,
+		warmupAt:  make(map[string]time.Time),
 	}
 }
 
@@ -82,24 +103,65 @@ func (p *OllamaProvider) SupportsTools() bool {
 	return true
 }
 
+// ensureOllamaWarmed runs a tiny chat probe on the real path once per model per TTL (zen-brain 0.1 fallback).
+// If the model was unloaded after startup warmup, this warms it again before the real request.
+func (p *OllamaProvider) ensureOllamaWarmed(ctx context.Context, model string) {
+	p.warmupMu.Lock()
+	if t, ok := p.warmupAt[model]; ok && time.Since(t) < ollamaWarmupTTL {
+		p.warmupMu.Unlock()
+		return
+	}
+	p.warmupMu.Unlock()
+	body := ollamaChatRequest{
+		Model:     model,
+		Messages:  []ollamaMessage{{Role: "user", Content: "."}},
+		Stream:    false,
+		KeepAlive: p.keepAlive,
+		Options:   map[string]any{"num_predict": 1},
+	}
+	payload, err := json.Marshal(body)
+	if err != nil {
+		return
+	}
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, p.baseURL+"/api/chat", bytes.NewReader(payload))
+	if err != nil {
+		return
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	resp, err := p.client.Do(httpReq)
+	if err != nil {
+		log.Printf("[Ollama] provider warmup failed for %s: %v", model, err)
+		return
+	}
+	resp.Body.Close()
+	if resp.StatusCode == http.StatusOK {
+		p.warmupMu.Lock()
+		p.warmupAt[model] = time.Now()
+		p.warmupMu.Unlock()
+		log.Printf("[Ollama] model %s warmed (provider TTL fallback)", model)
+	}
+}
+
 // Chat sends a chat request to the Ollama /api/chat endpoint.
 func (p *OllamaProvider) Chat(ctx context.Context, req llm.ChatRequest) (*llm.ChatResponse, error) {
-	start := time.Now()
 	model := p.model
 	if req.Model != "" {
 		model = req.Model
 	}
+	p.ensureOllamaWarmed(ctx, model)
+	start := time.Now()
 	messages := make([]ollamaMessage, 0, len(req.Messages))
 	for _, m := range req.Messages {
 		messages = append(messages, ollamaMessage{Role: m.Role, Content: m.Content})
 	}
 	body := ollamaChatRequest{
-		Model:    model,
-		Messages: messages,
-		Stream:   false,
+		Model:     model,
+		Messages:  messages,
+		Stream:    false,
+		KeepAlive: p.keepAlive,
 		Options: map[string]any{
-			"num_gpu":  0,  // Force CPU (no GPU available)
-			"num_ctx":  2048,  // Smaller context for faster inference
+			"num_gpu": 0,
+			"num_ctx": 2048,
 		},
 	}
 	payload, err := json.Marshal(body)
