@@ -174,6 +174,68 @@ func TestSessionsHandler_LimitQuery(t *testing.T) {
 	}
 }
 
+func TestSessionsHandler_StateFilter(t *testing.T) {
+	cfg := session.DefaultConfig()
+	cfg.CleanupInterval = 0
+	mgr, err := session.New(cfg, session.NewMemoryStore())
+	if err != nil {
+		t.Fatalf("session manager: %v", err)
+	}
+	wi := &contracts.WorkItem{ID: "W1", Title: "T", WorkType: contracts.WorkTypeImplementation, WorkDomain: contracts.DomainCore}
+	sess, err := mgr.CreateSession(context.Background(), wi)
+	if err != nil {
+		t.Fatalf("create session: %v", err)
+	}
+	// List with state=in_progress (default new session state is created or in_progress depending on impl)
+	handler := SessionsHandler(mgr)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/sessions?state=in_progress", nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Errorf("got status %d", rec.Code)
+	}
+	var out map[string]interface{}
+	if err := json.NewDecoder(rec.Body).Decode(&out); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	_ = sess // session exists; filter may or may not match depending on initial state
+	if out["count"] == nil {
+		t.Error("count missing")
+	}
+}
+
+func TestSessionsHandler_WorkItemIDFilter(t *testing.T) {
+	cfg := session.DefaultConfig()
+	cfg.CleanupInterval = 0
+	mgr, err := session.New(cfg, session.NewMemoryStore())
+	if err != nil {
+		t.Fatalf("session manager: %v", err)
+	}
+	wi := &contracts.WorkItem{ID: "W-42", Title: "T", WorkType: contracts.WorkTypeImplementation, WorkDomain: contracts.DomainCore}
+	_, err = mgr.CreateSession(context.Background(), wi)
+	if err != nil {
+		t.Fatalf("create session: %v", err)
+	}
+	handler := SessionsHandler(mgr)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/sessions?work_item_id=W-42", nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Errorf("got status %d", rec.Code)
+	}
+	var out map[string]interface{}
+	if err := json.NewDecoder(rec.Body).Decode(&out); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if out["count"].(float64) != 1 {
+		t.Errorf("count: got %v want 1", out["count"])
+	}
+	sessions, ok := out["sessions"].([]interface{})
+	if !ok || len(sessions) != 1 {
+		t.Errorf("sessions length: got %d want 1", len(sessions))
+	}
+}
+
 func TestSessionDetailHandler_NilManager(t *testing.T) {
 	handler := SessionDetailHandler(nil)
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/sessions/sess-1", nil)

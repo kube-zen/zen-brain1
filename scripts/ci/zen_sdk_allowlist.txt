@@ -26,6 +26,8 @@ internal/qmd/orchestrator.go
 # - EventBus: session EventPublisher interface (publish domain events), not zen-sdk events
 # - Schedule/Scheduled: BrainTask phase and Foreman scheduling, not zen-sdk scheduler
 # - Retry: factory step retry and qmd CLI retry wrapper, not zen-sdk retry package
+# - Health: API health detail handler (runtime report), not zen-sdk health; Schedule: SessionStateScheduled
+internal/apiserver/handlers.go
 internal/session/interface.go
 internal/session/events.go
 internal/factory/bounded_executor.go
