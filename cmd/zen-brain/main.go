@@ -442,6 +442,7 @@ func runVerticalSlice() {
 		fmt.Printf("✓ Analysis complete")
 		fmt.Printf("  Estimated cost: $%.2f\n", analysisResult.EstimatedTotalCostUSD)
 		fmt.Printf("  Confidence: %.1f%%\n", analysisResult.Confidence*100)
+		publishVerticalSliceEvent(msgBus, "zen-brain.events", "intent.analyzed", workSession.ID, map[string]string{"session_id": workSession.ID, "work_item_id": workItem.ID, "task_count": fmt.Sprintf("%d", len(analysisResult.BrainTaskSpecs))})
 
 		// Update session with analysis
 		if err := sessionManager.TransitionState(ctx, workSession.ID, contracts.SessionStateAnalyzed, "Work item analyzed", "vertical-slice"); err != nil {
