@@ -79,9 +79,9 @@ Standard paths:
 - [x] Block 0.2: Directory scaffold
 - [x] Block 0.3: Configurable home directory (`ZEN_BRAIN_HOME`, `internal/config/home.go`, `paths.go`)
 - [x] Block 0.4: Cutover documentation (this doc)
-- [x] Block 0.5: SDK package audit (see [BLOCK0_5_ZEN_SDK.md](../01-ARCHITECTURE/BLOCK0_5_ZEN_SDK.md); reuse ~95%, contract in good shape; DLQ/observability/leader/logging/events/crypto deferred — low risk, backlog not done-done)
+- [x] Block 0.5: SDK package audit (see [COMPLETENESS_MATRIX.md](../01-ARCHITECTURE/COMPLETENESS_MATRIX.md) and Block 0.5 in [CONSTRUCTION_PLAN.md](../01-ARCHITECTURE/CONSTRUCTION_PLAN.md); reuse ~95%, contract in good shape; DLQ/observability/leader/logging/events/crypto deferred — low risk, backlog not done-done)
 - [x] Block 1: Neuro-Anatomy (see [ROADMAP.md](../01-ARCHITECTURE/ROADMAP.md): 1.1 ZenJournal, 1.2 ZenContext tiers, 1.3 SessionManager, 1.4 Agent/Planner, 1.5 Redis/S3, 1.6 Config, 1.7 Integration tests)
-- [x] Block 2: Office (ZenOffice, Jira connector, Intent Analyzer, Session Manager, Planner, Gatekeeper; see [BLOCK3_4_PROGRESS.md](../01-ARCHITECTURE/BLOCK3_4_PROGRESS.md))
-- [x] Block 3: Nervous System (Message bus, ZenJournal, API server, KB/QMD, ZenLedger, CockroachDB; see [BLOCK3_4_PROGRESS.md](../01-ARCHITECTURE/BLOCK3_4_PROGRESS.md))
-- [x] Block 4: Factory (CRDs, Foreman, Worker, FactoryTaskRunner, real git worktree when configured, proof-of-work, review:real, ZenGate policy default, ZenGuardian log/circuit-breaker, metrics; optional next steps in [BLOCK3_4_PROGRESS.md](../01-ARCHITECTURE/BLOCK3_4_PROGRESS.md#block-4-completeness-optional-next-steps) and [BLOCK_COMPLETION_MATRIX.md](../01-ARCHITECTURE/BLOCK_COMPLETION_MATRIX.md))
+- [x] Block 2: Office (ZenOffice, Jira connector, Intent Analyzer, Session Manager, Planner, Gatekeeper; see [COMPLETENESS_MATRIX.md](../01-ARCHITECTURE/COMPLETENESS_MATRIX.md))
+- [x] Block 3: Nervous System (Message bus, ZenJournal, API server, KB/QMD, ZenLedger, CockroachDB; see [COMPLETENESS_MATRIX.md](../01-ARCHITECTURE/COMPLETENESS_MATRIX.md))
+- [x] Block 4: Factory (CRDs, Foreman, Worker, FactoryTaskRunner, real git worktree when configured, proof-of-work, review:real, ZenGate policy default, ZenGuardian log/circuit-breaker, metrics; optional next steps in [COMPLETENESS_MATRIX.md](../01-ARCHITECTURE/COMPLETENESS_MATRIX.md) and [PROGRESS.md](../01-ARCHITECTURE/PROGRESS.md))
 - [x] Block 6: Developer Experience (k3d cluster, make dev-up/dev-image, in-cluster Foreman + API server via [deployments/k3d/](../../deployments/k3d/README.md))

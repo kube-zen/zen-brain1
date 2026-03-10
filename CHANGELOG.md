@@ -16,7 +16,7 @@ All notable changes to zen-brain are documented here. Format based on [Keep a Ch
 - **Block 6:** dev-clean, dev-build make targets; `docs/05-OPERATIONS/DEBUGGING.md`.
 - **Block 2:** Jira webhooks, attachments, JQL; Human Gatekeeper (DefaultGatekeeper).
 - **Block 0.5:** zen-sdk audit and reuse contract (`docs/01-ARCHITECTURE/BLOCK0_5_ZEN_SDK.md`).
-- **Block completion matrix:** `docs/01-ARCHITECTURE/BLOCK_COMPLETION_MATRIX.md`.
+- **Block completion matrix:** `docs/01-ARCHITECTURE/COMPLETENESS_MATRIX.md`.
 
 ### Changed
 
