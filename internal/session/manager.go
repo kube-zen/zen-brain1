@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -177,6 +178,41 @@ func (m *DefaultManager) GetExecutionCheckpoint(ctx context.Context, sessionID s
 		return nil, fmt.Errorf("unmarshal checkpoint: %w", err)
 	}
 	return &cp, nil
+}
+
+// GetExecutionCheckpointSummary returns a human-readable summary of the execution checkpoint.
+func (m *DefaultManager) GetExecutionCheckpointSummary(ctx context.Context, sessionID string) (string, error) {
+	checkpoint, err := m.GetExecutionCheckpoint(ctx, sessionID)
+	if err != nil {
+		return "", err
+	}
+
+	if checkpoint == nil {
+		return fmt.Sprintf("Session %s: No execution checkpoint found", sessionID), nil
+	}
+
+	var summary strings.Builder
+	summary.WriteString(fmt.Sprintf("Session %s Execution Checkpoint Summary\n", sessionID))
+	summary.WriteString(fmt.Sprintf("  Stage: %s\n", checkpoint.Stage))
+	summary.WriteString(fmt.Sprintf("  Work Item ID: %s\n", checkpoint.WorkItemID))
+	summary.WriteString(fmt.Sprintf("  Tasks: %d\n", len(checkpoint.BrainTaskIDs)))
+	summary.WriteString(fmt.Sprintf("  Proof Artifacts: %d\n", len(checkpoint.ProofPaths)))
+	summary.WriteString(fmt.Sprintf("  Knowledge Chunks: %d\n", len(checkpoint.KnowledgeChunkIDs)))
+
+	if checkpoint.LastRecommendation != "" {
+		summary.WriteString(fmt.Sprintf("  Last Recommendation: %s\n", checkpoint.LastRecommendation))
+	}
+
+	if !checkpoint.UpdatedAt.IsZero() {
+		summary.WriteString(fmt.Sprintf("  Updated: %s\n", checkpoint.UpdatedAt.Format(time.RFC3339)))
+	}
+
+	// Check if this looks like a terminal state
+	if checkpoint.Stage == "proof_attached" && len(checkpoint.ProofPaths) > 0 {
+		summary.WriteString("  Status: Terminal state with proof artifacts attached\n")
+	}
+
+	return summary.String(), nil
 }
 
 // updateZenContextLastAccessed updates the LastAccessedAt timestamp in ZenContext.

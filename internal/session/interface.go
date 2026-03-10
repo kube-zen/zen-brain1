@@ -43,6 +43,9 @@ type Manager interface {
 	// GetExecutionCheckpoint reads the structured execution checkpoint from ZenContext SessionContext.State.
 	GetExecutionCheckpoint(ctx context.Context, sessionID string) (*ExecutionCheckpoint, error)
 
+	// GetExecutionCheckpointSummary returns a human-readable summary of the execution checkpoint.
+	GetExecutionCheckpointSummary(ctx context.Context, sessionID string) (string, error)
+
 	// Close closes the session manager and releases resources.
 	Close() error
 }
