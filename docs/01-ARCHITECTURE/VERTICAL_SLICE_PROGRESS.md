@@ -591,9 +591,14 @@ Right now the path is increasingly real, but still leans thin/MVP. Want:
 - Better state continuity
 - Better status semantics
 
-#### Item #3: Intelligence / ReMe / memory still lag - **ACKNOWLEDGED**
+#### Item #3: Intelligence / ReMe / memory — **BLOCK 5 FAST UPLIFT (2026-03-10)**
 
-This remains the weakest block, but it's okay as long as it does not block usefulness.
+- **Intelligence wired into runtime**: vertical-slice sets `ZEN_BRAIN_RUNTIME_DIR` (default `/tmp/zen-brain-factory`), initializes pattern store at `<runtimeDir>/patterns`, creates MiningIntegration, and sets Factory recommender. After Factory execution, `MineProofOfWorks(ctx)` is invoked (warning only on failure).
+- **Factory consumes recommendations**: Template and configuration recommendations are used when recommender is set; `SelectedTemplate`, `SelectionSource`, `SelectionConfidence`, `SelectionReasoning` are persisted on spec and in proof-of-work (`template_used`, `selection_source`, etc.).
+- **Proof-of-work records actual template**: New proof-of-work JSON includes `template_used`; miner prefers it with `model_used` fallback for backward compatibility.
+- **ReMe/resume structured checkpoint**: vertical-slice writes a typed `ExecutionCheckpoint` (stage, session/work item IDs, brain task IDs, proof paths, last recommendation, knowledge chunk IDs/source paths) into ZenContext SessionContext.State via `UpdateExecutionCheckpoint`; `GetExecutionCheckpoint` reads it back.
+- **CLI**: `zen-brain intelligence mine | analyze | recommend <workType> <workDomain>` expose Block 5 operationally.
+- **Still missing (out of scope)**: no ML; no temporal decay/recency weighting; no deep causal failure classifier; no cross-cluster/global intelligence service.
 
 #### Item #4: Controlled rescue from 0.1 still needs to become active work - **TODO**
 

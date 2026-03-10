@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"sort"
 	"sync"
 	"time"
 
@@ -91,7 +92,7 @@ func (f *FactoryImpl) ExecuteTask(ctx context.Context, spec *FactoryTaskSpec) (*
 	}
 	defer f.workspaceManager.UnlockWorkspace(ctx, workspaceMetadata.Path)
 
-	// Create execution plan from spec
+	// Create execution plan from spec (sets spec.TemplateKey)
 	steps := f.createExecutionPlan(spec)
 
 	// Execute bounded loop
@@ -106,17 +107,26 @@ func (f *FactoryImpl) ExecuteTask(ctx context.Context, spec *FactoryTaskSpec) (*
 	result.SessionID = spec.SessionID
 	result.WorkItemID = spec.WorkItemID
 	result.WorkspacePath = workspaceMetadata.Path
+	result.TemplateKey = spec.TemplateKey
+	if result.TemplateKey == "" {
+		result.TemplateKey = spec.SelectedTemplate
+	}
 	result.CompletedAt = time.Now()
 	result.Duration = time.Since(startTime)
 	result.Success = (result.Status == ExecutionStatusCompleted)
 
-	// Scan workspace for file changes (state continuity)
+	// Scan workspace for file changes (state continuity); sort for deterministic proof
 	if files, err := f.workspaceManager.ListWorkspaceFiles(ctx, workspaceMetadata.Path); err == nil {
+		sort.Strings(files)
 		result.FilesChanged = files
-		// For now, treat all files as new (simplification)
-		// In future, would compare with baseline snapshot
 	} else {
 		log.Printf("[Factory] Failed to scan workspace files: task_id=%s error=%v", spec.ID, err)
+	}
+
+	// Populate git metadata from workspace when available
+	if meta, err := f.workspaceManager.GetWorkspaceMetadata(ctx, workspaceMetadata.Path); err == nil && meta != nil {
+		result.GitBranch = meta.Branch
+		result.GitCommit = meta.BaseCommit
 	}
 
 	// Generate proof-of-work
@@ -236,18 +246,30 @@ func (f *FactoryImpl) CancelTask(ctx context.Context, taskID string) error {
 }
 
 // createExecutionPlan creates a bounded execution plan from task spec using templates.
+// When a recommender is set, it is used to choose template and configuration; otherwise static selection is used.
 func (f *FactoryImpl) createExecutionPlan(spec *FactoryTaskSpec) []*ExecutionStep {
-	// Try to get template for work type
-	template, err := f.templateManager.GetTemplate(string(spec.WorkType), string(spec.WorkDomain))
+	ctx := context.Background()
+	sel := f.chooseTemplateAndConfig(ctx, spec)
+
+	template, err := f.templateManager.GetTemplate(sel.workType, sel.workDomain)
 	if err != nil {
 		log.Printf("[Factory] No template for work type %s, using default: %v", spec.WorkType, err)
-		// Fall back to default template
 		template, _ = f.templateManager.GetTemplate("default", "")
 	}
 
-	// Expand template variables using task spec
+	// Apply timeout/retry overrides from selection to steps (ExpandTemplateVariables uses spec; spec already updated in chooseTemplateAndConfig)
 	steps := f.templateManager.ExpandTemplateVariables(template, spec)
+	for _, step := range steps {
+		if sel.timeoutSeconds > 0 && step.TimeoutSeconds <= 0 {
+			step.TimeoutSeconds = sel.timeoutSeconds
+		}
+		if sel.maxRetries > 0 && step.MaxRetries <= 0 {
+			step.MaxRetries = sel.maxRetries
+		}
+	}
 
+	log.Printf("[Factory] intelligence selection: task_id=%s template=%s source=%s confidence=%.2f",
+		spec.ID, spec.SelectedTemplate, spec.SelectionSource, spec.SelectionConfidence)
 	log.Printf("[Factory] Created execution plan with %d steps for task %s (work_type=%s)",
 		len(steps), spec.ID, spec.WorkType)
 

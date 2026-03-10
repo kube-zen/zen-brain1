@@ -14,6 +14,9 @@ type FactoryRecommenderInterface interface {
 	// Returns template name or "default" if no recommendation available.
 	RecommendTemplate(ctx context.Context, workType contracts.WorkType, workDomain contracts.WorkDomain) (string, error)
 
+	// RecommendTemplateWithMetadata returns template name plus source, confidence, and reasoning for persistence.
+	RecommendTemplateWithMetadata(ctx context.Context, workType contracts.WorkType, workDomain contracts.WorkDomain) (templateName, source string, confidence float64, reasoning string, err error)
+
 	// RecommendConfiguration suggests execution configuration (timeout, retries).
 	RecommendConfiguration(ctx context.Context, workType contracts.WorkType, workDomain contracts.WorkDomain) (timeoutSeconds int64, maxRetries int, err error)
 }
@@ -37,6 +40,18 @@ func (a *FactoryRecommenderAdapter) RecommendTemplate(ctx context.Context, workT
 		return "", err
 	}
 	return rec.TemplateName, nil
+}
+
+// RecommendTemplateWithMetadata returns template name plus source, confidence, and reasoning.
+func (a *FactoryRecommenderAdapter) RecommendTemplateWithMetadata(ctx context.Context, workType contracts.WorkType, workDomain contracts.WorkDomain) (templateName, source string, confidence float64, reasoning string, err error) {
+	rec, err := a.recommender.RecommendTemplate(ctx, workType, workDomain)
+	if err != nil {
+		return "default", "static", 0, "", err
+	}
+	if rec.SampleCount == 0 || rec.TemplateName == "default" {
+		return rec.TemplateName, "static", rec.Confidence, rec.Reasoning, nil
+	}
+	return rec.TemplateName, "recommended", rec.Confidence, rec.Reasoning, nil
 }
 
 // RecommendConfiguration suggests execution configuration (timeout, retries).

@@ -33,9 +33,18 @@ type FactoryTaskSpec struct {
 	// Workspace
 	WorkspacePath string `json:"workspace_path,omitempty"`
 
+	// Template key selected for execution (e.g. "implementation:real" or "default")
+	TemplateKey string `json:"template_key,omitempty"`
+
 	// Metadata
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
+
+	// Intelligence selection (template/configuration from recommender)
+	SelectedTemplate   string  `json:"selected_template,omitempty"`
+	SelectionSource     string  `json:"selection_source,omitempty"`     // "static" | "recommended"
+	SelectionConfidence float64 `json:"selection_confidence,omitempty"`
+	SelectionReasoning  string  `json:"selection_reasoning,omitempty"`
 }
 
 // WorkspaceMetadata represents workspace state and configuration.
@@ -120,6 +129,7 @@ type ExecutionResult struct {
 	// Workspace state
 	WorkspacePath string   `json:"workspace_path"`
 	FilesChanged  []string `json:"files_changed,omitempty"`
+	TemplateKey   string   `json:"template_key,omitempty"`
 	TestsRun      []string `json:"tests_run,omitempty"`
 	TestsPassed   bool     `json:"tests_passed,omitempty"`
 
@@ -127,6 +137,10 @@ type ExecutionResult struct {
 	ProofOfWorkPath string `json:"proof_of_work_path,omitempty"`
 	LogPath         string `json:"log_path,omitempty"`
 	DiffPath        string `json:"diff_path,omitempty"`
+
+	// Git metadata from workspace (when available)
+	GitBranch string `json:"git_branch,omitempty"`
+	GitCommit string `json:"git_commit,omitempty"`
 
 	// Error handling
 	Error          string `json:"error,omitempty"`
@@ -186,6 +200,12 @@ type ProofOfWorkSummary struct {
 	ModelUsed string `json:"model_used"`
 	AgentRole string `json:"agent_role"`
 
+	// Template and selection metadata (actual template used; ModelUsed kept for backward compatibility)
+	TemplateUsed        string  `json:"template_used,omitempty"`
+	SelectionSource     string  `json:"selection_source,omitempty"`
+	SelectionConfidence float64 `json:"selection_confidence,omitempty"`
+	SelectionReasoning  string  `json:"selection_reasoning,omitempty"`
+
 	// Changes
 	FilesChanged  []string `json:"files_changed,omitempty"`
 	NewFiles      []string `json:"new_files,omitempty"`
@@ -218,6 +238,7 @@ type ProofOfWorkSummary struct {
 
 	// Artifacts
 	ArtifactPaths []string `json:"artifact_paths,omitempty"`
+	TemplateKey   string   `json:"template_key,omitempty"`
 	GitBranch     string   `json:"git_branch,omitempty"`
 	GitCommit     string   `json:"git_commit,omitempty"`
 	PRURL         string   `json:"pr_url,omitempty"`

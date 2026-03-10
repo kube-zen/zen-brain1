@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/kube-zen/zen-brain1/internal/analyzer"
+	"github.com/kube-zen/zen-brain1/internal/config"
 	internalcontext "github.com/kube-zen/zen-brain1/internal/context"
 	"github.com/kube-zen/zen-brain1/internal/evidence"
 	"github.com/kube-zen/zen-brain1/internal/intelligence"
@@ -54,6 +55,9 @@ func main() {
 	case "vertical-slice":
 		runVerticalSlice()
 
+	case "intelligence":
+		runIntelligence()
+
 	case "version":
 		printVersion()
 
@@ -65,17 +69,23 @@ func main() {
 }
 
 func printUsage() {
-	fmt.Println("Usage: zen-brain <command>")
+	fmt.Println("Usage: zen-brain <command> [options]")
 	fmt.Println()
 	fmt.Println("Commands:")
 	fmt.Println("  test           Run a simple LLM Gateway test query")
 	fmt.Println("  vertical-slice Run end-to-end vertical slice (Jira → analyze → plan → execute → update)")
+	fmt.Println("  intelligence   Block 5 intelligence: mine, analyze, recommend")
 	fmt.Println("  version        Print version information")
 	fmt.Println()
 	fmt.Println("For vertical-slice command:")
 	fmt.Println("  zen-brain vertical-slice <jira-key>       Process a Jira ticket by key")
 	fmt.Println("  zen-brain vertical-slice --mock           Use mock work item (no Jira)")
 	fmt.Println("  zen-brain vertical-slice --resume <id>    Resume an existing session (requires persistent store)")
+	fmt.Println()
+	fmt.Println("For intelligence command:")
+	fmt.Println("  zen-brain intelligence mine                      Mine proof-of-work artifacts")
+	fmt.Println("  zen-brain intelligence analyze                  Print pattern analysis")
+	fmt.Println("  zen-brain intelligence recommend <workType> <workDomain>   Get template and config recommendations")
 }
 
 func printVersion() {
@@ -199,27 +209,47 @@ func runVerticalSlice() {
 	}
 	fmt.Println("  ✓ LLM Gateway initialized")
 
-	// Step 2: Initialize Office Manager
+	// Step 2: Initialize Office Manager (config-first, then env fallback)
 	fmt.Println("[2/7] Initializing Office Manager...")
-	officeManager := office.NewManager()
-
-	// Try to initialize Jira connector if not in mock mode
-	if !useMock {
-		fmt.Println("  - Attempting to initialize Jira connector...")
-		jiraConnector, err := jira.NewFromEnv("jira", "default")
+	var officeManager *office.Manager
+	cfg, cfgErr := config.LoadConfig("")
+	if cfgErr == nil && cfg != nil && cfg.Jira.Enabled {
+		mgr, err := office.InitOfficeManagerFromConfig(cfg)
 		if err != nil {
-			fmt.Printf("  ! Jira connector initialization failed: %v\n", err)
-			fmt.Println("  ! Falling back to mock mode")
-			useMock = true
+			fmt.Printf("  ! Jira from config failed: %v\n", err)
+			officeManager = office.NewManager()
+			if !useMock {
+				fmt.Println("  ! Falling back to env-driven Jira...")
+			}
 		} else {
-			if err := officeManager.Register("jira", jiraConnector); err != nil {
-				log.Fatalf("Error registering Jira connector: %v", err)
+			officeManager = mgr
+			if !useMock {
+				fmt.Println("  ✓ Jira enabled from config")
 			}
-			if err := officeManager.RegisterForCluster("default", "jira"); err != nil {
-				log.Fatalf("Error registering Jira for cluster: %v", err)
-			}
-			fmt.Println("  ✓ Jira connector registered")
 		}
+	}
+	if officeManager == nil {
+		officeManager = office.NewManager()
+	}
+	// Env fallback: if not mock and no Jira connector yet, try NewFromEnv
+	if !useMock {
+		_, _ = officeManager.GetConnectorForCluster("default")
+		if _, err := officeManager.GetConnectorForCluster("default"); err != nil {
+			fmt.Println("  - Attempting Jira from environment...")
+			jiraConnector, err := jira.NewFromEnv("jira", "default")
+			if err != nil {
+				fmt.Printf("  ! Jira connector initialization failed: %v\n", err)
+				fmt.Println("  ! Falling back to mock mode")
+				useMock = true
+			} else {
+				_ = officeManager.Register("jira", jiraConnector)
+				_ = officeManager.RegisterForCluster("default", "jira")
+				fmt.Println("  ✓ Jira enabled from env fallback")
+			}
+		}
+	}
+	if useMock {
+		fmt.Println("  ✓ Jira unavailable, mock mode used")
 	}
 	fmt.Println("  ✓ Office Manager initialized")
 
@@ -295,13 +325,28 @@ func runVerticalSlice() {
 	}
 	fmt.Println("  ✓ Analyzer initialized")
 
-	// Step 5: Initialize Factory
+	// Step 5: Initialize Factory and Block 5 intelligence
 	fmt.Println("[5/7] Initializing Factory...")
-	runtimeDir := "/tmp/zen-brain-factory"
+	runtimeDir := os.Getenv("ZEN_BRAIN_RUNTIME_DIR")
+	if runtimeDir == "" {
+		runtimeDir = "/tmp/zen-brain-factory"
+	}
+	patternStorePath := filepath.Join(runtimeDir, "patterns")
+	patternStore, errPattern := intelligence.NewJSONPatternStore(patternStorePath)
+	var miningIntegration *intelligence.MiningIntegration
+	if errPattern == nil {
+		miningIntegration = intelligence.NewMiningIntegration(runtimeDir, patternStore, nil)
+		fmt.Printf("  ✓ Intelligence recommender enabled (pattern store: %s)\n", patternStorePath)
+	} else {
+		log.Printf("  Warning: pattern store not available (%v); intelligence disabled", errPattern)
+	}
 	workspaceManager := factory.NewWorkspaceManager(runtimeDir)
 	executor := factory.NewBoundedExecutor()
 	powManager := factory.NewProofOfWorkManager(runtimeDir)
 	factoryImpl := factory.NewFactory(workspaceManager, executor, powManager, runtimeDir)
+	if miningIntegration != nil {
+		factoryImpl.SetRecommender(miningIntegration.GetFactoryRecommender())
+	}
 	fmt.Println("  ✓ Factory initialized")
 
 	// Step 6: Initialize Planner
@@ -492,11 +537,16 @@ func runVerticalSlice() {
 		log.Fatalf("No analysis result for session %s", workSession.ID)
 	}
 
-	// Execute tasks through Factory
+	// Execute tasks through Factory (collect for execution checkpoint)
+	var brainTaskIDs []string
+	var proofPaths []string
+	var lastRecommendation string
+
 	fmt.Println()
 	fmt.Println("Executing tasks through Factory...")
 	if len(analysisResult.BrainTaskSpecs) > 0 {
 		for _, brainTask := range analysisResult.BrainTaskSpecs {
+			brainTaskIDs = append(brainTaskIDs, brainTask.ID)
 			fmt.Printf("  Executing task: %s\n", brainTask.ID)
 
 			// Convert BrainTaskSpec to FactoryTaskSpec
@@ -528,6 +578,7 @@ func runVerticalSlice() {
 				fmt.Printf("  ✓ Proof-of-work generated: %s\n", powArtifact.JSONPath)
 				for _, artifactPath := range []string{powArtifact.JSONPath, powArtifact.MarkdownPath, powArtifact.LogPath} {
 					if artifactPath != "" {
+						proofPaths = append(proofPaths, artifactPath)
 						evidence := contracts.EvidenceItem{
 							ID:        fmt.Sprintf("pow-%s-%s", brainTask.ID, artifactPath[strings.LastIndex(artifactPath, "/")+1:]),
 							SessionID: workSession.ID,
@@ -549,6 +600,9 @@ func runVerticalSlice() {
 			}
 
 			// Log execution result
+			if executionResult.Recommendation != "" {
+				lastRecommendation = executionResult.Recommendation
+			}
 			if executionResult.Success {
 				fmt.Printf("  ✓ Task completed: %s (%d steps)\n", executionResult.TaskID, executionResult.CompletedSteps)
 			} else {
@@ -559,24 +613,36 @@ func runVerticalSlice() {
 		fmt.Println("  ! No BrainTaskSpecs from analysis, skipping Factory execution")
 	}
 
-	// Update ZenContext session state so ReMe/resume has execution summary (Task 3: session/context glue)
+	// Block 5: mine proof-of-work so intelligence learns from this run (do not fail vertical slice on mining failure)
+	if miningIntegration != nil {
+		if _, err := miningIntegration.MineProofOfWorks(ctx); err != nil {
+			log.Printf("Warning: intelligence mining failed: %v", err)
+		}
+	}
+
+	// ReMe/resume: write structured execution checkpoint into ZenContext SessionContext.State
+	var knowledgeChunkIDs, knowledgeSourcePaths []string
 	if zenContext != nil {
-		sc, err := zenContext.GetSessionContext(ctx, "default", workSession.ID)
-		if err == nil && sc != nil {
-			state := map[string]interface{}{
-				"stage":      "proof_attached",
-				"session_id": workSession.ID,
-				"work_item":  workItem.ID,
-				"updated_at": time.Now().Format(time.RFC3339),
-			}
-			if stateBytes, err := json.Marshal(state); err == nil {
-				sc.State = stateBytes
-				sc.LastAccessedAt = time.Now()
-				if err := zenContext.StoreSessionContext(ctx, sc.ClusterID, sc); err != nil {
-					log.Printf("Warning: failed to update ZenContext session state: %v", err)
-				}
+		if sc, err := zenContext.GetSessionContext(ctx, "default", workSession.ID); err == nil && sc != nil && len(sc.RelevantKnowledge) > 0 {
+			for _, k := range sc.RelevantKnowledge {
+				knowledgeChunkIDs = append(knowledgeChunkIDs, k.ID)
+				knowledgeSourcePaths = append(knowledgeSourcePaths, k.SourcePath)
 			}
 		}
+	}
+	checkpoint := &session.ExecutionCheckpoint{
+		Stage:                "proof_attached",
+		SessionID:            workSession.ID,
+		WorkItemID:           workItem.ID,
+		BrainTaskIDs:         brainTaskIDs,
+		ProofPaths:           proofPaths,
+		LastRecommendation:   lastRecommendation,
+		KnowledgeChunkIDs:     knowledgeChunkIDs,
+		KnowledgeSourcePaths: knowledgeSourcePaths,
+		UpdatedAt:            time.Now(),
+	}
+	if err := sessionManager.UpdateExecutionCheckpoint(ctx, workSession.ID, checkpoint); err != nil {
+		log.Printf("Warning: failed to update execution checkpoint: %v", err)
 	}
 
 	// Watchdog: on timeout, mark session failed and exit without updating Jira

@@ -143,7 +143,7 @@ func (p *proofOfWorkManagerImpl) generateSummary(result *ExecutionResult, spec *
 		StartedAt:         result.CompletedAt.Add(-result.Duration),
 		CompletedAt:       result.CompletedAt,
 		Duration:          result.Duration,
-		ModelUsed:         "factory-v1", // Will come from spec in production
+		ModelUsed:         "factory-v1", // Kept for backward compatibility
 		AgentRole:         "factory",
 		FilesChanged:      result.FilesChanged,
 		TestsRun:          result.TestsRun,
@@ -157,9 +157,30 @@ func (p *proofOfWorkManagerImpl) generateSummary(result *ExecutionResult, spec *
 			filepath.Join(filepath.Dir(result.WorkspacePath), "proof-of-work", "*.json"),
 			filepath.Join(filepath.Dir(result.WorkspacePath), "proof-of-work", "*.md"),
 		},
-		GitBranch: "ai/" + result.WorkItemID,
-		GitCommit: "",
-		PRURL:     "",
+		TemplateKey: result.TemplateKey,
+		GitBranch:   result.GitBranch,
+		GitCommit:   result.GitCommit,
+		PRURL:       "",
+	}
+
+	// Template and intelligence selection metadata
+	if result.TemplateKey != "" {
+		summary.TemplateKey = result.TemplateKey
+		summary.TemplateUsed = result.TemplateKey
+	} else if spec.TemplateKey != "" {
+		summary.TemplateKey = spec.TemplateKey
+		summary.TemplateUsed = spec.TemplateKey
+	} else if spec.SelectedTemplate != "" {
+		summary.TemplateUsed = spec.SelectedTemplate
+	}
+	summary.SelectionSource = spec.SelectionSource
+	if spec.SelectionSource == "" {
+		summary.SelectionSource = "static"
+	}
+	summary.SelectionConfidence = spec.SelectionConfidence
+	summary.SelectionReasoning = spec.SelectionReasoning
+	if summary.ModelUsed == "factory-v1" && summary.TemplateUsed != "" {
+		summary.ModelUsed = summary.TemplateUsed // Keep ModelUsed populated for backward compatibility
 	}
 
 	// Extract execution steps details

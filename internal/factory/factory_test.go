@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kube-zen/zen-brain1/internal/intelligence"
 	"github.com/kube-zen/zen-brain1/pkg/contracts"
 )
 
@@ -72,6 +73,74 @@ func TestFactoryImpl_ExecuteTask(t *testing.T) {
 		t.Error("Duration should be non-zero")
 	}
 }
+
+// mockRecommender returns fixed template and config for testing.
+type mockRecommender struct {
+	templateName string
+	source       string
+	confidence   float64
+	reasoning    string
+	timeout      int64
+	retries      int
+}
+
+func (m *mockRecommender) RecommendTemplate(ctx context.Context, workType contracts.WorkType, workDomain contracts.WorkDomain) (string, error) {
+	return m.templateName, nil
+}
+func (m *mockRecommender) RecommendTemplateWithMetadata(ctx context.Context, workType contracts.WorkType, workDomain contracts.WorkDomain) (templateName, source string, confidence float64, reasoning string, err error) {
+	return m.templateName, m.source, m.confidence, m.reasoning, nil
+}
+func (m *mockRecommender) RecommendConfiguration(ctx context.Context, workType contracts.WorkType, workDomain contracts.WorkDomain) (timeoutSeconds int64, maxRetries int, err error) {
+	return m.timeout, m.retries, nil
+}
+
+func TestFactoryImpl_StoresSelectedTemplateWhenRecommenderConfigured(t *testing.T) {
+	workspaceManager := NewWorkspaceManager(t.TempDir())
+	executor := NewBoundedExecutor()
+	powManager := NewProofOfWorkManager(t.TempDir())
+	runtimeDir := t.TempDir()
+	f := NewFactory(workspaceManager, executor, powManager, runtimeDir)
+	f.SetRecommender(&mockRecommender{
+		templateName: "implementation:real",
+		source:       "recommended",
+		confidence:   0.9,
+		reasoning:    "Test reasoning",
+		timeout:      600,
+		retries:      5,
+	})
+
+	spec := &FactoryTaskSpec{
+		ID:             "task-1",
+		SessionID:      "session-1",
+		WorkItemID:     "PROJ-1",
+		Title:          "Test",
+		Objective:      "Obj",
+		WorkType:       contracts.WorkTypeImplementation,
+		WorkDomain:     contracts.WorkDomain("real"),
+		Priority:       contracts.PriorityMedium,
+		CreatedAt:      time.Now(),
+		UpdatedAt:      time.Now(),
+	}
+	ctx := context.Background()
+	_, err := f.ExecuteTask(ctx, spec)
+	if err != nil {
+		t.Fatalf("ExecuteTask: %v", err)
+	}
+	if spec.SelectedTemplate == "" {
+		t.Error("expected SelectedTemplate to be set when recommender is configured")
+	}
+	if spec.SelectionSource != "recommended" {
+		t.Errorf("expected SelectionSource=recommended, got %s", spec.SelectionSource)
+	}
+	if spec.SelectionConfidence != 0.9 {
+		t.Errorf("expected SelectionConfidence=0.9, got %f", spec.SelectionConfidence)
+	}
+	if spec.SelectionReasoning != "Test reasoning" {
+		t.Errorf("expected SelectionReasoning set, got %q", spec.SelectionReasoning)
+	}
+}
+
+var _ intelligence.FactoryRecommenderInterface = (*mockRecommender)(nil)
 
 func TestFactoryImpl_AllocateWorkspace(t *testing.T) {
 	// Setup

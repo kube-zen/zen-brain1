@@ -84,7 +84,7 @@ func TestKBPatternAdapter_StorePatternSummary(t *testing.T) {
 		require.NotNil(t, doc)
 		assert.NotEmpty(t, doc.ID)
 		assert.Contains(t, doc.Title, "Execution Pattern Summary")
-		assert.Contains(t, doc.Title, "2026-03-09")
+		assert.Contains(t, doc.Title, time.Now().Format("2006-01-02"))
 		assert.Equal(t, "patterns/execution-patterns", doc.Path)
 		assert.Equal(t, "intelligence", doc.Domain)
 		assert.Equal(t, "internal:intelligence:miner", doc.Source)
@@ -114,7 +114,8 @@ func TestKBPatternAdapter_StorePatternSummary(t *testing.T) {
 						WorkType:       "bugfix",
 						WorkDomain:     "core",
 						TotalRuns:      10,
-						SuccessfulRuns: 5, // 50% success rate
+						SuccessfulRuns: 5,
+						SuccessRate:    0.5, // 50% so that recommendation text contains 50.0%
 					},
 				},
 			}
@@ -170,7 +171,8 @@ func TestKBPatternAdapter_StorePatternSummary(t *testing.T) {
 					{
 						TemplateName:    "implementation:real",
 						TotalRuns:       15,
-						SuccessfulRuns:  15, // 100% success
+						SuccessfulRuns:  15,
+						SuccessRate:     1.0, // 100% so excellent recommendation is generated
 						AverageDuration: 3 * time.Minute,
 					},
 				},
