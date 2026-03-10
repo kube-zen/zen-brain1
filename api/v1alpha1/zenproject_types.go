@@ -54,6 +54,8 @@ type ZenProjectSpec struct {
 
 // ZenProjectStatus defines the observed state of ZenProject
 type ZenProjectStatus struct {
+	// ObservedGeneration is the .metadata.generation last reconciled
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 	// Phase is the current phase of the project
 	Phase string `json:"phase,omitempty"`
 

@@ -14,7 +14,7 @@ Zen-Brain is **1.0-shaped and execution-capable**. Remaining work is hardening t
 
 **Single source of truth for status:** This matrix, [Block Completion Matrix](BLOCK_COMPLETION_MATRIX.md), and [CUTOVER.md](../05-OPERATIONS/CUTOVER.md). README Development Status reflects this narrative.
 
-**Remaining gaps (92% → 95%+):** (1) Runtime: use `ZEN_RUNTIME_PROFILE=prod` for fail-closed; (2) Controller: status-only today—real ZenProject/ZenCluster lifecycle and cluster-aware orchestration still missing; (3) Factory: many templates still scaffold/echo-heavy; (4) Proof: cryptographic signing/verification not yet implemented; (5) Doc/code alignment: defaults and “stub” language kept in sync above; (6) Intelligence/KB: provider/MLQ maturity and publish paths still early.
+**Remaining gaps (92% → 95%+):** (1) Runtime: use `ZEN_RUNTIME_PROFILE=prod` for fail-closed; (2) Controller: ZenProject validates ClusterRef and sets Phase Pending/Ready; ZenCluster sets LastHeartbeatTime and AvailableCapacity—cluster-aware scheduling and cost rollups still out of scope; (3) Factory: many templates still scaffold/echo-heavy; (4) Proof: cryptographic signing/verification not yet implemented; (5) Doc/code alignment: defaults and “stub” language kept in sync above; (6) Intelligence/KB: provider/MLQ maturity and publish paths still early.
 
 **Definitions:**
 - **Real:** Production code path; no mandatory fallback to mock/simulated behavior.
