@@ -1,9 +1,15 @@
 package integration
 
 import (
+	"context"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/kube-zen/zen-brain1/internal/config"
+	"github.com/kube-zen/zen-brain1/internal/office"
+	"github.com/kube-zen/zen-brain1/internal/office/jira"
+	"github.com/kube-zen/zen-brain1/pkg/contracts"
 )
 
 func TestInitOfficeManagerFromConfig_Disabled(t *testing.T) {
@@ -72,4 +78,83 @@ func TestBuildJiraConfig_ProjectKeyFromProject(t *testing.T) {
 	if jiraCfg.ProjectKey != "LEGACY" {
 		t.Errorf("expected ProjectKey LEGACY from Project, got %q", jiraCfg.ProjectKey)
 	}
+}
+
+// TestOfficeManager_FetchAndSearchAgainstTestServer ensures office Manager Fetch and Search
+// work against a mock Jira server (Block 2: office fetch/search commands work against test server).
+func TestOfficeManager_FetchAndSearchAgainstTestServer(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/rest/api/3/issue/TEST-1":
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{
+				"key": "TEST-1",
+				"id": "10001",
+				"fields": {
+					"summary": "Office test issue",
+					"description": "",
+					"created": "2026-01-01T00:00:00.000+0000",
+					"updated": "2026-01-01T00:00:00.000+0000",
+					"status": {"name": "Open"},
+					"priority": {"name": "Medium"},
+					"issuetype": {"name": "Task"},
+					"project": {"key": "TEST"},
+					"reporter": {"displayName": ""},
+					"assignee": {"displayName": ""},
+					"labels": []
+				}
+			}`))
+		case r.URL.Path == "/rest/api/3/search/jql":
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"issues":[{"key":"TEST-1","id":"10001","fields":{"summary":"Office test issue","status":{"name":"Open"},"priority":{"name":"Medium"},"issuetype":{"name":"Task"},"project":{"key":"TEST"},"reporter":{},"assignee":{},"labels":[],"created":"2026-01-01T00:00:00.000+0000","updated":"2026-01-01T00:00:00.000+0000"}}],"total":1}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	jiraCfg := &jira.Config{
+		BaseURL:    server.URL,
+		Email:      "test@example.com",
+		APIToken:   "test-token",
+		ProjectKey: "TEST",
+	}
+	conn, err := jira.New("jira", "default", jiraCfg)
+	if err != nil {
+		t.Fatalf("jira.New: %v", err)
+	}
+	mgr := NewOfficeManagerForTest(conn)
+	ctx := context.Background()
+
+	// Fetch
+	item, err := mgr.Fetch(ctx, "default", "TEST-1")
+	if err != nil {
+		t.Fatalf("Fetch: %v", err)
+	}
+	if item.ID != "TEST-1" || item.Title != "Office test issue" {
+		t.Errorf("Fetch: got ID=%q Title=%q", item.ID, item.Title)
+	}
+	if item.Status != contracts.StatusRequested {
+		t.Errorf("Fetch: expected status requested, got %s", item.Status)
+	}
+
+	// Search
+	items, err := mgr.Search(ctx, "default", "status = Open")
+	if err != nil {
+		t.Fatalf("Search: %v", err)
+	}
+	if len(items) != 1 || items[0].ID != "TEST-1" {
+		t.Errorf("Search: expected one item TEST-1, got %d items %v", len(items), items)
+	}
+}
+
+// NewOfficeManagerForTest creates an office Manager with the given connector registered for "default".
+// Used by integration tests that need Fetch/Search against a test server.
+func NewOfficeManagerForTest(conn *jira.JiraOffice) *office.Manager {
+	mgr := office.NewManager()
+	_ = mgr.Register("jira", conn)
+	_ = mgr.RegisterForCluster("default", "jira")
+	return mgr
 }
