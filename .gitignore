@@ -51,6 +51,9 @@ config.dev.local.yaml
 # This is created at runtime based on ZEN_BRAIN_HOME
 # The structure documentation is kept in README.md
 
+# Session persistence (SQLite)
+data/
+
 # Temporary and cache directories
 tmp/
 .cache/
