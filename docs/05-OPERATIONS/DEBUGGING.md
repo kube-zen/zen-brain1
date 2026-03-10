@@ -54,7 +54,7 @@ How to debug workers, KB (QMD) queries, LLM calls, and k3d-based local developme
 - **Ports:** dev-up maps `8080:80` (load balancer) and `26257:26257` (CockroachDB). Use `kubectl port-forward` if you need to reach a service not exposed by the load balancer.
 - **Logs:** `make dev-logs` tails logs from pods with label `app.kubernetes.io/part-of=zen-brain`. For other pods (e.g. zen-context): `kubectl logs -f -n zen-context -l app=redis` (adjust labels to your manifests).
 - **Reset:** Full cluster reset: `make dev-down` then `make dev-up`. Local DB only: `make dev-clean` (runs `db-reset`); if you don’t use local Docker DB, use dev-down/dev-up for a clean k3d state.
-- **Foreman/API server in-cluster:** Currently run as local binaries with kubeconfig; to run inside k3d, build an image, load with `k3d image import -c zen-brain-dev <image>`, and deploy a Deployment (see deployments/k3d/README.md TBD).
+- **Foreman/API server in-cluster:** Build image with `make dev-image`, then apply `deployments/k3d/zen-brain-namespace.yaml`, `foreman.yaml`, and `apiserver.yaml` (see deployments/k3d/README.md).
 
 ---
 
