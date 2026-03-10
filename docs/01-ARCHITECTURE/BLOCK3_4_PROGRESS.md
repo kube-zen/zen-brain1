@@ -43,3 +43,13 @@
 
 **Outstanding (Block 3):** KB/QMD adapter; full API surface (auth, more endpoints).  
 **Outstanding (Block 4):** ZenGuardian (optional).
+
+## Block 5 (Intelligence) – In progress
+
+| Item | Status | Notes |
+|------|--------|------|
+| **5.3 Agent–context binding** | Done | `internal/agent/binding.go`: AgentContextBinder (GetForContinuation, WriteIntermediate), ZenContextBinder; `foreman`: ContextBinder interface, TaskRunnerWithContext (RunWithContext); Worker uses binder + RunWithContext when set |
+| **5.4 Funding evidence aggregator** | Done | `internal/funding/aggregator.go`: Aggregator from Vault; T661Narrative (Line 242/244/246), IRAPReport, FundingReport; AggregateForSession(s); T661Text(), IRAPMarkdown() |
+
+**Agent-context binding:** Set `Worker.ContextBinder = agent.NewZenContextBinder(zenContext, "default")` and use a runner that implements `TaskRunnerWithContext` to read/write session context (State/Scratchpad) for continuation.  
+**Funding reports:** `funding.NewAggregator(vault).AggregateForSession(ctx, sessionID, "Project Title")` returns T661 narrative and IRAP report; use `.T661.T661Text()` or `.IRAP.IRAPMarkdown()` for export.

@@ -100,8 +100,8 @@ generate: ## Generate code (CRDs, deepcopy) - requires controller-gen
 
 ## Repository management
 
-repo-sync: ## Sync knowledge base repositories
-	@echo "TODO: implement repo sync"
+repo-sync: ## Sync knowledge base repositories (see docs/01-ARCHITECTURE/COMPLETENESS_MATRIX.md)
+	@echo "TODO: implement repo sync (clone/pull of configured KB repos for QMD population)"
 
 ## Repository hygiene
 
