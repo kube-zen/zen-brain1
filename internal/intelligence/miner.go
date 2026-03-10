@@ -26,6 +26,7 @@ type ProofOfWorkSummary struct {
 	CompletedAt  time.Time     `json:"completed_at"`
 	Duration     time.Duration `json:"duration"`
 	ModelUsed    string        `json:"model_used"`
+	TemplateUsed string        `json:"template_used,omitempty"` // Actual template; prefer over ModelUsed when present
 	FilesChanged []string      `json:"files_changed,omitempty"`
 }
 
@@ -174,8 +175,11 @@ func (m *Miner) extractPatterns(
 	}
 	durationStats[durationKey].Samples = append(durationStats[durationKey].Samples, summary.Duration)
 
-	// Template statistics (from model used - in future, track actual template used)
-	templateKey := summary.ModelUsed // For now, use model used as proxy for template
+	// Template statistics: use actual template when present; ModelUsed fallback is backward-compat only for older artifacts
+	templateKey := summary.TemplateUsed
+	if templateKey == "" {
+		templateKey = summary.ModelUsed
+	}
 	if _, exists := templateStats[templateKey]; !exists {
 		templateStats[templateKey] = &TemplateStatistics{
 			TemplateName:    templateKey,

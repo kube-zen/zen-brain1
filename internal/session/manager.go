@@ -3,6 +3,7 @@ package session
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -129,6 +130,53 @@ func (m *DefaultManager) CreateSession(ctx context.Context, workItem *contracts.
 	}
 
 	return session, nil
+}
+
+// UpdateExecutionCheckpoint writes a structured execution checkpoint into ZenContext SessionContext.State.
+func (m *DefaultManager) UpdateExecutionCheckpoint(ctx context.Context, sessionID string, checkpoint *ExecutionCheckpoint) error {
+	if m.zenctx == nil {
+		return fmt.Errorf("ZenContext not configured")
+	}
+	if checkpoint == nil {
+		return fmt.Errorf("checkpoint cannot be nil")
+	}
+	clusterID := "default"
+	sc, err := m.zenctx.GetSessionContext(ctx, clusterID, sessionID)
+	if err != nil || sc == nil {
+		log.Printf("Warning: SessionContext not found for session %s (cluster %s)", sessionID, clusterID)
+		return fmt.Errorf("session context not found: %s", sessionID)
+	}
+	checkpoint.UpdatedAt = time.Now()
+	stateBytes, err := json.Marshal(checkpoint)
+	if err != nil {
+		return fmt.Errorf("marshal checkpoint: %w", err)
+	}
+	sc.State = stateBytes
+	sc.LastAccessedAt = time.Now()
+	if err := m.zenctx.StoreSessionContext(ctx, sc.ClusterID, sc); err != nil {
+		return fmt.Errorf("store session context: %w", err)
+	}
+	return nil
+}
+
+// GetExecutionCheckpoint reads the structured execution checkpoint from ZenContext SessionContext.State.
+func (m *DefaultManager) GetExecutionCheckpoint(ctx context.Context, sessionID string) (*ExecutionCheckpoint, error) {
+	if m.zenctx == nil {
+		return nil, fmt.Errorf("ZenContext not configured")
+	}
+	clusterID := "default"
+	sc, err := m.zenctx.GetSessionContext(ctx, clusterID, sessionID)
+	if err != nil || sc == nil {
+		return nil, fmt.Errorf("session context not found: %w", err)
+	}
+	if len(sc.State) == 0 {
+		return nil, nil
+	}
+	var cp ExecutionCheckpoint
+	if err := json.Unmarshal(sc.State, &cp); err != nil {
+		return nil, fmt.Errorf("unmarshal checkpoint: %w", err)
+	}
+	return &cp, nil
 }
 
 // updateZenContextLastAccessed updates the LastAccessedAt timestamp in ZenContext.

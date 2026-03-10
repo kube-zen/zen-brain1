@@ -1,6 +1,7 @@
 package session
 
 import (
+	"bytes"
 	"context"
 	"sync"
 	"testing"
@@ -264,4 +265,136 @@ func TestSessionManager_WithoutZenContext(t *testing.T) {
 	}
 
 	t.Log("✓ Session manager works without ZenContext (backward compatibility)")
+}
+
+func TestUpdateExecutionCheckpoint_WritesStructuredJSON(t *testing.T) {
+	mockZC := newMockZenContext()
+	config := DefaultConfig()
+	config.ZenContext = mockZC
+	manager, err := New(config, NewMemoryStore())
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	defer manager.Close()
+	ctx := context.Background()
+
+	workItem := &contracts.WorkItem{ID: "W1", Title: "T", WorkType: contracts.WorkTypeImplementation, CreatedAt: time.Now(), Source: contracts.SourceMetadata{IssueKey: "W1"}}
+	session, err := manager.CreateSession(ctx, workItem)
+	if err != nil {
+		t.Fatalf("CreateSession: %v", err)
+	}
+
+	checkpoint := &ExecutionCheckpoint{
+		Stage:                "proof_attached",
+		SessionID:            session.ID,
+		WorkItemID:           "W1",
+		BrainTaskIDs:         []string{"task-1", "task-2"},
+		ProofPaths:           []string{"/path/to/pow.json"},
+		LastRecommendation:   "merge",
+		KnowledgeChunkIDs:    []string{"kc-1"},
+		KnowledgeSourcePaths: []string{"/docs/source.md"},
+		UpdatedAt:            time.Now(),
+	}
+	err = manager.UpdateExecutionCheckpoint(ctx, session.ID, checkpoint)
+	if err != nil {
+		t.Fatalf("UpdateExecutionCheckpoint: %v", err)
+	}
+
+	// Verify State in ZenContext is JSON
+	sc := mockZC.getSession("default", session.ID)
+	if sc == nil || len(sc.State) == 0 {
+		t.Fatal("SessionContext.State should be set with checkpoint JSON")
+	}
+	// Quick sanity: state should contain stage and session_id
+	if !bytes.Contains(sc.State, []byte("proof_attached")) || !bytes.Contains(sc.State, []byte(session.ID)) {
+		t.Error("State JSON should contain stage and session_id")
+	}
+}
+
+func TestGetExecutionCheckpoint_ReadsBack(t *testing.T) {
+	mockZC := newMockZenContext()
+	config := DefaultConfig()
+	config.ZenContext = mockZC
+	manager, err := New(config, NewMemoryStore())
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	defer manager.Close()
+	ctx := context.Background()
+
+	workItem := &contracts.WorkItem{ID: "W2", Title: "T", WorkType: contracts.WorkTypeImplementation, CreatedAt: time.Now(), Source: contracts.SourceMetadata{IssueKey: "W2"}}
+	session, err := manager.CreateSession(ctx, workItem)
+	if err != nil {
+		t.Fatalf("CreateSession: %v", err)
+	}
+
+	checkpoint := &ExecutionCheckpoint{
+		Stage:        "proof_attached",
+		SessionID:    session.ID,
+		WorkItemID:   "W2",
+		BrainTaskIDs: []string{"task-1"},
+		ProofPaths:   []string{"/pow.json"},
+		UpdatedAt:    time.Now(),
+	}
+	if err := manager.UpdateExecutionCheckpoint(ctx, session.ID, checkpoint); err != nil {
+		t.Fatalf("UpdateExecutionCheckpoint: %v", err)
+	}
+
+	read, err := manager.GetExecutionCheckpoint(ctx, session.ID)
+	if err != nil {
+		t.Fatalf("GetExecutionCheckpoint: %v", err)
+	}
+	if read == nil {
+		t.Fatal("GetExecutionCheckpoint returned nil")
+	}
+	if read.Stage != "proof_attached" || read.SessionID != session.ID || read.WorkItemID != "W2" {
+		t.Errorf("checkpoint mismatch: stage=%s session=%s work=%s", read.Stage, read.SessionID, read.WorkItemID)
+	}
+	if len(read.BrainTaskIDs) != 1 || read.BrainTaskIDs[0] != "task-1" {
+		t.Errorf("BrainTaskIDs mismatch: %v", read.BrainTaskIDs)
+	}
+	if len(read.ProofPaths) != 1 || read.ProofPaths[0] != "/pow.json" {
+		t.Errorf("ProofPaths mismatch: %v", read.ProofPaths)
+	}
+}
+
+func TestCheckpointPreservesRelevantKnowledge(t *testing.T) {
+	mockZC := newMockZenContext()
+	config := DefaultConfig()
+	config.ZenContext = mockZC
+	manager, err := New(config, NewMemoryStore())
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	defer manager.Close()
+	ctx := context.Background()
+
+	workItem := &contracts.WorkItem{ID: "W3", Title: "T", WorkType: contracts.WorkTypeImplementation, CreatedAt: time.Now(), Source: contracts.SourceMetadata{IssueKey: "W3"}}
+	session, err := manager.CreateSession(ctx, workItem)
+	if err != nil {
+		t.Fatalf("CreateSession: %v", err)
+	}
+
+	checkpoint := &ExecutionCheckpoint{
+		Stage:                "proof_attached",
+		SessionID:            session.ID,
+		WorkItemID:           "W3",
+		KnowledgeChunkIDs:     []string{"chunk-1", "chunk-2"},
+		KnowledgeSourcePaths: []string{"/kb/doc1.md", "/kb/doc2.md"},
+		UpdatedAt:            time.Now(),
+	}
+	if err := manager.UpdateExecutionCheckpoint(ctx, session.ID, checkpoint); err != nil {
+		t.Fatalf("UpdateExecutionCheckpoint: %v", err)
+	}
+
+	read, err := manager.GetExecutionCheckpoint(ctx, session.ID)
+	if err != nil {
+		t.Fatalf("GetExecutionCheckpoint: %v", err)
+	}
+	if len(read.KnowledgeChunkIDs) != 2 || read.KnowledgeChunkIDs[0] != "chunk-1" || read.KnowledgeChunkIDs[1] != "chunk-2" {
+		t.Errorf("KnowledgeChunkIDs not preserved: %v", read.KnowledgeChunkIDs)
+	}
+	if len(read.KnowledgeSourcePaths) != 2 || read.KnowledgeSourcePaths[0] != "/kb/doc1.md" || read.KnowledgeSourcePaths[1] != "/kb/doc2.md" {
+		t.Errorf("KnowledgeSourcePaths not preserved: %v", read.KnowledgeSourcePaths)
+	}
 }

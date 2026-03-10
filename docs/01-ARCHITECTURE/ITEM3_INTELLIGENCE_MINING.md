@@ -1,6 +1,6 @@
 # Item #3: Intelligence / ReMe / Memory - Proof-of-Work Mining
 
-## Status: ✅ INITIAL IMPLEMENTATION COMPLETE (2026-03-09)
+## Status: ✅ WIRED INTO RUNTIME (2026-03-10)
 
 ## Overview
 
@@ -99,10 +99,12 @@ type DurationStatistics struct {
 
 ## Integration Points
 
-### Factory Integration
-- Proof-of-work artifacts include `WorkType` and `WorkDomain` fields
-- Mining can be triggered after proof-of-work generation
-- Patterns are stored independently of workspaces
+### Factory Integration (Wired)
+- **Intelligence is wired into runtime**: vertical-slice initializes pattern store at `<ZEN_BRAIN_RUNTIME_DIR>/patterns` (default `/tmp/zen-brain-factory/patterns`), creates MiningIntegration, and sets Factory recommender via `SetRecommender(mining.GetFactoryRecommender())`.
+- **Factory consumes recommendations**: When a recommender is configured, `createExecutionPlan()` uses `chooseTemplateAndConfig()` to call `RecommendTemplateWithMetadata` and `RecommendConfiguration`; selected template identity, timeout/retry overrides, and metadata (source, confidence, reasoning) are persisted on the task spec and in proof-of-work.
+- **Proof-of-work records actual template**: Artifacts include `template_used`, `selection_source`, `selection_confidence`, `selection_reasoning`; `model_used` is kept for backward compatibility.
+- **Mining after execution**: After Factory execution completes, vertical-slice invokes `MineProofOfWorks(ctx)` (warning only on failure), so the loop learns from each run.
+- Proof-of-work artifacts include `WorkType` and `WorkDomain`; miner prefers `template_used` when present, with `model_used` fallback for older artifacts.
 
 ### KB Integration (Future)
 - Pattern store can be integrated with KB stub
@@ -171,14 +173,14 @@ Top Templates (by volume):
 ## Next Steps
 
 ### Immediate (Priority)
-- [ ] Integrate mining into Factory's proof-of-work generation pipeline
+- [x] Integrate mining into Factory's proof-of-work generation pipeline (done: vertical-slice calls MineProofOfWorks after execution)
 - [ ] Add scheduled mining (e.g., after every N executions)
 - [ ] Add pattern cleanup (remove old/dated patterns)
 
 ### Medium Term
 - [ ] Enhance pattern extraction (e.g., failure mode analysis)
 - [ ] Add pattern versioning and migration
-- [ ] Implement pattern-based template auto-selection
+- [x] Implement pattern-based template auto-selection (done: Factory uses recommender when set; compatibility filter ensures only workType/workDomain-matching templates are recommended)
 
 ### Long Term
 - [ ] Integrate with KB for pattern search and retrieval
@@ -203,10 +205,17 @@ internal/intelligence/
 - Duration percentile calculation uses simple sort (acceptable for small datasets)
 - Pattern store operations are thread-safe with mutex locks
 
+## CLI Commands (Block 5)
+
+- `zen-brain intelligence mine` — Load runtime dir + pattern store, run miner; print artifacts found/mined, patterns extracted, errors.
+- `zen-brain intelligence analyze` — Load pattern store, run `PatternAnalysis()`, print formatted summary.
+- `zen-brain intelligence recommend <workType> <workDomain>` — Load pattern store, run `RecommendAll`, print template, confidence, reasoning, timeout, retries.
+
+Exit non-zero on hard failures. Existing commands (`test`, `vertical-slice`, `version`) unchanged.
+
 ## Limitations (Current)
 
-1. **Template Tracking**: Currently uses `ModelUsed` field as proxy for template
-   - Future: Track actual template name in proof-of-work
+1. **Template Tracking**: ✅ Resolved — proof-of-work now includes `template_used`; miner uses it first with `model_used` fallback for backward compatibility.
 
 2. **Failure Analysis**: Only tracks success rate, not failure modes
    - Future: Extract common failure patterns and root causes
@@ -223,9 +232,13 @@ internal/intelligence/
 ## Success Criteria
 
 ✅ **MVP Complete**: Can mine, store, and recommend based on proof-of-work
-✅ **Tests Pass**: All 7 tests passing
+✅ **Wired into runtime**: vertical-slice enables recommender, mines after execution; proof-of-work includes template_used
+✅ **Recommender compatibility**: RecommendTemplate only returns templates compatible with requested workType/workDomain
+✅ **Tests Pass**: Intelligence, factory, and session tests cover miner template preference, recommender filter, proof metadata, execution checkpoint
 ✅ **Performance**: Mining completes in < 1ms for typical workloads
 ✅ **Extensible**: Architecture supports future enhancements
+
+**Still missing (out of scope for this patch):** no ML; no temporal decay/recency weighting; no deep causal failure classifier; no cross-cluster/global intelligence service.
 
 ## Related Items
 

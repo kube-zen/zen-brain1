@@ -42,13 +42,17 @@ func TestProofOfWorkManager_CreateProofOfWork(t *testing.T) {
 		ExecutionSteps: []*ExecutionStep{},
 	}
 
-	// Create task spec
+	// Create task spec (with intelligence selection metadata)
 	spec := &FactoryTaskSpec{
-		ID:         "task-1",
-		SessionID:  "session-1",
-		WorkItemID: "PROJ-123",
-		Title:      "Test Task",
-		Objective:  "Execute test objective",
+		ID:                  "task-1",
+		SessionID:           "session-1",
+		WorkItemID:          "PROJ-123",
+		Title:               "Test Task",
+		Objective:           "Execute test objective",
+		SelectedTemplate:    "implementation:real",
+		SelectionSource:     "recommended",
+		SelectionConfidence: 0.85,
+		SelectionReasoning:  "Based on 10 historical executions",
 	}
 
 	// Create proof-of-work
@@ -108,6 +112,65 @@ func TestProofOfWorkManager_CreateProofOfWork(t *testing.T) {
 
 	if artifact.Summary.Result != "completed" {
 		t.Errorf("Result mismatch: got %s, want completed", artifact.Summary.Result)
+	}
+
+	// Verify intelligence metadata in proof-of-work JSON
+	if artifact.Summary.TemplateUsed != "implementation:real" {
+		t.Errorf("TemplateUsed: got %s, want implementation:real", artifact.Summary.TemplateUsed)
+	}
+	if artifact.Summary.SelectionSource != "recommended" {
+		t.Errorf("SelectionSource: got %s, want recommended", artifact.Summary.SelectionSource)
+	}
+	if artifact.Summary.SelectionConfidence != 0.85 {
+		t.Errorf("SelectionConfidence: got %f, want 0.85", artifact.Summary.SelectionConfidence)
+	}
+	if artifact.Summary.SelectionReasoning != "Based on 10 historical executions" {
+		t.Errorf("SelectionReasoning: got %s", artifact.Summary.SelectionReasoning)
+	}
+}
+
+func TestProofOfWorkManager_ProofOfWorkJSONIncludesIntelligenceMetadata(t *testing.T) {
+	runtimeDir := t.TempDir()
+	powManager := NewProofOfWorkManager(runtimeDir)
+	spec := &FactoryTaskSpec{
+		ID:                  "task-intel",
+		SessionID:           "session-1",
+		WorkItemID:          "PROJ-1",
+		Title:               "Task",
+		Objective:           "Obj",
+		SelectedTemplate:    "bugfix:core",
+		SelectionSource:     "recommended",
+		SelectionConfidence: 0.9,
+		SelectionReasoning:  "Exact match history",
+	}
+	result := &ExecutionResult{
+		TaskID: "task-intel", SessionID: "session-1", WorkItemID: "PROJ-1",
+		Status: ExecutionStatusCompleted, Success: true, CompletedAt: time.Now(), Duration: time.Minute,
+		WorkspacePath: runtimeDir, ExecutionSteps: []*ExecutionStep{},
+	}
+	ctx := context.Background()
+	artifact, err := powManager.CreateProofOfWork(ctx, result, spec)
+	if err != nil {
+		t.Fatalf("CreateProofOfWork: %v", err)
+	}
+	// Read back JSON and check fields are present
+	data, err := os.ReadFile(artifact.JSONPath)
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+	var decoded struct {
+		TemplateUsed        string  `json:"template_used"`
+		SelectionSource     string  `json:"selection_source"`
+		SelectionConfidence float64 `json:"selection_confidence"`
+		SelectionReasoning  string  `json:"selection_reasoning"`
+	}
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	if decoded.TemplateUsed != "bugfix:core" || decoded.SelectionSource != "recommended" ||
+		decoded.SelectionConfidence != 0.9 || decoded.SelectionReasoning != "Exact match history" {
+		t.Errorf("proof-of-work JSON missing or wrong intelligence fields: template_used=%q source=%q confidence=%f reasoning=%q",
+			decoded.TemplateUsed, decoded.SelectionSource, decoded.SelectionConfidence, decoded.SelectionReasoning)
 	}
 }
 

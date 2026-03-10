@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/kube-zen/zen-brain1/pkg/contracts"
@@ -48,11 +49,18 @@ type ConfigurationRecommendation struct {
 }
 
 // RecommendTemplate recommends a template based on work type and domain.
+// Only templates compatible with the requested workType (and preferably workDomain) are considered.
 func (r *Recommender) RecommendTemplate(ctx context.Context, workType contracts.WorkType, workDomain contracts.WorkDomain) (*Recommendation, error) {
-	// Try to get work type statistics
-	workTypeStats, err := r.patternStore.GetWorkTypeStats(ctx, string(workType), string(workDomain))
+	wtStr := string(workType)
+	wdStr := string(workDomain)
+
+	// Get work type statistics for requested type/domain (for confidence and reasoning)
+	workTypeStats, err := r.patternStore.GetWorkTypeStats(ctx, wtStr, wdStr)
 	if err != nil {
-		// No statistics available, return low-confidence default
+		// Try generic domain for same work type
+		workTypeStats, _ = r.patternStore.GetWorkTypeStats(ctx, wtStr, "")
+	}
+	if workTypeStats == nil {
 		return &Recommendation{
 			TemplateName:    "default",
 			WorkType:        workType,
@@ -60,19 +68,27 @@ func (r *Recommender) RecommendTemplate(ctx context.Context, workType contracts.
 			Confidence:      0.0,
 			SuccessRate:     0.0,
 			AverageDuration: 0,
-			Reasoning:       "No historical data available, using default template",
+			Reasoning:       "No historical data available for this work type/domain; using default template",
 			SampleCount:     0,
 		}, nil
 	}
 
-	// Calculate confidence based on sample count
-	confidence := r.calculateConfidence(workTypeStats.TotalRuns)
+	// selectBestTemplate returns only templates compatible with workType/workDomain
+	templateName, matchKind, matchingSamples := r.selectBestTemplateWithMatch(ctx, workType, workDomain)
+	if matchingSamples == 0 && workTypeStats != nil {
+		matchingSamples = workTypeStats.TotalRuns
+	}
+	confidence := r.calculateConfidence(matchingSamples)
 
-	// Determine best template based on success rate
-	templateName := r.selectBestTemplate(ctx, workType, workDomain)
-
-	reasoning := fmt.Sprintf("Based on %d historical executions with %.1f%% success rate",
-		workTypeStats.TotalRuns, workTypeStats.SuccessRate*100)
+	var reasoning string
+	switch matchKind {
+	case "exact":
+		reasoning = fmt.Sprintf("Recommendation from exact match history (%d samples); %.1f%% success rate", matchingSamples, workTypeStats.SuccessRate*100)
+	case "work_type_only":
+		reasoning = fmt.Sprintf("Recommendation from work-type-only history (%d samples); %.1f%% success rate", matchingSamples, workTypeStats.SuccessRate*100)
+	default:
+		reasoning = fmt.Sprintf("No matching template name for %s/%s; using default template", wtStr, wdStr)
+	}
 
 	return &Recommendation{
 		TemplateName:    templateName,
@@ -82,7 +98,7 @@ func (r *Recommender) RecommendTemplate(ctx context.Context, workType contracts.
 		SuccessRate:     workTypeStats.SuccessRate,
 		AverageDuration: workTypeStats.AverageDuration,
 		Reasoning:       reasoning,
-		SampleCount:     workTypeStats.TotalRuns,
+		SampleCount:     matchingSamples,
 	}, nil
 }
 
@@ -144,30 +160,81 @@ func (r *Recommender) RecommendAll(ctx context.Context, workType contracts.WorkT
 	return templateRec, configRec, nil
 }
 
-// selectBestTemplate selects the best template for a work type.
-func (r *Recommender) selectBestTemplate(ctx context.Context, workType contracts.WorkType, workDomain contracts.WorkDomain) string {
-	// Get all template statistics
+// parseTemplateName returns (workType, workDomain) parsed from template name.
+// Supports "workType:workDomain", "workType/workDomain", or "workType".
+func parseTemplateName(name string) (workType, workDomain string) {
+	if name == "" || name == "default" {
+		return "default", ""
+	}
+	for _, sep := range []string{":", "/"} {
+		if idx := strings.Index(name, sep); idx >= 0 {
+			return strings.TrimSpace(name[:idx]), strings.TrimSpace(name[idx+1:])
+		}
+	}
+	return name, ""
+}
+
+// selectBestTemplateWithMatch selects the best template that is compatible with the requested workType/workDomain.
+// Compatibility: exact workType+workDomain > same workType+generic domain > default.
+// Returns (templateName, matchKind, matchingSampleCount).
+func (r *Recommender) selectBestTemplateWithMatch(ctx context.Context, workType contracts.WorkType, workDomain contracts.WorkDomain) (templateName, matchKind string, sampleCount int) {
+	wtStr := string(workType)
+	wdStr := string(workDomain)
+
 	allTemplateStats, err := r.patternStore.GetAllTemplateStats(ctx)
 	if err != nil || len(allTemplateStats) == 0 {
-		return "default"
+		return "default", "none", 0
 	}
 
-	// Sort templates by success rate and sample count
-	sort.Slice(allTemplateStats, func(i, j int) bool {
-		// Prefer templates with higher success rate
-		if allTemplateStats[i].SuccessRate != allTemplateStats[j].SuccessRate {
-			return allTemplateStats[i].SuccessRate > allTemplateStats[j].SuccessRate
+	// Filter to templates compatible with requested work type (never pick unrelated e.g. docs/bugfix for implementation)
+	var exactMatch, workTypeMatch []TemplateStatistics
+	for _, t := range allTemplateStats {
+		tWT, tWD := parseTemplateName(t.TemplateName)
+		if tWT == "default" || tWT == "" {
+			continue
 		}
-		// Then prefer templates with more samples
-		return allTemplateStats[i].TotalRuns > allTemplateStats[j].TotalRuns
+		if tWT != wtStr {
+			continue // must match work type
+		}
+		if tWD == wdStr || (wdStr == "" && tWD == "") {
+			exactMatch = append(exactMatch, t)
+		} else {
+			workTypeMatch = append(workTypeMatch, t)
+		}
+	}
+
+	// Prefer exact match, then work-type-only
+	candidates := exactMatch
+	matchKind = "work_type_only"
+	if len(exactMatch) > 0 {
+		candidates = exactMatch
+		matchKind = "exact"
+	} else if len(workTypeMatch) > 0 {
+		candidates = workTypeMatch
+	} else {
+		return "default", "none", 0
+	}
+
+	// Sort by success rate then sample count
+	sort.Slice(candidates, func(i, j int) bool {
+		if candidates[i].SuccessRate != candidates[j].SuccessRate {
+			return candidates[i].SuccessRate > candidates[j].SuccessRate
+		}
+		return candidates[i].TotalRuns > candidates[j].TotalRuns
 	})
 
-	// Return the best template if it meets minimum sample threshold
-	if len(allTemplateStats) > 0 && allTemplateStats[0].TotalRuns >= r.minSamples {
-		return allTemplateStats[0].TemplateName
+	best := candidates[0]
+	if best.TotalRuns >= r.minSamples {
+		return best.TemplateName, matchKind, best.TotalRuns
 	}
+	// Below threshold: still return best matching template so caller can use it with lower confidence
+	return best.TemplateName, matchKind, best.TotalRuns
+}
 
-	return "default"
+// selectBestTemplate selects the best template for a work type (kept for backward compatibility).
+func (r *Recommender) selectBestTemplate(ctx context.Context, workType contracts.WorkType, workDomain contracts.WorkDomain) string {
+	name, _, _ := r.selectBestTemplateWithMatch(ctx, workType, workDomain)
+	return name
 }
 
 // calculateConfidence calculates confidence based on sample count.

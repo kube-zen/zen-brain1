@@ -37,6 +37,12 @@ type Manager interface {
 	// CleanupStaleSessions cleans up sessions that have been stuck or abandoned.
 	CleanupStaleSessions(ctx context.Context, maxAge time.Duration) (int, error)
 
+	// UpdateExecutionCheckpoint writes a structured execution checkpoint into ZenContext SessionContext.State.
+	UpdateExecutionCheckpoint(ctx context.Context, sessionID string, checkpoint *ExecutionCheckpoint) error
+
+	// GetExecutionCheckpoint reads the structured execution checkpoint from ZenContext SessionContext.State.
+	GetExecutionCheckpoint(ctx context.Context, sessionID string) (*ExecutionCheckpoint, error)
+
 	// Close closes the session manager and releases resources.
 	Close() error
 }

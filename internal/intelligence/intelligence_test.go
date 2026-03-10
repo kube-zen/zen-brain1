@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/kube-zen/zen-brain1/pkg/contracts"
 )
 
 // Test in-memory pattern store
@@ -558,5 +560,120 @@ func TestFullWorkflow(t *testing.T) {
 	}
 	if analysis.TotalExecutions != 5 {
 		t.Errorf("Expected 5 executions, got %d", analysis.TotalExecutions)
+	}
+}
+
+// TestRecommenderOnlySelectsCompatibleTemplates verifies that RecommendTemplate never returns
+// a template for a different work type (e.g. docs/bugfix when requesting implementation).
+func TestRecommenderOnlySelectsCompatibleTemplates(t *testing.T) {
+	ctx := context.Background()
+	store := NewInMemoryPatternStore()
+
+	// Store templates for multiple work types: implementation has 5 runs, docs has 20 runs (better globally)
+	rawTemplateStats := map[string]*TemplateStatistics{
+		"implementation:real": {
+			TemplateName:   "implementation:real",
+			TotalRuns:      5,
+			SuccessfulRuns: 5,
+			TotalDuration:  5 * time.Minute,
+		},
+		"docs:real": {
+			TemplateName:   "docs:real",
+			TotalRuns:      20,
+			SuccessfulRuns: 19,
+			TotalDuration:  2 * time.Minute,
+		},
+	}
+	result := &MiningResult{
+		TemplateStatistics: AggregateTemplateStats(rawTemplateStats),
+		WorkTypeStatistics: []WorkTypeStatistics{
+			{WorkType: "implementation", WorkDomain: "backend", TotalRuns: 5, SuccessfulRuns: 5, SuccessRate: 1.0},
+			{WorkType: "docs", WorkDomain: "real", TotalRuns: 20, SuccessfulRuns: 19, SuccessRate: 0.95},
+		},
+	}
+	if err := store.StorePatterns(ctx, result); err != nil {
+		t.Fatalf("StorePatterns: %v", err)
+	}
+
+	recommender := NewRecommender(store, 3)
+	rec, err := recommender.RecommendTemplate(ctx, contracts.WorkType("implementation"), contracts.WorkDomain("backend"))
+	if err != nil {
+		t.Fatalf("RecommendTemplate: %v", err)
+	}
+	// Must not recommend docs:real even though it has better global stats
+	if rec.TemplateName == "docs:real" {
+		t.Error("Recommender must not return unrelated work type template (docs:real for implementation)")
+	}
+	if rec.TemplateName != "implementation:real" {
+		t.Errorf("Expected implementation:real for implementation/backend, got %s", rec.TemplateName)
+	}
+	// Confidence and reasoning should reflect matching data (implementation), not global
+	if rec.SampleCount != 5 {
+		t.Errorf("Expected SampleCount=5 (matching implementation), got %d", rec.SampleCount)
+	}
+}
+
+// TestMinerPrefersTemplateUsedOverModelUsed verifies that when proof-of-work has template_used,
+// the miner uses it for template statistics.
+func TestMinerPrefersTemplateUsedOverModelUsed(t *testing.T) {
+	ctx := context.Background()
+	tmpDir := t.TempDir()
+	proofDir := filepath.Join(tmpDir, "proof-of-work", "20260310-120000")
+	if err := os.MkdirAll(proofDir, 0755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	// Artifact has both template_used (actual) and model_used (legacy)
+	json := `{"task_id":"t1","session_id":"s1","work_item_id":"w1","work_type":"implementation","work_domain":"backend","title":"T","objective":"O","result":"completed","started_at":"2026-03-10T12:00:00Z","completed_at":"2026-03-10T12:01:00Z","duration":60000000000,"model_used":"factory-v1","template_used":"implementation:real","files_changed":[]}`
+	if err := os.WriteFile(filepath.Join(proofDir, "proof-of-work.json"), []byte(json), 0644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+	store := NewInMemoryPatternStore()
+	miner := NewMiner(tmpDir, store)
+	res, err := miner.MineProofOfWorks(ctx)
+	if err != nil {
+		t.Fatalf("MineProofOfWorks: %v", err)
+	}
+	if res.ArtifactsMined != 1 {
+		t.Fatalf("expected 1 mined, got %d", res.ArtifactsMined)
+	}
+	// Template stats should be keyed by template_used (implementation:real), not model_used (factory-v1)
+	ts, err := store.GetTemplateStats(ctx, "implementation:real")
+	if err != nil {
+		t.Fatalf("GetTemplateStats(implementation:real): %v", err)
+	}
+	if ts.TotalRuns != 1 {
+		t.Errorf("expected 1 run for implementation:real, got %d", ts.TotalRuns)
+	}
+}
+
+// TestMinerSupportsOldArtifactsWithOnlyModelUsed verifies backward compatibility: artifacts
+// with only model_used (no template_used) still get mined and template stats use model_used.
+func TestMinerSupportsOldArtifactsWithOnlyModelUsed(t *testing.T) {
+	ctx := context.Background()
+	tmpDir := t.TempDir()
+	proofDir := filepath.Join(tmpDir, "proof-of-work", "20260310-120001")
+	if err := os.MkdirAll(proofDir, 0755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	// Old artifact: no template_used, only model_used
+	json := `{"task_id":"t2","session_id":"s2","work_item_id":"w2","work_type":"bugfix","work_domain":"core","title":"T","objective":"O","result":"completed","started_at":"2026-03-10T12:00:00Z","completed_at":"2026-03-10T12:01:00Z","duration":60000000000,"model_used":"bugfix:core","files_changed":[]}`
+	if err := os.WriteFile(filepath.Join(proofDir, "proof-of-work.json"), []byte(json), 0644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+	store := NewInMemoryPatternStore()
+	miner := NewMiner(tmpDir, store)
+	res, err := miner.MineProofOfWorks(ctx)
+	if err != nil {
+		t.Fatalf("MineProofOfWorks: %v", err)
+	}
+	if res.ArtifactsMined != 1 {
+		t.Fatalf("expected 1 mined, got %d", res.ArtifactsMined)
+	}
+	ts, err := store.GetTemplateStats(ctx, "bugfix:core")
+	if err != nil {
+		t.Fatalf("GetTemplateStats(bugfix:core): %v", err)
+	}
+	if ts.TotalRuns != 1 {
+		t.Errorf("expected 1 run for bugfix:core (from model_used fallback), got %d", ts.TotalRuns)
 	}
 }
