@@ -560,6 +560,120 @@ func TestUpdateStatus_HTTPError(t *testing.T) {
 	}
 }
 
+// TestVerticalSliceOfficeFlow_AddCommentAddAttachmentUpdateStatus exercises the full
+// Office path used by vertical-slice (non-mock): Fetch, AddComment, AddAttachment, UpdateStatus.
+func TestVerticalSliceOfficeFlow_AddCommentAddAttachmentUpdateStatus(t *testing.T) {
+	var fetched, commentAdded, attachmentAdded, statusUpdated bool
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/rest/api/3/issue/VS-1" && r.Method == "GET" {
+			fetched = true
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"key":"VS-1","id":"1","fields":{"summary":"Vertical slice flow","description":"","created":"2026-01-01T00:00:00.000+0000","updated":"2026-01-01T00:00:00.000+0000","status":{"name":"To Do"},"priority":{"name":"Medium"},"issuetype":{"name":"Task"},"project":{"key":"VS"},"reporter":{},"assignee":{},"labels":[]}}`))
+			return
+		}
+		if r.URL.Path == "/rest/api/3/issue/VS-1/comment" && r.Method == "POST" {
+			commentAdded = true
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusCreated)
+			w.Write([]byte(`{"id":"101"}`))
+			return
+		}
+		if r.URL.Path == "/rest/api/3/issue/VS-1/attachments" && r.Method == "POST" {
+			attachmentAdded = true
+			if r.Header.Get("X-Atlassian-Token") != "no-check" {
+				t.Error("expected X-Atlassian-Token: no-check for attachment")
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`[{"id":"1"}]`))
+			return
+		}
+		if r.URL.Path == "/rest/api/3/issue/VS-1/transitions" && r.Method == "GET" {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"transitions":[{"id":"31","name":"Done"}]}`))
+			return
+		}
+		if r.URL.Path == "/rest/api/3/issue/VS-1/transitions" && r.Method == "POST" {
+			statusUpdated = true
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	config := &Config{
+		BaseURL:  server.URL,
+		Email:    "test@example.com",
+		APIToken: "test-token",
+	}
+	connector, err := New("vertical-slice-flow", "cluster-1", config)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	ctx := context.Background()
+
+	// Fetch
+	item, err := connector.Fetch(ctx, "cluster-1", "VS-1")
+	if err != nil {
+		t.Fatalf("Fetch: %v", err)
+	}
+	if !fetched {
+		t.Error("Fetch did not hit server")
+	}
+	if item.ID != "VS-1" {
+		t.Errorf("Fetch: got ID %q", item.ID)
+	}
+
+	// AddComment (proof-of-work style)
+	comment := &contracts.Comment{
+		ID:         "pow-1",
+		WorkItemID: "VS-1",
+		Body:       "Proof-of-Work summary\n\nTask completed.",
+		Author:     "zen-brain",
+		CreatedAt:  time.Now(),
+		Attribution: &contracts.AIAttribution{
+			AgentRole: "factory",
+			ModelUsed: "factory-v1",
+			SessionID: "s1",
+			TaskID:    "t1",
+			Timestamp: time.Now(),
+		},
+	}
+	if err := connector.AddComment(ctx, "cluster-1", "VS-1", comment); err != nil {
+		t.Fatalf("AddComment: %v", err)
+	}
+	if !commentAdded {
+		t.Error("AddComment did not hit server")
+	}
+
+	// AddAttachment
+	att := &contracts.Attachment{
+		ID:          "att-1",
+		WorkItemID:  "VS-1",
+		Filename:    "proof-of-work.json",
+		ContentType: "application/json",
+		Size:        10,
+		CreatedAt:   time.Now(),
+	}
+	if err := connector.AddAttachment(ctx, "cluster-1", "VS-1", att, []byte(`{"ok":true}`)); err != nil {
+		t.Fatalf("AddAttachment: %v", err)
+	}
+	if !attachmentAdded {
+		t.Error("AddAttachment did not hit server")
+	}
+
+	// UpdateStatus
+	if err := connector.UpdateStatus(ctx, "cluster-1", "VS-1", contracts.StatusCompleted); err != nil {
+		t.Fatalf("UpdateStatus: %v", err)
+	}
+	if !statusUpdated {
+		t.Error("UpdateStatus did not hit server")
+	}
+}
+
 // minimalJiraWebhookBody returns a valid Jira webhook JSON body for the given event type.
 func minimalJiraWebhookBody(eventType string) []byte {
 	body := []byte(`{"webhookEvent":"` + eventType + `","timestamp":0,"issue":{"key":"W-1","id":"1","self":"","fields":{"summary":"Watch test","description":"","status":{"name":"Open"},"priority":{"name":"Medium"},"issuetype":{"name":"Task"},"project":{"key":"W"},"reporter":{"displayName":""},"assignee":{"displayName":""},"labels":[],"created":"2026-01-01T00:00:00.000+0000","updated":"2026-01-01T00:00:00.000+0000"}}}`)
