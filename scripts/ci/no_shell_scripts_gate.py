@@ -18,11 +18,10 @@ def _repo_root() -> str:
 
 
 def find_shell_scripts(root: str) -> list[str]:
-    """Return paths of all .sh files (relative to root)."""
+    """Return paths of all .sh files (relative to root). Skip .git and vendor."""
     sh_files = []
     for dirpath, _, filenames in os.walk(root):
-        # Skip .git directory
-        if ".git" in dirpath:
+        if ".git" in dirpath or "vendor" in dirpath:
             continue
         for f in filenames:
             if f.endswith(".sh"):
