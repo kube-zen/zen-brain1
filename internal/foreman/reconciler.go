@@ -28,6 +28,8 @@ type Reconciler struct {
 
 // Reconcile performs the reconciliation loop for a BrainTask.
 func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	start := time.Now()
+	defer func() { ReconcileDurationSeconds.Observe(time.Since(start).Seconds()) }()
 	logger := log.FromContext(ctx)
 
 	var task v1alpha1.BrainTask
@@ -83,6 +85,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 				return ctrl.Result{}, err
 			}
 			if resp != nil && !resp.Allowed {
+				TasksAdmissionDeniedTotal.Inc()
 				task.Status.Conditions = append(task.Status.Conditions, metav1.Condition{
 					Type:               "AdmissionDenied",
 					Status:             metav1.ConditionTrue,
@@ -110,6 +113,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		if err := r.Status().Update(ctx, &task); err != nil {
 			return ctrl.Result{}, err
 		}
+		TasksScheduledTotal.Inc()
 		if r.Dispatcher != nil {
 			if err := r.Dispatcher.Dispatch(ctx, &task); err != nil {
 				logger.Error(err, "dispatch failed", "task", task.Name)

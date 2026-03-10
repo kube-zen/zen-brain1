@@ -32,8 +32,14 @@
 | **Foreman + BrainQueue** | Wired | BrainTaskSpec.QueueName optional; Foreman skips scheduling when queue exists and Phase == Paused (requeue) |
 | **Foreman cmd** | Worker + flag | cmd/foreman uses Worker(PlaceholderRunner, -workers=2), Start(ctx) before mgr.Start(ctx) |
 | **FactoryTaskRunner** | Added | `internal/foreman/factory_runner.go`: converts BrainTask → FactoryTaskSpec, calls Factory.ExecuteTask; use NewFactoryTaskRunner(f) when Factory available |
+| **Foreman + Factory** | Wired | cmd/foreman: `-factory` / `ZEN_FOREMAN_FACTORY=true` uses FactoryTaskRunner; `-factory-runtime-dir` / `ZEN_FACTORY_RUNTIME_DIR` (default `/tmp/zen-foreman-factory`) |
 
-**Foreman:** `make build-foreman && ./bin/foreman` — needs kubeconfig; apply CRDs then run. Uses ZenGate stub, Worker pool (PlaceholderRunner), `-workers=2`. Tasks flow Pending → Scheduled → (dispatched) → Running → Completed/Failed. To run tasks via Factory, pass `foreman.NewFactoryTaskRunner(factory)` as the runner when constructing the Worker.
+**Foreman:** `make build-foreman && ./bin/foreman` — needs kubeconfig; apply CRDs then run. Uses ZenGate stub, Worker pool. Default runner: PlaceholderRunner. With `-factory` (or `ZEN_FOREMAN_FACTORY=true`): FactoryTaskRunner with workspace manager, BoundedExecutor, proof-of-work in `-factory-runtime-dir`. Tasks flow Pending → Scheduled → (dispatched) → Running → Factory.ExecuteTask → Completed/Failed.
+
+| **Observability** | Added | `internal/foreman/metrics.go`: Prometheus counters (scheduled, admission_denied, dispatched, completed, failed), histogram (reconcile_duration_seconds), gauge (worker_queue_depth); exposed on -metrics-bind-address |
+| **Session-affinity** | Added | Worker.SessionAffinity; when true, per-worker queues and sticky session→worker; `-session-affinity` / `ZEN_FOREMAN_SESSION_AFFINITY` |
+| **BrainQueue status** | Added | `internal/foreman/queue_status.go`: QueueStatusReconciler watches BrainQueue + BrainTask, sets queue.Status.Depth (Pending count) and InFlight (Scheduled+Running); registered in cmd/foreman |
+| **ZenContext in cluster** | Added | `deployments/zencontext-in-cluster/`: namespace, Redis Deployment+Service, MinIO Deployment+Service; README with REDIS_URL and MinIO endpoint for in-cluster ZenContext |
 
 **Outstanding (Block 3):** KB/QMD adapter; full API surface (auth, more endpoints).  
-**Outstanding (Block 4):** Wire Factory into cmd/foreman (optional, for FactoryTaskRunner); ZenContext in cluster; ZenGuardian; session-affinity dispatcher; observability; Foreman updating BrainQueue depth/inFlight (optional).
+**Outstanding (Block 4):** ZenGuardian (optional).

@@ -1,0 +1,7 @@
+# Namespace for ZenContext in-cluster (Redis + MinIO). Block 4.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: zen-context
+  labels:
+    app.kubernetes.io/name: zen-context
