@@ -20,6 +20,8 @@ Focused view of key blocks and their completion status with next actions.
 ├───────────────────────────┼──────────────────┼────────────────────────────────────────────┤
 │ 3.5 KB Ingestion          │ ✅ Complete      │ All 6 acceptance criteria met               │
 ├───────────────────────────┼──────────────────┼────────────────────────────────────────────┤
+│ 4   Factory               │ ✅ Complete      │ Optional: ZenLedger in Foreman; 4.13 dash  │
+├───────────────────────────┼──────────────────┼────────────────────────────────────────────┤
 │ 5.1 QMD Population        │ 🟡 Content Ready │ Needs qmd installation + index              │
 ├───────────────────────────┼──────────────────┼────────────────────────────────────────────┤
 │ 5.2 ReMe Protocol         │ ✅ Enabled       │ Already implemented                         │
@@ -38,6 +40,7 @@ Focused view of key blocks and their completion status with next actions.
 | **2 Office** | ✅ Complete | ZenOffice, Jira connector (fetch/update/comment/attachment/search/watch), config bootstrap, office CLI; see BLOCK3_4_PROGRESS.md, COMPLETENESS_MATRIX.md. |
 | **3.3 ZenJournal** | ✅ Complete | ReMe protocol enabled |
 | **3.5 KB Ingestion** | ✅ Complete | All 6 acceptance criteria met |
+| **4 Factory** | ✅ Complete | CRDs, Foreman, Worker, FactoryTaskRunner, real git worktree when configured, proof-of-work, review:real, ZenGate/ZenGuardian stubs, metrics, queue status, ReMe optional. Next: optional ZenLedger wiring in Foreman for task-cost visibility; ZenLedger dashboard (4.13). See BLOCK3_4_PROGRESS.md. |
 | **5.1 QMD Population** | 🟡 Content Ready | Needs qmd installation + index |
 | **5.2 ReMe Protocol** | ✅ Enabled | Already implemented |
 | **5.3 Agent-Context Binding** | 🟡 Partial | ReMeBinder added |
@@ -50,6 +53,6 @@ Focused view of key blocks and their completion status with next actions.
 
 ## Reference
 
-- Full block progress: [BLOCK3_4_PROGRESS.md](BLOCK3_4_PROGRESS.md)
+- Full block progress: [BLOCK3_4_PROGRESS.md](BLOCK3_4_PROGRESS.md) (includes Block 4 completeness next steps)
 - QMD population: [BLOCK5_QMD_POPULATION.md](BLOCK5_QMD_POPULATION.md)
 - zen-sdk audit: [BLOCK0_5_ZEN_SDK.md](BLOCK0_5_ZEN_SDK.md)

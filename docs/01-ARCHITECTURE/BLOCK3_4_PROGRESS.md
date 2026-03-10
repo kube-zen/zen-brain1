@@ -67,7 +67,18 @@
 | **ZenGuardian** | Added | `pkg/guardian/interface.go`: ZenGuardian (RecordEvent, CheckSafety); `internal/guardian/stub.go`: StubGuardian; Foreman Reconciler optional Guardian (CheckSafety before schedule, RecordEvent after) |
 | **API auth** | Added | When `ZEN_API_KEY` set, API requires X-API-Key or Authorization: Bearer; /healthz, /readyz, / exempt. `internal/apiserver/auth.go`, Server.AuthAPIKey, cmd/apiserver |
 
-**Block 4 complete:** CRDs (BrainTask, BrainAgent, BrainQueue, BrainPolicy), Foreman with Gate + Guardian + Dispatcher, worker pool, FactoryTaskRunner, **real local git worktree manager when configured**, GitWorkspaceManager (no deferred placeholders), proof-of-work with real artifact paths and git evidence, **review:real** as canonical trustworthy lane, execution mode in outcome/annotations, observability, session-affinity, queue status, ZenContext in-cluster, ZenGate/ZenGuardian stubs. **Still out of scope for Block 4:** no remote clone/fork/PR, no distributed worktree pool, no in-cluster git cache/bare-repo manager; in-cluster Foreman/API deploy remains TBD.
+**Block 4 complete:** CRDs (BrainTask, BrainAgent, BrainQueue, BrainPolicy), Foreman with Gate + Guardian + Dispatcher, worker pool, FactoryTaskRunner, **real local git worktree manager when configured**, GitWorkspaceManager (no deferred placeholders), proof-of-work with real artifact paths and git evidence, **review:real** as canonical trustworthy lane, execution mode in outcome/annotations, observability, session-affinity, queue status, ZenContext in-cluster, ZenGate/ZenGuardian stubs. **Still out of scope for Block 4:** no remote clone/fork/PR, no distributed worktree pool, no in-cluster git cache/bare-repo manager; in-cluster Foreman/API deploy is available (see deployments/k3d/README.md).
+
+### Block 4 completeness (optional next steps)
+
+To raise Block 4 completeness further without changing scope:
+
+| Action | Description | Priority |
+|--------|-------------|----------|
+| **ZenLedger in Foreman** | When `ZEN_LEDGER_DSN` (or `LEDGER_DATABASE_URL`) is set, optionally pass a ZenLedgerClient/TokenRecorder into Foreman so task runs or LLM usage from Factory steps can be recorded (cost visibility, SR&ED, dashboards). Today zen-brain CLI wires ledger to Planner/LLM; cmd/foreman does not. | Optional |
+| **ZenLedger dashboard (4.13)** | Add Grafana dashboard or equivalent for model efficiency, cost per project, local vs API breakdown, SR&ED cost accumulator (per Construction Plan 4.13). | Optional |
+| **ZenGate beyond stub** | Replace `gate.NewStubGate()` in cmd/foreman with a real implementation that validates BrainTaskSpec and enforces BrainPolicy rules (e.g. maxCostUSD, allowedModels). PolicyAdapter already converts BrainPolicy → policy.PolicyRule. | Optional |
+| **ZenGuardian beyond stub** | Replace `guardian.NewStubGuardian()` with an implementation that records events and applies safety checks (e.g. circuit breaking, anomaly detection) when configured. | Optional |
 
 **Block 3 complete:** Message bus, state sync (ZenContext/Session/ReMe), ZenJournal, API server (sessions, health, version), KB/QMD adapter and orchestration, ZenLedger, CockroachDB provisioning.
 
@@ -97,4 +108,4 @@
 | **6.3 Local configuration** | Done | `configs/config.dev.yaml`, ZEN_BRAIN_DEV, dev defaults |
 | **6.4 Debugging guide** | Done | `docs/05-OPERATIONS/DEBUGGING.md`: workers, KB/QMD, LLM, k3d patterns |
 
-**Block 6 complete:** k3d dev cluster, make targets, local config, debugging doc. Foreman/API server in-cluster deploy remains TBD (run binaries locally with kubeconfig).
+**Block 6 complete:** k3d dev cluster, make targets, local config, debugging doc. Foreman and API server can be deployed in-cluster via `deployments/k3d/foreman.yaml` and `deployments/k3d/apiserver.yaml` (see `deployments/k3d/README.md`); image build with `make dev-image`.
