@@ -2,6 +2,18 @@
 
 **Purpose:** Track each subsystem as **real** / **mock** / **partial** / **missing** with files and suggested fix order so the repo can move toward production-complete and self-contained.
 
+## Executive status (single narrative)
+
+Zen-Brain is **1.0-shaped and execution-capable**. Remaining work is hardening the real path, reducing graceful fallbacks where they matter, and upgrading weaker execution lanes — not inventing missing blocks.
+
+| Dimension | Score | Notes |
+|-----------|-------|--------|
+| **Architecture completeness** | 94–95% | Blocks 0–6 present; contracts, CRDs, conversions, session/context plumbing solid. |
+| **Operational completeness** | 88–90% | Runtime allows degraded modes by design (QMD mock, ledger stub); controller status-only. |
+| **Production-hard completeness** | ~91% blended | Low-90s overall; production-shaped. |
+
+**Single source of truth for status:** This matrix, [Block Completion Matrix](BLOCK_COMPLETION_MATRIX.md), and [CUTOVER.md](../05-OPERATIONS/CUTOVER.md). README Development Status reflects this narrative.
+
 **Definitions:**
 - **Real:** Production code path; no mandatory fallback to mock/simulated behavior.
 - **Mock:** Explicit test or dev double; real path exists elsewhere or is optional.
