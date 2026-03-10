@@ -150,7 +150,7 @@ Comprehensive documentation is available in the `docs/` directory:
 | 5 | Intelligence | ✅ Complete |
 | 6 | Developer Experience | ✅ Available (controller status-only) |
 
-**Single source of truth for status:** [Completeness Matrix](docs/01-ARCHITECTURE/COMPLETENESS_MATRIX.md) (executive narrative and subsystem table), [Block Completion Matrix](docs/01-ARCHITECTURE/BLOCK_COMPLETION_MATRIX.md), and [Construction Plan (V6.1)](docs/01-ARCHITECTURE/CONSTRUCTION_PLAN.md).
+**Single source of truth for status:** [Completeness Matrix](docs/01-ARCHITECTURE/COMPLETENESS_MATRIX.md) (executive narrative and subsystem table) and [Construction Plan (V6.1)](docs/01-ARCHITECTURE/CONSTRUCTION_PLAN.md).
 
 ## License
 
