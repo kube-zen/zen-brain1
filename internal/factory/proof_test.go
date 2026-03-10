@@ -876,3 +876,343 @@ func containsString(s, substr string) bool {
 		return false
 	}()
 }
+
+// Enhanced Proof of Work Tests (v2 schema)
+
+// TestEnhancedProofOfWorkVersion tests that proof-of-work artifacts include v2 schema information.
+func TestEnhancedProofOfWorkVersion(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping enhanced proof test in short mode")
+	}
+
+	runtimeDir := t.TempDir()
+	powManager := NewProofOfWorkManager(runtimeDir)
+
+	result := &ExecutionResult{
+		TaskID:         "enhanced-task-1",
+		SessionID:      "enhanced-session-1",
+		WorkItemID:     "ENHANCED-001",
+		Status:         ExecutionStatusCompleted,
+		Success:        true,
+		CompletedAt:    time.Now(),
+		Duration:       5 * time.Second,
+		FilesChanged:   []string{"README.md", "main.go"},
+		WorkspacePath:  runtimeDir,
+		ExecutionSteps: []*ExecutionStep{},
+	}
+
+	// Create test files
+	testFiles := map[string]string{
+		"README.md":       "# Test Project\n",
+		"main.go":         "package main\n\nfunc main() {}\n",
+		"PROOF_OF_WORK.md": "# Proof of Work\n",
+	}
+	for file, content := range testFiles {
+		os.WriteFile(filepath.Join(runtimeDir, file), []byte(content), 0644)
+	}
+
+	spec := &FactoryTaskSpec{
+		ID:         result.TaskID,
+		SessionID:  result.SessionID,
+		WorkItemID: result.WorkItemID,
+		Title:      "Enhanced Proof Test",
+		Objective:  "Test enhanced proof-of-work with v2 schema",
+		WorkType:   "implementation",
+		WorkDomain: "real",
+		CreatedAt:  time.Now(),
+	}
+
+	ctx := context.Background()
+	artifact, err := powManager.CreateProofOfWork(ctx, result, spec)
+	if err != nil {
+		t.Fatalf("CreateProofOfWork failed: %v", err)
+	}
+	if artifact == nil {
+		t.Fatal("artifact should not be nil")
+	}
+
+	// Verify v2 schema
+	if artifact.Summary.Version != ProofSchemaVersion {
+		t.Errorf("Schema version mismatch: got %s, want %s", artifact.Summary.Version, ProofSchemaVersion)
+	}
+	if artifact.Summary.SchemaID != ProofSchemaID {
+		t.Errorf("Schema ID mismatch: got %s, want %s", artifact.Summary.SchemaID, ProofSchemaID)
+	}
+
+	// Verify environment metadata
+	if artifact.Summary.Environment == nil {
+		t.Error("Environment metadata should not be nil")
+	}
+}
+
+// TestProofOfWorkChecksums tests that checksums are generated for artifacts.
+func TestProofOfWorkChecksums(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping checksum test in short mode")
+	}
+
+	runtimeDir := t.TempDir()
+	powManager := NewProofOfWorkManager(runtimeDir)
+
+	result := &ExecutionResult{
+		TaskID:         "checksum-task-1",
+		SessionID:      "checksum-session-1",
+		WorkItemID:     "CHECKSUM-001",
+		Status:         ExecutionStatusCompleted,
+		Success:        true,
+		CompletedAt:    time.Now(),
+		Duration:       3 * time.Second,
+		FilesChanged:   []string{"test.go"},
+		WorkspacePath:  runtimeDir,
+		ExecutionSteps: []*ExecutionStep{},
+	}
+
+	spec := &FactoryTaskSpec{
+		ID:         result.TaskID,
+		SessionID:  result.SessionID,
+		WorkItemID: result.WorkItemID,
+		Title:      "Checksum Test",
+		Objective:  "Test proof-of-work checksum generation",
+		WorkType:   "implementation",
+		WorkDomain: "real",
+		CreatedAt:  time.Now(),
+	}
+
+	ctx := context.Background()
+	artifact, err := powManager.CreateProofOfWork(ctx, result, spec)
+	if err != nil {
+		t.Fatalf("CreateProofOfWork failed: %v", err)
+	}
+
+	// Verify checksums exist
+	if artifact.Summary.Checksums == nil {
+		t.Fatal("Checksums should not be nil")
+	}
+
+	if _, ok := artifact.Summary.Checksums["markdown"]; !ok {
+		t.Error("Checksums should contain 'markdown' key")
+	}
+	if _, ok := artifact.Summary.Checksums["log"]; !ok {
+		t.Error("Checksums should contain 'log' key")
+	}
+
+	// Note: JSON checksum is not stored to avoid circular reference
+
+	// Verify checksum format (64 hex characters for SHA256)
+	markdownChecksum := artifact.Summary.Checksums["markdown"]
+	if len(markdownChecksum) != 64 {
+		t.Errorf("SHA256 checksum should be 64 hex characters, got %d", len(markdownChecksum))
+	}
+
+	// Verify markdown checksum is valid by recomputing
+	validateChecksum, err := ComputeFileSHA256(artifact.MarkdownPath)
+	if err != nil {
+		t.Fatalf("ComputeFileSHA256 failed: %v", err)
+	}
+	if markdownChecksum != validateChecksum {
+		t.Errorf("Markdown checksum mismatch: expected %s, got %s", markdownChecksum, validateChecksum)
+	}
+}
+
+// TestProofOfWorkVerification tests artifact verification.
+func TestProofOfWorkVerification(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping verification test in short mode")
+	}
+
+	runtimeDir := t.TempDir()
+	powManager := NewProofOfWorkManager(runtimeDir)
+
+	result := &ExecutionResult{
+		TaskID:         "verify-task-1",
+		SessionID:      "verify-session-1",
+		WorkItemID:     "VERIFY-001",
+		Status:         ExecutionStatusCompleted,
+		Success:        true,
+		CompletedAt:    time.Now(),
+		Duration:       2 * time.Second,
+		FilesChanged:   []string{"test.go"},
+		WorkspacePath:  runtimeDir,
+		ExecutionSteps: []*ExecutionStep{},
+	}
+
+	spec := &FactoryTaskSpec{
+		ID:         result.TaskID,
+		SessionID:  result.SessionID,
+		WorkItemID: result.WorkItemID,
+		Title:      "Verification Test",
+		Objective:  "Test proof-of-work verification",
+		WorkType:   "implementation",
+		WorkDomain: "real",
+		CreatedAt:  time.Now(),
+	}
+
+	ctx := context.Background()
+	artifact, err := powManager.CreateProofOfWork(ctx, result, spec)
+	if err != nil {
+		t.Fatalf("CreateProofOfWork failed: %v", err)
+	}
+
+	// Verify artifact
+	valid, err := powManager.VerifyArtifact(ctx, artifact)
+	if err != nil {
+		t.Fatalf("VerifyArtifact failed: %v", err)
+	}
+	if !valid {
+		t.Error("Artifact should be valid")
+	}
+
+	// Tamper with markdown file (we verify markdown checksum)
+	tamperedContent := []byte(`# Tampered Markdown\n`)
+	err = os.WriteFile(artifact.MarkdownPath, tamperedContent, 0644)
+	if err != nil {
+		t.Fatalf("Failed to tamper with markdown file: %v", err)
+	}
+
+	// Re-verify - should fail
+	valid, err = powManager.VerifyArtifact(ctx, artifact)
+	if err != nil {
+		t.Fatalf("VerifyArtifact failed after tampering: %v", err)
+	}
+	if valid {
+		t.Error("Tampered artifact should be invalid")
+	}
+}
+
+// TestProofOfWorkSigning tests artifact signing.
+func TestProofOfWorkSigning(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping signing test in short mode")
+	}
+
+	runtimeDir := t.TempDir()
+	powManager := NewProofOfWorkManager(runtimeDir)
+
+	result := &ExecutionResult{
+		TaskID:         "sign-task-1",
+		SessionID:      "sign-session-1",
+		WorkItemID:     "SIGN-001",
+		Status:         ExecutionStatusCompleted,
+		Success:        true,
+		CompletedAt:    time.Now(),
+		Duration:       2 * time.Second,
+		FilesChanged:   []string{"test.go"},
+		WorkspacePath:  runtimeDir,
+		ExecutionSteps: []*ExecutionStep{},
+	}
+
+	spec := &FactoryTaskSpec{
+		ID:         result.TaskID,
+		SessionID:  result.SessionID,
+		WorkItemID: result.WorkItemID,
+		Title:      "Signing Test",
+		Objective:  "Test proof-of-work signing",
+		WorkType:   "implementation",
+		WorkDomain: "real",
+		CreatedAt:  time.Now(),
+	}
+
+	ctx := context.Background()
+	artifact, err := powManager.CreateProofOfWork(ctx, result, spec)
+	if err != nil {
+		t.Fatalf("CreateProofOfWork failed: %v", err)
+	}
+
+	// Create a mock signature
+	signature := &ArtifactSignature{
+		Algorithm: "rsa-sha256",
+		KeyID:     "test-key-001",
+		Signature: "mock-signature-for-testing",
+		Signer:    "test-signer@zen-brain",
+		SignedAt:  time.Now().Format(time.RFC3339),
+	}
+
+	// Sign the artifact
+	err = powManager.SignArtifact(ctx, artifact, signature)
+	if err != nil {
+		t.Fatalf("SignArtifact failed: %v", err)
+	}
+
+	// Verify signature is attached
+	if artifact.Summary.Signature == nil {
+		t.Fatal("Signature should not be nil after signing")
+	}
+	if artifact.Summary.Signature.Algorithm != "rsa-sha256" {
+		t.Errorf("Algorithm mismatch: got %s, want rsa-sha256", artifact.Summary.Signature.Algorithm)
+	}
+	if artifact.Summary.Signature.KeyID != "test-key-001" {
+		t.Errorf("KeyID mismatch: got %s, want test-key-001", artifact.Summary.Signature.KeyID)
+	}
+	if artifact.Summary.Signature.ProofDigest == "" {
+		t.Error("ProofDigest should not be empty")
+	}
+
+	// Debug: print both digests
+	recomputedDigest, _ := artifact.Summary.ComputeProofDigest()
+	signedDigest := artifact.Summary.Signature.ProofDigest
+	t.Logf("Recomputed digest: %s", recomputedDigest)
+	t.Logf("Signed digest: %s", signedDigest)
+
+	// Verify the artifact with signature
+	valid, err := powManager.VerifyArtifact(ctx, artifact)
+	if err != nil {
+		t.Fatalf("VerifyArtifact failed after signing: %v", err)
+	}
+	if !valid {
+		t.Error("Signed artifact should be valid")
+	}
+}
+
+// TestExecutionEnvironment tests environment metadata capture.
+func TestExecutionEnvironment(t *testing.T) {
+	env := NewExecutionEnvironment()
+
+	if env == nil {
+		t.Fatal("Environment should not be nil")
+	}
+	if env.OS == "" {
+		t.Error("OS should not be empty")
+	}
+	if env.Architecture == "" {
+		t.Error("Architecture should not be empty")
+	}
+	if env.GoVersion == "" {
+		t.Error("GoVersion should not be empty")
+	}
+	if env.Hostname == "" {
+		t.Error("Hostname should not be empty")
+	}
+	if env.Timestamp == "" {
+		t.Error("Timestamp should not be empty")
+	}
+}
+
+// TestProofDigest tests proof digest computation.
+func TestProofDigest(t *testing.T) {
+	summary := &ProofOfWorkSummary{
+		Version:    ProofSchemaVersion,
+		SchemaID:   ProofSchemaID,
+		TaskID:     "digest-test-1",
+		SessionID:  "digest-session-1",
+		WorkItemID: "DIGEST-001",
+		Title:      "Digest Test",
+		Result:     "completed",
+	}
+
+	digest, err := summary.ComputeProofDigest()
+	if err != nil {
+		t.Fatalf("ComputeProofDigest failed: %v", err)
+	}
+	if len(digest) != 64 {
+		t.Errorf("SHA256 digest should be 64 hex characters, got %d", len(digest))
+	}
+
+	// Verify digest is deterministic
+	digest2, err := summary.ComputeProofDigest()
+	if err != nil {
+		t.Fatalf("ComputeProofDigest failed second time: %v", err)
+	}
+	if digest != digest2 {
+		t.Error("Digest should be deterministic")
+	}
+}

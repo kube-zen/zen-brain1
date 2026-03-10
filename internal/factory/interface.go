@@ -105,4 +105,15 @@ type ProofOfWorkManager interface {
 
 	// CleanupProofOfWorks removes old proof-of-work artifacts.
 	CleanupProofOfWorks(ctx context.Context, olderThan time.Duration) error
+
+	// VerifyArtifact verifies the integrity of a proof-of-work artifact.
+	// Returns true if all checksums are valid, false otherwise.
+	VerifyArtifact(ctx context.Context, artifact *ProofOfWorkArtifact) (bool, error)
+
+	// GenerateChecksums generates SHA256 checksums for all artifact files.
+	GenerateChecksums(ctx context.Context, artifact *ProofOfWorkArtifact) (map[string]string, error)
+
+	// SignArtifact signs a proof-of-work artifact with the provided signature info.
+	// This is optional - artifacts can exist without signatures.
+	SignArtifact(ctx context.Context, artifact *ProofOfWorkArtifact, signature *ArtifactSignature) error
 }

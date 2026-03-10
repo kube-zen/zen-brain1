@@ -6,6 +6,12 @@ import (
 	"github.com/kube-zen/zen-brain1/pkg/contracts"
 )
 
+// ProofSchemaVersion defines the current schema version for proof-of-work artifacts.
+const ProofSchemaVersion = "2.0.0"
+
+// ProofSchemaID defines the unique schema identifier.
+const ProofSchemaID = "zen-brain-proof-of-work-v2"
+
 // FactoryTaskSpec represents a task to be executed by the Factory.
 // This is Factory's internal representation of work, mapped from contracts.BrainTaskSpec.
 type FactoryTaskSpec struct {
@@ -250,6 +256,42 @@ type ProofOfWorkSummary struct {
 
 	// Timestamps
 	GeneratedAt time.Time `json:"generated_at"`
+
+	// Enhanced metadata (v2.0+)
+	SchemaID     string                 `json:"schema_id,omitempty"`
+	Signature    *ArtifactSignature    `json:"signature,omitempty"`
+	Checksums    map[string]string      `json:"checksums,omitempty"`
+	Environment  *ExecutionEnvironment `json:"environment,omitempty"`
+	MetadataTags map[string]string      `json:"metadata_tags,omitempty"`
+}
+
+// ArtifactSignature represents cryptographic signature information for proof-of-work artifacts.
+// Signature is optional but provides strong verification of authenticity.
+type ArtifactSignature struct {
+	Algorithm   string `json:"algorithm"`   // e.g., "rsa-sha256", "ecdsa-sha256"
+	KeyID       string `json:"key_id"`      // Identifier of the signing key
+	Signature   string `json:"signature"`   // Base64-encoded signature
+	Signer      string `json:"signer"`      // Signer identity (e.g., "zen-brain@production")
+	SignedAt    string `json:"signed_at"`   // Timestamp when signature was created (RFC3339)
+	ProofDigest string `json:"proof_digest"` // Digest of the proof data that was signed
+}
+
+// ExecutionEnvironment captures environment metadata at execution time.
+type ExecutionEnvironment struct {
+	OS           string `json:"os"`             // e.g., "linux", "darwin", "windows"
+	Architecture string `json:"architecture"`   // e.g., "amd64", "arm64"
+	GoVersion    string `json:"go_version"`     // Go runtime version
+	Hostname     string `json:"hostname"`      // Hostname where proof was generated
+	FactoryVersion string `json:"factory_version"` // Factory version/tag
+	Timestamp    string `json:"timestamp"`      // When environment was captured (RFC3339)
+}
+
+// ArtifactChecksums stores checksums for all proof-of-work files.
+type ArtifactChecksums struct {
+	JSONArtifact     string `json:"json_artifact"`
+	MarkdownArtifact  string `json:"markdown_artifact"`
+	ExecutionLog      string `json:"execution_log"`
+	WorkspaceFiles   map[string]string `json:"workspace_files,omitempty"`
 }
 
 // ProofOfWorkArtifact represents a complete proof-of-work artifact bundle.

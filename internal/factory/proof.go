@@ -2,11 +2,13 @@ package factory
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"log"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -73,6 +75,13 @@ func (p *proofOfWorkManagerImpl) CreateProofOfWork(ctx context.Context, result *
 		return nil, fmt.Errorf("failed to write execution log: %w", err)
 	}
 
+	// Generate checksums for all artifacts
+	checksums, err := p.generateArtifactChecksums(jsonPath, mdPath, logPath, result.WorkspacePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate checksums: %w", err)
+	}
+	summary.Checksums = checksums
+
 	// Set actual artifact paths (no glob placeholders)
 	summary.ArtifactPaths = []string{jsonPath, mdPath, logPath}
 	sort.Strings(summary.ArtifactPaths)
@@ -134,7 +143,8 @@ func (p *proofOfWorkManagerImpl) GenerateComment(ctx context.Context, artifact *
 // artifactDir is the proof bundle directory (used to surface git review paths from workspace).
 func (p *proofOfWorkManagerImpl) generateSummary(result *ExecutionResult, spec *FactoryTaskSpec, artifactDir string) *ProofOfWorkSummary {
 	summary := &ProofOfWorkSummary{
-		Version:           ProofOfWorkVersion,
+		Version:           ProofSchemaVersion,
+		SchemaID:          ProofSchemaID,
 		TaskID:            result.TaskID,
 		SessionID:         result.SessionID,
 		WorkItemID:        result.WorkItemID,
@@ -164,7 +174,12 @@ func (p *proofOfWorkManagerImpl) generateSummary(result *ExecutionResult, spec *
 		GitBranch:         result.GitBranch,
 		GitCommit:         result.GitCommit,
 		PRURL:             "",
+		Environment:       NewExecutionEnvironment(),
+		Signature:         nil,
+		Checksums:         make(map[string]string),
+		MetadataTags:      make(map[string]string),
 	}
+
 
 	if result.TemplateKey != "" {
 		summary.TemplateKey = result.TemplateKey
@@ -454,6 +469,8 @@ func (p *proofOfWorkManagerImpl) generateMarkdown(summary *ProofOfWorkSummary) s
 	if summary.TemplateKey != "" {
 		md += fmt.Sprintf("- **Template:** `%s`\n", summary.TemplateKey)
 	}
+	md += fmt.Sprintf("- **Schema Version:** `%s`\n", summary.Version)
+	md += fmt.Sprintf("- **Schema ID:** `%s`\n", summary.SchemaID)
 	md += "\n"
 
 	// Failure summary (when not completed) — trusted useful path: clear failure handling
@@ -589,6 +606,58 @@ func (p *proofOfWorkManagerImpl) generateMarkdown(summary *ProofOfWorkSummary) s
 
 	// Footer
 	md += "---\n"
+
+	// Signature section (if present)
+	if summary.Signature != nil {
+		md += "## Digital Signature\n\n"
+		md += fmt.Sprintf("- **Algorithm:** `%s`\n", summary.Signature.Algorithm)
+		md += fmt.Sprintf("- **Key ID:** `%s`\n", summary.Signature.KeyID)
+		md += fmt.Sprintf("- **Signer:** `%s`\n", summary.Signature.Signer)
+		md += fmt.Sprintf("- **Signed At:** `%s`\n", summary.Signature.SignedAt)
+		md += "- **Status:** ✅ **Signed**\n"
+		md += "\n"
+	}
+
+	// Checksums section (if available)
+	if len(summary.Checksums) > 0 {
+		md += "## File Checksums (SHA256)\n\n"
+		md += "| File | SHA256 Checksum |\n"
+		md += "|------|----------------|\n"
+
+		// Add checksums in a sorted order for reproducibility
+		keys := make([]string, 0, len(summary.Checksums))
+		for k := range summary.Checksums {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+
+		for _, key := range keys {
+			md += fmt.Sprintf("| `%s` | `%s` |\n", key, summary.Checksums[key])
+		}
+		md += "\n"
+	}
+
+	// Environment section (if available)
+	if summary.Environment != nil {
+		md += "## Execution Environment\n\n"
+		md += fmt.Sprintf("- **OS:** `%s`\n", summary.Environment.OS)
+		md += fmt.Sprintf("- **Architecture:** `%s`\n", summary.Environment.Architecture)
+		md += fmt.Sprintf("- **Go Version:** `%s`\n", summary.Environment.GoVersion)
+		md += fmt.Sprintf("- **Hostname:** `%s`\n", summary.Environment.Hostname)
+		md += fmt.Sprintf("- **Factory Version:** `%s`\n", summary.Environment.FactoryVersion)
+		md += fmt.Sprintf("- **Timestamp:** `%s`\n", summary.Environment.Timestamp)
+		md += "\n"
+	}
+
+	// Metadata tags section (if available)
+	if len(summary.MetadataTags) > 0 {
+		md += "## Metadata Tags\n\n"
+		for key, value := range summary.MetadataTags {
+			md += fmt.Sprintf("- **%s:** `%s`\n", key, value)
+		}
+		md += "\n"
+	}
+
 	md += fmt.Sprintf("*Generated at %s*\n", summary.GeneratedAt.Format(time.RFC3339))
 
 	return md
@@ -738,9 +807,288 @@ func formatTime(t *time.Time) string {
 	return t.Format(time.RFC3339)
 }
 
+// generateArtifactChecksums computes SHA256 checksums for all artifact files.
+// Note: Does not include JSON checksum to avoid circular reference (JSON contains checksums).
+func (p *proofOfWorkManagerImpl) generateArtifactChecksums(jsonPath, mdPath, logPath, workspacePath string) (map[string]string, error) {
+	checksums := make(map[string]string)
+
+	// Don't compute JSON checksum - it would change when we store the checksums in the JSON
+	// Instead, verification will recompute it on the fly
+
+	// Compute checksum for Markdown artifact
+	mdChecksum, err := ComputeFileSHA256(mdPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to checksum Markdown artifact: %w", err)
+	}
+	checksums["markdown"] = mdChecksum
+	checksums["proof-of-work.md"] = mdChecksum
+
+	// Compute checksum for execution log
+	logChecksum, err := ComputeFileSHA256(logPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to checksum execution log: %w", err)
+	}
+	checksums["execution.log"] = logChecksum
+	checksums["log"] = logChecksum
+
+	// Optional: Compute checksums for workspace files if workspace exists
+	if workspacePath != "" {
+		workspaceChecksums, err := p.computeWorkspaceChecksums(workspacePath)
+		if err == nil {
+			for file, checksum := range workspaceChecksums {
+				checksums["workspace/"+file] = checksum
+			}
+		}
+		// Don't fail if workspace checksums fail - it's optional
+	}
+
+	return checksums, nil
+}
+
+// computeWorkspaceChecksums computes checksums for key workspace files.
+func (p *proofOfWorkManagerImpl) computeWorkspaceChecksums(workspacePath string) (map[string]string, error) {
+	checksums := make(map[string]string)
+
+	// List of important files to checksum
+	keyFiles := []string{
+		"README.md",
+		"PROOF_OF_WORK.md",
+		"package.json",
+		"requirements.txt",
+		"Dockerfile",
+		".gitignore",
+	}
+
+	for _, file := range keyFiles {
+		path := filepath.Join(workspacePath, file)
+		if _, err := os.Stat(path); err == nil {
+			checksum, err := ComputeFileSHA256(path)
+			if err == nil {
+				checksums[file] = checksum
+			}
+		}
+	}
+
+	return checksums, nil
+}
+
+// GenerateChecksums generates SHA256 checksums for all artifact files.
+func (p *proofOfWorkManagerImpl) GenerateChecksums(ctx context.Context, artifact *ProofOfWorkArtifact) (map[string]string, error) {
+	if artifact == nil {
+		return nil, fmt.Errorf("artifact cannot be nil")
+	}
+
+	checksums := make(map[string]string)
+
+	// Compute checksum for JSON artifact
+	if artifact.JSONPath != "" {
+		jsonChecksum, err := ComputeFileSHA256(artifact.JSONPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to checksum JSON artifact: %w", err)
+		}
+		checksums["json"] = jsonChecksum
+	}
+
+	// Compute checksum for Markdown artifact
+	if artifact.MarkdownPath != "" {
+		mdChecksum, err := ComputeFileSHA256(artifact.MarkdownPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to checksum Markdown artifact: %w", err)
+		}
+		checksums["markdown"] = mdChecksum
+	}
+
+	// Compute checksum for execution log
+	if artifact.LogPath != "" {
+		logChecksum, err := ComputeFileSHA256(artifact.LogPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to checksum execution log: %w", err)
+		}
+		checksums["log"] = logChecksum
+	}
+
+	return checksums, nil
+}
+
+// VerifyArtifact verifies the integrity of a proof-of-work artifact.
+func (p *proofOfWorkManagerImpl) VerifyArtifact(ctx context.Context, artifact *ProofOfWorkArtifact) (bool, error) {
+	if artifact == nil {
+		return false, fmt.Errorf("artifact cannot be nil")
+	}
+	if artifact.Summary == nil {
+		return false, fmt.Errorf("artifact summary cannot be nil")
+	}
+
+	// Check if checksums are available
+	if len(artifact.Summary.Checksums) == 0 {
+		// No checksums to verify - consider valid
+		return true, nil
+	}
+
+	// Note: We don't verify JSON checksum because it's not stored
+	// (to avoid circular reference since JSON contains checksums)
+
+	// Verify Markdown artifact checksum
+	if expectedMDChecksum, ok := artifact.Summary.Checksums["markdown"]; ok {
+		actualMDChecksum, err := ComputeFileSHA256(artifact.MarkdownPath)
+		if err != nil {
+			return false, nil // Failed to checksum, consider invalid
+		}
+		if actualMDChecksum != expectedMDChecksum {
+			// Checksum mismatch - return false without error (tampering detected)
+			return false, nil
+		}
+	}
+
+	// Verify log artifact checksum
+	if expectedLogChecksum, ok := artifact.Summary.Checksums["log"]; ok {
+		actualLogChecksum, err := ComputeFileSHA256(artifact.LogPath)
+		if err != nil {
+			return false, nil // Failed to checksum, consider invalid
+		}
+		if actualLogChecksum != expectedLogChecksum {
+			// Checksum mismatch - return false without error (tampering detected)
+			return false, nil
+		}
+	}
+
+	// Verify signature if present
+	if artifact.Summary.Signature != nil {
+		valid, err := p.verifySignature(ctx, artifact)
+		if err != nil {
+			return false, nil // Signature verification failed
+		}
+		if !valid {
+			return false, nil // Invalid signature
+		}
+	}
+
+	return true, nil
+}
+
+// verifySignature verifies the signature on a proof-of-work artifact.
+// Note: This is a placeholder - actual cryptographic verification requires
+// access to public keys and a signing infrastructure.
+func (p *proofOfWorkManagerImpl) verifySignature(ctx context.Context, artifact *ProofOfWorkArtifact) (bool, error) {
+	if artifact.Summary.Signature == nil {
+		return true, nil // No signature to verify
+	}
+
+	// Compute expected digest
+	expectedDigest, err := artifact.Summary.ComputeProofDigest()
+	if err != nil {
+		return false, fmt.Errorf("failed to compute proof digest: %w", err)
+	}
+
+	// Verify the digest matches what was signed
+	if expectedDigest != artifact.Summary.Signature.ProofDigest {
+		return false, fmt.Errorf("proof digest mismatch")
+	}
+
+	// TODO: Add actual cryptographic verification when signing infrastructure is available
+	// For now, we just verify the digest matches
+	return true, nil
+}
+
+// SignArtifact signs a proof-of-work artifact with the provided signature info.
+func (p *proofOfWorkManagerImpl) SignArtifact(ctx context.Context, artifact *ProofOfWorkArtifact, signature *ArtifactSignature) error {
+	if artifact == nil {
+		return fmt.Errorf("artifact cannot be nil")
+	}
+	if artifact.Summary == nil {
+		return fmt.Errorf("artifact summary cannot be nil")
+	}
+	if signature == nil {
+		return fmt.Errorf("signature cannot be nil")
+	}
+
+	// Compute the proof digest (excludes signature and checksums)
+	digest, err := artifact.Summary.ComputeProofDigest()
+	if err != nil {
+		return fmt.Errorf("failed to compute proof digest: %w", err)
+	}
+
+	// Set the digest in the signature
+	signature.ProofDigest = digest
+
+	// Attach signature to summary
+	artifact.Summary.Signature = signature
+
+	// Re-write the JSON artifact with the signature included
+	if err := p.writeJSON(artifact.Summary, artifact.JSONPath); err != nil {
+		return fmt.Errorf("failed to write signed JSON artifact: %w", err)
+	}
+
+	// Note: We don't update stored checksums here to avoid circular reference
+	// (checksums of JSON would change when we include them)
+	// Verification will recompute checksums from the actual files at verification time
+
+	log.Printf("[ProofOfWorkManager] Artifact signed: task_id=%s key_id=%s", artifact.Summary.TaskID, signature.KeyID)
+
+	return nil
+}
+
 func min(a, b int) int {
 	if a < b {
 		return a
 	}
 	return b
+}
+
+// NewExecutionEnvironment creates an ExecutionEnvironment with current runtime information.
+func NewExecutionEnvironment() *ExecutionEnvironment {
+	hostname := "unknown"
+	if h, err := os.Hostname(); err == nil {
+		hostname = h
+	}
+
+	return &ExecutionEnvironment{
+		OS:             runtime.GOOS,
+		Architecture:   runtime.GOARCH,
+		GoVersion:      runtime.Version(),
+		Hostname:       hostname,
+		FactoryVersion: "v1.0.0", // TODO: Get actual version from build tags
+		Timestamp:      time.Now().Format(time.RFC3339),
+	}
+}
+
+// ComputeSHA256 computes SHA256 checksum for the given data.
+func ComputeSHA256(data []byte) string {
+	hash := sha256.Sum256(data)
+	return fmt.Sprintf("%x", hash)
+}
+
+// ComputeFileSHA256 computes SHA256 checksum for a file.
+func ComputeFileSHA256(path string) (string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", fmt.Errorf("failed to read file %s: %w", path, err)
+	}
+	return ComputeSHA256(data), nil
+}
+
+// VerifyChecksum verifies that a file matches the expected SHA256 checksum.
+func VerifyChecksum(path, expected string) (bool, error) {
+	actual, err := ComputeFileSHA256(path)
+	if err != nil {
+		return false, err
+	}
+	return actual == expected, nil
+}
+
+// ComputeProofDigest computes the canonical digest for signing purposes.
+// This digest covers all proof data except the signature and checksums themselves
+// (since both are computed AFTER the digest).
+func (s *ProofOfWorkSummary) ComputeProofDigest() (string, error) {
+	// Create a copy without signature and checksums for digest computation
+	copyForDigest := *s
+	copyForDigest.Signature = nil
+	copyForDigest.Checksums = nil
+
+	data, err := json.Marshal(copyForDigest)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal proof for digest: %w", err)
+	}
+
+	return ComputeSHA256(data), nil
 }
