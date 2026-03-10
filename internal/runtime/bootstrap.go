@@ -3,6 +3,7 @@ package runtime
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/kube-zen/zen-brain1/internal/config"
@@ -81,6 +82,7 @@ func configToZenContextConfig(c *config.ZenContextConfig) *internalcontext.ZenCo
 	}
 	if out.Tier1Redis.Addr == "" {
 		out.Tier1Redis.Addr = "localhost:6379"
+		log.Printf("[Bootstrap] Using default Redis address: %s (set TIER1_REDIS_ADDR to override)", out.Tier1Redis.Addr)
 	}
 	// Tier2 QMD
 	out.Tier2QMD = &internalcontext.QMDConfig{
