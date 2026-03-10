@@ -269,6 +269,20 @@ func (r *WorkTypeTemplateRegistry) registerRealImplementationTemplate() {
 				MaxRetries:  2,
 			},
 			{
+				Name:        "build",
+				Description: "Build the project (real go build when go.mod present)",
+				Variables:   map[string]string{},
+				Timeout:     120,
+				MaxRetries:  1,
+			},
+			{
+				Name:        "Run tests",
+				Description: "Run tests (real go test when go.mod present)",
+				Variables:   map[string]string{},
+				Timeout:     180,
+				MaxRetries:  1,
+			},
+			{
 				Name:        "Generate proof-of-work summary",
 				Description: "Create summary of work done",
 				Command:     "echo '# Proof of Work\n\nWork Item: {{.work_item_id}}\nTitle: {{.title}}\n' > PROOF_OF_WORK.md && echo 'Proof of work generated' > .pow_generated",
