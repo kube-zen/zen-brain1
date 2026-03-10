@@ -2,7 +2,10 @@ package factory
 
 import (
 	"context"
+	"crypto/hmac"
 	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -94,6 +97,13 @@ func (p *proofOfWorkManagerImpl) CreateProofOfWork(ctx context.Context, result *
 		LogPath:      logPath,
 		Summary:      summary,
 		CreatedAt:    time.Now(),
+	}
+
+	// Optional: sign artifact when ZEN_PROOF_SIGNING_KEY is set (HMAC-SHA256)
+	if key := os.Getenv("ZEN_PROOF_SIGNING_KEY"); key != "" {
+		if err := p.signArtifactWithHMAC(ctx, artifact, key); err != nil {
+			log.Printf("[ProofOfWorkManager] Signing failed (artifact still valid): %v", err)
+		}
 	}
 
 	log.Printf("[ProofOfWorkManager] Created proof-of-work: task_id=%s artifact=%s", result.TaskID, artifactDir)
@@ -967,27 +977,60 @@ func (p *proofOfWorkManagerImpl) VerifyArtifact(ctx context.Context, artifact *P
 	return true, nil
 }
 
+// signArtifactWithHMAC signs the artifact with HMAC-SHA256 using the given secret (e.g. from ZEN_PROOF_SIGNING_KEY).
+func (p *proofOfWorkManagerImpl) signArtifactWithHMAC(ctx context.Context, artifact *ProofOfWorkArtifact, secret string) error {
+	digest, err := artifact.Summary.ComputeProofDigest()
+	if err != nil {
+		return fmt.Errorf("compute proof digest: %w", err)
+	}
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write([]byte(digest))
+	sigBytes := mac.Sum(nil)
+	keyIDHash := sha256.Sum256([]byte(secret))
+	keyID := hex.EncodeToString(keyIDHash[:])
+	if len(keyID) > 8 {
+		keyID = keyID[:8]
+	}
+	sig := &ArtifactSignature{
+		Algorithm:   "HMAC-SHA256",
+		KeyID:       keyID,
+		Signature:   base64.StdEncoding.EncodeToString(sigBytes),
+		Signer:      "zen-brain",
+		SignedAt:    time.Now().UTC().Format(time.RFC3339),
+		ProofDigest: digest,
+	}
+	return p.SignArtifact(ctx, artifact, sig)
+}
+
 // verifySignature verifies the signature on a proof-of-work artifact.
-// Note: This is a placeholder - actual cryptographic verification requires
-// access to public keys and a signing infrastructure.
 func (p *proofOfWorkManagerImpl) verifySignature(ctx context.Context, artifact *ProofOfWorkArtifact) (bool, error) {
 	if artifact.Summary.Signature == nil {
-		return true, nil // No signature to verify
+		return true, nil
 	}
-
-	// Compute expected digest
+	sig := artifact.Summary.Signature
 	expectedDigest, err := artifact.Summary.ComputeProofDigest()
 	if err != nil {
 		return false, fmt.Errorf("failed to compute proof digest: %w", err)
 	}
-
-	// Verify the digest matches what was signed
-	if expectedDigest != artifact.Summary.Signature.ProofDigest {
+	if expectedDigest != sig.ProofDigest {
 		return false, fmt.Errorf("proof digest mismatch")
 	}
-
-	// Deferred: full cryptographic verification when signing infrastructure is available (zen-sdk or internal).
-	// For now, we verify the digest matches only.
+	if sig.Algorithm == "HMAC-SHA256" {
+		key := os.Getenv("ZEN_PROOF_SIGNING_KEY")
+		if key == "" {
+			return true, nil
+		}
+		got, err := base64.StdEncoding.DecodeString(sig.Signature)
+		if err != nil {
+			return false, fmt.Errorf("invalid signature base64: %w", err)
+		}
+		mac := hmac.New(sha256.New, []byte(key))
+		mac.Write([]byte(sig.ProofDigest))
+		expected := mac.Sum(nil)
+		if !hmac.Equal(got, expected) {
+			return false, fmt.Errorf("HMAC verification failed")
+		}
+	}
 	return true, nil
 }
 
@@ -1021,9 +1064,6 @@ func (p *proofOfWorkManagerImpl) SignArtifact(ctx context.Context, artifact *Pro
 	}
 
 	// Note: We don't update stored checksums here to avoid circular reference
-	// (checksums of JSON would change when we include them)
-	// Verification will recompute checksums from the actual files at verification time
-
 	log.Printf("[ProofOfWorkManager] Artifact signed: task_id=%s key_id=%s", artifact.Summary.TaskID, signature.KeyID)
 
 	return nil
