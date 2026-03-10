@@ -15,7 +15,7 @@ Steps in these templates are **scaffold/echo** by default: they run shell comman
 - **Lint:** **“lint”**, **“go vet”**, **“vet”** → runs **real** `go vet ./...` when `go.mod` exists; otherwise skipped.
 - **Format:** **“format”**, **“fmt”**, **“gofmt”** → runs **real** `gofmt -l -w .` when `go.mod` exists; otherwise skipped.
 
-So for any work type that uses those step names (and leaves `Command` unset), execution is **real** for Go workspaces; all other steps in `work_templates.go` remain echo/scaffold unless a template sets an explicit real `Command`.
+So for any work type that uses those step names (and leaves `Command` unset), execution is **real** for Go workspaces; all other steps in `work_templates.go` remain echo/scaffold unless a template sets an explicit real `Command`. Feature, bug-fix, refactor, and test plans now include **format**, **lint**, **build**, and **Run tests** steps where applicable.
 
 ## Tier 2: “Useful” templates (real artifacts)
 
@@ -23,11 +23,11 @@ So for any work type that uses those step names (and leaves `Command` unset), ex
 
 Templates registered here are labeled **real**: they create actual files and directories in the workspace, for example:
 
-- **Real implementation:** `cmd/main.go`, `README.md`, `docs/API.md`, `cmd/main_test.go`, `PROOF_OF_WORK.md`, directory layout (`cmd`, `internal`, `pkg`, `docs`, `tests`).
+- **Real implementation:** `cmd/main.go`, `README.md`, `docs/API.md`, `cmd/main_test.go`, `PROOF_OF_WORK.md`, directory layout (`cmd`, `internal`, `pkg`, `docs`, `tests`). Also includes **build** and **Run tests** steps (real when `go.mod` present).
 - **Real documentation:** `docs/README.md`, `examples/example.md`, proof-of-work summary.
 - **Real bug fix / refactor / Python / review:** similar real file creation and edits.
 
-All steps in these templates run shell commands that write files (e.g. `echo '...' > file`, `mkdir -p ...`). The **“Run tests”** / **“go test”** step name is still overridden by BoundedExecutor to run real `go test ./...` when `go.mod` is present.
+All steps in these templates run shell commands that write files (e.g. `echo '...' > file`, `mkdir -p ...`), except steps named **build** or **Run tests** which have no `Command` and are overridden by BoundedExecutor to run real `go build ./...` and `go test ./...` when `go.mod` is present.
 
 ## Summary
 

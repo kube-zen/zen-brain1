@@ -33,6 +33,13 @@ func (r *WorkTypeTemplateRegistry) registerBugFixTemplates() {
 				MaxRetries:  2,
 			},
 			{
+				Name:        "format",
+				Description: "Format code (real gofmt when go.mod present)",
+				Variables:   map[string]string{},
+				Timeout:     30,
+				MaxRetries:  1,
+			},
+			{
 				Name:        "lint",
 				Description: "Run static checks (real go vet when go.mod present)",
 				Variables:   map[string]string{},
@@ -90,6 +97,13 @@ func (r *WorkTypeTemplateRegistry) registerFeatureTemplates() {
 				MaxRetries:  2,
 			},
 			{
+				Name:        "format",
+				Description: "Format code (real gofmt when go.mod present)",
+				Variables:   map[string]string{},
+				Timeout:     30,
+				MaxRetries:  1,
+			},
+			{
 				Name:        "lint",
 				Description: "Run static checks (real go vet when go.mod present)",
 				Variables:   map[string]string{},
@@ -145,6 +159,13 @@ func (r *WorkTypeTemplateRegistry) registerRefactorTemplates() {
 				Variables:   map[string]string{},
 				Timeout:     300,
 				MaxRetries:  2,
+			},
+			{
+				Name:        "format",
+				Description: "Format code (real gofmt when go.mod present)",
+				Variables:   map[string]string{},
+				Timeout:     30,
+				MaxRetries:  1,
 			},
 			{
 				Name:        "lint",
@@ -215,6 +236,13 @@ func (r *WorkTypeTemplateRegistry) registerTestTemplates() {
 				Variables:   map[string]string{},
 				Timeout:     240,
 				MaxRetries:  2,
+			},
+			{
+				Name:        "format",
+				Description: "Format code (real gofmt when go.mod present)",
+				Variables:   map[string]string{},
+				Timeout:     30,
+				MaxRetries:  1,
 			},
 			{
 				Name:        "Run tests",

@@ -43,7 +43,7 @@
 
 **Recovery / next steps:**
 
-- See [ITEM2_MAKE_SLICE_MORE_USEFUL.md](./ITEM2_MAKE_SLICE_MORE_USEFUL.md). Optional: schema version in proof markdown, extra state continuity (e.g. workspace file list in proof).
+- See [COMPLETENESS_MATRIX.md](./COMPLETENESS_MATRIX.md) and [REMAINING_DRAGS.md](./REMAINING_DRAGS.md). Optional: schema version in proof markdown, extra state continuity (e.g. workspace file list in proof).
 
 ---
 
@@ -77,7 +77,7 @@
 **Recovery / next steps:**
 
 - Shipped: review work type template (`review`/`real`) in factory; analyzer uses prompt manager and `work_item_analysis` template (Task 5 wire). Optional: Jira/ticket knowledge rescue.
-- Reuse: Office Manager, Factory templates, proof-of-work artifacts, and [ITEM3_INTELLIGENCE_MINING.md](./ITEM3_INTELLIGENCE_MINING.md) for patterns.
+- Reuse: Office Manager, Factory templates, proof-of-work artifacts, and [COMPLETENESS_MATRIX.md](./COMPLETENESS_MATRIX.md) (Intelligence row) for patterns.
 
 ---
 
@@ -99,9 +99,9 @@
 | Task | Doc / code |
 |------|------------|
 | 1 – Prove slice locally | [VERTICAL_SLICE_PROGRESS.md](./VERTICAL_SLICE_PROGRESS.md), [runner.go](../../internal/runner/runner.go), `vertical-slice` command |
-| 2 – Trusted useful path | [ITEM2_MAKE_SLICE_MORE_USEFUL.md](./ITEM2_MAKE_SLICE_MORE_USEFUL.md), factory templates |
+| 2 – Trusted useful path | [COMPLETENESS_MATRIX.md](./COMPLETENESS_MATRIX.md), [FACTORY_TEMPLATE_TIERS.md](./FACTORY_TEMPLATE_TIERS.md), factory templates |
 | 3 – Session/context glue | [ZEN_CONTEXT.md](../03-DESIGN/ZEN_CONTEXT.md), [session/manager.go](../../internal/session/manager.go), [pkg/context](../../pkg/context/) |
-| 4 – 0.1 rescue batch | Office/Jira, [ITEM3_INTELLIGENCE_MINING.md](./ITEM3_INTELLIGENCE_MINING.md), [ITEM5_MLQ_PROVIDER.md](./ITEM5_MLQ_PROVIDER.md), proof templates, watchdog |
+| 4 – 0.1 rescue batch | Office/Jira, [REMAINING_DRAGS.md](./REMAINING_DRAGS.md) (Intelligence/Factory), proof templates, watchdog |
 | 5 – MLQ/provider practical | [internal/llm](../../internal/llm/), [fallback_chain.go](../../internal/llm/routing/fallback_chain.go) |
 
 **Build:** `go build ./...` from repo root. Fix any regressions in `internal/runner` or contracts/llm types before adding new behavior.
