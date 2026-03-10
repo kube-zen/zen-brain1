@@ -91,6 +91,11 @@ dev-down: ## Stop k3d cluster
 dev-logs: ## Tail logs from all pods
 	kubectl logs -f --all-containers -l app.kubernetes.io/part-of=zen-brain --tail=100
 
+dev-clean: ## Reset databases (local Docker: db-reset; for k3d full reset run dev-down then dev-up)
+	$(MAKE) db-reset
+
+dev-build: build-all ## Build all binaries (foreman, apiserver, zen-brain). To load image into k3d: docker build -t zen-brain:dev . && k3d image import zen-brain:dev -c zen-brain-dev (when Dockerfile exists)
+
 ## Code generation
 
 generate: ## Generate code (CRDs, deepcopy) - requires controller-gen
