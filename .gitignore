@@ -14,9 +14,10 @@ demo_qmd.go
 # Test binary, built with `go test -c`
 *.test
 
-# Output of the go coverage tool, specifically when used with LiteIDE
+# Output of the go coverage tool (canonical path: .artifacts/coverage/)
 *.out
 coverage.out
+.artifacts/
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
