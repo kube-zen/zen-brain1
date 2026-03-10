@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -221,9 +222,16 @@ func NewGateway(config *GatewayConfig) (*Gateway, error) {
 }
 
 // registerBuiltinProviders registers the built-in providers.
+// When OLLAMA_BASE_URL is set, the local-worker lane uses a real Ollama provider; otherwise the simulated LocalWorkerProvider is used.
 func (g *Gateway) registerBuiltinProviders() error {
-	// Register local worker provider
-	localWorker := NewLocalWorkerProvider(g.config.LocalWorkerModel, g.config.LocalWorkerTimeout)
+	var localWorker llm.Provider
+	if baseURL := os.Getenv("OLLAMA_BASE_URL"); baseURL != "" {
+		localWorker = NewOllamaProvider(baseURL, g.config.LocalWorkerModel, g.config.LocalWorkerTimeout)
+		log.Printf("[LLM Gateway] local-worker lane: Ollama at %s (model=%s)", baseURL, g.config.LocalWorkerModel)
+	} else {
+		localWorker = NewLocalWorkerProvider(g.config.LocalWorkerModel, g.config.LocalWorkerTimeout)
+		log.Printf("[LLM Gateway] local-worker lane: simulated (set OLLAMA_BASE_URL for real Ollama)")
+	}
 	if err := g.RegisterProvider("local-worker", localWorker); err != nil {
 		return fmt.Errorf("failed to register local worker provider: %w", err)
 	}
