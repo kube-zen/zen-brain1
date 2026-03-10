@@ -31,14 +31,21 @@ type PatternStore interface {
 	// GetDurationStats retrieves duration statistics for a work type.
 	GetDurationStats(ctx context.Context, workType, workDomain string) (*DurationStatistics, error)
 
+	// GetFailureStats retrieves failure statistics for a work type/domain.
+	GetFailureStats(ctx context.Context, workType, workDomain string) (*FailureStatistics, error)
+
+	// GetAllFailureStats retrieves all failure statistics.
+	GetAllFailureStats(ctx context.Context) ([]FailureStatistics, error)
+
 	// ClearPatterns clears all stored patterns.
 	ClearPatterns(ctx context.Context) error
 }
 
 // JSONPatternStore is a file-based pattern store using JSON.
 type JSONPatternStore struct {
-	storeDir string
-	mu       sync.RWMutex
+	storeDir     string
+	failureStore FailureStore
+	mu           sync.RWMutex
 }
 
 // NewJSONPatternStore creates a new JSON-based pattern store.
@@ -47,8 +54,14 @@ func NewJSONPatternStore(storeDir string) (*JSONPatternStore, error) {
 		return nil, fmt.Errorf("failed to create pattern store directory: %w", err)
 	}
 
+	failureStore, err := NewJSONFailureStore(storeDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create failure store: %w", err)
+	}
+
 	return &JSONPatternStore{
-		storeDir: storeDir,
+		storeDir:     storeDir,
+		failureStore: failureStore,
 	}, nil
 }
 
@@ -89,8 +102,15 @@ func (s *JSONPatternStore) StorePatterns(ctx context.Context, result *MiningResu
 		}
 	}
 
-	log.Printf("[PatternStore] Stored patterns: %d work types, %d templates, %d duration stats",
-		len(result.WorkTypeStatistics), len(result.TemplateStatistics), len(result.DurationStatistics))
+	// Store failure statistics
+	for _, stats := range result.FailureStatistics {
+		if err := s.failureStore.StoreFailureStats(ctx, &stats); err != nil {
+			return fmt.Errorf("failed to write failure stats: %w", err)
+		}
+	}
+
+	log.Printf("[PatternStore] Stored patterns: %d work types, %d templates, %d duration stats, %d failure stats",
+		len(result.WorkTypeStatistics), len(result.TemplateStatistics), len(result.DurationStatistics), len(result.FailureStatistics))
 
 	return nil
 }
@@ -198,6 +218,16 @@ func (s *JSONPatternStore) GetDurationStats(ctx context.Context, workType, workD
 	return &stats, nil
 }
 
+// GetFailureStats retrieves failure statistics for a work type/domain.
+func (s *JSONPatternStore) GetFailureStats(ctx context.Context, workType, workDomain string) (*FailureStatistics, error) {
+	return s.failureStore.GetFailureStats(ctx, workType, workDomain)
+}
+
+// GetAllFailureStats retrieves all failure statistics.
+func (s *JSONPatternStore) GetAllFailureStats(ctx context.Context) ([]FailureStatistics, error) {
+	return s.failureStore.GetAllFailureStats(ctx)
+}
+
 // ClearPatterns clears all stored patterns.
 func (s *JSONPatternStore) ClearPatterns(ctx context.Context) error {
 	s.mu.Lock()
@@ -265,6 +295,7 @@ type InMemoryPatternStore struct {
 	workTypeStats map[string]*WorkTypeStatistics
 	templateStats map[string]*TemplateStatistics
 	durationStats map[string]*DurationStatistics
+	failureStats  map[string]*FailureStatistics
 	miningResult  *MiningResult
 	mu            sync.RWMutex
 }
@@ -275,6 +306,7 @@ func NewInMemoryPatternStore() *InMemoryPatternStore {
 		workTypeStats: make(map[string]*WorkTypeStatistics),
 		templateStats: make(map[string]*TemplateStatistics),
 		durationStats: make(map[string]*DurationStatistics),
+		failureStats:  make(map[string]*FailureStatistics),
 	}
 }
 
@@ -303,6 +335,16 @@ func (s *InMemoryPatternStore) StorePatterns(ctx context.Context, result *Mining
 		key := fmt.Sprintf("%s-%s", stats.WorkType, stats.WorkDomain)
 		copied := stats
 		s.durationStats[key] = &copied
+	}
+
+	// Store failure statistics (for testing, allow access via GetAllFailureStats)
+	for _, stats := range result.FailureStatistics {
+		key := fmt.Sprintf("%s-%s", stats.WorkType, stats.WorkDomain)
+		if stats.TemplateName != "" {
+			key = fmt.Sprintf("%s-%s-%s", stats.WorkType, stats.WorkDomain, stats.TemplateName)
+		}
+		copied := stats
+		s.failureStats[key] = &copied
 	}
 
 	return nil
@@ -366,6 +408,31 @@ func (s *InMemoryPatternStore) GetDurationStats(ctx context.Context, workType, w
 	stats, exists := s.durationStats[key]
 	if !exists {
 		return nil, fmt.Errorf("duration stats not found: %s", key)
+	}
+	return stats, nil
+}
+
+// GetFailureStats retrieves failure statistics for a work type/domain.
+func (s *InMemoryPatternStore) GetFailureStats(ctx context.Context, workType, workDomain string) (*FailureStatistics, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	key := fmt.Sprintf("%s-%s", workType, workDomain)
+	stats, exists := s.failureStats[key]
+	if !exists {
+		return nil, fmt.Errorf("failure stats not found: %s/%s", workType, workDomain)
+	}
+	return stats, nil
+}
+
+// GetAllFailureStats retrieves all failure statistics.
+func (s *InMemoryPatternStore) GetAllFailureStats(ctx context.Context) ([]FailureStatistics, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	stats := make([]FailureStatistics, 0, len(s.failureStats))
+	for _, stat := range s.failureStats {
+		stats = append(stats, *stat)
 	}
 	return stats, nil
 }
