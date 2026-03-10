@@ -11,6 +11,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
@@ -45,7 +46,7 @@ func main() {
 	var reuseSessionWorktree bool
 	var clusterID string
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "Address for metrics.")
-	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "Address for health probes.")
+	flag.StringVar(&probeAddr, "health-probe-bind-address", "0.0.0.0:8081", "Address for health probes.")
 	flag.IntVar(&numWorkers, "workers", 2, "Number of worker goroutines for task execution (Block 4.3).")
 	flag.StringVar(&runtimeDir, "factory-runtime-dir", envStr("ZEN_FOREMAN_RUNTIME_DIR", "/tmp/zen-brain-factory"), "Runtime dir for Factory workspaces and proof-of-work.")
 	flag.StringVar(&workspaceHome, "factory-workspace-home", envStr("ZEN_FOREMAN_WORKSPACE_HOME", "/tmp/zen-brain-factory"), "Workspace home for Factory (workspaces created under <home>/workspaces).")
@@ -63,6 +64,9 @@ func main() {
 	guardianCircuitMax := flag.Int("guardian-circuit-max-per-session-per-min", envInt("ZEN_FOREMAN_GUARDIAN_CIRCUIT_MAX_PER_SESSION_PER_MIN", 0), "Max tasks per session per minute when guardian=circuit-breaker; 0 = no limit.")
 	flag.Parse()
 
+	// Set up controller-runtime logger using klog
+	ctrl.SetLogger(klog.NewKlogr())
+
 	ctx := ctrl.SetupSignalHandler()
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
@@ -73,7 +77,7 @@ func main() {
 		HealthProbeBindAddress: probeAddr,
 	})
 	if err != nil {
-		os.Exit(1)
+		log.Fatalf("Foreman: failed to create manager: %v", err)
 	}
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		log.Fatalf("Foreman: failed to add healthz check: %v", err)
@@ -81,6 +85,7 @@ func main() {
 	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
 		log.Fatalf("Foreman: failed to add readyz check: %v", err)
 	}
+	log.Printf("Foreman: manager created, health probe server on %s", probeAddr)
 
 	cfg := foreman.FactoryTaskRunnerConfig{
 		RuntimeDir:            runtimeDir,
