@@ -24,24 +24,35 @@ type BrainPolicy struct {
 // BrainPolicySpec defines the desired state of the policy.
 type BrainPolicySpec struct {
 	// Rules are policy rules (e.g. require approval for execute_task above cost threshold).
+	// +optional
 	Rules []PolicyRuleSpec `json:"rules,omitempty"`
 	// DefaultApprovalLevel is the default approval level when RequiresApproval is true.
+	// +optional
+	// +kubebuilder:validation:MinLength=1
 	DefaultApprovalLevel string `json:"defaultApprovalLevel,omitempty"`
 	// BudgetLimitUSD is the default per-project budget cap in USD (0 = no cap).
+	// +optional
+	// +kubebuilder:validation:Minimum=0
 	BudgetLimitUSD float64 `json:"budgetLimitUSD,omitempty"`
 }
 
 // PolicyRuleSpec defines a single policy rule.
 type PolicyRuleSpec struct {
 	// Name is a short name for the rule.
+	// +kubebuilder:validation:MinLength=1
 	Name string `json:"name"`
 	// Action is the action this rule applies to (e.g. execute_task, call_llm).
+	// +kubebuilder:validation:MinLength=1
 	Action string `json:"action"`
 	// RequiresApproval when true requires human approval before the action.
+	// +optional
 	RequiresApproval bool `json:"requiresApproval,omitempty"`
 	// MaxCostUSD is the max cost in USD for a single call (0 = no limit).
+	// +optional
+	// +kubebuilder:validation:Minimum=0
 	MaxCostUSD float64 `json:"maxCostUSD,omitempty"`
 	// AllowedModels restricts to these model IDs when set (empty = all).
+	// +optional
 	AllowedModels []string `json:"allowedModels,omitempty"`
 }
 

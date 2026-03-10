@@ -64,8 +64,9 @@ Structured definitions of data types and interfaces that cross component boundar
 |------|---------|---------------|
 | `docs/02‑CONTRACTS/DATA_MODEL.md` | Canonical data types and tags | WorkItem, WorkType, SREDTag, AIAttribution, etc. |
 | `pkg/contracts/` | Go types for contracts | Programmatic representation of the data model |
+| `pkg/contracts/validate.go`, `normalize.go` | Validation and normalization | Enforceable rules: valid enums, required fields, no duplicates, non‑negative numbers |
 
-**Rule:** The Go types in `pkg/contracts/` are the executable source of truth; the markdown document is a human‑friendly rendering. Keep them synchronized.
+**Rule:** The Go types in `pkg/contracts/` are the executable source of truth; the markdown document is a human‑friendly rendering. Keep them synchronized. Contract/API drift is guarded by tests in `pkg/contracts/compat_test.go`, `api/v1alpha1/contract_sync_test.go`, and optional `pkg/contracts/doc_sync_test.go`.
 
 ### 5. Knowledge Base (`zen‑docs` repository)
 
@@ -121,10 +122,13 @@ When a canonical source changes, derived artifacts must be updated:
 
 | Change In | Update Required In |
 |-----------|-------------------|
-| `pkg/contracts/*.go` | `docs/02‑CONTRACTS/DATA_MODEL.md`, any generated code |
+| `pkg/contracts/*.go` | `docs/02‑CONTRACTS/DATA_MODEL.md`, any generated code, `api/v1alpha1` conversion if types change |
+| `api/v1alpha1/*_types.go` | `pkg/contracts` (only add CRD fields that mirror contracts), `deployments/crds/` via `make generate`, conversion helpers in `api/v1alpha1/conversion.go` |
 | `docs/01‑ARCHITECTURE/CONSTRUCTION_PLAN.md` | README, CONTRIBUTING, other docs that reference it |
 | `zen‑docs` repository | QMD index, Confluence mirror (if enabled) |
 | `configs/` | Deployment manifests, environment‑specific overrides |
+
+**BrainPolicy:** BrainPolicy CRD is translated into canonical `pkg/policy.PolicyRule` objects via `internal/policyadapter` (ValidateBrainPolicySpec, ConvertBrainPolicyRule, ConvertBrainPolicy). Policy engine loading should use this adapter so that BrainPolicy is a real source of policy rules.
 
 ## Verification
 

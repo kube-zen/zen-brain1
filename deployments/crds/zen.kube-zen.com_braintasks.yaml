@@ -69,17 +69,43 @@ spec:
                 type: array
               description:
                 type: string
-              estimatedCost:
+              estimatedCostUSD:
+                minimum: 0
+                type: number
+              evidenceRequirement:
+                description: EvidenceRequirement and SR&ED fields (canonical with
+                  contracts.BrainTaskSpec).
+                enum:
+                - none
+                - summary
+                - logs
+                - diff
+                - test_results
+                - full_artifact
+                type: string
+              hypothesis:
+                type: string
+              id:
+                description: ID is the task identifier (canonical with contracts.BrainTaskSpec).
                 type: string
               kbScopes:
                 items:
                   type: string
                 type: array
               maxRetries:
+                minimum: 0
                 type: integer
               objective:
+                minLength: 1
                 type: string
               priority:
+                description: Priority represents normalized priority (not Jira-native).
+                enum:
+                - critical
+                - high
+                - medium
+                - low
+                - background
                 type: string
               queueName:
                 description: QueueName is the name of the BrainQueue to use for scheduling
@@ -87,26 +113,58 @@ spec:
                 type: string
               sessionID:
                 description: SessionID links this task to a work session.
+                minLength: 1
                 type: string
               sourceKey:
                 description: SourceKey is the external key (e.g. Jira PROJ-123).
                 type: string
+              sredTags:
+                items:
+                  description: SREDTag represents SR&ED uncertainty categories.
+                  type: string
+                type: array
+                uniqueItems: true
               timeoutSeconds:
                 format: int64
+                minimum: 0
                 type: integer
               title:
+                minLength: 1
                 type: string
               workDomain:
+                description: WorkDomain represents which part of the system this affects.
+                enum:
+                - office
+                - factory
+                - sdk
+                - policy
+                - memory
+                - observability
+                - infrastructure
+                - integration
+                - core
                 type: string
               workItemID:
                 description: WorkItemID is the source work item identifier.
+                minLength: 1
                 type: string
               workType:
+                description: WorkType represents the kind of work.
+                enum:
+                - research
+                - design
+                - implementation
+                - debug
+                - refactor
+                - documentation
+                - analysis
+                - operations
+                - security
+                - testing
                 type: string
             required:
             - objective
             - sessionID
-            - sourceKey
             - title
             - workDomain
             - workItemID

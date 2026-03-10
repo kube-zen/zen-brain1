@@ -24,10 +24,14 @@ type BrainAgent struct {
 // BrainAgentSpec defines the desired state of a worker agent.
 type BrainAgentSpec struct {
 	// ModelID is the LLM model this agent uses (e.g. qwen3.5:0.8b, glm-4.7).
+	// +kubebuilder:validation:MinLength=1
 	ModelID string `json:"modelID"`
 	// Role is the agent role (e.g. implementer, planner).
+	// +optional
 	Role string `json:"role,omitempty"`
 	// MaxConcurrentTasks is the maximum number of tasks this agent can run at once.
+	// +optional
+	// +kubebuilder:validation:Minimum=0
 	MaxConcurrentTasks int `json:"maxConcurrentTasks,omitempty"`
 }
 

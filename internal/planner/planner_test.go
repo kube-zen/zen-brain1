@@ -151,6 +151,14 @@ func (m *mockSessionManager) CleanupStaleSessions(ctx context.Context, maxAge ti
 	return 0, nil
 }
 
+func (m *mockSessionManager) UpdateExecutionCheckpoint(ctx context.Context, sessionID string, checkpoint *session.ExecutionCheckpoint) error {
+	return nil
+}
+
+func (m *mockSessionManager) GetExecutionCheckpoint(ctx context.Context, sessionID string) (*session.ExecutionCheckpoint, error) {
+	return nil, nil
+}
+
 func (m *mockSessionManager) Close() error {
 	return nil
 }

@@ -92,8 +92,23 @@ The `contracts` package is the clear winner for enforcing architectural boundari
 - [ADR‑0001](0001_STRUCTURED_TAGS.md) – Structured tags are defined in `contracts.WorkTags`.
 - [ADR‑0002](0002_SRED_TAXONOMY.md) – SREDTag enum is defined in `contracts`.
 
+## Follow‑up: Validation and API Alignment (Block 1 completeness)
+
+After this ADR, Block 1 completeness added:
+
+- **Validation/normalization:** `pkg/contracts/validate.go` and `normalize.go` provide explicit enum checks, `ValidateWorkItem`, `ValidateBrainTaskSpec`, `ValidateWorkTags`, `ValidateExecutionConstraints`, and normalization (trim, sort, dedupe). No silent guessing; parse helpers return errors for unknown values.
+- **CRD/contract alignment:** `api/v1alpha1.BrainTaskSpec` now uses `contracts.WorkType`, `contracts.WorkDomain`, `contracts.Priority`, `EstimatedCostUSD` (float64), and adds `EvidenceRequirement`, `SREDTags`, `Hypothesis`. Conversion is centralized in `api/v1alpha1/conversion.go` (`BrainTaskSpecFromContract`, `ToContract`).
+- **CRD validations:** Kubebuilder markers enforce enums, min length, and minimum values on BrainTask, BrainPolicy, BrainQueue, BrainAgent, ZenProject, ZenCluster.
+- **BrainPolicy → policy:** `internal/policyadapter` converts BrainPolicy CRD into `pkg/policy.PolicyRule` (action, require_approval, cost/model conditions).
+- **Drift guards:** Tests in `pkg/contracts/compat_test.go`, `api/v1alpha1/contract_sync_test.go`, and optional `doc_sync_test.go` catch contract/API/doc drift.
+
+**Still out of scope (Block 1 patch):** no full policy engine implementation, no admission webhook, no versioned migration framework for v1beta1, no generated external OpenAPI/JSON schema artifact.
+
 ## References
 
 - Construction Plan, Section “Block 1: The Neuro‑Anatomy”
 - `pkg/contracts/contracts.go` – canonical type definitions
+- `pkg/contracts/validate.go`, `normalize.go` – validation and normalization
+- `api/v1alpha1/conversion.go` – CRD ↔ contract conversion
+- `internal/policyadapter/brainpolicy.go` – BrainPolicy → PolicyRule
 - `go.mod` – no internal dependencies

@@ -52,10 +52,12 @@ spec:
               budgetLimitUSD:
                 description: BudgetLimitUSD is the default per-project budget cap
                   in USD (0 = no cap).
+                minimum: 0
                 type: number
               defaultApprovalLevel:
                 description: DefaultApprovalLevel is the default approval level when
                   RequiresApproval is true.
+                minLength: 1
                 type: string
               rules:
                 description: Rules are policy rules (e.g. require approval for execute_task
@@ -66,6 +68,7 @@ spec:
                     action:
                       description: Action is the action this rule applies to (e.g.
                         execute_task, call_llm).
+                      minLength: 1
                       type: string
                     allowedModels:
                       description: AllowedModels restricts to these model IDs when
@@ -76,9 +79,11 @@ spec:
                     maxCostUSD:
                       description: MaxCostUSD is the max cost in USD for a single
                         call (0 = no limit).
+                      minimum: 0
                       type: number
                     name:
                       description: Name is a short name for the rule.
+                      minLength: 1
                       type: string
                     requiresApproval:
                       description: RequiresApproval when true requires human approval

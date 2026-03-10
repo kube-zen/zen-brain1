@@ -55,6 +55,7 @@ spec:
                 description: MaxConcurrency is the max tasks that can be in-flight
                   from this queue (0 = unbounded).
                 format: int32
+                minimum: 0
                 type: integer
               priority:
                 description: Priority is relative priority (higher = more preferred).

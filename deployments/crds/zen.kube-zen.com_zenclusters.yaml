@@ -58,6 +58,7 @@ spec:
               auth_ref:
                 description: AuthRef is a reference to a Kubernetes Secret containing
                   kubeconfig
+                minLength: 1
                 type: string
               capacity:
                 description: Capacity defines the cluster's resource capacity
@@ -65,22 +66,27 @@ spec:
                   cpu_cores:
                     description: CPUCores is the total CPU cores available
                     format: int64
+                    minimum: 0
                     type: integer
                   gpus:
                     description: GPUs is the number of GPUs available
                     format: int64
+                    minimum: 0
                     type: integer
                   memory_gb:
                     description: MemoryGB is the total memory in GB available
                     format: int64
+                    minimum: 0
                     type: integer
                   storage_gb:
                     description: StorageGB is the total storage in GB available
                     format: int64
+                    minimum: 0
                     type: integer
                 type: object
               endpoint:
                 description: Endpoint is the Kubernetes API server endpoint
+                minLength: 1
                 type: string
               labels:
                 additionalProperties:
@@ -113,18 +119,22 @@ spec:
                   cpu_cores:
                     description: CPUCores is the total CPU cores available
                     format: int64
+                    minimum: 0
                     type: integer
                   gpus:
                     description: GPUs is the number of GPUs available
                     format: int64
+                    minimum: 0
                     type: integer
                   memory_gb:
                     description: MemoryGB is the total memory in GB available
                     format: int64
+                    minimum: 0
                     type: integer
                   storage_gb:
                     description: StorageGB is the total storage in GB available
                     format: int64
+                    minimum: 0
                     type: integer
                 type: object
               conditions:

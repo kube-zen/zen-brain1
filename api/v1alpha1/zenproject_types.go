@@ -10,34 +10,45 @@ import (
 // ZenProjectSpec defines the desired state of ZenProject
 type ZenProjectSpec struct {
 	// DisplayName is the human-readable name of the project
+	// +kubebuilder:validation:MinLength=1
 	DisplayName string `json:"display_name"`
 
 	// ClusterRef is the name of the ZenCluster where this project runs
+	// +kubebuilder:validation:MinLength=1
 	ClusterRef string `json:"cluster_ref"`
 
 	// RepoURLs are the Git repository URLs for this project
+	// +optional
 	RepoURLs []string `json:"repo_urls,omitempty"`
 
 	// KBScopes are the knowledge base scopes for this project
 	// Example: ["zen-brain", "general", "company"]
+	// +optional
 	KBScopes []string `json:"kb_scopes,omitempty"`
 
 	// SREDTags are the SR&ED uncertainty categories for this project
+	// +optional
 	SREDTags []contracts.SREDTag `json:"sred_tags,omitempty"`
 
 	// FundingPrograms are the funding programs this project participates in
+	// +optional
 	FundingPrograms []string `json:"funding_programs,omitempty"`
 
 	// SREDDisabled indicates whether SR&ED evidence collection is disabled for this project
+	// +optional
 	SREDDisabled bool `json:"sred_disabled,omitempty"`
 
 	// AutoGenerateFundingReports indicates whether funding reports should be auto-generated
+	// +optional
 	AutoGenerateFundingReports bool `json:"auto_generate_funding_reports,omitempty"`
 
 	// CostBudgetUSD is the monthly budget limit in USD
+	// +optional
+	// +kubebuilder:validation:Minimum=0
 	CostBudgetUSD float64 `json:"cost_budget_usd,omitempty"`
 
 	// Metadata contains additional project metadata
+	// +optional
 	Metadata map[string]string `json:"metadata,omitempty"`
 }
 
