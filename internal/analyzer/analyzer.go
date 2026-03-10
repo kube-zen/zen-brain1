@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	internalllm "github.com/kube-zen/zen-brain1/internal/llm"
 	"github.com/kube-zen/zen-brain1/pkg/contracts"
 	"github.com/kube-zen/zen-brain1/pkg/kb"
 	"github.com/kube-zen/zen-brain1/pkg/llm"
@@ -15,10 +16,11 @@ import (
 
 // DefaultAnalyzer is the default implementation of IntentAnalyzer.
 type DefaultAnalyzer struct {
-	config   *Config
-	llm      llm.Provider
-	kbStore  kb.Store
-	pipeline []StageProcessor
+	config        *Config
+	llm           llm.Provider
+	kbStore       kb.Store
+	promptManager *internalllm.PromptManager
+	pipeline      []StageProcessor
 }
 
 // StageProcessor processes a single stage of analysis.
@@ -38,9 +40,10 @@ func New(config *Config, llmProvider llm.Provider, kbStore kb.Store) (*DefaultAn
 	}
 
 	analyzer := &DefaultAnalyzer{
-		config:  config,
-		llm:     llmProvider,
-		kbStore: kbStore,
+		config:        config,
+		llm:           llmProvider,
+		kbStore:       kbStore,
+		promptManager: internalllm.InitializeDefaultManager(),
 	}
 
 	// Build pipeline based on enabled stages
@@ -58,17 +61,17 @@ func (a *DefaultAnalyzer) buildPipeline() {
 
 		switch stage {
 		case StageClassification:
-			processor = &classificationStage{llm: a.llm}
+			processor = &classificationStage{llm: a.llm, promptManager: a.promptManager}
 		case StageRequirements:
-			processor = &requirementsStage{llm: a.llm}
+			processor = &requirementsStage{llm: a.llm, promptManager: a.promptManager}
 		case StageBreakdown:
-			processor = &breakdownStage{llm: a.llm}
+			processor = &breakdownStage{llm: a.llm, promptManager: a.promptManager}
 		case StageEvidence:
-			processor = &evidenceStage{llm: a.llm}
+			processor = &evidenceStage{llm: a.llm, promptManager: a.promptManager}
 		case StageCostEstimation:
-			processor = &costEstimationStage{llm: a.llm, config: a.config}
+			processor = &costEstimationStage{llm: a.llm, config: a.config, promptManager: a.promptManager}
 		case StageFinalization:
-			processor = &finalizationStage{llm: a.llm}
+			processor = &finalizationStage{llm: a.llm, promptManager: a.promptManager}
 		default:
 			log.Printf("Warning: Unknown stage %s, skipping", stage)
 			continue

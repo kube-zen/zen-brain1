@@ -5,13 +5,15 @@ import (
 	"fmt"
 	"strings"
 
+	internalllm "github.com/kube-zen/zen-brain1/internal/llm"
 	"github.com/kube-zen/zen-brain1/pkg/contracts"
 	"github.com/kube-zen/zen-brain1/pkg/llm"
 )
 
 // classificationStage classifies work items.
 type classificationStage struct {
-	llm llm.Provider
+	llm           llm.Provider
+	promptManager *internalllm.PromptManager
 }
 
 func (s *classificationStage) Name() Stage {
@@ -19,42 +21,32 @@ func (s *classificationStage) Name() Stage {
 }
 
 func (s *classificationStage) Process(ctx context.Context, workItem *contracts.WorkItem, prevResults map[Stage]StageResult) (StageResult, error) {
-	prompt := fmt.Sprintf(`Analyze the following work item and classify it:
+	// Use template-based prompt
+	template, err := s.promptManager.GetTemplate("classification")
+	if err != nil {
+		return StageResult{Stage: StageClassification, Confidence: 0.0}, fmt.Errorf("failed to get classification template: %w", err)
+	}
 
-Title: %s
-Description: %s
-Source: %s (Issue: %s)
+	// Prepare template variables
+	variables := map[string]string{
+		"title":        workItem.Title,
+		"description":  workItem.Body,
+		"source_system": workItem.Source.System,
+		"issue_key":    workItem.Source.IssueKey,
+	}
 
-Please classify this work item by answering the following questions:
-
-1. What is the primary work type? (research, design, implementation, debug, refactor, documentation, analysis, operations, security, testing)
-2. What is the work domain? (office, factory, sdk, policy, memory, observability, infrastructure, integration, core)
-3. What is the appropriate priority? (critical, high, medium, low, background)
-4. What knowledge base scopes are relevant? (comma-separated list)
-5. Confidence in classification (0.0-1.0)
-
-Format your response as:
-WorkType: <type>
-WorkDomain: <domain>
-Priority: <priority>
-KBScopes: <scope1, scope2, ...>
-Confidence: <confidence>
-
-Example:
-WorkType: implementation
-WorkDomain: core
-Priority: medium
-KBScopes: api-gateway, rate-limiting
-Confidence: 0.85`,
-		workItem.Title, workItem.Body, workItem.Source.System, workItem.Source.IssueKey)
+	systemMsg, userMsg, err := template.Render(variables)
+	if err != nil {
+		return StageResult{Stage: StageClassification, Confidence: 0.0}, fmt.Errorf("failed to render classification template: %w", err)
+	}
 
 	req := llm.ChatRequest{
 		Messages: []llm.Message{
-			{Role: "system", Content: "You are a software engineering classifier. Be precise and consistent."},
-			{Role: "user", Content: prompt},
+			{Role: "system", Content: systemMsg},
+			{Role: "user", Content: userMsg},
 		},
-		MaxTokens:   500,
-		Temperature: 0.1,
+		MaxTokens:   template.MaxTokens,
+		Temperature: template.Temperature,
 	}
 
 	resp, err := s.llm.Chat(ctx, req)
@@ -104,7 +96,8 @@ Confidence: 0.85`,
 
 // requirementsStage extracts requirements and constraints.
 type requirementsStage struct {
-	llm llm.Provider
+	llm           llm.Provider
+	promptManager *internalllm.PromptManager
 }
 
 func (s *requirementsStage) Name() Stage {
@@ -112,31 +105,30 @@ func (s *requirementsStage) Name() Stage {
 }
 
 func (s *requirementsStage) Process(ctx context.Context, workItem *contracts.WorkItem, prevResults map[Stage]StageResult) (StageResult, error) {
-	prompt := fmt.Sprintf(`Extract requirements and constraints from this work item:
+	// Use template-based prompt
+	template, err := s.promptManager.GetTemplate("requirements")
+	if err != nil {
+		return StageResult{Stage: StageRequirements, Confidence: 0.0}, fmt.Errorf("failed to get requirements template: %w", err)
+	}
 
-Title: %s
-Description: %s
+	// Prepare template variables
+	variables := map[string]string{
+		"title":       workItem.Title,
+		"description": workItem.Body,
+	}
 
-Please extract:
-1. Clear objective (what needs to be done)
-2. Acceptance criteria (list of conditions for success)
-3. Constraints (technical, time, resource, or other limitations)
-4. Dependencies (other work items or systems this depends on)
-
-Format your response as:
-Objective: <clear objective statement>
-AcceptanceCriteria: <criterion 1>; <criterion 2>; ...
-Constraints: <constraint 1>; <constraint 2>; ...
-Dependencies: <dependency 1>; <dependency 2>; ...`,
-		workItem.Title, workItem.Body)
+	systemMsg, userMsg, err := template.Render(variables)
+	if err != nil {
+		return StageResult{Stage: StageRequirements, Confidence: 0.0}, fmt.Errorf("failed to render requirements template: %w", err)
+	}
 
 	req := llm.ChatRequest{
 		Messages: []llm.Message{
-			{Role: "system", Content: "You are a requirements analyst. Extract clear, actionable requirements."},
-			{Role: "user", Content: prompt},
+			{Role: "system", Content: systemMsg},
+			{Role: "user", Content: userMsg},
 		},
-		MaxTokens:   1000,
-		Temperature: 0.1,
+		MaxTokens:   template.MaxTokens,
+		Temperature: template.Temperature,
 	}
 
 	resp, err := s.llm.Chat(ctx, req)
@@ -188,7 +180,8 @@ Dependencies: <dependency 1>; <dependency 2>; ...`,
 
 // breakdownStage breaks down work into subtasks.
 type breakdownStage struct {
-	llm llm.Provider
+	llm           llm.Provider
+	promptManager *internalllm.PromptManager
 }
 
 func (s *breakdownStage) Name() Stage {
@@ -275,7 +268,8 @@ Subtasks:
 
 // evidenceStage determines evidence requirements and SR&ED hypothesis.
 type evidenceStage struct {
-	llm llm.Provider
+	llm           llm.Provider
+	promptManager *internalllm.PromptManager
 }
 
 func (s *evidenceStage) Name() Stage {
@@ -363,8 +357,9 @@ EvidenceRequirements: <requirement1; requirement2; ...>`,
 
 // costEstimationStage estimates cost.
 type costEstimationStage struct {
-	llm    llm.Provider
-	config *Config
+	llm           llm.Provider
+	config        *Config
+	promptManager *internalllm.PromptManager
 }
 
 func (s *costEstimationStage) Name() Stage {
@@ -431,7 +426,8 @@ func (s *costEstimationStage) Process(ctx context.Context, workItem *contracts.W
 
 // finalizationStage produces final analysis.
 type finalizationStage struct {
-	llm llm.Provider
+	llm           llm.Provider
+	promptManager *internalllm.PromptManager
 }
 
 func (s *finalizationStage) Name() Stage {

@@ -25,6 +25,7 @@ func main() {
 	}
 	srv.Handle("/api/v1/sessions", apiserver.SessionsHandler(nil))
 	srv.Handle("/api/v1/health", apiserver.HealthDetailHandler(nil))
+	srv.Handle("/api/v1/evidence", apiserver.EvidenceHandler(nil)) // optional: pass evidence.Vault when available
 	if v := os.Getenv("API_VERSION"); v != "" {
 		srv.Handle("/api/v1/version", apiserver.VersionHandler(v))
 	} else {

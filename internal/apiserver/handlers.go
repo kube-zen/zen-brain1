@@ -1,4 +1,4 @@
-// Package apiserver provides REST handlers for Block 3.4 API (sessions, health detail).
+// Package apiserver provides REST handlers for Block 3.4 API (sessions, health detail, evidence).
 package apiserver
 
 import (
@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/kube-zen/zen-brain1/internal/evidence"
 	"github.com/kube-zen/zen-brain1/internal/session"
 )
 
@@ -98,6 +99,33 @@ func VersionHandler(version string) http.Handler {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(VersionInfo{Service: "zen-brain-apiserver", Version: version})
+	})
+}
+
+// EvidenceHandler returns an http.Handler that lists evidence by session_id (GET /api/v1/evidence?session_id=xxx).
+// When vault is nil, returns 503. Optional for API completeness (Block 5 evidence).
+func EvidenceHandler(vault evidence.Vault) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		if vault == nil {
+			http.Error(w, "evidence not available", http.StatusServiceUnavailable)
+			return
+		}
+		sessionID := r.URL.Query().Get("session_id")
+		if sessionID == "" {
+			http.Error(w, "session_id query required", http.StatusBadRequest)
+			return
+		}
+		list, err := vault.GetBySession(r.Context(), sessionID)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{"evidence": list, "count": len(list)})
 	})
 }
 

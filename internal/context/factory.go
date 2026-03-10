@@ -154,6 +154,25 @@ func NewZenContext(config *ZenContextConfig) (zenctx.ZenContext, error) {
 	return composite, nil
 }
 
+// NewMinimalZenContext creates a ZenContext with only Tier 1 (Redis). Used when full tier stack is not needed (e.g. Foreman with ReMe).
+func NewMinimalZenContext(redisURL, clusterID string) (zenctx.ZenContext, error) {
+	if redisURL == "" {
+		return nil, fmt.Errorf("redis URL is required")
+	}
+	if clusterID == "" {
+		clusterID = "default"
+	}
+	config := &ZenContextConfig{
+		Tier1Redis: &tier1.RedisConfig{URL: redisURL},
+		ClusterID:  clusterID,
+	}
+	hotStore, err := createTier1Store(config)
+	if err != nil {
+		return nil, err
+	}
+	return NewComposite(&Config{Hot: hotStore})
+}
+
 // createTier1Store creates the Redis-based Tier 1 store.
 func createTier1Store(config *ZenContextConfig) (Store, error) {
 	if config.Tier1Redis == nil {
