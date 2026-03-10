@@ -58,3 +58,11 @@ The Construction Plan also lists the following. They are **not yet imported** in
 - [x] No local replacement package for receiptlog, dedup, retry, health, store, scheduler exists without an approved ADR
 
 **Block 0.5 is complete** for the current scope: all mandatory reuse points are satisfied; dlq/observability/leader/logging/events/crypto are documented as deferred.
+
+---
+
+## Completeness (tracking)
+
+- **CUTOVER.md:** Block 0.5 milestone is marked complete (SDK audit done; see above).
+- **BLOCK_COMPLETION_MATRIX.md:** Block 0.5 appears as ✅ Complete; next action is to implement deferred packages when the corresponding features are built (dlq for failed tasks/messages, observability for tracing, leader for HA, etc.).
+- **Lifting completeness further:** To move from “complete with deferred” to “more reuse in use,” wire one or more of the deferred zen-sdk packages when adding the related feature (e.g. `pkg/dlq` when implementing DLQ for message bus or task failures; `pkg/observability` when standardizing tracing; `pkg/logging` when standardizing log format).
