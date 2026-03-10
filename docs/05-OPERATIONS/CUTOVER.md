@@ -84,4 +84,4 @@ Standard paths:
 - [x] Block 2: Office (ZenOffice, Jira connector, Intent Analyzer, Session Manager, Planner, Gatekeeper; see [BLOCK3_4_PROGRESS.md](../01-ARCHITECTURE/BLOCK3_4_PROGRESS.md))
 - [x] Block 3: Nervous System (Message bus, ZenJournal, API server, KB/QMD, ZenLedger, CockroachDB; see [BLOCK3_4_PROGRESS.md](../01-ARCHITECTURE/BLOCK3_4_PROGRESS.md))
 - [x] Block 4: Factory (CRDs, Foreman, Worker, FactoryTaskRunner, real git worktree when configured, proof-of-work, review:real, ZenGate/ZenGuardian stubs, metrics; optional next steps in [BLOCK3_4_PROGRESS.md](../01-ARCHITECTURE/BLOCK3_4_PROGRESS.md#block-4-completeness-optional-next-steps) and [BLOCK_COMPLETION_MATRIX.md](../01-ARCHITECTURE/BLOCK_COMPLETION_MATRIX.md))
-- [x] Block 6: Developer Experience (k3d cluster, make dev-up/dev-image, in-cluster Foreman + API server via [deployments/k3d/](../deployments/k3d/README.md))
+- [x] Block 6: Developer Experience (k3d cluster, make dev-up/dev-image, in-cluster Foreman + API server via [deployments/k3d/](../../deployments/k3d/README.md))
