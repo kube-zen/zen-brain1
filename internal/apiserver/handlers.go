@@ -12,6 +12,7 @@ import (
 	"github.com/kube-zen/zen-brain1/internal/evidence"
 	"github.com/kube-zen/zen-brain1/internal/runtime"
 	"github.com/kube-zen/zen-brain1/internal/session"
+	"github.com/kube-zen/zen-brain1/pkg/contracts"
 )
 
 // SessionSummary is a minimal session view for the API.
@@ -35,7 +36,18 @@ type SessionDetailResponse struct {
 	UpdatedAt string `json:"updated_at,omitempty"`
 }
 
-// SessionsHandler returns an http.Handler that lists sessions (GET with optional limit query).
+// isValidSessionState returns true for known session states (used for query param validation).
+func isValidSessionState(s contracts.SessionState) bool {
+	switch s {
+	case contracts.SessionStateCreated, contracts.SessionStateAnalyzed, contracts.SessionStateScheduled,
+		contracts.SessionStateInProgress, contracts.SessionStateCompleted, contracts.SessionStateFailed,
+		contracts.SessionStateBlocked, contracts.SessionStateCanceled:
+		return true
+	}
+	return false
+}
+
+// SessionsHandler returns an http.Handler that lists sessions (GET with optional limit, state, work_item_id query).
 // If manager is nil, returns 503.
 func SessionsHandler(manager session.Manager) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -51,6 +63,17 @@ func SessionsHandler(manager session.Manager) http.Handler {
 		if limit := r.URL.Query().Get("limit"); limit != "" {
 			if n, err := strconv.Atoi(limit); err == nil && n > 0 && n <= 200 {
 				filter.Limit = n
+			}
+		}
+		if state := r.URL.Query().Get("state"); state != "" {
+			if s := contracts.SessionState(strings.TrimSpace(strings.ToLower(state))); isValidSessionState(s) {
+				filter.State = &s
+			}
+		}
+		if workItemID := r.URL.Query().Get("work_item_id"); workItemID != "" {
+			s := strings.TrimSpace(workItemID)
+			if s != "" {
+				filter.WorkItemID = &s
 			}
 		}
 		list, err := manager.ListSessions(r.Context(), filter)

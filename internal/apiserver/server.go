@@ -91,7 +91,7 @@ func (s *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "zen-brain API server\n")
 	fmt.Fprintf(w, "  /healthz       - liveness\n")
 	fmt.Fprintf(w, "  /readyz       - readiness\n")
-	fmt.Fprintf(w, "  /api/v1/sessions   - list sessions\n")
+	fmt.Fprintf(w, "  /api/v1/sessions   - list sessions (optional: limit, state, work_item_id)\n")
 	fmt.Fprintf(w, "  /api/v1/sessions/:id - get session by id\n")
 	fmt.Fprintf(w, "  /api/v1/health    - health detail (optional ledger ping)\n")
 	fmt.Fprintf(w, "  /api/v1/version   - service version\n")
