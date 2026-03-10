@@ -1,14 +1,21 @@
 package jira
 
 import (
+	"bytes"
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 	"time"
 
 	"github.com/kube-zen/zen-brain1/pkg/contracts"
+	pkgoffice "github.com/kube-zen/zen-brain1/pkg/office"
 )
 
 // TestAddComment_WithAIAttribution tests that AI attribution is properly injected.
@@ -550,6 +557,166 @@ func TestUpdateStatus_HTTPError(t *testing.T) {
 
 	if !contains(err.Error(), "failed to get transitions") && !contains(err.Error(), "failed to execute transition") {
 		t.Errorf("Expected transition error, got: %v", err)
+	}
+}
+
+// minimalJiraWebhookBody returns a valid Jira webhook JSON body for the given event type.
+func minimalJiraWebhookBody(eventType string) []byte {
+	body := []byte(`{"webhookEvent":"` + eventType + `","timestamp":0,"issue":{"key":"W-1","id":"1","self":"","fields":{"summary":"Watch test","description":"","status":{"name":"Open"},"priority":{"name":"Medium"},"issuetype":{"name":"Task"},"project":{"key":"W"},"reporter":{"displayName":""},"assignee":{"displayName":""},"labels":[],"created":"2026-01-01T00:00:00.000+0000","updated":"2026-01-01T00:00:00.000+0000"}}}`)
+	return body
+}
+
+// computeWebhookSignature returns HMAC-SHA256 hex of body using secret.
+func computeWebhookSignature(secret string, body []byte) string {
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write(body)
+	return hex.EncodeToString(mac.Sum(nil))
+}
+
+// TestWatch_ValidatesWebhookSecret ensures that when WebhookSecret is set, requests without
+// a valid X-Atlassian-Webhook-Signature are rejected with 401.
+func TestWatch_ValidatesWebhookSecret(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	port := listener.Addr().(*net.TCPAddr).Port
+	listener.Close()
+
+	config := &Config{
+		BaseURL:       "https://test.atlassian.net",
+		Email:         "test@example.com",
+		APIToken:      "test-token",
+		WebhookPort:   port,
+		WebhookPath:   "/webhook",
+		WebhookSecret: "test-secret",
+	}
+	connector, err := New("watch-secret", "cluster-1", config)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	ch, err := connector.Watch(ctx, "cluster-1")
+	if err != nil {
+		t.Fatalf("Watch: %v", err)
+	}
+	_ = ch
+	time.Sleep(100 * time.Millisecond)
+
+	body := minimalJiraWebhookBody("jira:issue_created")
+	webhookURL := "http://127.0.0.1:" + strconv.Itoa(port) + "/webhook"
+
+	// POST without signature -> 401
+	req, _ := http.NewRequest("POST", webhookURL, bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("POST (no sig): %v", err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Errorf("expected 401 without signature, got %d", resp.StatusCode)
+	}
+
+	// POST with wrong signature -> 401
+	req2, _ := http.NewRequest("POST", webhookURL, bytes.NewReader(body))
+	req2.Header.Set("Content-Type", "application/json")
+	req2.Header.Set("X-Atlassian-Webhook-Signature", "wrong")
+	resp2, err := http.DefaultClient.Do(req2)
+	if err != nil {
+		t.Fatalf("POST (wrong sig): %v", err)
+	}
+	resp2.Body.Close()
+	if resp2.StatusCode != http.StatusUnauthorized {
+		t.Errorf("expected 401 with wrong signature, got %d", resp2.StatusCode)
+	}
+
+	// POST with valid signature -> 200
+	sig := computeWebhookSignature("test-secret", body)
+	req3, _ := http.NewRequest("POST", webhookURL, bytes.NewReader(body))
+	req3.Header.Set("Content-Type", "application/json")
+	req3.Header.Set("X-Atlassian-Webhook-Signature", sig)
+	resp3, err := http.DefaultClient.Do(req3)
+	if err != nil {
+		t.Fatalf("POST (valid sig): %v", err)
+	}
+	resp3.Body.Close()
+	if resp3.StatusCode != http.StatusOK {
+		t.Errorf("expected 200 with valid signature, got %d", resp3.StatusCode)
+	}
+}
+
+// TestWatch_EmitsCreatedUpdatedCommentedEvents ensures that created/updated/commented
+// webhook events result in the correct WorkItemEvent types on the channel.
+func TestWatch_EmitsCreatedUpdatedCommentedEvents(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+	port := listener.Addr().(*net.TCPAddr).Port
+	listener.Close()
+
+	config := &Config{
+		BaseURL:       "https://test.atlassian.net",
+		Email:         "test@example.com",
+		APIToken:      "test-token",
+		WebhookPort:   port,
+		WebhookPath:   "/webhook",
+		WebhookSecret: "watch-events-secret",
+	}
+	connector, err := New("watch-events", "cluster-1", config)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	ch, err := connector.Watch(ctx, "cluster-1")
+	if err != nil {
+		t.Fatalf("Watch: %v", err)
+	}
+	time.Sleep(100 * time.Millisecond)
+
+	webhookURL := "http://127.0.0.1:" + strconv.Itoa(port) + "/webhook"
+	events := []struct {
+		webhookEvent string
+		expectedType pkgoffice.WorkEventType
+	}{
+		{"jira:issue_created", pkgoffice.WorkItemCreated},
+		{"jira:issue_updated", pkgoffice.WorkItemUpdated},
+		{"comment_created", pkgoffice.WorkItemCommented},
+	}
+
+	for _, e := range events {
+		body := minimalJiraWebhookBody(e.webhookEvent)
+		sig := computeWebhookSignature("watch-events-secret", body)
+		req, _ := http.NewRequest("POST", webhookURL, bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-Atlassian-Webhook-Signature", sig)
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatalf("POST %s: %v", e.webhookEvent, err)
+		}
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Errorf("POST %s: expected 200, got %d", e.webhookEvent, resp.StatusCode)
+		}
+
+		select {
+		case ev := <-ch:
+			if ev.Type != e.expectedType {
+				t.Errorf("event type: expected %s, got %s", e.expectedType, ev.Type)
+			}
+			if ev.WorkItem == nil || ev.WorkItem.ID != "W-1" {
+				t.Errorf("event WorkItem: expected ID W-1, got %v", ev.WorkItem)
+			}
+		case <-time.After(2 * time.Second):
+			t.Errorf("timeout waiting for event %s", e.webhookEvent)
+		}
 	}
 }
 
