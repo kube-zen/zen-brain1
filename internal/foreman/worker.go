@@ -16,16 +16,21 @@ import (
 
 // Worker is a TaskDispatcher that runs tasks in a pool of goroutines and updates status (Block 4.3).
 type Worker struct {
-	Client     client.Client
-	Runner     TaskRunner
-	NumWorkers int
-	queue      chan types.NamespacedName
-	startOnce  sync.Once
-	stop       func()
+	Client          client.Client
+	Runner          TaskRunner
+	NumWorkers      int
+	SessionAffinity bool   // when true, route tasks by session to the same worker (Block 4 session-affinity)
+	queue           chan types.NamespacedName   // used when !SessionAffinity
+	queues          []chan types.NamespacedName // used when SessionAffinity (one per worker)
+	affinityMu      sync.Mutex
+	sessionToWorker map[string]int // sessionID -> worker index
+	workerLoad      []int          // in-flight + queued per worker (for least-loaded)
+	startOnce       sync.Once
+	stop            func()
 }
 
 // NewWorker returns a Worker that will process up to numWorkers tasks concurrently.
-// Call Start(ctx) before using Dispatch.
+// Call Start(ctx) before using Dispatch. Set SessionAffinity true to route by session (same session → same worker).
 func NewWorker(c client.Client, runner TaskRunner, numWorkers int) *Worker {
 	if numWorkers < 1 {
 		numWorkers = 1
@@ -43,8 +48,21 @@ func (w *Worker) Start(ctx context.Context) {
 	w.startOnce.Do(func() {
 		ctx, cancel := context.WithCancel(ctx)
 		w.stop = cancel
-		for i := 0; i < w.NumWorkers; i++ {
-			go w.runLoop(ctx)
+		if w.SessionAffinity {
+			w.queues = make([]chan types.NamespacedName, w.NumWorkers)
+			w.sessionToWorker = make(map[string]int)
+			w.workerLoad = make([]int, w.NumWorkers)
+			for i := 0; i < w.NumWorkers; i++ {
+				w.queues[i] = make(chan types.NamespacedName, 64)
+			}
+			for i := 0; i < w.NumWorkers; i++ {
+				idx := i
+				go w.runLoopFrom(ctx, w.queues[idx], idx)
+			}
+		} else {
+			for i := 0; i < w.NumWorkers; i++ {
+				go w.runLoop(ctx, w.queue)
+			}
 		}
 	})
 }
@@ -59,24 +77,93 @@ func (w *Worker) Stop() {
 // Dispatch implements TaskDispatcher. It enqueues the task for processing by the pool.
 func (w *Worker) Dispatch(ctx context.Context, task *v1alpha1.BrainTask) error {
 	nn := types.NamespacedName{Namespace: task.Namespace, Name: task.Name}
+	if w.SessionAffinity && w.queues != nil {
+		idx := w.sessionWorkerIndex(task)
+		ch := w.queues[idx]
+		select {
+		case ch <- nn:
+			TasksDispatchedTotal.Inc()
+			w.setQueueDepth()
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
 	select {
 	case w.queue <- nn:
+		TasksDispatchedTotal.Inc()
+		WorkerQueueDepth.Set(float64(len(w.queue)))
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()
 	}
 }
 
-func (w *Worker) runLoop(ctx context.Context) {
+// sessionWorkerIndex returns the worker index for this task (session-affinity: same session → same worker).
+func (w *Worker) sessionWorkerIndex(task *v1alpha1.BrainTask) int {
+	sessionID := task.Spec.SessionID
+	if sessionID == "" {
+		sessionID = task.Namespace + "/" + task.Name
+	}
+	w.affinityMu.Lock()
+	defer w.affinityMu.Unlock()
+	if idx, ok := w.sessionToWorker[sessionID]; ok {
+		w.workerLoad[idx]++
+		return idx
+	}
+	// Assign least-loaded worker
+	idx := 0
+	for i := 1; i < w.NumWorkers; i++ {
+		if w.workerLoad[i] < w.workerLoad[idx] {
+			idx = i
+		}
+	}
+	w.sessionToWorker[sessionID] = idx
+	w.workerLoad[idx]++
+	return idx
+}
+
+func (w *Worker) setQueueDepth() {
+	if w.SessionAffinity && w.queues != nil {
+		var n int
+		for _, ch := range w.queues {
+			n += len(ch)
+		}
+		WorkerQueueDepth.Set(float64(n))
+	}
+}
+
+func (w *Worker) runLoop(ctx context.Context, ch chan types.NamespacedName) {
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case nn, ok := <-w.queue:
+		case nn, ok := <-ch:
 			if !ok {
 				return
 			}
+			WorkerQueueDepth.Set(float64(len(w.queue)))
 			w.processOne(ctx, nn)
+		}
+	}
+}
+
+func (w *Worker) runLoopFrom(ctx context.Context, ch chan types.NamespacedName, workerIdx int) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case nn, ok := <-ch:
+			if !ok {
+				return
+			}
+			w.setQueueDepth()
+			w.processOne(ctx, nn)
+			w.affinityMu.Lock()
+			if w.workerLoad[workerIdx] > 0 {
+				w.workerLoad[workerIdx]--
+			}
+			w.affinityMu.Unlock()
 		}
 	}
 }
@@ -108,9 +195,11 @@ func (w *Worker) processOne(ctx context.Context, nn types.NamespacedName) {
 	// Execute
 	err := w.Runner.Run(ctx, &task)
 	if err != nil {
+		TasksFailedTotal.Inc()
 		task.Status.Phase = v1alpha1.BrainTaskPhaseFailed
 		task.Status.Message = err.Error()
 	} else {
+		TasksCompletedTotal.Inc()
 		task.Status.Phase = v1alpha1.BrainTaskPhaseCompleted
 		task.Status.Message = "Completed"
 	}

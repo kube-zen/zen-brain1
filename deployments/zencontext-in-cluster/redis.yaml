@@ -1,0 +1,45 @@
+# Redis for ZenContext Tier 1 (Hot) in-cluster. Block 4.
+apiVersion: v1
+kind: Service
+metadata:
+  name: zencontext-redis
+  namespace: zen-context
+  labels:
+    app: zencontext-redis
+spec:
+  ports:
+    - port: 6379
+      targetPort: 6379
+      name: redis
+  selector:
+    app: zencontext-redis
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zencontext-redis
+  namespace: zen-context
+  labels:
+    app: zencontext-redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: zencontext-redis
+  template:
+    metadata:
+      labels:
+        app: zencontext-redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          ports:
+            - containerPort: 6379
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
