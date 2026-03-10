@@ -14,6 +14,7 @@ import (
 type Server struct {
 	Addr    string
 	Checker zenhealth.Checker
+	mux     *http.ServeMux
 	srv     *http.Server
 }
 
@@ -22,13 +23,26 @@ func New(addr string, checker zenhealth.Checker) *Server {
 	if checker == nil {
 		checker = &alwaysReadyChecker{}
 	}
-	s := &Server{Addr: addr, Checker: checker}
-	mux := http.NewServeMux()
-	mux.HandleFunc("/healthz", s.handleLiveness)
-	mux.HandleFunc("/readyz", s.handleReadiness)
-	mux.HandleFunc("/", s.handleRoot)
-	s.srv = &http.Server{Addr: addr, Handler: mux, ReadHeaderTimeout: 5 * time.Second}
+	s := &Server{Addr: addr, Checker: checker, mux: http.NewServeMux()}
+	s.mux.HandleFunc("/healthz", s.handleLiveness)
+	s.mux.HandleFunc("/readyz", s.handleReadiness)
+	s.mux.HandleFunc("/", s.handleRoot)
+	s.srv = &http.Server{Addr: addr, Handler: s.mux, ReadHeaderTimeout: 5 * time.Second}
 	return s
+}
+
+// Handle registers an handler for the given pattern (Block 3.4 extended API).
+func (s *Server) Handle(pattern string, handler http.Handler) {
+	if s.mux != nil {
+		s.mux.Handle(pattern, handler)
+	}
+}
+
+// HandleFunc registers a handler function for the given pattern.
+func (s *Server) HandleFunc(pattern string, fn func(http.ResponseWriter, *http.Request)) {
+	if s.mux != nil {
+		s.mux.HandleFunc(pattern, fn)
+	}
 }
 
 // Start starts the HTTP server (blocking until Shutdown).

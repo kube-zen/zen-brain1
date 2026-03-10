@@ -16,4 +16,5 @@ var (
 
 func init() {
 	SchemeBuilder.Register(&BrainTask{}, &BrainTaskList{})
+	SchemeBuilder.Register(&BrainAgent{}, &BrainAgentList{})
 }

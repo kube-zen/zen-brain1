@@ -18,8 +18,10 @@ import (
 	llmgateway "github.com/kube-zen/zen-brain1/internal/llm"
 	"github.com/kube-zen/zen-brain1/internal/office"
 	"github.com/kube-zen/zen-brain1/internal/office/jira"
+	"github.com/kube-zen/zen-brain1/internal/messagebus/redis"
 	"github.com/kube-zen/zen-brain1/internal/planner"
 	"github.com/kube-zen/zen-brain1/internal/session"
+	"github.com/kube-zen/zen-brain1/pkg/messagebus"
 	zenctx "github.com/kube-zen/zen-brain1/pkg/context"
 	"github.com/kube-zen/zen-brain1/pkg/contracts"
 	"github.com/kube-zen/zen-brain1/pkg/ledger"
@@ -317,6 +319,22 @@ func runVerticalSlice() {
 	defer plannerAgent.Close()
 	fmt.Println("  ✓ Planner initialized")
 
+	// Block 3.1: Optional message bus for vertical slice events
+	var msgBus messagebus.MessageBus
+	if os.Getenv("ZEN_BRAIN_MESSAGE_BUS") == "redis" {
+		redisURL := os.Getenv("REDIS_URL")
+		if redisURL == "" {
+			redisURL = "redis://localhost:6379"
+		}
+		if bus, err := redis.New(&redis.Config{RedisURL: redisURL}); err != nil {
+			log.Printf("Warning: message bus (Redis) not available: %v", err)
+		} else {
+			msgBus = bus
+			defer func() { _ = msgBus.Close() }()
+			fmt.Println("  ✓ Message bus (Redis) enabled")
+		}
+	}
+
 	// Step 7: Fetch and process work item
 	fmt.Println("[7/8] Fetching and processing work item...")
 	ctx := context.Background()
@@ -403,6 +421,7 @@ func runVerticalSlice() {
 			log.Fatalf("Error creating session: %v", err)
 		}
 		fmt.Printf("✓ Session created: %s\n", workSession.ID)
+		publishVerticalSliceEvent(msgBus, "zen-brain.events", "session.created", workSession.ID, map[string]string{"session_id": workSession.ID, "work_item_id": workItem.ID})
 
 		// Analyze work item
 		analysisResult, err = intentAnalyzer.Analyze(ctx, workItem)
@@ -580,6 +599,7 @@ func runVerticalSlice() {
 		log.Printf("Warning: Failed to transition session to completed: %v", err)
 	} else {
 		fmt.Println("  ✓ Session completed")
+		publishVerticalSliceEvent(msgBus, "zen-brain.events", "session.completed", workSession.ID, map[string]string{"session_id": workSession.ID, "work_item_id": workItem.ID})
 	}
 
 	elapsed := time.Since(startTime)
@@ -876,6 +896,28 @@ func createMockWorkItem() *contracts.WorkItem {
 		UpdatedAt:     now,
 		ClusterID:     "default",
 		ProjectID:     "MOCK",
+	}
+}
+
+// publishVerticalSliceEvent publishes an event to the message bus when enabled (Block 3.1).
+func publishVerticalSliceEvent(bus messagebus.MessageBus, stream, eventType, correlation string, payload interface{}) {
+	if bus == nil {
+		return
+	}
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		log.Printf("Warning: message bus payload marshal: %v", err)
+		return
+	}
+	ev := &messagebus.Event{
+		Type:         eventType,
+		Source:       "vertical-slice",
+		Correlation:  correlation,
+		Payload:      payloadBytes,
+		Timestamp:    time.Now(),
+	}
+	if err := bus.Publish(context.Background(), stream, ev); err != nil {
+		log.Printf("Warning: message bus publish %s: %v", eventType, err)
 	}
 }
 
