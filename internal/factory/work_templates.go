@@ -2,8 +2,8 @@
 //
 // Template tiers (see docs/01-ARCHITECTURE/FACTORY_TEMPLATE_TIERS.md):
 //   - work_templates.go: steps are scaffold/echo by default (echo-only commands).
-//     BoundedExecutor overrides step names "Run tests", "go test", "test" to run real
-//     "go test ./... -count=1" when go.mod exists; all other steps here remain echo.
+//     BoundedExecutor overrides step names "Run tests"/"go test"/"test" → real go test;
+//     "build"/"go build"/"compile" → real go build when go.mod exists; other steps remain echo.
 //   - useful_templates.go: real templates that create actual files (cmd/main.go,
 //     README.md, PROOF_OF_WORK.md, etc.). BoundedExecutor runs all steps in the workspace.
 package factory

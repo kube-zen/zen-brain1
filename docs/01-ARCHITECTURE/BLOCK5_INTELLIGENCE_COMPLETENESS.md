@@ -33,7 +33,7 @@
 |-----------------|---------------|--------|
 | ModelRouter → Planner | cmd/zen-brain: ModelRecommender = NewModelRouterRecommender(NewModelRouter(ledger, defaultModel)) | Done |
 | EvidenceVault → Planner | cmd/zen-brain: EvidenceVault = NewMemoryVault() | Done |
-| ReMeBinder → Worker | cmd/foreman: when ZenContext available, Worker.ContextBinder = NewReMeBinder(zenContext, "default") | Optional (Foreman has no ZenContext today) |
+| ReMeBinder → Worker | cmd/foreman: set -zen-context-redis or ZEN_CONTEXT_REDIS_URL to enable ReMe (Worker.ContextBinder = NewReMeBinder) | Done (optional flag) |
 | Token recording | cmd/zen-brain: gateway.SetTokenRecorder(ledgerClient) when ledger is CockroachLedger | Done |
 
 ## References

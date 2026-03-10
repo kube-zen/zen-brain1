@@ -22,9 +22,9 @@
 | **Message bus** | Real | Redis when `ZEN_BRAIN_MESSAGE_BUS=redis`; optional. | `internal/messagebus/redis/` |
 | **ZenJournal** | Real | receiptlog-backed event store; query API; ReMe reconstruction uses it. | `pkg/journal`, `internal/journal/receiptlog` |
 | **ZenLedger** | Real | CockroachDB when DSN set; stub otherwise. | `internal/ledger/cockroach.go`, `stub.go` |
-| **API server** | Real | Block 3.4: /healthz, /readyz, /api/v1/sessions, /api/v1/health, /api/v1/version. Auth: optional ZEN_API_KEY. | `internal/apiserver/`, `auth.go`, `cmd/apiserver/` |
+| **API server** | Real | Block 3.4: /healthz, /readyz, /api/v1/sessions, /api/v1/health, /api/v1/version, /api/v1/evidence?session_id= (optional vault). Auth: ZEN_API_KEY. | `internal/apiserver/`, `auth.go`, `cmd/apiserver/` |
 | **Factory execution** | Partial | Real: BoundedExecutor, workspace (getGitInfo), proof-of-work; "run tests" runs go test when go.mod present; FactoryTaskRunner records PoW to Vault when set. Templates: mix of real and echo steps. | `internal/factory/bounded_executor.go`, `workspace.go`, `factory_runner.go`, `proof.go` |
-| **Foreman / Worker** | Real | CRDs, reconciler, worker pool, FactoryTaskRunner, ZenGate stub, ZenGuardian stub (CheckSafety, RecordEvent), metrics, queue status. | `internal/foreman/`, `cmd/foreman/`, `pkg/guardian/`, `internal/guardian/` |
+| **Foreman / Worker** | Real | CRDs, reconciler, worker pool, FactoryTaskRunner, ZenGate/ZenGuardian stubs, metrics, queue status. Optional ReMe: -zen-context-redis → ReMeBinder. | `internal/foreman/`, `cmd/foreman/`, `pkg/guardian/`, `internal/guardian/` |
 | **Evidence Vault** | Real | Interface + MemoryVault; Store/GetBySession/GetByTask. | `internal/evidence/vault.go` |
 | **Funding aggregator** | Real | T661 + IRAP from Vault evidence. | `internal/funding/aggregator.go` |
 | **Agent–context binding** | Real | GetForContinuation / WriteIntermediate; TaskRunnerWithContext. | `internal/agent/binding.go`, `foreman/runner.go` |
@@ -39,7 +39,7 @@
 ## Suggested fix order (production / completeness)
 
 1. **Factory templates** – Real "run tests" path done (BoundedExecutor); template tiers documented in FACTORY_TEMPLATE_TIERS.md. Optional: more real steps per work type.
-2. **API surface** – Auth done (ZEN_API_KEY). Add more endpoints as needed.
+2. **API surface** – Auth done; /api/v1/evidence?session_id= added (optional vault). Add more endpoints as needed.
 3. ~~**QMD**~~ – Documented: BLOCK5_QMD_POPULATION "Real vs mock" + internal/qmd/README; repo-sync done (Block 5.1 Populate + docs).
 4. **K3d** – Documented: k3d README "Current path" = run foreman/apiserver/zen-brain locally with kubeconfig. In-cluster TBD.
 5. ~~**ReMe**~~ – Done: ReMeBinder wires ReConstruct as agent continuation path.
