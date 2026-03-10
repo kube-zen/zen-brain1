@@ -37,6 +37,9 @@ type Paths struct {
 
 	// QMD is where qmd search indexes and embeddings are stored.
 	QMD string
+
+	// Analysis is where Block 2 analysis history is stored (durable, auditable).
+	Analysis string
 }
 
 // DefaultPaths returns the standard paths based on HomeDir().
@@ -69,6 +72,7 @@ func (p *Paths) EnsureAll() error {
 		p.Evidence,
 		p.KB,
 		p.QMD,
+		p.Analysis,
 	}
 
 	for _, dir := range dirs {
