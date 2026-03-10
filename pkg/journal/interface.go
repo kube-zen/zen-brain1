@@ -20,20 +20,20 @@ type EventType string
 // Standard event types (see V6 Construction Plan Section 3.13 for SR&ED events)
 const (
 	// Intent events
-	EventIntentCreated   EventType = "intent_created"
-	EventIntentAnalyzed  EventType = "intent_analyzed"
+	EventIntentCreated  EventType = "intent_created"
+	EventIntentAnalyzed EventType = "intent_analyzed"
 
 	// Planning events
-	EventPlanGenerated   EventType = "plan_generated"
-	EventPlanApproved    EventType = "plan_approved"
-	EventPlanRejected    EventType = "plan_rejected"
+	EventPlanGenerated EventType = "plan_generated"
+	EventPlanApproved  EventType = "plan_approved"
+	EventPlanRejected  EventType = "plan_rejected"
 
 	// Execution events
-	EventTaskQueued      EventType = "task_queued"
-	EventTaskStarted     EventType = "task_started"
-	EventActionExecuted  EventType = "action_executed"
-	EventTaskCompleted   EventType = "task_completed"
-	EventTaskFailed      EventType = "task_failed"
+	EventTaskQueued     EventType = "task_queued"
+	EventTaskStarted    EventType = "task_started"
+	EventActionExecuted EventType = "action_executed"
+	EventTaskCompleted  EventType = "task_completed"
+	EventTaskFailed     EventType = "task_failed"
 
 	// Approval events
 	EventApprovalRequested EventType = "approval_requested"
@@ -41,9 +41,9 @@ const (
 	EventApprovalDenied    EventType = "approval_denied"
 
 	// Agent events
-	EventAgentHeartbeat  EventType = "agent_heartbeat"
-	EventSessionStarted  EventType = "session_started"
-	EventSessionEnded    EventType = "session_ended"
+	EventAgentHeartbeat EventType = "agent_heartbeat"
+	EventSessionStarted EventType = "session_started"
+	EventSessionEnded   EventType = "session_ended"
 
 	// Policy events
 	EventPolicyViolation EventType = "policy_violation"

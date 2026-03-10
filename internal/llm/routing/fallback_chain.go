@@ -17,11 +17,11 @@ import (
 type FallbackChain interface {
 	// ProviderOrder returns the list of provider names to try (preferred first, then fallbacks).
 	ProviderOrder(preferred string) []string
-	
+
 	// ProviderOrderForContext returns context-aware chain based on estimated tokens,
 	// session context, and strict preferred provider requirements.
 	ProviderOrderForContext(preferred string, estimatedTokens int, sessionContext []string, strictPreferred bool) []string
-	
+
 	// IsRetryable returns true if the error should trigger fallback to next provider.
 	IsRetryable(err error) bool
 }
@@ -31,7 +31,7 @@ type FallbackChain interface {
 type DefaultFallbackChain struct {
 	// ProviderChecker checks if a provider is available.
 	ProviderChecker func(name string) bool
-	
+
 	// Config provides provider capabilities and limits.
 	Config *FallbackConfig
 }
@@ -40,13 +40,13 @@ type DefaultFallbackChain struct {
 type FallbackConfig struct {
 	// DefaultProvider is the default provider to use when none is specified.
 	DefaultProvider string
-	
+
 	// FallbackOrder is the ordered list of providers to try as fallbacks.
 	FallbackOrder []string
-	
+
 	// ProviderCapabilities maps provider names to their token limits.
 	ProviderCapabilities map[string]ProviderCapability
-	
+
 	// EnableSmartRouting enables context-aware routing.
 	EnableSmartRouting bool
 }
@@ -55,10 +55,10 @@ type FallbackConfig struct {
 type ProviderCapability struct {
 	// MaxContextTokens is the maximum context length supported.
 	MaxContextTokens int
-	
+
 	// CostPerToken is the approximate cost per token (for routing decisions).
 	CostPerToken float64
-	
+
 	// SupportsTools indicates if the provider supports function calling.
 	SupportsTools bool
 }
@@ -68,10 +68,10 @@ func NewDefaultFallbackChain(config *FallbackConfig, providerChecker func(name s
 	if config == nil {
 		config = DefaultFallbackConfig()
 	}
-	
+
 	return &DefaultFallbackChain{
 		ProviderChecker: providerChecker,
-		Config:         config,
+		Config:          config,
 	}
 }
 
@@ -107,19 +107,19 @@ func (f *DefaultFallbackChain) ProviderOrder(preferred string) []string {
 	if preferred != "" && f.ProviderChecker(preferred) {
 		return []string{preferred}
 	}
-	
+
 	// Otherwise use default + fallbacks
 	chain := []string{}
 	if f.Config.DefaultProvider != "" && f.ProviderChecker(f.Config.DefaultProvider) {
 		chain = append(chain, f.Config.DefaultProvider)
 	}
-	
+
 	for _, provider := range f.Config.FallbackOrder {
 		if !contains(chain, provider) && f.ProviderChecker(provider) {
 			chain = append(chain, provider)
 		}
 	}
-	
+
 	return chain
 }
 
@@ -132,13 +132,13 @@ func (f *DefaultFallbackChain) ProviderOrderForContext(preferred string, estimat
 		}
 		// If strict preferred but can't handle tokens, return empty (will fall through)
 	}
-	
+
 	// Filter session context to available providers
 	if len(sessionContext) > 0 {
 		availableContext := f.filterToAvailable(sessionContext)
 		if len(availableContext) > 0 {
 			chain := []string{}
-			
+
 			// Include preferred if in context and can handle tokens
 			if preferred != "" {
 				for _, provider := range availableContext {
@@ -150,32 +150,32 @@ func (f *DefaultFallbackChain) ProviderOrderForContext(preferred string, estimat
 					}
 				}
 			}
-			
+
 			// Add other context providers that can handle tokens
 			for _, provider := range availableContext {
 				if !contains(chain, provider) && f.canHandleTokens(provider, estimatedTokens) {
 					chain = append(chain, provider)
 				}
 			}
-			
+
 			if len(chain) > 0 {
 				return chain
 			}
 		}
 	}
-	
+
 	// If preferred provider specified and can handle tokens, start with it
 	// (but include fallbacks unless strictPreferred is true)
 	chain := []string{}
 	if preferred != "" && f.ProviderChecker(preferred) && f.canHandleTokens(preferred, estimatedTokens) {
 		chain = append(chain, preferred)
 	}
-	
+
 	// Use smart routing if enabled
 	if f.Config.EnableSmartRouting {
 		return f.smartProviderOrder(estimatedTokens, preferred)
 	}
-	
+
 	// Default to simple provider order (which includes fallbacks)
 	return f.ProviderOrder(preferred)
 }
@@ -187,9 +187,9 @@ func (f *DefaultFallbackChain) IsRetryable(err error) bool {
 	if err == nil {
 		return false
 	}
-	
+
 	errStr := err.Error()
-	
+
 	// Retry on transient errors
 	retryablePatterns := []string{
 		"timeout",
@@ -206,13 +206,13 @@ func (f *DefaultFallbackChain) IsRetryable(err error) bool {
 		"gateway timeout",
 		"bad gateway",
 	}
-	
+
 	for _, pattern := range retryablePatterns {
 		if strings.Contains(strings.ToLower(errStr), pattern) {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
@@ -239,31 +239,31 @@ func (f *DefaultFallbackChain) filterToAvailable(providers []string) []string {
 // If preferredProvider is specified and can handle tokens, it will be first.
 func (f *DefaultFallbackChain) smartProviderOrder(estimatedTokens int, preferredProvider string) []string {
 	var chain []string
-	
+
 	// Start with preferred provider if specified and can handle tokens
-	if preferredProvider != "" && f.ProviderChecker(preferredProvider) && 
-	   f.canHandleTokens(preferredProvider, estimatedTokens) {
+	if preferredProvider != "" && f.ProviderChecker(preferredProvider) &&
+		f.canHandleTokens(preferredProvider, estimatedTokens) {
 		chain = append(chain, preferredProvider)
 	}
-	
+
 	// Add default provider if not already included and can handle tokens
-	if f.Config.DefaultProvider != "" && f.ProviderChecker(f.Config.DefaultProvider) && 
-	   f.canHandleTokens(f.Config.DefaultProvider, estimatedTokens) && !contains(chain, f.Config.DefaultProvider) {
+	if f.Config.DefaultProvider != "" && f.ProviderChecker(f.Config.DefaultProvider) &&
+		f.canHandleTokens(f.Config.DefaultProvider, estimatedTokens) && !contains(chain, f.Config.DefaultProvider) {
 		chain = append(chain, f.Config.DefaultProvider)
 	}
-	
+
 	// Add fallback providers that can handle tokens
 	for _, provider := range f.Config.FallbackOrder {
 		if f.ProviderChecker(provider) && f.canHandleTokens(provider, estimatedTokens) && !contains(chain, provider) {
 			chain = append(chain, provider)
 		}
 	}
-	
+
 	if len(chain) == 0 {
 		// No providers can handle the tokens, use all available
 		chain = f.ProviderOrder("")
 	}
-	
+
 	return chain
 }
 
@@ -280,12 +280,12 @@ func contains(slice []string, item string) bool {
 // RetryConfig provides retry configuration using zen-sdk/pkg/retry.
 func RetryConfig() zenretry.Config {
 	return zenretry.Config{
-		MaxAttempts:    3,
-		InitialDelay:   200 * time.Millisecond,
-		MaxDelay:       5 * time.Second,
-		Multiplier:     2.0,
-		Jitter:         true,
-		JitterPercent:  0.1,
+		MaxAttempts:   3,
+		InitialDelay:  200 * time.Millisecond,
+		MaxDelay:      5 * time.Second,
+		Multiplier:    2.0,
+		Jitter:        true,
+		JitterPercent: 0.1,
 		RetryableErrors: func(err error) bool {
 			// Delegate to fallback chain's IsRetryable
 			chain := NewDefaultFallbackChain(DefaultFallbackConfig(), func(name string) bool { return true })
@@ -303,27 +303,27 @@ func ExecuteWithFallback(ctx context.Context, chain FallbackChain, providers map
 		sessionContext,
 		strictPreferred,
 	)
-	
+
 	var lastErr error
 	for _, providerName := range providerOrder {
 		provider, ok := providers[providerName]
 		if !ok {
 			continue
 		}
-		
+
 		resp, err := provider.Chat(ctx, req)
 		if err == nil {
 			return resp, nil
 		}
-		
+
 		lastErr = err
-		
+
 		// Check if error is retryable for next provider
 		if !chain.IsRetryable(err) {
 			return nil, err
 		}
 	}
-	
+
 	return nil, lastErr
 }
 

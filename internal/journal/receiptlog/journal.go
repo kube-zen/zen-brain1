@@ -44,7 +44,7 @@ type Config struct {
 // receiptlogJournal implements journal.ZenJournal.
 type receiptlogJournal struct {
 	ledger receiptlog.Ledger
-	index *QueryIndex
+	index  *QueryIndex
 }
 
 // New creates a new ZenJournal backed by receiptlog.
@@ -226,8 +226,8 @@ func (j *receiptlogJournal) Stats() journal.Stats {
 	// For simplicity, return empty stats for now
 	return journal.Stats{
 		TotalReceipts:   uint64(indexStats.TotalEntries),
-		LastSequence:    0, // TODO: get from ledger
-		LastHash:        "", // TODO: get from ledger
+		LastSequence:    0,           // TODO: get from ledger
+		LastHash:        "",          // TODO: get from ledger
 		OldestTimestamp: time.Time{}, // TODO: compute from index
 		NewestTimestamp: time.Time{}, // TODO: compute from index
 	}

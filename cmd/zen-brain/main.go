@@ -18,9 +18,9 @@ import (
 	"github.com/kube-zen/zen-brain1/internal/office/jira"
 	"github.com/kube-zen/zen-brain1/internal/planner"
 	"github.com/kube-zen/zen-brain1/internal/session"
+	zenctx "github.com/kube-zen/zen-brain1/pkg/context"
 	"github.com/kube-zen/zen-brain1/pkg/contracts"
 	"github.com/kube-zen/zen-brain1/pkg/ledger"
-	zenctx "github.com/kube-zen/zen-brain1/pkg/context"
 	"github.com/kube-zen/zen-brain1/pkg/llm"
 )
 
@@ -79,20 +79,20 @@ func runTestQuery() {
 	fmt.Println("Initializing LLM Gateway...")
 
 	gatewayConfig := &llmgateway.GatewayConfig{
-		LocalWorkerModel:        "qwen3.5:0.8b",
-		PlannerModel:            "glm-4.7",
-		FallbackModel:           "glm-4.7",
-		LocalWorkerMaxCost:     0.01,
-		PlannerMinCost:          0.10,
+		LocalWorkerModel:         "qwen3.5:0.8b",
+		PlannerModel:             "glm-4.7",
+		FallbackModel:            "glm-4.7",
+		LocalWorkerMaxCost:       0.01,
+		PlannerMinCost:           0.10,
 		LocalWorkerTimeout:       30,
 		PlannerTimeout:           60,
 		RequestTimeout:           120,
 		LocalWorkerSupportsTools: true,
 		PlannerSupportsTools:     true,
-		AutoEscalateComplexTasks:   true,
+		AutoEscalateComplexTasks: true,
 		RoutingPolicy:            "simple",
-		EnableFallbackChain:     true,
-		StrictPreferred:         false,
+		EnableFallbackChain:      true,
+		StrictPreferred:          false,
 	}
 
 	gateway, err := llmgateway.NewGateway(gatewayConfig)
@@ -161,20 +161,20 @@ func runVerticalSlice() {
 	// Step 1: Initialize LLM Gateway
 	fmt.Println("[1/7] Initializing LLM Gateway...")
 	gatewayConfig := &llmgateway.GatewayConfig{
-		LocalWorkerModel:        "qwen3.5:0.8b",
-		PlannerModel:            "glm-4.7",
-		FallbackModel:           "glm-4.7",
-		LocalWorkerMaxCost:     0.01,
-		PlannerMinCost:          0.10,
+		LocalWorkerModel:         "qwen3.5:0.8b",
+		PlannerModel:             "glm-4.7",
+		FallbackModel:            "glm-4.7",
+		LocalWorkerMaxCost:       0.01,
+		PlannerMinCost:           0.10,
 		LocalWorkerTimeout:       30,
 		PlannerTimeout:           60,
 		RequestTimeout:           120,
 		LocalWorkerSupportsTools: true,
 		PlannerSupportsTools:     true,
-		AutoEscalateComplexTasks:   true,
+		AutoEscalateComplexTasks: true,
 		RoutingPolicy:            "simple",
-		EnableFallbackChain:     true,
-		StrictPreferred:         false,
+		EnableFallbackChain:      true,
+		StrictPreferred:          false,
 	}
 
 	llmGateway, err := llmgateway.NewGateway(gatewayConfig)
@@ -374,14 +374,14 @@ func runVerticalSlice() {
 				for _, artifactPath := range []string{powArtifact.JSONPath, powArtifact.MarkdownPath, powArtifact.LogPath} {
 					if artifactPath != "" {
 						evidence := contracts.EvidenceItem{
-							ID:          fmt.Sprintf("pow-%s-%s", brainTask.ID, artifactPath[strings.LastIndex(artifactPath, "/")+1:]),
-							SessionID:   workSession.ID,
-							Type:        "proof_of_work",
-							Content:     artifactPath,
+							ID:        fmt.Sprintf("pow-%s-%s", brainTask.ID, artifactPath[strings.LastIndex(artifactPath, "/")+1:]),
+							SessionID: workSession.ID,
+							Type:      "proof_of_work",
+							Content:   artifactPath,
 							Metadata: map[string]string{
-								"task_id":     brainTask.ID,
-								"title":       brainTask.Title,
-								"artifact":    artifactPath[strings.LastIndex(artifactPath, "/")+1:],
+								"task_id":  brainTask.ID,
+								"title":    brainTask.Title,
+								"artifact": artifactPath[strings.LastIndex(artifactPath, "/")+1:],
 							},
 							CollectedAt: time.Now(),
 							CollectedBy: "factory",
@@ -489,26 +489,26 @@ Format your response as JSON:
 
 	// Generate BrainTaskSpec for the work item
 	brainTaskSpec := contracts.BrainTaskSpec{
-		ID:           fmt.Sprintf("task-%s-1", workItem.ID),
-		Title:        workItem.Title,
-		Description:  workItem.Summary,
-		WorkItemID:   workItem.ID,
-		SourceKey:    workItem.ID,
-		WorkType:     workItem.WorkType,
-		WorkDomain:   workItem.WorkDomain,
-		Priority:     workItem.Priority,
-		Objective:    fmt.Sprintf("Complete work item %s: %s", workItem.ID, workItem.Title),
-		Constraints:  []string{"Use test-driven development", "Follow coding standards"},
+		ID:          fmt.Sprintf("task-%s-1", workItem.ID),
+		Title:       workItem.Title,
+		Description: workItem.Summary,
+		WorkItemID:  workItem.ID,
+		SourceKey:   workItem.ID,
+		WorkType:    workItem.WorkType,
+		WorkDomain:  workItem.WorkDomain,
+		Priority:    workItem.Priority,
+		Objective:   fmt.Sprintf("Complete work item %s: %s", workItem.ID, workItem.Title),
+		Constraints: []string{"Use test-driven development", "Follow coding standards"},
 	}
 
 	// For MVP, return a simplified analysis with generated BrainTaskSpec
 	return &contracts.AnalysisResult{
-		WorkItem:            workItem,
-		BrainTaskSpecs:       []contracts.BrainTaskSpec{brainTaskSpec},
-		Confidence:           0.8,
-		AnalysisNotes:        fmt.Sprintf("Complexity: medium, Effort: 2 hours, Approach: %s", resp.Content[:min(200, len(resp.Content))]),
-		RequiresApproval:    false,
-		RecommendedModel:     "glm-4.7",
+		WorkItem:              workItem,
+		BrainTaskSpecs:        []contracts.BrainTaskSpec{brainTaskSpec},
+		Confidence:            0.8,
+		AnalysisNotes:         fmt.Sprintf("Complexity: medium, Effort: 2 hours, Approach: %s", resp.Content[:min(200, len(resp.Content))]),
+		RequiresApproval:      false,
+		RecommendedModel:      "glm-4.7",
 		EstimatedTotalCostUSD: 0.05,
 	}, nil
 }
@@ -578,28 +578,28 @@ func (m *mockZenContext) ReconstructSession(ctx context.Context, req zenctx.ReMe
 	if session, exists := m.sessions[key]; exists {
 		return &zenctx.ReMeResponse{
 			SessionContext:  session,
-			JournalEntries: []interface{}{},
+			JournalEntries:  []interface{}{},
 			ReconstructedAt: time.Now(),
 		}, nil
 	}
 
 	newSession := &zenctx.SessionContext{
-		SessionID:       req.SessionID,
-		TaskID:          req.TaskID,
-		ClusterID:       req.ClusterID,
-		ProjectID:       req.ProjectID,
-		CreatedAt:       time.Now(),
-		LastAccessedAt:  time.Now(),
-		State:           nil,
+		SessionID:         req.SessionID,
+		TaskID:            req.TaskID,
+		ClusterID:         req.ClusterID,
+		ProjectID:         req.ProjectID,
+		CreatedAt:         time.Now(),
+		LastAccessedAt:    time.Now(),
+		State:             nil,
 		RelevantKnowledge: nil,
-		Scratchpad:      nil,
+		Scratchpad:        nil,
 	}
 
 	m.sessions[key] = newSession
 
 	return &zenctx.ReMeResponse{
 		SessionContext:  newSession,
-		JournalEntries: []interface{}{},
+		JournalEntries:  []interface{}{},
 		ReconstructedAt: time.Now(),
 	}, nil
 }
@@ -608,7 +608,7 @@ func (m *mockZenContext) Stats(ctx context.Context) (map[zenctx.Tier]interface{}
 	stats := make(map[zenctx.Tier]interface{})
 	stats[zenctx.TierHot] = map[string]interface{}{
 		"session_count": len(m.sessions),
-		"type": "mock-memory",
+		"type":          "mock-memory",
 	}
 	stats[zenctx.TierWarm] = map[string]interface{}{
 		"type": "mock-qmd",
@@ -635,7 +635,7 @@ func (m *mockLedgerClient) GetCostBudgetStatus(ctx context.Context, projectID st
 		ProjectID:      projectID,
 		SpentUSD:       0.05,
 		BudgetLimitUSD: 100.0,
-		RemainingUSD:    99.95,
+		RemainingUSD:   99.95,
 		PercentUsed:    0.05,
 	}, nil
 }
@@ -659,20 +659,20 @@ func createRealZenContext() (zenctx.ZenContext, error) {
 	}
 
 	s3Config := &tier3.S3Config{
-		Bucket:           "zen-brain-context",
-		Region:           "us-east-1",
-		Endpoint:         "http://localhost:9000",
-		AccessKeyID:      "minioadmin",
-		SecretAccessKey:  "minioadmin",
-		SessionToken:     "",
-		UsePathStyle:     true,
-		DisableSSL:       true,
+		Bucket:            "zen-brain-context",
+		Region:            "us-east-1",
+		Endpoint:          "http://localhost:9000",
+		AccessKeyID:       "minioadmin",
+		SecretAccessKey:   "minioadmin",
+		SessionToken:      "",
+		UsePathStyle:      true,
+		DisableSSL:        true,
 		ForceRenameBucket: false,
-		MaxRetries:       3,
-		Timeout:          30 * time.Second,
-		PartSize:         5 * 1024 * 1024, // 5 MB
-		Concurrency:      5,
-		Verbose:          true,
+		MaxRetries:        3,
+		Timeout:           30 * time.Second,
+		PartSize:          5 * 1024 * 1024, // 5 MB
+		Concurrency:       5,
+		Verbose:           true,
 	}
 
 	zenCtxConfig := &internalcontext.ZenContextConfig{
@@ -693,19 +693,19 @@ func createRealZenContext() (zenctx.ZenContext, error) {
 func createMockWorkItem() *contracts.WorkItem {
 	now := time.Now()
 	return &contracts.WorkItem{
-		ID:          "MOCK-001",
-		Title:       "Fix authentication bug in login flow",
-		Summary:     "Users are unable to login when using special characters in passwords",
-		Body:        "## Problem\n\nSeveral users have reported login failures when their passwords contain special characters (!@#$%). The error message is 'Invalid credentials' even though the password is correct.\n\n## Reproduction\n\n1. Navigate to login page\n2. Enter username\n3. Enter password with special characters\n4. Click login\n5. Error occurs\n\n## Expected Behavior\n\nUsers should be able to login with any valid password, including those with special characters.",
-		WorkType:    contracts.WorkTypeDebug,
-		WorkDomain:  contracts.DomainCore,
-		Priority:    contracts.PriorityHigh,
+		ID:            "MOCK-001",
+		Title:         "Fix authentication bug in login flow",
+		Summary:       "Users are unable to login when using special characters in passwords",
+		Body:          "## Problem\n\nSeveral users have reported login failures when their passwords contain special characters (!@#$%). The error message is 'Invalid credentials' even though the password is correct.\n\n## Reproduction\n\n1. Navigate to login page\n2. Enter username\n3. Enter password with special characters\n4. Click login\n5. Error occurs\n\n## Expected Behavior\n\nUsers should be able to login with any valid password, including those with special characters.",
+		WorkType:      contracts.WorkTypeDebug,
+		WorkDomain:    contracts.DomainCore,
+		Priority:      contracts.PriorityHigh,
 		ExecutionMode: contracts.ModeApprovalRequired,
-		Status:      contracts.StatusRequested,
-		CreatedAt:   now,
-		UpdatedAt:   now,
-		ClusterID:   "default",
-		ProjectID:   "MOCK",
+		Status:        contracts.StatusRequested,
+		CreatedAt:     now,
+		UpdatedAt:     now,
+		ClusterID:     "default",
+		ProjectID:     "MOCK",
 	}
 }
 
@@ -714,17 +714,17 @@ func convertToFactoryTaskSpec(brainTask contracts.BrainTaskSpec, sessionID, work
 	now := time.Now()
 
 	return &factory.FactoryTaskSpec{
-		ID:          brainTask.ID,
-		SessionID:   sessionID,
-		WorkItemID:  workItemID,
-		Title:       brainTask.Title,
-		Objective:   brainTask.Objective,
-		Constraints: brainTask.Constraints,
-		WorkType:    brainTask.WorkType,
-		WorkDomain:  brainTask.WorkDomain,
-		Priority:    brainTask.Priority,
+		ID:             brainTask.ID,
+		SessionID:      sessionID,
+		WorkItemID:     workItemID,
+		Title:          brainTask.Title,
+		Objective:      brainTask.Objective,
+		Constraints:    brainTask.Constraints,
+		WorkType:       brainTask.WorkType,
+		WorkDomain:     brainTask.WorkDomain,
+		Priority:       brainTask.Priority,
 		TimeoutSeconds: 300, // 5 minutes default timeout
-		MaxRetries:    3,     // 3 retries default
+		MaxRetries:     3,   // 3 retries default
 		CreatedAt:      now,
 		UpdatedAt:      now,
 	}

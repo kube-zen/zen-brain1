@@ -163,15 +163,15 @@ func TestFactoryWithUsefulTemplate(t *testing.T) {
 	// Create a task spec that uses the "real" implementation template
 	taskID := "real-impl-task-" + fmt.Sprint(time.Now().Unix())
 	spec := &FactoryTaskSpec{
-		ID:          taskID,
-		SessionID:   "real-impl-session",
-		WorkItemID:  "REAL-001",
-		Title:       "Real Feature Implementation",
-		Objective:   "Implement a real feature with actual files",
-		WorkType:    "implementation",
-		WorkDomain:  "real",
-		Priority:    "high",
-		CreatedAt:   time.Now(),
+		ID:         taskID,
+		SessionID:  "real-impl-session",
+		WorkItemID: "REAL-001",
+		Title:      "Real Feature Implementation",
+		Objective:  "Implement a real feature with actual files",
+		WorkType:   "implementation",
+		WorkDomain: "real",
+		Priority:   "high",
+		CreatedAt:  time.Now(),
 	}
 
 	// Execute task
@@ -252,15 +252,15 @@ func TestRefactorTemplate(t *testing.T) {
 	// Create a task spec that uses the refactor template
 	taskID := "refactor-task-" + fmt.Sprint(time.Now().Unix())
 	spec := &FactoryTaskSpec{
-		ID:          taskID,
-		SessionID:   "refactor-session",
-		WorkItemID:  "REFACTOR-001",
-		Title:       "Code Refactoring",
-		Objective:   "Refactor complex code for better maintainability",
-		WorkType:    "refactor",
-		WorkDomain:  "real",
-		Priority:    "high",
-		CreatedAt:   time.Now(),
+		ID:         taskID,
+		SessionID:  "refactor-session",
+		WorkItemID: "REFACTOR-001",
+		Title:      "Code Refactoring",
+		Objective:  "Refactor complex code for better maintainability",
+		WorkType:   "refactor",
+		WorkDomain: "real",
+		Priority:   "high",
+		CreatedAt:  time.Now(),
 	}
 
 	// Execute task
@@ -319,15 +319,15 @@ func TestPythonTemplate(t *testing.T) {
 	// Create a task spec that uses the Python implementation template
 	taskID := "python-task-" + fmt.Sprint(time.Now().Unix())
 	spec := &FactoryTaskSpec{
-		ID:          taskID,
-		SessionID:   "python-session",
-		WorkItemID:  "PYTHON-001",
-		Title:       "Python Feature",
-		Objective:   "Create a Python application with tests and docs",
-		WorkType:    "implementation",
-		WorkDomain:  "python",
-		Priority:    "high",
-		CreatedAt:   time.Now(),
+		ID:         taskID,
+		SessionID:  "python-session",
+		WorkItemID: "PYTHON-001",
+		Title:      "Python Feature",
+		Objective:  "Create a Python application with tests and docs",
+		WorkType:   "implementation",
+		WorkDomain: "python",
+		Priority:   "high",
+		CreatedAt:  time.Now(),
 	}
 
 	// Execute task

@@ -297,9 +297,9 @@ func TestSQLiteStore_JSONFields(t *testing.T) {
 		},
 	}
 	analysisResult := &contracts.AnalysisResult{
-		WorkItem:       workItem,
-		Confidence:     0.85,
-		AnalysisNotes:  "Looks good",
+		WorkItem:         workItem,
+		Confidence:       0.85,
+		AnalysisNotes:    "Looks good",
 		RequiresApproval: false,
 	}
 	session := &contracts.Session{
@@ -324,10 +324,10 @@ func TestSQLiteStore_JSONFields(t *testing.T) {
 		},
 		EvidenceItems: []contracts.EvidenceItem{
 			{
-				ID:        "ev-1",
-				SessionID: "session-json",
-				Type:      contracts.EvidenceTypeHypothesis,
-				Content:   "Hypothesis",
+				ID:          "ev-1",
+				SessionID:   "session-json",
+				Type:        contracts.EvidenceTypeHypothesis,
+				Content:     "Hypothesis",
 				CollectedAt: time.Now(),
 				CollectedBy: "test",
 			},

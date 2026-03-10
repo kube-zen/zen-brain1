@@ -21,46 +21,46 @@ import (
 
 // OfficePipeline holds all components of the Office lane.
 type OfficePipeline struct {
-	OfficeManager *office.Manager
-	Analyzer      analyzer.IntentAnalyzer
+	OfficeManager  *office.Manager
+	Analyzer       analyzer.IntentAnalyzer
 	SessionManager session.Manager
-	Planner       planner.Planner
-	Gatekeeper    gatekeeper.Gatekeeper
-	MessageBus    messagebus.MessageBus // Optional Redis message bus
+	Planner        planner.Planner
+	Gatekeeper     gatekeeper.Gatekeeper
+	MessageBus     messagebus.MessageBus // Optional Redis message bus
 }
 
 // NewOfficePipeline creates a new Office pipeline with stub dependencies.
 // This is suitable for development and testing before full ledger and KB are available.
 func NewOfficePipeline() (*OfficePipeline, error) {
 	log.Println("Initializing Office pipeline...")
-	
+
 	// 1. LLM Gateway
 	log.Println("  - LLM Gateway")
 	gatewayConfig := &llmgateway.GatewayConfig{
-		LocalWorkerModel:        "qwen3.5:0.8b",
-		PlannerModel:            "glm-4.7",
-		FallbackModel:           "glm-4.7",
-		LocalWorkerMaxCost:     0.01,
-		PlannerMinCost:          0.10,
+		LocalWorkerModel:         "qwen3.5:0.8b",
+		PlannerModel:             "glm-4.7",
+		FallbackModel:            "glm-4.7",
+		LocalWorkerMaxCost:       0.01,
+		PlannerMinCost:           0.10,
 		LocalWorkerTimeout:       30,
 		PlannerTimeout:           60,
 		RequestTimeout:           120,
 		LocalWorkerSupportsTools: true,
 		PlannerSupportsTools:     true,
-		AutoEscalateComplexTasks:   true,
+		AutoEscalateComplexTasks: true,
 		RoutingPolicy:            "simple",
-		EnableFallbackChain:     true,
-		StrictPreferred:         false,
+		EnableFallbackChain:      true,
+		StrictPreferred:          false,
 	}
 	llmGateway, err := llmgateway.NewGateway(gatewayConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create LLM Gateway: %w", err)
 	}
-	
+
 	// 2. Knowledge Base (stub)
 	log.Println("  - Knowledge Base (stub)")
 	kbStore := kb.NewStubStore()
-	
+
 	// 3. Intent Analyzer
 	log.Println("  - Intent Analyzer")
 	analyzerConfig := analyzer.DefaultConfig()
@@ -68,7 +68,7 @@ func NewOfficePipeline() (*OfficePipeline, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Intent Analyzer: %w", err)
 	}
-	
+
 	// 4. Session Manager (memory store)
 	log.Println("  - Session Manager (memory)")
 	sessionStore := session.NewMemoryStore()
@@ -78,20 +78,20 @@ func NewOfficePipeline() (*OfficePipeline, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Session Manager: %w", err)
 	}
-	
+
 	// 5. Ledger (stub)
 	log.Println("  - Ledger (stub)")
 	ledgerClient := ledger.NewStubLedgerClient()
-	
+
 	// 6. Message Bus (Redis)
 	log.Println("  - Message Bus (Redis)")
 	var msgBus messagebus.MessageBus
 	redisConfig := &redis.Config{
-		RedisURL:      "redis://localhost:6379",
-		MaxPending:    1000,
-		ConsumerName:  "",
-		BlockTimeout:  5 * time.Second,
-		ClaimTimeout:  30 * time.Second,
+		RedisURL:     "redis://localhost:6379",
+		MaxPending:   1000,
+		ConsumerName: "",
+		BlockTimeout: 5 * time.Second,
+		ClaimTimeout: 30 * time.Second,
 	}
 	if os.Getenv("ZEN_BRAIN_REDIS_DISABLED") == "" {
 		bus, err := redis.New(redisConfig)
@@ -104,24 +104,24 @@ func NewOfficePipeline() (*OfficePipeline, error) {
 	} else {
 		log.Println("    (Redis disabled by environment variable)")
 	}
-	
+
 	// 7. Office Manager
 	log.Println("  - Office Manager")
 	officeManager := office.NewManager()
-	
+
 	// 8. Planner
 	log.Println("  - Planner")
 	plannerConfig := &planner.Config{
-		OfficeManager:   officeManager,
-		Analyzer:        intentAnalyzer,
-		SessionManager:  sessionManager,
-		LedgerClient:    ledgerClient,
-		ZenContext:      nil, // Optional for now
-		DefaultModel:    "glm-4.7",
-		FallbackModel:   "glm-4.7",
-		MaxCostUSD:      10.0,
-		RequireApproval: false, // Auto-approve for testing
-		AutoApproveCost: 5.0,
+		OfficeManager:    officeManager,
+		Analyzer:         intentAnalyzer,
+		SessionManager:   sessionManager,
+		LedgerClient:     ledgerClient,
+		ZenContext:       nil, // Optional for now
+		DefaultModel:     "glm-4.7",
+		FallbackModel:    "glm-4.7",
+		MaxCostUSD:       10.0,
+		RequireApproval:  false, // Auto-approve for testing
+		AutoApproveCost:  5.0,
 		AnalysisTimeout:  300,
 		ExecutionTimeout: 3600,
 		MetricsEnabled:   false,
@@ -130,26 +130,26 @@ func NewOfficePipeline() (*OfficePipeline, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Planner: %w", err)
 	}
-	
+
 	// 9. Gatekeeper
 	log.Println("  - Gatekeeper")
 	gatekeeperConfig := gatekeeper.DefaultConfig()
 	gatekeeperConfig.Planner = plannerAgent
-	gatekeeperConfig.ReminderInterval = 0      // disabled for now
+	gatekeeperConfig.ReminderInterval = 0 // disabled for now
 	gatekeeperConfig.EscalationInterval = 0
 	gatekeeperConfig.AuditLogEnabled = false
 	gatekeeperAgent, err := gatekeeper.New(gatekeeperConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Gatekeeper: %w", err)
 	}
-	
+
 	return &OfficePipeline{
-		OfficeManager: officeManager,
-		Analyzer:      intentAnalyzer,
+		OfficeManager:  officeManager,
+		Analyzer:       intentAnalyzer,
 		SessionManager: sessionManager,
-		Planner:       plannerAgent,
-		Gatekeeper:    gatekeeperAgent,
-		MessageBus:    msgBus,
+		Planner:        plannerAgent,
+		Gatekeeper:     gatekeeperAgent,
+		MessageBus:     msgBus,
 	}, nil
 }
 

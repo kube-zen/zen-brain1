@@ -14,9 +14,9 @@ import (
 // DedupMessageBus wraps a MessageBus with deduplication.
 // It prevents duplicate events from being published within a configurable window.
 type DedupMessageBus struct {
-	bus      messagebus.MessageBus
-	deduper  *dedup.Deduper
-	source   string
+	bus     messagebus.MessageBus
+	deduper *dedup.Deduper
+	source  string
 }
 
 // NewDedupMessageBus creates a new deduplicating message bus.

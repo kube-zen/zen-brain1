@@ -18,18 +18,18 @@ func TestInMemoryPatternStore(t *testing.T) {
 	// Create test mining result with aggregated statistics
 	rawWorkTypeStats := map[string]*WorkTypeStatistics{
 		"implementation-backend": {
-			WorkType:           "implementation",
-			WorkDomain:         "backend",
-			TotalRuns:          10,
-			SuccessfulRuns:     8,
-			TotalDuration:      10 * time.Minute,
-			TotalFilesChanged:  20,
+			WorkType:          "implementation",
+			WorkDomain:        "backend",
+			TotalRuns:         10,
+			SuccessfulRuns:    8,
+			TotalDuration:     10 * time.Minute,
+			TotalFilesChanged: 20,
 		},
 	}
 	rawTemplateStats := map[string]*TemplateStatistics{
 		"implementation:real": {
-			TemplateName:  "implementation:real",
-			TotalRuns:     10,
+			TemplateName:   "implementation:real",
+			TotalRuns:      10,
 			SuccessfulRuns: 8,
 			TotalDuration:  10 * time.Minute,
 		},
@@ -40,7 +40,7 @@ func TestInMemoryPatternStore(t *testing.T) {
 		TemplateStatistics: AggregateTemplateStats(rawTemplateStats),
 		DurationStatistics: []DurationStatistics{
 			{
-				WorkType: "implementation",
+				WorkType:   "implementation",
 				WorkDomain: "backend",
 				Samples: []time.Duration{
 					1 * time.Minute,
@@ -121,18 +121,18 @@ func TestRecommender(t *testing.T) {
 	// Add test data with aggregated statistics
 	rawWorkTypeStats := map[string]*WorkTypeStatistics{
 		"implementation-backend": {
-			WorkType:           "implementation",
-			WorkDomain:         "backend",
-			TotalRuns:          10,
-			SuccessfulRuns:     9,
-			TotalDuration:      15 * time.Minute,
-			TotalFilesChanged:  30,
+			WorkType:          "implementation",
+			WorkDomain:        "backend",
+			TotalRuns:         10,
+			SuccessfulRuns:    9,
+			TotalDuration:     15 * time.Minute,
+			TotalFilesChanged: 30,
 		},
 	}
 	rawTemplateStats := map[string]*TemplateStatistics{
 		"implementation:real": {
-			TemplateName:  "implementation:real",
-			TotalRuns:     10,
+			TemplateName:   "implementation:real",
+			TotalRuns:      10,
 			SuccessfulRuns: 9,
 			TotalDuration:  15 * time.Minute,
 		},
@@ -143,7 +143,7 @@ func TestRecommender(t *testing.T) {
 		TemplateStatistics: AggregateTemplateStats(rawTemplateStats),
 		DurationStatistics: []DurationStatistics{
 			{
-				WorkType: "implementation",
+				WorkType:   "implementation",
 				WorkDomain: "backend",
 				Samples: []time.Duration{
 					1 * time.Minute,
@@ -222,9 +222,9 @@ func TestConfidenceCalculation(t *testing.T) {
 	recommender := NewRecommender(store, 3)
 
 	tests := []struct {
-		samples    int
-		minConf    float64
-		maxConf    float64
+		samples int
+		minConf float64
+		maxConf float64
 	}{
 		{0, 0.0, 0.0},
 		{1, 0.1, 0.2},
@@ -306,25 +306,25 @@ func TestJSONPatternStore(t *testing.T) {
 		Duration:  1 * time.Second,
 		WorkTypeStatistics: []WorkTypeStatistics{
 			{
-				WorkType:           "implementation",
-				WorkDomain:         "backend",
-				TotalRuns:          5,
-				SuccessfulRuns:     4,
-				TotalDuration:      5 * time.Minute,
-				TotalFilesChanged:  10,
+				WorkType:          "implementation",
+				WorkDomain:        "backend",
+				TotalRuns:         5,
+				SuccessfulRuns:    4,
+				TotalDuration:     5 * time.Minute,
+				TotalFilesChanged: 10,
 			},
 		},
 		TemplateStatistics: []TemplateStatistics{
 			{
-				TemplateName:  "implementation:real",
-				TotalRuns:     5,
+				TemplateName:   "implementation:real",
+				TotalRuns:      5,
 				SuccessfulRuns: 4,
 				TotalDuration:  5 * time.Minute,
 			},
 		},
 		DurationStatistics: []DurationStatistics{
 			{
-				WorkType:  "implementation",
+				WorkType:   "implementation",
 				WorkDomain: "backend",
 				Samples: []time.Duration{
 					30 * time.Second,

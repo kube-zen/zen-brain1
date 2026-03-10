@@ -51,13 +51,13 @@ func (a *KBPatternAdapter) createPatternDocument(result *MiningResult) *PatternD
 	now := time.Now()
 
 	doc := &PatternDocument{
-		ID:          fmt.Sprintf("pattern-summary-%d", now.Unix()),
-		Title:       fmt.Sprintf("Execution Pattern Summary - %s", now.Format("2006-01-02")),
-		Path:        "patterns/execution-patterns",
-		Domain:      "intelligence",
-		Source:      "internal:intelligence:miner",
-		CreatedAt:   result.StartTime,
-		UpdatedAt:   result.EndTime,
+		ID:        fmt.Sprintf("pattern-summary-%d", now.Unix()),
+		Title:     fmt.Sprintf("Execution Pattern Summary - %s", now.Format("2006-01-02")),
+		Path:      "patterns/execution-patterns",
+		Domain:    "intelligence",
+		Source:    "internal:intelligence:miner",
+		CreatedAt: result.StartTime,
+		UpdatedAt: result.EndTime,
 		Content: PatternContent{
 			AnalysisPeriod: AnalysisPeriod{
 				StartTime: result.StartTime,
@@ -71,9 +71,9 @@ func (a *KBPatternAdapter) createPatternDocument(result *MiningResult) *PatternD
 				TotalWorkTypes:    len(result.WorkTypeStatistics),
 				TotalTemplates:    len(result.TemplateStatistics),
 			},
-			WorkTypes: result.WorkTypeStatistics,
-			Templates: result.TemplateStatistics,
-			Durations: result.DurationStatistics,
+			WorkTypes:       result.WorkTypeStatistics,
+			Templates:       result.TemplateStatistics,
+			Durations:       result.DurationStatistics,
 			Recommendations: a.generateRecommendations(result),
 		},
 	}
@@ -147,18 +147,18 @@ type PatternDocument struct {
 
 // PatternContent contains the pattern analysis.
 type PatternContent struct {
-	AnalysisPeriod AnalysisPeriod   `json:"analysis_period"`
-	Summary        PatternSummary  `json:"summary"`
-	WorkTypes      []WorkTypeStatistics `json:"work_types"`
-	Templates      []TemplateStatistics `json:"templates"`
-	Durations      []DurationStatistics `json:"durations"`
-	Recommendations []string       `json:"recommendations"`
+	AnalysisPeriod  AnalysisPeriod       `json:"analysis_period"`
+	Summary         PatternSummary       `json:"summary"`
+	WorkTypes       []WorkTypeStatistics `json:"work_types"`
+	Templates       []TemplateStatistics `json:"templates"`
+	Durations       []DurationStatistics `json:"durations"`
+	Recommendations []string             `json:"recommendations"`
 }
 
 // AnalysisPeriod describes the time range of the analysis.
 type AnalysisPeriod struct {
-	StartTime time.Time `json:"start_time"`
-	EndTime   time.Time `json:"end_time"`
+	StartTime time.Time     `json:"start_time"`
+	EndTime   time.Time     `json:"end_time"`
 	Duration  time.Duration `json:"duration"`
 }
 

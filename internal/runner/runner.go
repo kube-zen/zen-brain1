@@ -14,18 +14,17 @@ import (
 	"github.com/kube-zen/zen-brain1/internal/context/tier2"
 	"github.com/kube-zen/zen-brain1/internal/context/tier3"
 	"github.com/kube-zen/zen-brain1/internal/llm"
-	"github.com/kube-zen/zen-brain1/pkg/contracts"
-	"github.com/kube-zen/zen-brain1/pkg/ledger"
 	zenctx "github.com/kube-zen/zen-brain1/pkg/context"
+	"github.com/kube-zen/zen-brain1/pkg/contracts"
 )
 
 // Runner holds all zen-brain components.
 type Runner struct {
-	config     *config.Config
-	gateway    *llm.Gateway
-	zenctx     zenctx.ZenContext
+	config      *config.Config
+	gateway     *llm.Gateway
+	zenctx      zenctx.ZenContext
 	shutdownCtx stdctx.Context
-	cancel     stdctx.CancelFunc
+	cancel      stdctx.CancelFunc
 }
 
 // NewRunner creates a new runner with all components initialized.
@@ -57,13 +56,14 @@ func (r *Runner) initZenContext() error {
 	// For MVP, use minimal config (can be nil for graceful degradation)
 	zenctxConfig := &context.ZenContextConfig{
 		Tier1Redis: &tier1.RedisConfig{
-			Addr:    r.config.ZenContext.Tier1Redis.Addr,
+			Addr:     r.config.ZenContext.Tier1Redis.Addr,
 			Password: r.config.ZenContext.Tier1Redis.Password,
 			DB:       r.config.ZenContext.Tier1Redis.DB,
 		},
-		Tier2QMD: &tier2.Config{
-			KBStore: nil, // QMD KB store
-			Verbose:  r.config.ZenContext.Tier2QMD.Verbose,
+		Tier2QMD: &context.QMDConfig{
+			RepoPath:      r.config.ZenContext.Tier2QMD.RepoPath,
+			QMDBinaryPath: r.config.ZenContext.Tier2QMD.QMDBinaryPath,
+			Verbose:       r.config.ZenContext.Tier2QMD.Verbose,
 		},
 		Tier3S3: &tier3.S3Config{
 			Bucket: r.config.ZenContext.Tier3S3.Bucket,
@@ -91,20 +91,20 @@ func (r *Runner) initGateway() error {
 	log.Printf("[Runner] Initializing LLM Gateway")
 
 	gatewayConfig := &llm.GatewayConfig{
-		LocalWorkerModel:        "qwen3.5:0.8b",
-		PlannerModel:            r.config.Planner.DefaultModel,
-		FallbackModel:           r.config.Planner.DefaultModel,
-		LocalWorkerMaxCost:     0.01,
-		PlannerMinCost:         0.10,
-		LocalWorkerTimeout:      30,
-		PlannerTimeout:          60,
-		RequestTimeout:          120,
+		LocalWorkerModel:         "qwen3.5:0.8b",
+		PlannerModel:             r.config.Planner.DefaultModel,
+		FallbackModel:            r.config.Planner.DefaultModel,
+		LocalWorkerMaxCost:       0.01,
+		PlannerMinCost:           0.10,
+		LocalWorkerTimeout:       30,
+		PlannerTimeout:           60,
+		RequestTimeout:           120,
 		LocalWorkerSupportsTools: true,
 		PlannerSupportsTools:     true,
-		AutoEscalateComplexTasks:   true,
+		AutoEscalateComplexTasks: true,
 		RoutingPolicy:            "simple",
-		EnableFallbackChain:     true,
-		StrictPreferred:         false,
+		EnableFallbackChain:      true,
+		StrictPreferred:          false,
 	}
 
 	var err error
@@ -144,13 +144,14 @@ func (r *Runner) processWorkItem(workItemID string) error {
 	// Step 1: Fetch work item (mock for now)
 	log.Printf("[Runner] Step 1: Fetching work item %s", workItemID)
 	workItem := &contracts.WorkItem{
-		ID:         workItemID,
-		Title:      "Test Work Item",
-		Priority:   "medium",
-		Status:     "todo",
-		SourceKey:  workItemID,
-		Source:     "mock",
-		SourceURL:  "https://example.com/" + workItemID,
+		ID:       workItemID,
+		Title:    "Test Work Item",
+		Priority: contracts.PriorityMedium,
+		Status:   contracts.WorkStatusTodo,
+		Source: contracts.SourceMetadata{
+			System:   "mock",
+			IssueKey: workItemID,
+		},
 	}
 	log.Printf("[Runner] Work item: %s - %s", workItem.ID, workItem.Title)
 

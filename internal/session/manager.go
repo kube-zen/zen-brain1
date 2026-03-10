@@ -19,11 +19,11 @@ type DefaultManager struct {
 	config *Config
 	store  Store
 	zenctx zenctx.ZenContext // Optional ZenContext integration
-	
+
 	// For session creation
 	sessionCounter uint64
 	mutex          sync.RWMutex
-	
+
 	// Cleanup
 	cleanupTicker *time.Ticker
 	cleanupDone   chan bool
@@ -34,7 +34,7 @@ func New(config *Config, store Store) (*DefaultManager, error) {
 	if config == nil {
 		config = DefaultConfig()
 	}
-	
+
 	if store == nil {
 		// Create default store based on config
 		var err error
@@ -43,20 +43,20 @@ func New(config *Config, store Store) (*DefaultManager, error) {
 			return nil, fmt.Errorf("failed to create store: %w", err)
 		}
 	}
-	
+
 	manager := &DefaultManager{
-		config:  config,
-		store:   store,
-		zenctx:  config.ZenContext,
+		config:      config,
+		store:       store,
+		zenctx:      config.ZenContext,
 		cleanupDone: make(chan bool),
 	}
-	
+
 	// Start cleanup goroutine
 	if config.CleanupInterval > 0 {
 		manager.cleanupTicker = time.NewTicker(config.CleanupInterval)
 		go manager.cleanupRoutine()
 	}
-	
+
 	return manager, nil
 }
 
@@ -64,33 +64,33 @@ func New(config *Config, store Store) (*DefaultManager, error) {
 func (m *DefaultManager) CreateSession(ctx context.Context, workItem *contracts.WorkItem) (*contracts.Session, error) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
-	
+
 	// Check if there's already an active session for this work item
 	existing, err := m.store.GetByWorkItem(ctx, workItem.ID)
 	if err == nil && existing != nil {
 		// Check if session is still active (not completed/failed/canceled)
-		if existing.State != contracts.SessionStateCompleted && 
-		   existing.State != contracts.SessionStateFailed && 
-		   existing.State != contracts.SessionStateCanceled {
+		if existing.State != contracts.SessionStateCompleted &&
+			existing.State != contracts.SessionStateFailed &&
+			existing.State != contracts.SessionStateCanceled {
 			return nil, fmt.Errorf("active session %s already exists for work item %s", existing.ID, workItem.ID)
 		}
 	}
-	
+
 	// Generate session ID (in production, use UUID)
 	sessionID := fmt.Sprintf("session-%d-%d", time.Now().Unix(), m.sessionCounter)
 	m.sessionCounter++
-	
+
 	now := time.Now()
 	session := &contracts.Session{
-		ID:          sessionID,
-		WorkItemID:  workItem.ID,
-		SourceKey:   workItem.Source.IssueKey,
-		State:       contracts.SessionStateCreated,
-		WorkItem:    workItem,
-		CreatedAt:   now,
-		UpdatedAt:   now,
+		ID:         sessionID,
+		WorkItemID: workItem.ID,
+		SourceKey:  workItem.Source.IssueKey,
+		State:      contracts.SessionStateCreated,
+		WorkItem:   workItem,
+		CreatedAt:  now,
+		UpdatedAt:  now,
 	}
-	
+
 	// Record initial state transition
 	session.StateHistory = []contracts.StateTransition{{
 		FromState: "", // No previous state
@@ -99,25 +99,25 @@ func (m *DefaultManager) CreateSession(ctx context.Context, workItem *contracts.
 		Reason:    "Session created",
 		Agent:     "session-manager",
 	}}
-	
+
 	if err := m.store.Create(ctx, session); err != nil {
 		return nil, fmt.Errorf("failed to store session: %w", err)
 	}
-	
+
 	log.Printf("Created session %s for work item %s", session.ID, workItem.ID)
-	
+
 	// Create corresponding ZenContext SessionContext if ZenContext is configured
 	if m.zenctx != nil {
 		zenSession := &zenctx.SessionContext{
-			SessionID:       session.ID,
-			TaskID:          workItem.ID,
-			ClusterID:       "default", // TODO: make configurable
-			ProjectID:       workItem.Source.Project,
-			CreatedAt:       now,
-			LastAccessedAt:  now,
-			State:           nil, // Agent state will be populated later
+			SessionID:         session.ID,
+			TaskID:            workItem.ID,
+			ClusterID:         "default", // TODO: make configurable
+			ProjectID:         workItem.Source.Project,
+			CreatedAt:         now,
+			LastAccessedAt:    now,
+			State:             nil, // Agent state will be populated later
 			RelevantKnowledge: nil,
-			Scratchpad:      nil,
+			Scratchpad:        nil,
 		}
 		err := m.zenctx.StoreSessionContext(ctx, zenSession.ClusterID, zenSession)
 		if err != nil {
@@ -127,7 +127,7 @@ func (m *DefaultManager) CreateSession(ctx context.Context, workItem *contracts.
 			log.Printf("Created ZenContext SessionContext for session %s", session.ID)
 		}
 	}
-	
+
 	return session, nil
 }
 
@@ -136,7 +136,7 @@ func (m *DefaultManager) updateZenContextLastAccessed(ctx context.Context, sessi
 	if m.zenctx == nil {
 		return
 	}
-	
+
 	clusterID := "default"
 	sessionCtx, err := m.zenctx.GetSessionContext(ctx, clusterID, sessionID)
 	if err != nil || sessionCtx == nil {
@@ -144,7 +144,7 @@ func (m *DefaultManager) updateZenContextLastAccessed(ctx context.Context, sessi
 		log.Printf("Warning: ZenContext SessionContext not found for session %s (cluster: %s)", sessionID, clusterID)
 		return
 	}
-	
+
 	sessionCtx.LastAccessedAt = time.Now()
 	if err := m.zenctx.StoreSessionContext(ctx, clusterID, sessionCtx); err != nil {
 		log.Printf("Warning: failed to update ZenContext LastAccessedAt for session %s: %v", sessionID, err)
@@ -183,31 +183,31 @@ func (m *DefaultManager) UpdateSession(ctx context.Context, session *contracts.S
 func (m *DefaultManager) TransitionState(ctx context.Context, sessionID string, newState contracts.SessionState, reason string, agent string) error {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
-	
+
 	session, err := m.store.Get(ctx, sessionID)
 	if err != nil {
 		return fmt.Errorf("session not found: %w", err)
 	}
-	
+
 	// Validate state transition
 	if !isValidTransition(session.State, newState) {
 		return fmt.Errorf("invalid state transition: %s -> %s", session.State, newState)
 	}
-	
+
 	// Record transition
 	transition := contracts.StateTransition{
-		FromState:  session.State,
-		ToState:    newState,
-		Timestamp:  time.Now(),
-		Reason:     reason,
-		Agent:      agent,
+		FromState: session.State,
+		ToState:   newState,
+		Timestamp: time.Now(),
+		Reason:    reason,
+		Agent:     agent,
 	}
-	
+
 	oldState := session.State
 	session.State = newState
 	session.StateHistory = append(session.StateHistory, transition)
 	session.UpdatedAt = time.Now()
-	
+
 	// Update timestamps based on state
 	now := time.Now()
 	switch newState {
@@ -220,15 +220,15 @@ func (m *DefaultManager) TransitionState(ctx context.Context, sessionID string, 
 			session.CompletedAt = &now
 		}
 	}
-	
+
 	if err := m.store.Update(ctx, session); err != nil {
 		return fmt.Errorf("failed to update session: %w", err)
 	}
-	
+
 	// Update ZenContext LastAccessedAt
 	m.updateZenContextLastAccessed(ctx, sessionID)
-	
-	log.Printf("Session %s transitioned: %s -> %s (reason: %s, agent: %s)", 
+
+	log.Printf("Session %s transitioned: %s -> %s (reason: %s, agent: %s)",
 		sessionID, oldState, newState, reason, agent)
 	return nil
 }
@@ -237,30 +237,30 @@ func (m *DefaultManager) TransitionState(ctx context.Context, sessionID string, 
 func (m *DefaultManager) AddEvidence(ctx context.Context, sessionID string, evidence contracts.EvidenceItem) error {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
-	
+
 	session, err := m.store.Get(ctx, sessionID)
 	if err != nil {
 		return fmt.Errorf("session not found: %w", err)
 	}
-	
+
 	// Set evidence metadata
 	evidence.ID = fmt.Sprintf("evidence-%d", len(session.EvidenceItems)+1)
 	evidence.SessionID = sessionID
 	if evidence.CollectedAt.IsZero() {
 		evidence.CollectedAt = time.Now()
 	}
-	
+
 	session.EvidenceItems = append(session.EvidenceItems, evidence)
 	session.UpdatedAt = time.Now()
-	
+
 	if err := m.store.Update(ctx, session); err != nil {
 		return fmt.Errorf("failed to update session: %w", err)
 	}
-	
+
 	// Update ZenContext LastAccessedAt
 	m.updateZenContextLastAccessed(ctx, sessionID)
-	
-	log.Printf("Added evidence %s to session %s (type: %s)", 
+
+	log.Printf("Added evidence %s to session %s (type: %s)",
 		evidence.ID, sessionID, evidence.Type)
 	return nil
 }
@@ -275,7 +275,7 @@ func (m *DefaultManager) CleanupStaleSessions(ctx context.Context, maxAge time.D
 	if maxAge <= 0 {
 		maxAge = m.config.StaleThreshold
 	}
-	
+
 	cutoff := time.Now().Add(-maxAge)
 	filter := SessionFilter{
 		UpdatedBefore: &cutoff,
@@ -287,27 +287,27 @@ func (m *DefaultManager) CleanupStaleSessions(ctx context.Context, maxAge time.D
 		}[0],
 		Limit: 100, // Batch cleanup
 	}
-	
+
 	sessions, err := m.store.List(ctx, filter)
 	if err != nil {
 		return 0, fmt.Errorf("failed to list stale sessions: %w", err)
 	}
-	
+
 	cleaned := 0
 	for _, session := range sessions {
 		// Transition to failed with cleanup reason
-		if err := m.TransitionState(ctx, session.ID, contracts.SessionStateFailed, 
+		if err := m.TransitionState(ctx, session.ID, contracts.SessionStateFailed,
 			fmt.Sprintf("Session stale (no update for %v)", maxAge), "cleanup"); err != nil {
 			log.Printf("Failed to clean up session %s: %v", session.ID, err)
 			continue
 		}
 		cleaned++
 	}
-	
+
 	if cleaned > 0 {
 		log.Printf("Cleaned up %d stale sessions (older than %v)", cleaned, maxAge)
 	}
-	
+
 	return cleaned, nil
 }
 
@@ -317,11 +317,11 @@ func (m *DefaultManager) Close() error {
 		m.cleanupTicker.Stop()
 		m.cleanupDone <- true
 	}
-	
+
 	if m.store != nil {
 		return m.store.Close()
 	}
-	
+
 	return nil
 }
 
@@ -374,18 +374,18 @@ func isValidTransition(from, to contracts.SessionState) bool {
 		contracts.SessionStateFailed:    {},
 		contracts.SessionStateCanceled:  {},
 	}
-	
+
 	allowed, ok := validTransitions[from]
 	if !ok {
 		return false // Unknown from state
 	}
-	
+
 	for _, state := range allowed {
 		if state == to {
 			return true
 		}
 	}
-	
+
 	return false
 }
 

@@ -15,10 +15,10 @@ import (
 
 // DefaultAnalyzer is the default implementation of IntentAnalyzer.
 type DefaultAnalyzer struct {
-	config     *Config
-	llm        llm.Provider
-	kbStore    kb.Store
-	pipeline   []StageProcessor
+	config   *Config
+	llm      llm.Provider
+	kbStore  kb.Store
+	pipeline []StageProcessor
 }
 
 // StageProcessor processes a single stage of analysis.
@@ -32,30 +32,30 @@ func New(config *Config, llmProvider llm.Provider, kbStore kb.Store) (*DefaultAn
 	if config == nil {
 		config = DefaultConfig()
 	}
-	
+
 	if llmProvider == nil {
 		return nil, fmt.Errorf("LLM provider is required")
 	}
-	
+
 	analyzer := &DefaultAnalyzer{
 		config:  config,
 		llm:     llmProvider,
 		kbStore: kbStore,
 	}
-	
+
 	// Build pipeline based on enabled stages
 	analyzer.buildPipeline()
-	
+
 	return analyzer, nil
 }
 
 // buildPipeline builds the stage processors based on configuration.
 func (a *DefaultAnalyzer) buildPipeline() {
 	a.pipeline = make([]StageProcessor, 0, len(a.config.EnabledStages))
-	
+
 	for _, stage := range a.config.EnabledStages {
 		var processor StageProcessor
-		
+
 		switch stage {
 		case StageClassification:
 			processor = &classificationStage{llm: a.llm}
@@ -73,7 +73,7 @@ func (a *DefaultAnalyzer) buildPipeline() {
 			log.Printf("Warning: Unknown stage %s, skipping", stage)
 			continue
 		}
-		
+
 		a.pipeline = append(a.pipeline, processor)
 	}
 }
@@ -81,21 +81,21 @@ func (a *DefaultAnalyzer) buildPipeline() {
 // Analyze analyzes a work item and produces BrainTask specifications.
 func (a *DefaultAnalyzer) Analyze(ctx context.Context, workItem *contracts.WorkItem) (*contracts.AnalysisResult, error) {
 	startTime := time.Now()
-	
+
 	// Execute pipeline stages
 	stageResults := make(map[Stage]StageResult)
 	var errors []string
-	
+
 	for _, processor := range a.pipeline {
 		stageStart := time.Now()
-		
+
 		result, err := processor.Process(ctx, workItem, stageResults)
 		result.DurationMs = time.Since(stageStart).Milliseconds()
-		
+
 		if err != nil {
 			result.Errors = append(result.Errors, err.Error())
 			errors = append(errors, fmt.Sprintf("Stage %s failed: %v", processor.Name(), err))
-			
+
 			// Continue with next stage if possible
 			if a.shouldContinueAfterError(processor.Name()) {
 				log.Printf("Stage %s failed but continuing: %v", processor.Name(), err)
@@ -103,16 +103,16 @@ func (a *DefaultAnalyzer) Analyze(ctx context.Context, workItem *contracts.WorkI
 				break
 			}
 		}
-		
+
 		stageResults[processor.Name()] = result
 	}
-	
+
 	// Combine stage results into final BrainTaskSpecs
 	brainTaskSpecs, err := a.combineStageResults(ctx, workItem, stageResults)
 	if err != nil {
 		return nil, fmt.Errorf("failed to combine stage results: %w", err)
 	}
-	
+
 	// Calculate overall confidence (average of stage confidences)
 	var totalConfidence float64
 	stageCount := 0
@@ -122,33 +122,33 @@ func (a *DefaultAnalyzer) Analyze(ctx context.Context, workItem *contracts.WorkI
 			stageCount++
 		}
 	}
-	
+
 	overallConfidence := 0.0
 	if stageCount > 0 {
 		overallConfidence = totalConfidence / float64(stageCount)
 	}
-	
+
 	// Build final result
 	result := &contracts.AnalysisResult{
-		WorkItem:       workItem,
-		BrainTaskSpecs: brainTaskSpecs,
-		Confidence:     overallConfidence,
-		AnalysisNotes:  a.buildAnalysisNotes(stageResults, errors),
-		RequiresApproval: a.config.RequireApproval,
+		WorkItem:              workItem,
+		BrainTaskSpecs:        brainTaskSpecs,
+		Confidence:            overallConfidence,
+		AnalysisNotes:         a.buildAnalysisNotes(stageResults, errors),
+		RequiresApproval:      a.config.RequireApproval,
 		EstimatedTotalCostUSD: a.estimateTotalCost(brainTaskSpecs),
 		// RecommendedModel will be set by the Planner (Block 2.5)
 	}
-	
-	log.Printf("Analyzed work item %s in %v: %d tasks, confidence %.2f", 
+
+	log.Printf("Analyzed work item %s in %v: %d tasks, confidence %.2f",
 		workItem.ID, time.Since(startTime), len(brainTaskSpecs), overallConfidence)
-	
+
 	return result, nil
 }
 
 // AnalyzeBatch analyzes multiple work items in batch.
 func (a *DefaultAnalyzer) AnalyzeBatch(ctx context.Context, workItems []*contracts.WorkItem) ([]*contracts.AnalysisResult, error) {
 	results := make([]*contracts.AnalysisResult, 0, len(workItems))
-	
+
 	for _, workItem := range workItems {
 		result, err := a.Analyze(ctx, workItem)
 		if err != nil {
@@ -156,10 +156,10 @@ func (a *DefaultAnalyzer) AnalyzeBatch(ctx context.Context, workItems []*contrac
 			// Continue with remaining items
 			continue
 		}
-		
+
 		results = append(results, result)
 	}
-	
+
 	return results, nil
 }
 
@@ -182,7 +182,7 @@ func (a *DefaultAnalyzer) shouldContinueAfterError(stage Stage) bool {
 		StageClassification: true,
 		StageFinalization:   true,
 	}
-	
+
 	return !criticalStages[stage]
 }
 
@@ -193,22 +193,22 @@ func (a *DefaultAnalyzer) combineStageResults(ctx context.Context, workItem *con
 	if !ok {
 		return nil, fmt.Errorf("classification stage required")
 	}
-	
+
 	// Extract requirements
 	requirements, _ := stageResults[StageRequirements]
-	
+
 	// Extract breakdown
 	breakdown, _ := stageResults[StageBreakdown]
-	
+
 	// Extract evidence
 	evidence, _ := stageResults[StageEvidence]
-	
+
 	// Use classification results if available, otherwise use work item defaults
 	workType := workItem.WorkType
 	workDomain := workItem.WorkDomain
 	priority := workItem.Priority
 	kbScopes := workItem.KBScopes
-	
+
 	if classification.Output != nil {
 		if wt, ok := classification.Output["work_type"].(string); ok && wt != "" {
 			workType = contracts.WorkType(wt)
@@ -223,37 +223,37 @@ func (a *DefaultAnalyzer) combineStageResults(ctx context.Context, workItem *con
 			kbScopes = scopes
 		}
 	}
-	
+
 	// For now, create a single BrainTaskSpec
 	// In a real implementation, this would create multiple specs based on breakdown
 	spec := contracts.BrainTaskSpec{
-		ID:          fmt.Sprintf("%s-%d", workItem.ID, time.Now().Unix()),
-		Title:       workItem.Title,
-		Description: workItem.Body,
-		WorkItemID:  workItem.ID,
-		SourceKey:   workItem.Source.IssueKey,
-		WorkType:    workType,
-		WorkDomain:  workDomain,
-		Priority:    priority,
-		Objective:   a.extractObjective(workItem, requirements),
-		AcceptanceCriteria: a.extractAcceptanceCriteria(requirements),
-		Constraints:        a.extractConstraints(requirements),
+		ID:                  fmt.Sprintf("%s-%d", workItem.ID, time.Now().Unix()),
+		Title:               workItem.Title,
+		Description:         workItem.Body,
+		WorkItemID:          workItem.ID,
+		SourceKey:           workItem.Source.IssueKey,
+		WorkType:            workType,
+		WorkDomain:          workDomain,
+		Priority:            priority,
+		Objective:           a.extractObjective(workItem, requirements),
+		AcceptanceCriteria:  a.extractAcceptanceCriteria(requirements),
+		Constraints:         a.extractConstraints(requirements),
 		EvidenceRequirement: workItem.EvidenceRequirement,
-		SREDTags:           workItem.Tags.SRED,
-		Hypothesis:         a.extractHypothesis(evidence),
-		EstimatedCostUSD:   a.extractEstimatedCost(stageResults),
-		TimeoutSeconds:     3600, // Default 1 hour
-		MaxRetries:         3,
-		KBScopes:           kbScopes,
-		CreatedAt:          time.Now(),
-		UpdatedAt:          time.Now(),
+		SREDTags:            workItem.Tags.SRED,
+		Hypothesis:          a.extractHypothesis(evidence),
+		EstimatedCostUSD:    a.extractEstimatedCost(stageResults),
+		TimeoutSeconds:      3600, // Default 1 hour
+		MaxRetries:          3,
+		KBScopes:            kbScopes,
+		CreatedAt:           time.Now(),
+		UpdatedAt:           time.Now(),
 	}
-	
+
 	// Apply breakdown if available
 	if breakdown.Output != nil {
 		// TODO: Create multiple BrainTaskSpecs based on breakdown
 	}
-	
+
 	return []contracts.BrainTaskSpec{spec}, nil
 }
 
@@ -305,7 +305,7 @@ func (a *DefaultAnalyzer) estimateTotalCost(specs []contracts.BrainTaskSpec) flo
 
 func (a *DefaultAnalyzer) buildAnalysisNotes(stageResults map[Stage]StageResult, errors []string) string {
 	var notes strings.Builder
-	
+
 	notes.WriteString("Analysis completed with the following stages:\n")
 	for stage, result := range stageResults {
 		notes.WriteString(fmt.Sprintf("- %s: confidence %.2f", stage, result.Confidence))
@@ -314,13 +314,13 @@ func (a *DefaultAnalyzer) buildAnalysisNotes(stageResults map[Stage]StageResult,
 		}
 		notes.WriteString("\n")
 	}
-	
+
 	if len(errors) > 0 {
 		notes.WriteString("\nPipeline errors:\n")
 		for _, err := range errors {
 			notes.WriteString(fmt.Sprintf("- %s\n", err))
 		}
 	}
-	
+
 	return notes.String()
 }

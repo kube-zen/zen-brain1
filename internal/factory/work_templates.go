@@ -4,8 +4,8 @@ package factory
 func (r *WorkTypeTemplateRegistry) registerBugFixTemplates() {
 	// Default domain (no specific domain)
 	template := &WorkTypeTemplate{
-		WorkType:   "debug",
-		WorkDomain: "",
+		WorkType:    "debug",
+		WorkDomain:  "",
 		Description: "Bug fix execution plan: analyze, implement fix, test",
 		Steps: []ExecutionStepTemplate{
 			{
@@ -48,8 +48,8 @@ func (r *WorkTypeTemplateRegistry) registerBugFixTemplates() {
 // registerFeatureTemplates registers feature implementation execution plans.
 func (r *WorkTypeTemplateRegistry) registerFeatureTemplates() {
 	template := &WorkTypeTemplate{
-		WorkType:   "implementation",
-		WorkDomain: "",
+		WorkType:    "implementation",
+		WorkDomain:  "",
 		Description: "Feature implementation plan: design, implement, test",
 		Steps: []ExecutionStepTemplate{
 			{
@@ -92,8 +92,8 @@ func (r *WorkTypeTemplateRegistry) registerFeatureTemplates() {
 // registerRefactorTemplates registers refactoring execution plans.
 func (r *WorkTypeTemplateRegistry) registerRefactorTemplates() {
 	template := &WorkTypeTemplate{
-		WorkType:   "refactor",
-		WorkDomain: "",
+		WorkType:    "refactor",
+		WorkDomain:  "",
 		Description: "Refactoring plan: analyze, refactor, verify",
 		Steps: []ExecutionStepTemplate{
 			{
@@ -128,8 +128,8 @@ func (r *WorkTypeTemplateRegistry) registerRefactorTemplates() {
 // registerDocumentationTemplates registers documentation work execution plans.
 func (r *WorkTypeTemplateRegistry) registerDocumentationTemplates() {
 	template := &WorkTypeTemplate{
-		WorkType:   "docs",
-		WorkDomain: "",
+		WorkType:    "docs",
+		WorkDomain:  "",
 		Description: "Documentation work plan: research, write, review",
 		Steps: []ExecutionStepTemplate{
 			{
@@ -164,8 +164,8 @@ func (r *WorkTypeTemplateRegistry) registerDocumentationTemplates() {
 // registerTestTemplates registers test work execution plans.
 func (r *WorkTypeTemplateRegistry) registerTestTemplates() {
 	template := &WorkTypeTemplate{
-		WorkType:   "test",
-		WorkDomain: "",
+		WorkType:    "test",
+		WorkDomain:  "",
 		Description: "Test work plan: write tests, execute, report",
 		Steps: []ExecutionStepTemplate{
 			{
@@ -200,8 +200,8 @@ func (r *WorkTypeTemplateRegistry) registerTestTemplates() {
 // registerDebugTemplates registers debug/analysis work execution plans.
 func (r *WorkTypeTemplateRegistry) registerDebugTemplates() {
 	template := &WorkTypeTemplate{
-		WorkType:   "debug",
-		WorkDomain: "analysis",
+		WorkType:    "debug",
+		WorkDomain:  "analysis",
 		Description: "Debug analysis plan: investigate, diagnose, recommend",
 		Steps: []ExecutionStepTemplate{
 			{

@@ -29,22 +29,22 @@ func NewRecommender(patternStore PatternStore, minSamples int) *Recommender {
 
 // Recommendation represents a suggested template or configuration.
 type Recommendation struct {
-	TemplateName      string
-	WorkType          contracts.WorkType
-	WorkDomain        contracts.WorkDomain
-	Confidence        float64 // 0.0 to 1.0
-	SuccessRate       float64
-	AverageDuration   time.Duration
-	Reasoning         string
-	SampleCount       int
+	TemplateName    string
+	WorkType        contracts.WorkType
+	WorkDomain      contracts.WorkDomain
+	Confidence      float64 // 0.0 to 1.0
+	SuccessRate     float64
+	AverageDuration time.Duration
+	Reasoning       string
+	SampleCount     int
 }
 
 // ConfigurationRecommendation represents suggested execution configuration.
 type ConfigurationRecommendation struct {
-	TimeoutSeconds    int64
-	MaxRetries        int
-	Reasoning         string
-	Confidence        float64
+	TimeoutSeconds int64
+	MaxRetries     int
+	Reasoning      string
+	Confidence     float64
 }
 
 // RecommendTemplate recommends a template based on work type and domain.
@@ -54,14 +54,14 @@ func (r *Recommender) RecommendTemplate(ctx context.Context, workType contracts.
 	if err != nil {
 		// No statistics available, return low-confidence default
 		return &Recommendation{
-			TemplateName: "default",
-			WorkType:     workType,
-			WorkDomain:   workDomain,
-			Confidence:   0.0,
-			SuccessRate:  0.0,
+			TemplateName:    "default",
+			WorkType:        workType,
+			WorkDomain:      workDomain,
+			Confidence:      0.0,
+			SuccessRate:     0.0,
 			AverageDuration: 0,
-			Reasoning:    "No historical data available, using default template",
-			SampleCount:  0,
+			Reasoning:       "No historical data available, using default template",
+			SampleCount:     0,
 		}, nil
 	}
 
@@ -216,9 +216,9 @@ func (r *Recommender) GetWorkTypeSummary(ctx context.Context) (*WorkTypeSummary,
 
 // WorkTypeSummary represents aggregate work type performance.
 type WorkTypeSummary struct {
-	TotalWorkTypes    int
+	TotalWorkTypes     int
 	OverallSuccessRate float64
-	WorkTypes         []WorkTypeStatistics
+	WorkTypes          []WorkTypeStatistics
 }
 
 // PatternAnalysis provides detailed analysis of learned patterns.
@@ -228,13 +228,13 @@ func (r *Recommender) PatternAnalysis(ctx context.Context) (*PatternAnalysis, er
 	_, _ = r.patternStore.GetAllWorkTypeStats(ctx) // durationStats not used in this version
 
 	analysis := &PatternAnalysis{
-		WorkTypeCount:     len(workTypeStats),
-		TemplateCount:     len(templateStats),
-		TotalExecutions:   0,
+		WorkTypeCount:        len(workTypeStats),
+		TemplateCount:        len(templateStats),
+		TotalExecutions:      0,
 		SuccessfulExecutions: 0,
-		AverageSuccessRate:    0.0,
-		TopWorkTypes:        []WorkTypeStatistics{},
-		TopTemplates:        []TemplateStatistics{},
+		AverageSuccessRate:   0.0,
+		TopWorkTypes:         []WorkTypeStatistics{},
+		TopTemplates:         []TemplateStatistics{},
 	}
 
 	// Calculate aggregate statistics
@@ -278,13 +278,13 @@ func (r *Recommender) PatternAnalysis(ctx context.Context) (*PatternAnalysis, er
 
 // PatternAnalysis provides detailed analysis of learned patterns.
 type PatternAnalysis struct {
-	WorkTypeCount         int
-	TemplateCount         int
-	TotalExecutions       int
-	SuccessfulExecutions  int
-	AverageSuccessRate    float64
-	TopWorkTypes          []WorkTypeStatistics
-	TopTemplates          []TemplateStatistics
+	WorkTypeCount        int
+	TemplateCount        int
+	TotalExecutions      int
+	SuccessfulExecutions int
+	AverageSuccessRate   float64
+	TopWorkTypes         []WorkTypeStatistics
+	TopTemplates         []TemplateStatistics
 }
 
 // FormatAnalysis formats pattern analysis for logging/display.

@@ -25,7 +25,7 @@ func newMockZenContext() *mockZenContext {
 func (m *mockZenContext) GetSessionContext(ctx context.Context, clusterID, sessionID string) (*zenctx.SessionContext, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	key := clusterID + ":" + sessionID
 	return m.sessions[key], nil
 }
@@ -33,7 +33,7 @@ func (m *mockZenContext) GetSessionContext(ctx context.Context, clusterID, sessi
 func (m *mockZenContext) StoreSessionContext(ctx context.Context, clusterID string, session *zenctx.SessionContext) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	key := clusterID + ":" + session.SessionID
 	m.sessions[key] = session
 	return nil
@@ -42,7 +42,7 @@ func (m *mockZenContext) StoreSessionContext(ctx context.Context, clusterID stri
 func (m *mockZenContext) DeleteSessionContext(ctx context.Context, clusterID, sessionID string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	key := clusterID + ":" + sessionID
 	delete(m.sessions, key)
 	return nil
@@ -66,18 +66,18 @@ func (m *mockZenContext) ReconstructSession(ctx context.Context, req zenctx.ReMe
 	if err != nil || session == nil {
 		// Create fresh session
 		session = &zenctx.SessionContext{
-			SessionID:     req.SessionID,
-			TaskID:        req.TaskID,
-			ClusterID:     req.ClusterID,
-			ProjectID:     req.ProjectID,
-			CreatedAt:     time.Now(),
+			SessionID:      req.SessionID,
+			TaskID:         req.TaskID,
+			ClusterID:      req.ClusterID,
+			ProjectID:      req.ProjectID,
+			CreatedAt:      time.Now(),
 			LastAccessedAt: time.Now(),
 		}
 	}
-	
+
 	return &zenctx.ReMeResponse{
-		SessionContext: session,
-		JournalEntries: []interface{}{},
+		SessionContext:  session,
+		JournalEntries:  []interface{}{},
 		ReconstructedAt: time.Now(),
 	}, nil
 }
@@ -85,7 +85,7 @@ func (m *mockZenContext) ReconstructSession(ctx context.Context, req zenctx.ReMe
 func (m *mockZenContext) Stats(ctx context.Context) (map[zenctx.Tier]interface{}, error) {
 	return map[zenctx.Tier]interface{}{
 		zenctx.TierHot: map[string]interface{}{
-			"type":         "mock",
+			"type":          "mock",
 			"session_count": len(m.sessions),
 		},
 	}, nil
@@ -122,91 +122,91 @@ func (m *mockZenContext) getSession(clusterID, sessionID string) *zenctx.Session
 func TestSessionManager_WithZenContext(t *testing.T) {
 	// Create mock ZenContext
 	mockZC := newMockZenContext()
-	
+
 	// Create session manager with ZenContext integration
 	config := DefaultConfig()
 	config.ZenContext = mockZC
-	
+
 	manager, err := New(config, NewMemoryStore())
 	if err != nil {
 		t.Fatalf("Failed to create manager: %v", err)
 	}
 	defer manager.Close()
-	
+
 	ctx := context.Background()
-	
+
 	// Create a work item
 	workItem := &contracts.WorkItem{
-		ID:        "TEST-ZEN-1",
-		Title:     "Test ZenContext Integration",
-		WorkType:  contracts.WorkTypeImplementation,
+		ID:         "TEST-ZEN-1",
+		Title:      "Test ZenContext Integration",
+		WorkType:   contracts.WorkTypeImplementation,
 		WorkDomain: contracts.DomainCore,
-		Priority:  contracts.PriorityMedium,
-		Status:    contracts.StatusRequested,
-		CreatedAt: time.Now(),
+		Priority:   contracts.PriorityMedium,
+		Status:     contracts.StatusRequested,
+		CreatedAt:  time.Now(),
 		Source: contracts.SourceMetadata{
-			System:    "test",
-			IssueKey:  "TEST-ZEN-1",
-			Project:   "ZENPROJECT",
+			System:   "test",
+			IssueKey: "TEST-ZEN-1",
+			Project:  "ZENPROJECT",
 		},
 	}
-	
+
 	// Create session
 	session, err := manager.CreateSession(ctx, workItem)
 	if err != nil {
 		t.Fatalf("Failed to create session: %v", err)
 	}
-	
+
 	// Verify session was created
 	if session == nil {
 		t.Fatal("Session is nil")
 	}
-	
+
 	// Verify ZenContext has a corresponding SessionContext
 	if !mockZC.hasSession("default", session.ID) {
 		t.Error("ZenContext does not have SessionContext after CreateSession")
 	}
-	
+
 	// Verify SessionContext fields
 	zenSession := mockZC.getSession("default", session.ID)
 	if zenSession == nil {
 		t.Fatal("ZenContext session is nil")
 	}
-	
+
 	if zenSession.SessionID != session.ID {
 		t.Errorf("SessionID mismatch: got %s, want %s", zenSession.SessionID, session.ID)
 	}
-	
+
 	if zenSession.TaskID != workItem.ID {
 		t.Errorf("TaskID mismatch: got %s, want %s", zenSession.TaskID, workItem.ID)
 	}
-	
+
 	if zenSession.ProjectID != workItem.Source.Project {
 		t.Errorf("ProjectID mismatch: got %s, want %s", zenSession.ProjectID, workItem.Source.Project)
 	}
-	
+
 	if zenSession.ClusterID != "default" {
 		t.Errorf("ClusterID mismatch: got %s, want %s", zenSession.ClusterID, "default")
 	}
-	
+
 	t.Logf("✓ Session %s created with ZenContext integration", session.ID)
-	
+
 	// Test GetSession updates LastAccessedAt
 	initialAccess := zenSession.LastAccessedAt
 	time.Sleep(time.Millisecond) // Ensure time advances
-	
+
 	_, err = manager.GetSession(ctx, session.ID)
 	if err != nil {
 		t.Fatalf("GetSession failed: %v", err)
 	}
-	
+
 	zenSession2 := mockZC.getSession("default", session.ID)
 	if zenSession2.LastAccessedAt.Equal(initialAccess) {
 		t.Error("LastAccessedAt not updated after GetSession")
 	} else {
 		t.Logf("✓ GetSession updated LastAccessedAt: %v -> %v", initialAccess, zenSession2.LastAccessedAt)
 	}
-	
+
 	// Test UpdateSession works (may update LastAccessedAt)
 	session.WorkItem.Title = "Updated Title"
 	err = manager.UpdateSession(ctx, session)
@@ -214,19 +214,19 @@ func TestSessionManager_WithZenContext(t *testing.T) {
 		t.Fatalf("UpdateSession failed: %v", err)
 	}
 	t.Log("✓ UpdateSession succeeded")
-	
+
 	// Test TransitionState works (may update LastAccessedAt)
 	err = manager.TransitionState(ctx, session.ID, contracts.SessionStateAnalyzed, "Analysis complete", "analyzer")
 	if err != nil {
 		t.Fatalf("TransitionState failed: %v", err)
 	}
 	t.Log("✓ TransitionState succeeded")
-	
+
 	// Verify session count
 	if count := mockZC.countSessions(); count != 1 {
 		t.Errorf("Expected 1 session in ZenContext, got %d", count)
 	}
-	
+
 	t.Log("✓ All ZenContext integration tests passed")
 }
 
@@ -234,13 +234,13 @@ func TestSessionManager_WithoutZenContext(t *testing.T) {
 	// Ensure session manager works without ZenContext (backward compatibility)
 	config := DefaultConfig()
 	config.ZenContext = nil // Explicitly nil
-	
+
 	manager, err := New(config, NewMemoryStore())
 	if err != nil {
 		t.Fatalf("Failed to create manager: %v", err)
 	}
 	defer manager.Close()
-	
+
 	ctx := context.Background()
 	workItem := &contracts.WorkItem{
 		ID:        "TEST-NOZEN",
@@ -252,16 +252,16 @@ func TestSessionManager_WithoutZenContext(t *testing.T) {
 			IssueKey: "TEST-NOZEN",
 		},
 	}
-	
+
 	// Should work without ZenContext
 	session, err := manager.CreateSession(ctx, workItem)
 	if err != nil {
 		t.Fatalf("CreateSession failed without ZenContext: %v", err)
 	}
-	
+
 	if session == nil {
 		t.Fatal("Session is nil")
 	}
-	
+
 	t.Log("✓ Session manager works without ZenContext (backward compatibility)")
 }

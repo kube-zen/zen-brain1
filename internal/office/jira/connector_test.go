@@ -30,8 +30,6 @@ func TestNewJiraOffice(t *testing.T) {
 	}
 }
 
-
-
 func TestMapWorkType(t *testing.T) {
 	config := &Config{
 		BaseURL:  "https://test.atlassian.net",
@@ -40,8 +38,8 @@ func TestMapWorkType(t *testing.T) {
 	connector, _ := New("test", "cluster-1", config)
 
 	tests := []struct {
-		jiraType   string
-		expected   contracts.WorkType
+		jiraType string
+		expected contracts.WorkType
 	}{
 		{"Bug", contracts.WorkTypeDebug},
 		{"bug", contracts.WorkTypeDebug},

@@ -31,10 +31,10 @@ func TestFactoryRecommenderAdapter(t *testing.T) {
 			Duration:  time.Hour,
 			WorkTypeStatistics: []WorkTypeStatistics{
 				{
-					WorkType:       string(contracts.WorkTypeImplementation),
-					WorkDomain:     string(contracts.DomainFactory),
-					TotalRuns:      10,
-					SuccessfulRuns: 9,
+					WorkType:        string(contracts.WorkTypeImplementation),
+					WorkDomain:      string(contracts.DomainFactory),
+					TotalRuns:       10,
+					SuccessfulRuns:  9,
 					AverageDuration: 5 * time.Minute,
 				},
 			},
@@ -71,18 +71,18 @@ func TestFactoryRecommenderAdapter(t *testing.T) {
 			Duration:  time.Hour,
 			DurationStatistics: []DurationStatistics{
 				{
-					WorkType:      string(contracts.WorkTypeImplementation),
-					WorkDomain:    string(contracts.DomainFactory),
-					Samples:       []time.Duration{4*time.Minute, 5*time.Minute, 6*time.Minute, 8*time.Minute, 10*time.Minute},
-					P95Duration:   10 * time.Minute,
-					P99Duration:   10 * time.Minute,
+					WorkType:    string(contracts.WorkTypeImplementation),
+					WorkDomain:  string(contracts.DomainFactory),
+					Samples:     []time.Duration{4 * time.Minute, 5 * time.Minute, 6 * time.Minute, 8 * time.Minute, 10 * time.Minute},
+					P95Duration: 10 * time.Minute,
+					P99Duration: 10 * time.Minute,
 				},
 			},
 			WorkTypeStatistics: []WorkTypeStatistics{
 				{
-					WorkType:   string(contracts.WorkTypeImplementation),
-					WorkDomain: string(contracts.DomainFactory),
-					TotalRuns:  10,
+					WorkType:    string(contracts.WorkTypeImplementation),
+					WorkDomain:  string(contracts.DomainFactory),
+					TotalRuns:   10,
 					SuccessRate: 0.9,
 				},
 			},

@@ -15,13 +15,13 @@ type Config struct {
 
 	Logging LoggingConfig `yaml:"logging"`
 
-	KB      KBConfig      `yaml:"kb"`
-	QMD     QMDConfig     `yaml:"qmd"`
-	Jira    JiraConfig    `yaml:"jira"`
+	KB         KBConfig         `yaml:"kb"`
+	QMD        QMDConfig        `yaml:"qmd"`
+	Jira       JiraConfig       `yaml:"jira"`
 	Confluence ConfluenceConfig `yaml:"confluence"`
-	Clusters []ClusterConfig `yaml:"clusters"`
-	SRED    SREDConfig    `yaml:"sred"`
-	Ledger  LedgerConfig  `yaml:"ledger"`
+	Clusters   []ClusterConfig  `yaml:"clusters"`
+	SRED       SREDConfig       `yaml:"sred"`
+	Ledger     LedgerConfig     `yaml:"ledger"`
 
 	ZenContext ZenContextConfig `yaml:"zen_context"`
 
@@ -43,7 +43,7 @@ type KBConfig struct {
 
 // QMDConfig holds QMD configuration.
 type QMDConfig struct {
-	BinaryPath     string        `yaml:"binary_path"`
+	BinaryPath      string        `yaml:"binary_path"`
 	RefreshInterval time.Duration `yaml:"refresh_interval"`
 }
 
@@ -67,36 +67,36 @@ type ConfluenceConfig struct {
 
 // ClusterConfig holds multi-cluster configuration.
 type ClusterConfig struct {
-	ID        string `yaml:"id"`
-	Type      string `yaml:"type"`
+	ID         string `yaml:"id"`
+	Type       string `yaml:"type"`
 	Kubeconfig string `yaml:"kubeconfig"`
 }
 
 // SREDConfig holds SR&ED evidence collection configuration.
 type SREDConfig struct {
-	Enabled            bool     `yaml:"enabled"`
-	DefaultTags        []string `yaml:"default_tags"`
+	Enabled             bool     `yaml:"enabled"`
+	DefaultTags         []string `yaml:"default_tags"`
 	EvidenceRequirement string   `yaml:"evidence_requirement"`
 }
 
 // LedgerConfig holds ZenLedger configuration.
 type LedgerConfig struct {
-	Enabled   bool   `yaml:"enabled"`
-	Host      string `yaml:"host"`
-	Port      int    `yaml:"port"`
-	Database  string `yaml:"database"`
-	User      string `yaml:"user"`
-	SSLMode   string `yaml:"ssl_mode"`
+	Enabled  bool   `yaml:"enabled"`
+	Host     string `yaml:"host"`
+	Port     int    `yaml:"port"`
+	Database string `yaml:"database"`
+	User     string `yaml:"user"`
+	SSLMode  string `yaml:"ssl_mode"`
 }
 
 // ZenContextConfig holds three-tier memory configuration.
 type ZenContextConfig struct {
-	Tier1Redis  RedisTierConfig  `yaml:"tier1_redis"`
-	Tier2QMD    QMDTierConfig   `yaml:"tier2_qmd"`
-	Tier3S3     S3TierConfig    `yaml:"tier3_s3"`
-	Journal      JournalConfig   `yaml:"journal"`
-	ClusterID    string          `yaml:"cluster_id"`
-	Verbose      bool            `yaml:"verbose"`
+	Tier1Redis RedisTierConfig `yaml:"tier1_redis"`
+	Tier2QMD   QMDTierConfig   `yaml:"tier2_qmd"`
+	Tier3S3    S3TierConfig    `yaml:"tier3_s3"`
+	Journal    JournalConfig   `yaml:"journal"`
+	ClusterID  string          `yaml:"cluster_id"`
+	Verbose    bool            `yaml:"verbose"`
 }
 
 // RedisTierConfig holds Redis configuration.
@@ -120,20 +120,20 @@ type QMDTierConfig struct {
 
 // S3TierConfig holds S3 tier configuration.
 type S3TierConfig struct {
-	Bucket           string        `yaml:"bucket"`
-	Region           string        `yaml:"region"`
-	Endpoint         string        `yaml:"endpoint"`
-	AccessKeyID      string        `yaml:"access_key_id"`
-	SecretAccessKey  string        `yaml:"secret_access_key"`
-	SessionToken     string        `yaml:"session_token"`
-	UsePathStyle     bool          `yaml:"use_path_style"`
-	DisableSSL       bool          `yaml:"disable_ssl"`
+	Bucket            string        `yaml:"bucket"`
+	Region            string        `yaml:"region"`
+	Endpoint          string        `yaml:"endpoint"`
+	AccessKeyID       string        `yaml:"access_key_id"`
+	SecretAccessKey   string        `yaml:"secret_access_key"`
+	SessionToken      string        `yaml:"session_token"`
+	UsePathStyle      bool          `yaml:"use_path_style"`
+	DisableSSL        bool          `yaml:"disable_ssl"`
 	ForceRenameBucket bool          `yaml:"force_rename_bucket"`
-	MaxRetries       int           `yaml:"max_retries"`
-	Timeout          time.Duration `yaml:"timeout"`
-	PartSize         int64         `yaml:"part_size"`
-	Concurrency      int           `yaml:"concurrency"`
-	Verbose          bool          `yaml:"verbose"`
+	MaxRetries        int           `yaml:"max_retries"`
+	Timeout           time.Duration `yaml:"timeout"`
+	PartSize          int64         `yaml:"part_size"`
+	Concurrency       int           `yaml:"concurrency"`
+	Verbose           bool          `yaml:"verbose"`
 }
 
 // JournalConfig holds journal configuration.
@@ -211,7 +211,7 @@ func findConfigPath() string {
 func (c *Config) loadFromEnv() {
 	c.Jira.Username = os.Getenv("JIRA_USERNAME")
 	c.Jira.APIToken = os.Getenv("JIRA_API_TOKEN")
-	
+
 	// Confluence credentials
 	c.Confluence.Username = os.Getenv("CONFLUENCE_USERNAME")
 	c.Confluence.APIToken = os.Getenv("CONFLUENCE_API_TOKEN")
@@ -265,12 +265,12 @@ func DefaultConfig() *Config {
 			SearchLimit: 10,
 		},
 		QMD: QMDConfig{
-			BinaryPath:     "qmd",
+			BinaryPath:      "qmd",
 			RefreshInterval: 3600 * time.Second,
 		},
 		SRED: SREDConfig{
-			Enabled:            true,
-			DefaultTags:        []string{"experimental_general"},
+			Enabled:             true,
+			DefaultTags:         []string{"experimental_general"},
 			EvidenceRequirement: "summary",
 		},
 		ZenContext: ZenContextConfig{
@@ -278,8 +278,8 @@ func DefaultConfig() *Config {
 			Verbose:   false,
 		},
 		Planner: PlannerConfig{
-			DefaultModel:   "glm-4.7",
-			MaxCostPerTask: 10.0,
+			DefaultModel:    "glm-4.7",
+			MaxCostPerTask:  10.0,
 			RequireApproval: false,
 		},
 	}

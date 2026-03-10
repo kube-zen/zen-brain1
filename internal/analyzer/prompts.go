@@ -53,7 +53,7 @@ Confidence: 0.85`,
 			{Role: "system", Content: "You are a software engineering classifier. Be precise and consistent."},
 			{Role: "user", Content: prompt},
 		},
-		MaxTokens: 500,
+		MaxTokens:   500,
 		Temperature: 0.1,
 	}
 
@@ -135,7 +135,7 @@ Dependencies: <dependency 1>; <dependency 2>; ...`,
 			{Role: "system", Content: "You are a requirements analyst. Extract clear, actionable requirements."},
 			{Role: "user", Content: prompt},
 		},
-		MaxTokens: 1000,
+		MaxTokens:   1000,
 		Temperature: 0.1,
 	}
 
@@ -197,9 +197,9 @@ func (s *breakdownStage) Name() Stage {
 
 func (s *breakdownStage) Process(ctx context.Context, workItem *contracts.WorkItem, prevResults map[Stage]StageResult) (StageResult, error) {
 	// Skip breakdown for simple tasks
-	if workItem.WorkType == contracts.WorkTypeDebug || 
-	   workItem.WorkType == contracts.WorkTypeDocumentation ||
-	   workItem.Priority == contracts.PriorityBackground {
+	if workItem.WorkType == contracts.WorkTypeDebug ||
+		workItem.WorkType == contracts.WorkTypeDocumentation ||
+		workItem.Priority == contracts.PriorityBackground {
 		return StageResult{
 			Stage:      StageBreakdown,
 			Input:      workItem,
@@ -230,7 +230,7 @@ Subtasks:
 			{Role: "system", Content: "You are a project planner. Break down work into logical, executable subtasks."},
 			{Role: "user", Content: prompt},
 		},
-		MaxTokens: 800,
+		MaxTokens:   800,
 		Temperature: 0.1,
 	}
 
@@ -252,9 +252,9 @@ Subtasks:
 	lines := strings.Split(resp.Content, "\n")
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "1.") || strings.HasPrefix(line, "2.") || 
-		   strings.HasPrefix(line, "3.") || strings.HasPrefix(line, "4.") || 
-		   strings.HasPrefix(line, "5.") || strings.HasPrefix(line, "6.") {
+		if strings.HasPrefix(line, "1.") || strings.HasPrefix(line, "2.") ||
+			strings.HasPrefix(line, "3.") || strings.HasPrefix(line, "4.") ||
+			strings.HasPrefix(line, "5.") || strings.HasPrefix(line, "6.") {
 			// Remove number prefix
 			parts := strings.SplitN(line, ".", 2)
 			if len(parts) == 2 {
@@ -317,7 +317,7 @@ EvidenceRequirements: <requirement1; requirement2; ...>`,
 			{Role: "system", Content: "You are an SR&ED analyst. Identify eligible research and development activities."},
 			{Role: "user", Content: prompt},
 		},
-		MaxTokens: 600,
+		MaxTokens:   600,
 		Temperature: 0.1,
 	}
 
@@ -387,10 +387,10 @@ func (s *costEstimationStage) Process(ctx context.Context, workItem *contracts.W
 	}
 
 	priorityMultipliers := map[contracts.Priority]float64{
-		contracts.PriorityCritical:  2.0,
-		contracts.PriorityHigh:      1.5,
-		contracts.PriorityMedium:    1.0,
-		contracts.PriorityLow:       0.7,
+		contracts.PriorityCritical:   2.0,
+		contracts.PriorityHigh:       1.5,
+		contracts.PriorityMedium:     1.0,
+		contracts.PriorityLow:        0.7,
 		contracts.PriorityBackground: 0.5,
 	}
 
@@ -442,7 +442,7 @@ func (s *finalizationStage) Process(ctx context.Context, workItem *contracts.Wor
 	// Summarize all stage results
 	var summary strings.Builder
 	summary.WriteString("Analysis Summary:\n")
-	
+
 	for stage, result := range prevResults {
 		summary.WriteString(fmt.Sprintf("- %s: confidence %.2f", stage, result.Confidence))
 		if len(result.Errors) > 0 {

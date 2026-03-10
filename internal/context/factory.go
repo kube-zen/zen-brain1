@@ -10,8 +10,8 @@ import (
 	"github.com/kube-zen/zen-brain1/internal/context/tier2"
 	"github.com/kube-zen/zen-brain1/internal/context/tier3"
 	internalkb "github.com/kube-zen/zen-brain1/internal/qmd"
-	qmdpkg "github.com/kube-zen/zen-brain1/pkg/qmd"
 	zenctx "github.com/kube-zen/zen-brain1/pkg/context"
+	qmdpkg "github.com/kube-zen/zen-brain1/pkg/qmd"
 )
 
 // ZenContextConfig holds configuration for creating a production ZenContext.
@@ -171,12 +171,12 @@ func createTier1Store(config *ZenContextConfig) (Store, error) {
 
 	// Create Redis store
 	redisStoreConfig := &tier1.Config{
-		RedisClient:   redisClient,
-		KeyPrefix:     "zen:ctx",
-		DefaultTTL:    30 * time.Minute,
-		LockTimeout:   5 * time.Second,
-		ClusterID:     config.ClusterID,
-		Verbose:       config.Verbose,
+		RedisClient: redisClient,
+		KeyPrefix:   "zen:ctx",
+		DefaultTTL:  30 * time.Minute,
+		LockTimeout: 5 * time.Second,
+		ClusterID:   config.ClusterID,
+		Verbose:     config.Verbose,
 	}
 
 	store, err := tier1.NewStore(redisStoreConfig)

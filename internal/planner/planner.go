@@ -20,25 +20,25 @@ import (
 
 // DefaultPlanner is the default implementation of Planner.
 type DefaultPlanner struct {
-	config  *Config
-	mu      sync.RWMutex
-	
+	config *Config
+	mu     sync.RWMutex
+
 	// Component references
-	officeManager   *office.Manager
-	analyzer        analyzer.IntentAnalyzer
-	sessionManager  session.Manager
-	ledgerClient    ledger.ZenLedgerClient
-	zenctx          zenctx.ZenContext
-	factory         factory.Factory
-	stateManager    *agent.StateManager
-	
+	officeManager  *office.Manager
+	analyzer       analyzer.IntentAnalyzer
+	sessionManager session.Manager
+	ledgerClient   ledger.ZenLedgerClient
+	zenctx         zenctx.ZenContext
+	factory        factory.Factory
+	stateManager   *agent.StateManager
+
 	// Internal state
-	activeSessions  map[string]*contracts.Session
-	approvalQueue   []*contracts.Session
-	
+	activeSessions map[string]*contracts.Session
+	approvalQueue  []*contracts.Session
+
 	// Shutdown
-	shutdownChan    chan struct{}
-	shutdownWg      sync.WaitGroup
+	shutdownChan chan struct{}
+	shutdownWg   sync.WaitGroup
 }
 
 // New creates a new DefaultPlanner.
@@ -46,7 +46,7 @@ func New(config *Config) (*DefaultPlanner, error) {
 	if config == nil {
 		config = DefaultConfig()
 	}
-	
+
 	// Validate required components
 	if config.OfficeManager == nil {
 		return nil, fmt.Errorf("OfficeManager is required")
@@ -60,13 +60,13 @@ func New(config *Config) (*DefaultPlanner, error) {
 	if config.LedgerClient == nil {
 		return nil, fmt.Errorf("LedgerClient is required")
 	}
-	
+
 	// Initialize StateManager if ZenContext is available
 	var stateManager *agent.StateManager
 	if config.ZenContext != nil {
 		stateManager = agent.NewStateManager(config.ZenContext, "default")
 	}
-	
+
 	planner := &DefaultPlanner{
 		config:         config,
 		officeManager:  config.OfficeManager,
@@ -80,30 +80,30 @@ func New(config *Config) (*DefaultPlanner, error) {
 		approvalQueue:  make([]*contracts.Session, 0),
 		shutdownChan:   make(chan struct{}),
 	}
-	
+
 	// Start background goroutines
 	planner.startBackgroundTasks()
-	
+
 	return planner, nil
 }
 
 // ProcessWorkItem processes a new work item from an Office connector.
 func (p *DefaultPlanner) ProcessWorkItem(ctx context.Context, workItem *contracts.WorkItem) error {
 	log.Printf("Planner processing work item: %s - %s", workItem.ID, workItem.Title)
-	
+
 	// Step 1: Create session
 	session, err := p.sessionManager.CreateSession(ctx, workItem)
 	if err != nil {
 		return fmt.Errorf("failed to create session: %w", err)
 	}
-	
+
 	p.mu.Lock()
 	p.activeSessions[session.ID] = session
 	p.mu.Unlock()
-	
+
 	// Step 2: Analyze intent (async to avoid blocking)
 	go p.analyzeAndPlan(ctx, session.ID, workItem)
-	
+
 	return nil
 }
 
@@ -126,38 +126,38 @@ func (p *DefaultPlanner) initializeAgentState(ctx context.Context, sessionID, ta
 		// ZenContext not configured, agent state not available
 		return nil, nil
 	}
-	
+
 	// Try to load existing agent state
 	agentState, err := p.stateManager.LoadAgentState(ctx, sessionID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load agent state: %w", err)
 	}
-	
+
 	if agentState == nil {
 		// No existing state, create new one
 		agentState = agent.NewAgentState("planner", agent.RolePlanner, sessionID, taskID)
 		agentState.UpdateStep("session_initialization")
-		
+
 		// Store initial state
 		if err := p.stateManager.StoreAgentState(ctx, agentState); err != nil {
 			return nil, fmt.Errorf("failed to store initial agent state: %w", err)
 		}
-		
+
 		log.Printf("Created new agent state for session %s", sessionID)
 	} else {
 		// Existing state found - agent is resuming work
 		agentState.UpdateHeartbeat()
 		agentState.UpdateStep("resuming_work")
-		
+
 		// Update state to reflect resumption
 		if err := p.stateManager.StoreAgentState(ctx, agentState); err != nil {
 			log.Printf("Warning: failed to update agent state on resume: %v", err)
 		}
-		
-		log.Printf("Resumed existing agent state for session %s (steps completed: %d)", 
+
+		log.Printf("Resumed existing agent state for session %s (steps completed: %d)",
 			sessionID, agentState.StepsCompleted)
 	}
-	
+
 	return agentState, nil
 }
 
@@ -166,7 +166,7 @@ func (p *DefaultPlanner) updateAgentState(ctx context.Context, agentState *agent
 	if p.stateManager == nil || agentState == nil {
 		return nil // No-op if ZenContext not configured or state is nil
 	}
-	
+
 	agentState.UpdateHeartbeat()
 	return p.stateManager.StoreAgentState(ctx, agentState)
 }
@@ -177,7 +177,7 @@ func (p *DefaultPlanner) queryKnowledge(ctx context.Context, agentState *agent.A
 		// Fallback: return empty result
 		return []zenctx.KnowledgeChunk{}, nil
 	}
-	
+
 	return p.stateManager.QueryKnowledge(ctx, agentState.SessionID, query, scopes, limit)
 }
 
@@ -190,7 +190,7 @@ func (p *DefaultPlanner) analyzeAndPlan(ctx context.Context, sessionID string, w
 		// Continue without agent state
 		agentState = nil
 	}
-	
+
 	// Update agent state: starting analysis
 	if agentState != nil {
 		agentState.UpdateStep("intent_analysis")
@@ -199,76 +199,76 @@ func (p *DefaultPlanner) analyzeAndPlan(ctx context.Context, sessionID string, w
 			log.Printf("Warning: failed to update agent state: %v", err)
 		}
 	}
-	
+
 	// Create timeout context for analysis
 	analysisCtx, cancel := context.WithTimeout(ctx, time.Duration(p.config.AnalysisTimeout)*time.Second)
 	defer cancel()
-	
+
 	// Step 1: Analyze intent
 	analysisResult, err := p.analyzer.Analyze(analysisCtx, workItem)
 	if err != nil {
 		log.Printf("Analysis failed for session %s: %v", sessionID, err)
-		
+
 		// Update agent state: analysis failed
 		if agentState != nil {
 			agentState.AddError(fmt.Sprintf("Intent analysis failed: %v", err), "intent_analysis", false, "")
 			agentState.Complete("failed", "Intent analysis failed")
 			p.updateAgentState(ctx, agentState) // Best effort
 		}
-		
-		p.sessionManager.TransitionState(ctx, sessionID, contracts.SessionStateFailed, 
+
+		p.sessionManager.TransitionState(ctx, sessionID, contracts.SessionStateFailed,
 			fmt.Sprintf("Intent analysis failed: %v", err), "planner")
 		return
 	}
-	
+
 	// Step 2: Update session with analysis results
 	session, err := p.sessionManager.GetSession(ctx, sessionID)
 	if err != nil {
 		log.Printf("Failed to get session %s: %v", sessionID, err)
 		return
 	}
-	
+
 	session.AnalysisResult = analysisResult
 	session.BrainTaskSpecs = analysisResult.BrainTaskSpecs
-	
+
 	if err := p.sessionManager.UpdateSession(ctx, session); err != nil {
 		log.Printf("Failed to update session %s: %v", sessionID, err)
 		return
 	}
-	
+
 	// Step 3: Transition to analyzed state
 	if err := p.sessionManager.TransitionState(ctx, sessionID, contracts.SessionStateAnalyzed,
 		"Intent analysis complete", "analyzer"); err != nil {
 		log.Printf("Failed to transition session %s to analyzed: %v", sessionID, err)
 		return
 	}
-	
+
 	// Step 4: Select optimal model
 	modelSelection, err := p.selectOptimalModel(ctx, session, analysisResult)
 	if err != nil {
 		log.Printf("Model selection failed for session %s: %v", sessionID, err)
 		// Use default model as fallback
 		modelSelection = &ModelSelection{
-			ModelID:         p.config.DefaultModel,
-			Reason:          "Fallback due to selection error",
+			ModelID:          p.config.DefaultModel,
+			Reason:           "Fallback due to selection error",
 			EstimatedCostUSD: analysisResult.EstimatedTotalCostUSD,
-			Confidence:      0.5,
+			Confidence:       0.5,
 		}
 	}
-	
+
 	// Step 5: Record model selection in ledger
 	if p.ledgerClient != nil {
-		if err := p.ledgerClient.RecordPlannedModelSelection(ctx, sessionID, 
+		if err := p.ledgerClient.RecordPlannedModelSelection(ctx, sessionID,
 			session.WorkItemID, modelSelection.ModelID, modelSelection.Reason); err != nil {
 			log.Printf("Failed to record model selection: %v", err)
 		}
 	}
-	
+
 	// Step 6: Check if approval is required
-	requiresApproval := p.config.RequireApproval && 
-		(analysisResult.RequiresApproval || 
-		 analysisResult.EstimatedTotalCostUSD > p.config.AutoApproveCost)
-	
+	requiresApproval := p.config.RequireApproval &&
+		(analysisResult.RequiresApproval ||
+			analysisResult.EstimatedTotalCostUSD > p.config.AutoApproveCost)
+
 	if requiresApproval {
 		// Transition to blocked for approval
 		if err := p.sessionManager.TransitionState(ctx, sessionID, contracts.SessionStateBlocked,
@@ -276,13 +276,13 @@ func (p *DefaultPlanner) analyzeAndPlan(ctx context.Context, sessionID string, w
 			log.Printf("Failed to block session for approval: %v", err)
 			return
 		}
-		
+
 		// Add to approval queue
 		p.mu.Lock()
 		p.approvalQueue = append(p.approvalQueue, session)
 		p.mu.Unlock()
-		
-		log.Printf("Session %s requires approval (estimated cost: $%.2f)", 
+
+		log.Printf("Session %s requires approval (estimated cost: $%.2f)",
 			sessionID, analysisResult.EstimatedTotalCostUSD)
 	} else {
 		// Auto-approve and schedule
@@ -294,36 +294,36 @@ func (p *DefaultPlanner) analyzeAndPlan(ctx context.Context, sessionID string, w
 }
 
 // selectOptimalModel selects the optimal model for a session.
-func (p *DefaultPlanner) selectOptimalModel(ctx context.Context, session *contracts.Session, 
+func (p *DefaultPlanner) selectOptimalModel(ctx context.Context, session *contracts.Session,
 	analysis *contracts.AnalysisResult) (*ModelSelection, error) {
-	
+
 	// Get efficiency data from ledger
 	taskType := string(session.WorkItem.WorkType)
 	efficiencies, err := p.ledgerClient.GetModelEfficiency(ctx, "default", taskType)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get model efficiency: %w", err)
 	}
-	
+
 	// If no efficiency data, use default model
 	if len(efficiencies) == 0 {
 		return &ModelSelection{
-			ModelID:         p.config.DefaultModel,
-			Reason:          "No efficiency data available, using default",
+			ModelID:          p.config.DefaultModel,
+			Reason:           "No efficiency data available, using default",
 			EstimatedCostUSD: analysis.EstimatedTotalCostUSD,
-			Confidence:      0.5,
+			Confidence:       0.5,
 		}, nil
 	}
-	
+
 	// Find best model based on success rate and cost
 	var bestModel ledger.ModelEfficiency
 	var bestScore float64
-	
+
 	for _, eff := range efficiencies {
 		// Skip models with insufficient sample size
 		if eff.SampleSize < 10 {
 			continue
 		}
-		
+
 		// Simple scoring: success rate * (1 / normalized cost)
 		// Lower cost is better, higher success rate is better
 		costScore := 1.0
@@ -331,25 +331,25 @@ func (p *DefaultPlanner) selectOptimalModel(ctx context.Context, session *contra
 			// Normalize cost (lower is better)
 			costScore = 1.0 / eff.AvgCostPerTask
 		}
-		
+
 		score := eff.SuccessRate * costScore
-		
+
 		if score > bestScore || bestScore == 0 {
 			bestScore = score
 			bestModel = eff
 		}
 	}
-	
+
 	// If no model met criteria, use default
 	if bestScore == 0 {
 		return &ModelSelection{
-			ModelID:         p.config.DefaultModel,
-			Reason:          "No suitable model found in efficiency data",
+			ModelID:          p.config.DefaultModel,
+			Reason:           "No suitable model found in efficiency data",
 			EstimatedCostUSD: analysis.EstimatedTotalCostUSD,
-			Confidence:      0.5,
+			Confidence:       0.5,
 		}, nil
 	}
-	
+
 	// Build alternatives (other models with decent scores)
 	var alternatives []string
 	for _, eff := range efficiencies {
@@ -357,10 +357,10 @@ func (p *DefaultPlanner) selectOptimalModel(ctx context.Context, session *contra
 			alternatives = append(alternatives, eff.ModelID)
 		}
 	}
-	
+
 	return &ModelSelection{
-		ModelID:         bestModel.ModelID,
-		Reason:          fmt.Sprintf("Best efficiency: %.1f%% success rate, $%.3f avg cost", 
+		ModelID: bestModel.ModelID,
+		Reason: fmt.Sprintf("Best efficiency: %.1f%% success rate, $%.3f avg cost",
 			bestModel.SuccessRate*100, bestModel.AvgCostPerTask),
 		EstimatedCostUSD: analysis.EstimatedTotalCostUSD,
 		Confidence:       bestModel.SuccessRate,
@@ -369,22 +369,22 @@ func (p *DefaultPlanner) selectOptimalModel(ctx context.Context, session *contra
 }
 
 // autoApproveAndSchedule automatically approves and schedules a session.
-func (p *DefaultPlanner) autoApproveAndSchedule(ctx context.Context, sessionID string, 
+func (p *DefaultPlanner) autoApproveAndSchedule(ctx context.Context, sessionID string,
 	modelSelection *ModelSelection) error {
-	
+
 	// Transition to scheduled
 	if err := p.sessionManager.TransitionState(ctx, sessionID, contracts.SessionStateScheduled,
-		fmt.Sprintf("Auto-approved (model: %s, cost: $%.2f)", 
+		fmt.Sprintf("Auto-approved (model: %s, cost: $%.2f)",
 			modelSelection.ModelID, modelSelection.EstimatedCostUSD), "planner"); err != nil {
 		return fmt.Errorf("failed to schedule session: %w", err)
 	}
-	
+
 	// Get session to retrieve BrainTaskSpecs
 	session, err := p.sessionManager.GetSession(ctx, sessionID)
 	if err != nil {
 		return fmt.Errorf("failed to get session: %w", err)
 	}
-	
+
 	// If Factory is not configured, skip execution (legacy mode)
 	if p.factory == nil {
 		log.Printf("Factory not configured, skipping execution (legacy mode)")
@@ -394,7 +394,7 @@ func (p *DefaultPlanner) autoApproveAndSchedule(ctx context.Context, sessionID s
 		}
 		return nil
 	}
-	
+
 	// Execute each BrainTaskSpec
 	for _, brainSpec := range session.BrainTaskSpecs {
 		factorySpec := p.convertBrainTaskSpecToFactoryTaskSpec(session, &brainSpec)
@@ -406,39 +406,39 @@ func (p *DefaultPlanner) autoApproveAndSchedule(ctx context.Context, sessionID s
 				fmt.Sprintf("Factory execution failed: %v", err), "factory")
 			return fmt.Errorf("factory execution failed: %w", err)
 		}
-		log.Printf("Factory task completed: task_id=%s status=%s duration=%s", 
+		log.Printf("Factory task completed: task_id=%s status=%s duration=%s",
 			result.TaskID, result.Status, result.Duration)
 	}
-	
+
 	// All tasks completed successfully
 	if err := p.sessionManager.TransitionState(ctx, sessionID, contracts.SessionStateCompleted,
 		"All factory tasks completed successfully", "factory"); err != nil {
 		return fmt.Errorf("failed to transition to completed: %v", err)
 	}
-	
-	log.Printf("Session %s auto-approved and executed with model %s", 
+
+	log.Printf("Session %s auto-approved and executed with model %s",
 		sessionID, modelSelection.ModelID)
-	
+
 	return nil
 }
 
 // convertBrainTaskSpecToFactoryTaskSpec converts a BrainTaskSpec to a FactoryTaskSpec.
 func (p *DefaultPlanner) convertBrainTaskSpecToFactoryTaskSpec(session *contracts.Session, brainSpec *contracts.BrainTaskSpec) *factory.FactoryTaskSpec {
 	return &factory.FactoryTaskSpec{
-		ID:          brainSpec.ID,
-		SessionID:   session.ID,
-		WorkItemID:  session.WorkItemID,
-		Title:       brainSpec.Title,
-		Objective:   brainSpec.Objective,
-		Constraints: brainSpec.Constraints,
-		WorkType:    brainSpec.WorkType,
-		WorkDomain:  brainSpec.WorkDomain,
-		Priority:    brainSpec.Priority,
+		ID:             brainSpec.ID,
+		SessionID:      session.ID,
+		WorkItemID:     session.WorkItemID,
+		Title:          brainSpec.Title,
+		Objective:      brainSpec.Objective,
+		Constraints:    brainSpec.Constraints,
+		WorkType:       brainSpec.WorkType,
+		WorkDomain:     brainSpec.WorkDomain,
+		Priority:       brainSpec.Priority,
 		TimeoutSeconds: brainSpec.TimeoutSeconds,
-		MaxRetries:    brainSpec.MaxRetries,
-		KBScopes:     brainSpec.KBScopes,
-		CreatedAt:    brainSpec.CreatedAt,
-		UpdatedAt:    brainSpec.UpdatedAt,
+		MaxRetries:     brainSpec.MaxRetries,
+		KBScopes:       brainSpec.KBScopes,
+		CreatedAt:      brainSpec.CreatedAt,
+		UpdatedAt:      brainSpec.UpdatedAt,
 	}
 }
 
@@ -448,20 +448,20 @@ func (p *DefaultPlanner) GetSessionStatus(ctx context.Context, sessionID string)
 	if err != nil {
 		return nil, fmt.Errorf("session not found: %w", err)
 	}
-	
+
 	status := &SessionStatus{
-		Session:      session,
-		WorkItem:     session.WorkItem,
-		Analysis:     session.AnalysisResult,
+		Session:        session,
+		WorkItem:       session.WorkItem,
+		Analysis:       session.AnalysisResult,
 		BrainTaskSpecs: session.BrainTaskSpecs,
-		Evidence:     session.EvidenceItems,
+		Evidence:       session.EvidenceItems,
 	}
-	
+
 	// Calculate metrics
 	if session.AnalysisResult != nil {
 		status.EstimatedCostUSD = session.AnalysisResult.EstimatedTotalCostUSD
 	}
-	
+
 	// Calculate progress based on state
 	switch session.State {
 	case contracts.SessionStateCreated:
@@ -477,12 +477,12 @@ func (p *DefaultPlanner) GetSessionStatus(ctx context.Context, sessionID string)
 	default:
 		status.ProgressPercent = 0
 	}
-	
+
 	// Calculate time elapsed
 	if session.StartedAt != nil {
 		status.TimeElapsed = time.Since(*session.StartedAt).Round(time.Second).String()
 	}
-	
+
 	return status, nil
 }
 
@@ -493,18 +493,18 @@ func (p *DefaultPlanner) ApproveSession(ctx context.Context, sessionID string, a
 	if err != nil {
 		return fmt.Errorf("session not found: %w", err)
 	}
-	
+
 	// Check if session is blocked for approval
 	if session.State != contracts.SessionStateBlocked {
 		return fmt.Errorf("session is not awaiting approval (state: %s)", session.State)
 	}
-	
+
 	// Transition to scheduled
 	if err := p.sessionManager.TransitionState(ctx, sessionID, contracts.SessionStateScheduled,
 		fmt.Sprintf("Approved by %s: %s", approver, notes), approver); err != nil {
 		return fmt.Errorf("failed to schedule approved session: %w", err)
 	}
-	
+
 	// Remove from approval queue
 	p.mu.Lock()
 	for i, s := range p.approvalQueue {
@@ -514,16 +514,16 @@ func (p *DefaultPlanner) ApproveSession(ctx context.Context, sessionID string, a
 		}
 	}
 	p.mu.Unlock()
-	
+
 	log.Printf("Session %s approved by %s", sessionID, approver)
-	
+
 	// TODO: Schedule with Factory (Block 3)
 	// For now, transition to in_progress
 	if err := p.sessionManager.TransitionState(ctx, sessionID, contracts.SessionStateInProgress,
 		"Starting execution after approval", "planner"); err != nil {
 		return fmt.Errorf("failed to start execution: %v", err)
 	}
-	
+
 	return nil
 }
 
@@ -534,18 +534,18 @@ func (p *DefaultPlanner) RejectSession(ctx context.Context, sessionID string, re
 	if err != nil {
 		return fmt.Errorf("session not found: %w", err)
 	}
-	
+
 	// Check if session is blocked for approval
 	if session.State != contracts.SessionStateBlocked {
 		return fmt.Errorf("session is not awaiting approval (state: %s)", session.State)
 	}
-	
+
 	// Transition to canceled
 	if err := p.sessionManager.TransitionState(ctx, sessionID, contracts.SessionStateCanceled,
 		fmt.Sprintf("Rejected by %s: %s", rejector, reason), rejector); err != nil {
 		return fmt.Errorf("failed to cancel rejected session: %w", err)
 	}
-	
+
 	// Remove from approval queue
 	p.mu.Lock()
 	for i, s := range p.approvalQueue {
@@ -555,7 +555,7 @@ func (p *DefaultPlanner) RejectSession(ctx context.Context, sessionID string, re
 		}
 	}
 	p.mu.Unlock()
-	
+
 	log.Printf("Session %s rejected by %s: %s", sessionID, rejector, reason)
 	return nil
 }
@@ -567,7 +567,7 @@ func (p *DefaultPlanner) CancelSession(ctx context.Context, sessionID string, ca
 	if err != nil {
 		return fmt.Errorf("session not found: %w", err)
 	}
-	
+
 	// Check if session can be canceled
 	cancelableStates := map[contracts.SessionState]bool{
 		contracts.SessionStateCreated:    true,
@@ -576,17 +576,17 @@ func (p *DefaultPlanner) CancelSession(ctx context.Context, sessionID string, ca
 		contracts.SessionStateInProgress: true,
 		contracts.SessionStateBlocked:    true,
 	}
-	
+
 	if !cancelableStates[session.State] {
 		return fmt.Errorf("session cannot be canceled in state %s", session.State)
 	}
-	
+
 	// Transition to canceled
 	if err := p.sessionManager.TransitionState(ctx, sessionID, contracts.SessionStateCanceled,
 		fmt.Sprintf("Canceled by %s: %s", canceller, reason), canceller); err != nil {
 		return fmt.Errorf("failed to cancel session: %w", err)
 	}
-	
+
 	log.Printf("Session %s canceled by %s: %s", sessionID, canceller, reason)
 	return nil
 }
@@ -595,7 +595,7 @@ func (p *DefaultPlanner) CancelSession(ctx context.Context, sessionID string, ca
 func (p *DefaultPlanner) GetPendingApprovals(ctx context.Context) ([]*contracts.Session, error) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	
+
 	// Filter only blocked sessions
 	var pending []*contracts.Session
 	for _, session := range p.approvalQueue {
@@ -603,7 +603,7 @@ func (p *DefaultPlanner) GetPendingApprovals(ctx context.Context) ([]*contracts.
 			pending = append(pending, session)
 		}
 	}
-	
+
 	return pending, nil
 }
 
@@ -628,7 +628,7 @@ func (p *DefaultPlanner) startBackgroundTasks() {
 func (p *DefaultPlanner) monitorStuckSessions() {
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
-	
+
 	for {
 		select {
 		case <-ticker.C:
@@ -646,13 +646,13 @@ func (p *DefaultPlanner) checkStuckSessions(ctx context.Context) {
 	filter := session.SessionFilter{
 		State: &[]contracts.SessionState{contracts.SessionStateInProgress}[0],
 	}
-	
+
 	sessions, err := p.sessionManager.ListSessions(ctx, filter)
 	if err != nil {
 		log.Printf("Failed to list in-progress sessions: %v", err)
 		return
 	}
-	
+
 	for _, s := range sessions {
 		if s.StartedAt != nil {
 			elapsed := time.Since(*s.StartedAt)

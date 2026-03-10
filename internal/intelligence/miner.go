@@ -61,11 +61,11 @@ func (m *Miner) MineProofOfWorks(ctx context.Context) (*MiningResult, error) {
 	}
 
 	result := &MiningResult{
-		StartTime:      time.Now(),
-		ArtifactsFound: 0,
-		ArtifactsMined: 0,
+		StartTime:         time.Now(),
+		ArtifactsFound:    0,
+		ArtifactsMined:    0,
 		PatternsExtracted: 0,
-		Errors:         []string{},
+		Errors:            []string{},
 	}
 
 	workTypeStats := make(map[string]*WorkTypeStatistics)
@@ -144,11 +144,11 @@ func (m *Miner) extractPatterns(
 	workTypeKey := fmt.Sprintf("%s:%s", summary.WorkType, summary.WorkDomain)
 	if _, exists := workTypeStats[workTypeKey]; !exists {
 		workTypeStats[workTypeKey] = &WorkTypeStatistics{
-			WorkType:    summary.WorkType,
-			WorkDomain:  summary.WorkDomain,
-			TotalRuns:   0,
-			SuccessRate: 0.0,
-			AverageDuration: 0,
+			WorkType:           summary.WorkType,
+			WorkDomain:         summary.WorkDomain,
+			TotalRuns:          0,
+			SuccessRate:        0.0,
+			AverageDuration:    0,
 			FilesChangedPerRun: 0,
 		}
 	}
@@ -167,9 +167,9 @@ func (m *Miner) extractPatterns(
 	durationKey := workTypeKey
 	if _, exists := durationStats[durationKey]; !exists {
 		durationStats[durationKey] = &DurationStatistics{
-			WorkType:    summary.WorkType,
-			WorkDomain:  summary.WorkDomain,
-			Samples:     []time.Duration{},
+			WorkType:   summary.WorkType,
+			WorkDomain: summary.WorkDomain,
+			Samples:    []time.Duration{},
 		}
 	}
 	durationStats[durationKey].Samples = append(durationStats[durationKey].Samples, summary.Duration)
@@ -178,9 +178,9 @@ func (m *Miner) extractPatterns(
 	templateKey := summary.ModelUsed // For now, use model used as proxy for template
 	if _, exists := templateStats[templateKey]; !exists {
 		templateStats[templateKey] = &TemplateStatistics{
-			TemplateName: templateKey,
-			TotalRuns:    0,
-			SuccessRate:  0.0,
+			TemplateName:    templateKey,
+			TotalRuns:       0,
+			SuccessRate:     0.0,
 			AverageDuration: 0,
 		}
 	}
@@ -276,7 +276,7 @@ type WorkTypeStatistics struct {
 
 // TemplateStatistics tracks performance metrics by template.
 type TemplateStatistics struct {
-	TemplateName     string
+	TemplateName    string
 	TotalRuns       int
 	SuccessfulRuns  int
 	SuccessRate     float64
@@ -286,14 +286,14 @@ type TemplateStatistics struct {
 
 // DurationStatistics tracks duration percentiles.
 type DurationStatistics struct {
-	WorkType      string
-	WorkDomain    string
-	Samples       []time.Duration
-	MinDuration   time.Duration
-	MaxDuration   time.Duration
+	WorkType       string
+	WorkDomain     string
+	Samples        []time.Duration
+	MinDuration    time.Duration
+	MaxDuration    time.Duration
 	MedianDuration time.Duration
-	P95Duration   time.Duration
-	P99Duration   time.Duration
+	P95Duration    time.Duration
+	P99Duration    time.Duration
 }
 
 // Helper functions for duration statistics

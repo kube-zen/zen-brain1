@@ -130,7 +130,7 @@ func NewS3Client(s3Config *S3Config) (S3Client, error) {
 
 	// Build S3 client options
 	var clientOpts []func(*s3.Options)
-	
+
 	// Handle custom endpoint
 	if s3Config.Endpoint != "" {
 		// Ensure endpoint has proper scheme
@@ -142,7 +142,7 @@ func NewS3Client(s3Config *S3Config) (S3Client, error) {
 			// Default to https:// if no scheme
 			endpoint = "https://" + endpoint
 		}
-		
+
 		clientOpts = append(clientOpts, func(o *s3.Options) {
 			o.BaseEndpoint = aws.String(endpoint)
 			o.UsePathStyle = s3Config.UsePathStyle

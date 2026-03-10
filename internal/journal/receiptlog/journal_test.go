@@ -123,7 +123,7 @@ func TestReceiptlogJournal_MultipleEntries(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	cfg := &Config{
-		SpoolDir: tmpDir,
+		SpoolDir:  tmpDir,
 		SpoolSize: 10 * 1024 * 1024,
 	}
 	j, err := New(cfg)

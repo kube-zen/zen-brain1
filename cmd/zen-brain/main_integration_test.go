@@ -170,7 +170,7 @@ func TestVerticalSlice_FactoryCommandExecution(t *testing.T) {
 
 	// Create a test command
 	testStep := &factory.ExecutionStep{
-		StepID: "test-step-1",
+		StepID:  "test-step-1",
 		TaskID:  "test-task-1",
 		Name:    "Test command execution",
 		Command: "echo 'Factory command test' && pwd",
@@ -307,11 +307,11 @@ func TestVerticalSlice_ErrorPath_FactoryExecutionFailure(t *testing.T) {
 
 	// Create a failing step example (not executed, just validated)
 	_ = &factory.ExecutionStep{
-		StepID:  "failing-step-1",
-		TaskID:   "test-task-fail",
-		Name:     "Failing command",
-		Command:  "exit 1",  // This will always fail
-		Status:   factory.StepStatusPending,
+		StepID:     "failing-step-1",
+		TaskID:     "test-task-fail",
+		Name:       "Failing command",
+		Command:    "exit 1", // This will always fail
+		Status:     factory.StepStatusPending,
 		MaxRetries: 3,
 	}
 
@@ -418,13 +418,13 @@ func TestVerticalSlice_ErrorPath_TimeoutHandling(t *testing.T) {
 
 	// Create a long-running command test example (not executed, just validated)
 	_ = &factory.ExecutionStep{
-		StepID:  "long-running-step",
-		TaskID:   "test-task-timeout",
-		Name:     "Long-running command",
-		Command:  "sleep 100",  // Will timeout
-		Status:   factory.StepStatusPending,
-		MaxRetries: 1,
-		TimeoutSeconds: 0,  // Uses Factory-level timeout
+		StepID:         "long-running-step",
+		TaskID:         "test-task-timeout",
+		Name:           "Long-running command",
+		Command:        "sleep 100", // Will timeout
+		Status:         factory.StepStatusPending,
+		MaxRetries:     1,
+		TimeoutSeconds: 0, // Uses Factory-level timeout
 	}
 
 	t.Log("✓ Validated long-running step structure (Command: sleep 100)")
@@ -580,12 +580,12 @@ func TestVerticalSlice_Recovery_RetryLogic(t *testing.T) {
 
 	// Verify that BoundedExecutor supports retry
 	_ = &factory.ExecutionStep{
-		StepID:   "retry-test-step",
-		TaskID:    "test-task-retry",
-		Name:      "Test retry logic",
-		Command:   "exit 1",  // Will always fail
-		Status:    factory.StepStatusPending,
-		MaxRetries:  3,
+		StepID:     "retry-test-step",
+		TaskID:     "test-task-retry",
+		Name:       "Test retry logic",
+		Command:    "exit 1", // Will always fail
+		Status:     factory.StepStatusPending,
+		MaxRetries: 3,
 	}
 
 	t.Log("✓ Validated retry step structure (max_retries=3)")

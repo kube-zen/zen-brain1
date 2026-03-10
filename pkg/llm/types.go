@@ -133,10 +133,10 @@ type ChatResponse struct {
 
 // TokenUsage contains token usage statistics.
 type TokenUsage struct {
-	InputTokens   int64 `json:"input_tokens"`
-	OutputTokens  int64 `json:"output_tokens"`
-	CachedTokens  int64 `json:"cached_tokens,omitempty"`
-	TotalTokens   int64 `json:"total_tokens"`
+	InputTokens  int64 `json:"input_tokens"`
+	OutputTokens int64 `json:"output_tokens"`
+	CachedTokens int64 `json:"cached_tokens,omitempty"`
+	TotalTokens  int64 `json:"total_tokens"`
 }
 
 // StreamCallback is called for each token during streaming.

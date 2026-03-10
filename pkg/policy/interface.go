@@ -12,14 +12,14 @@ import (
 type Action string
 
 const (
-	ActionCreateSession  Action = "create_session"
-	ActionAnalyzeIntent  Action = "analyze_intent"
-	ActionGeneratePlan   Action = "generate_plan"
-	ActionExecuteTask    Action = "execute_task"
-	ActionUpdateStatus   Action = "update_status"
+	ActionCreateSession   Action = "create_session"
+	ActionAnalyzeIntent   Action = "analyze_intent"
+	ActionGeneratePlan    Action = "generate_plan"
+	ActionExecuteTask     Action = "execute_task"
+	ActionUpdateStatus    Action = "update_status"
 	ActionRequestApproval Action = "request_approval"
-	ActionAccessKB       Action = "access_kb"
-	ActionCallLLM        Action = "call_llm"
+	ActionAccessKB        Action = "access_kb"
+	ActionCallLLM         Action = "call_llm"
 )
 
 // Resource represents a resource being acted upon.

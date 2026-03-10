@@ -52,7 +52,7 @@ const (
 
 // WorkItemEvent represents an event from the Office system.
 type WorkItemEvent struct {
-	Type      WorkEventType     `json:"type"`
+	Type      WorkEventType       `json:"type"`
 	WorkItem  *contracts.WorkItem `json:"work_item"`
-	Timestamp time.Time         `json:"timestamp"`
+	Timestamp time.Time           `json:"timestamp"`
 }

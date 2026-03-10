@@ -114,11 +114,11 @@ func TestAddComment_WithAIAttribution(t *testing.T) {
 		Author:     "zen-brain",
 		CreatedAt:  time.Now(),
 		Attribution: &contracts.AIAttribution{
-			AgentRole:  "worker-debug",
-			ModelUsed:  "glm-4.7",
+			AgentRole: "worker-debug",
+			ModelUsed: "glm-4.7",
 			SessionID: "session-123",
-			TaskID:     "task-456",
-			Timestamp:  time.Date(2026, 3, 7, 14, 30, 0, 0, time.UTC),
+			TaskID:    "task-456",
+			Timestamp: time.Date(2026, 3, 7, 14, 30, 0, 0, time.UTC),
 		},
 	}
 
@@ -457,11 +457,11 @@ func TestFetchAndCommentWorkflow(t *testing.T) {
 		Author:     "zen-brain",
 		CreatedAt:  time.Now(),
 		Attribution: &contracts.AIAttribution{
-			AgentRole:  "factory",
-			ModelUsed:  "factory-v1",
+			AgentRole: "factory",
+			ModelUsed: "factory-v1",
 			SessionID: "session-789",
-			TaskID:     "task-012",
-			Timestamp:  time.Now(),
+			TaskID:    "task-012",
+			Timestamp: time.Now(),
 		},
 	}
 

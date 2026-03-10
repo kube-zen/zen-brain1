@@ -20,9 +20,9 @@ const staleWorkspaceThreshold = 24 * time.Hour
 // WorkspaceManagerImpl implements WorkspaceManager.
 type WorkspaceManagerImpl struct {
 	homeDir       string
-	workspacesDir  string
-	lockMap        map[string]*sync.Mutex
-	lockMapMutex   sync.RWMutex
+	workspacesDir string
+	lockMap       map[string]*sync.Mutex
+	lockMapMutex  sync.RWMutex
 }
 
 // NewWorkspaceManager creates a new workspace manager.
@@ -32,7 +32,7 @@ func NewWorkspaceManager(homeDir string) *WorkspaceManagerImpl {
 		panic(fmt.Sprintf("failed to create workspaces directory: %v", err))
 	}
 	return &WorkspaceManagerImpl{
-		homeDir:      homeDir,
+		homeDir:       homeDir,
 		workspacesDir: workspacesDir,
 		lockMap:       make(map[string]*sync.Mutex),
 	}
@@ -98,9 +98,9 @@ func (w *WorkspaceManagerImpl) LockWorkspace(ctx context.Context, path string) e
 		w.lockMap[path] = &sync.Mutex{}
 	}
 	w.lockMap[path].Lock()
-	
+
 	lockPath := filepath.Join(path, ".zen-lock")
-	
+
 	// Check for existing lock file
 	if info, err := os.Stat(lockPath); err == nil {
 		// Lock file exists, check if stale
@@ -116,7 +116,7 @@ func (w *WorkspaceManagerImpl) LockWorkspace(ctx context.Context, path string) e
 			return fmt.Errorf("workspace is locked: %s (locked at %v)", lockPath, info.ModTime().Format(time.RFC3339))
 		}
 	}
-	
+
 	// Create lock file atomically to prevent race conditions between processes
 	file, err := os.OpenFile(lockPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
 	if err != nil {
@@ -132,7 +132,7 @@ func (w *WorkspaceManagerImpl) LockWorkspace(ctx context.Context, path string) e
 		return fmt.Errorf("failed to write lock timestamp: %w", err)
 	}
 	file.Close()
-	
+
 	log.Printf("[WorkspaceManager] Workspace locked: path=%s", path)
 	return nil
 }

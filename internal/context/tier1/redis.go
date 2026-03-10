@@ -268,8 +268,8 @@ func (s *Store) ReconstructSession(ctx stdctx.Context, req zenctx.ReMeRequest) (
 	}
 
 	return &zenctx.ReMeResponse{
-		SessionContext: sessionCtx,
-		JournalEntries: []interface{}{}, // No journal entries from Tier 1
+		SessionContext:  sessionCtx,
+		JournalEntries:  []interface{}{}, // No journal entries from Tier 1
 		ReconstructedAt: time.Now(),
 	}, nil
 }
@@ -285,11 +285,11 @@ func (s *Store) Stats(ctx stdctx.Context) (map[zenctx.Tier]interface{}, error) {
 
 	stats := map[zenctx.Tier]interface{}{
 		zenctx.TierHot: map[string]interface{}{
-			"type":        "redis",
-			"cluster_id":  s.config.ClusterID,
+			"type":          "redis",
+			"cluster_id":    s.config.ClusterID,
 			"session_count": len(keys),
-			"key_prefix":  s.config.KeyPrefix,
-			"default_ttl":  s.config.DefaultTTL.String(),
+			"key_prefix":    s.config.KeyPrefix,
+			"default_ttl":   s.config.DefaultTTL.String(),
 		},
 	}
 

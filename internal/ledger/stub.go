@@ -36,7 +36,7 @@ func NewStubLedgerClient() *StubLedgerClient {
 // GetModelEfficiency returns empty efficiency data.
 func (s *StubLedgerClient) GetModelEfficiency(ctx context.Context, projectID string, taskType string) ([]ledger.ModelEfficiency, error) {
 	log.Printf("[StubLedger] GetModelEfficiency called (project=%s, taskType=%s)", projectID, taskType)
-	
+
 	// Return empty slice; planner will fall back to default model
 	return []ledger.ModelEfficiency{}, nil
 }
@@ -44,7 +44,7 @@ func (s *StubLedgerClient) GetModelEfficiency(ctx context.Context, projectID str
 // GetCostBudgetStatus returns a default budget status.
 func (s *StubLedgerClient) GetCostBudgetStatus(ctx context.Context, projectID string) (*ledger.BudgetStatus, error) {
 	log.Printf("[StubLedger] GetCostBudgetStatus called (project=%s)", projectID)
-	
+
 	now := time.Now()
 	return &ledger.BudgetStatus{
 		ProjectID:      projectID,
@@ -61,7 +61,7 @@ func (s *StubLedgerClient) GetCostBudgetStatus(ctx context.Context, projectID st
 func (s *StubLedgerClient) RecordPlannedModelSelection(ctx context.Context, sessionID, taskID, modelID, reason string) error {
 	log.Printf("[StubLedger] RecordPlannedModelSelection: session=%s, task=%s, model=%s, reason=%s",
 		sessionID, taskID, modelID, reason)
-	
+
 	s.modelSelections = append(s.modelSelections, ModelSelectionRecord{
 		SessionID: sessionID,
 		TaskID:    taskID,

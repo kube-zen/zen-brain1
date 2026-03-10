@@ -9,9 +9,9 @@ import (
 	"sync"
 	"time"
 
+	qmdstore "github.com/kube-zen/zen-brain1/internal/qmd"
 	zenctx "github.com/kube-zen/zen-brain1/pkg/context"
 	"github.com/kube-zen/zen-brain1/pkg/kb"
-	qmdstore "github.com/kube-zen/zen-brain1/internal/qmd"
 )
 
 // QMDStore implements the Store interface for Tier 2 (Warm) storage.
@@ -20,7 +20,7 @@ type QMDStore struct {
 	kbStore kb.Store
 	verbose bool
 	mu      sync.RWMutex
-	
+
 	// Statistics
 	stats struct {
 		queries      int64
@@ -34,7 +34,7 @@ type QMDStore struct {
 type Config struct {
 	// KBStore is the knowledge base store to use
 	KBStore kb.Store
-	
+
 	// Verbose enables verbose logging
 	Verbose bool
 }
@@ -44,16 +44,16 @@ func NewQMDStore(config *Config) (*QMDStore, error) {
 	if config == nil {
 		return nil, fmt.Errorf("config is required")
 	}
-	
+
 	if config.KBStore == nil {
 		return nil, fmt.Errorf("kb store is required")
 	}
-	
+
 	store := &QMDStore{
 		kbStore: config.KBStore,
 		verbose: config.Verbose,
 	}
-	
+
 	return store, nil
 }
 
@@ -89,29 +89,29 @@ func (s *QMDStore) QueryKnowledge(ctx stdctx.Context, opts zenctx.QueryOptions) 
 		log.Printf("[QMDStore] QueryKnowledge: query=%q, scopes=%v, limit=%d, minSimilarity=%v",
 			opts.Query, opts.Scopes, opts.Limit, opts.MinSimilarity)
 	}
-	
+
 	// Build kb.SearchQuery from zenctx.QueryOptions
 	searchQuery := kb.SearchQuery{
-		Query:   opts.Query,
-		Limit:   opts.Limit,
+		Query:    opts.Query,
+		Limit:    opts.Limit,
 		KBScopes: opts.Scopes,
 		// Note: kb.SearchQuery doesn't have MinSimilarity field
 		// We'll filter results after retrieval if needed
 	}
-	
+
 	// Execute search
 	kbResults, err := s.kbStore.Search(ctx, searchQuery)
 	if err != nil {
 		return nil, fmt.Errorf("knowledge search failed: %w", err)
 	}
-	
+
 	// Convert kb.SearchResult to zenctx.KnowledgeChunk
 	chunks := make([]zenctx.KnowledgeChunk, 0, len(kbResults))
 	for _, result := range kbResults {
 		chunk := s.convertToKnowledgeChunk(result, opts)
 		chunks = append(chunks, chunk)
 	}
-	
+
 	// Apply minSimilarity filter if specified
 	if opts.MinSimilarity > 0 {
 		filtered := make([]zenctx.KnowledgeChunk, 0, len(chunks))
@@ -122,18 +122,18 @@ func (s *QMDStore) QueryKnowledge(ctx stdctx.Context, opts zenctx.QueryOptions) 
 		}
 		chunks = filtered
 	}
-	
+
 	// Update statistics
 	s.mu.Lock()
 	s.stats.queries++
 	s.stats.lastQuery = time.Now()
 	s.mu.Unlock()
-	
+
 	if s.verbose {
 		log.Printf("[QMDStore] QueryKnowledge: returned %d chunks (after filtering: %d)",
 			len(kbResults), len(chunks))
 	}
-	
+
 	return chunks, nil
 }
 
@@ -144,16 +144,16 @@ func (s *QMDStore) convertToKnowledgeChunk(result kb.SearchResult, opts zenctx.Q
 	if result.Doc.Domain != "" {
 		scope = result.Doc.Domain
 	}
-	
+
 	// Generate a unique ID using document path and timestamp
 	id := fmt.Sprintf("kb-%s-%d", result.Doc.Path, time.Now().UnixNano())
-	
+
 	// Extract heading path from document title
 	var headingPath []string
 	if result.Doc.Title != "" {
 		headingPath = []string{result.Doc.Title}
 	}
-	
+
 	// Extract similarity score if available (normalize to 0-1)
 	similarityScore := 0.7 // default reasonable score
 	if result.Score > 0 {
@@ -163,7 +163,7 @@ func (s *QMDStore) convertToKnowledgeChunk(result kb.SearchResult, opts zenctx.Q
 			similarityScore = 1.0
 		}
 	}
-	
+
 	return zenctx.KnowledgeChunk{
 		ID:              id,
 		Scope:           scope,
@@ -182,23 +182,23 @@ func (s *QMDStore) StoreKnowledge(ctx stdctx.Context, chunks []zenctx.KnowledgeC
 	if s.verbose {
 		log.Printf("[QMDStore] StoreKnowledge: storing %d chunks", len(chunks))
 	}
-	
+
 	// For now, we just acknowledge the storage request.
 	// In a full implementation, this would:
 	// 1. Convert chunks to appropriate format
 	// 2. Trigger qmd refresh with the new content
 	// 3. Update the vector embeddings
-	
+
 	// Update statistics
 	s.mu.Lock()
 	s.stats.storedChunks += int64(len(chunks))
 	s.stats.lastStore = time.Now()
 	s.mu.Unlock()
-	
+
 	if s.verbose {
 		log.Printf("[QMDStore] StoreKnowledge: acknowledged storage of %d chunks", len(chunks))
 	}
-	
+
 	return nil
 }
 
@@ -212,18 +212,18 @@ func (s *QMDStore) ArchiveSession(ctx stdctx.Context, clusterID, sessionID strin
 func (s *QMDStore) Stats(ctx stdctx.Context) (map[zenctx.Tier]interface{}, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	
+
 	stats := map[zenctx.Tier]interface{}{
 		zenctx.TierWarm: map[string]interface{}{
-			"type":           "qmd",
-			"queries_total":  s.stats.queries,
-			"chunks_stored":  s.stats.storedChunks,
-			"last_query":     s.stats.lastQuery.Format(time.RFC3339),
-			"last_store":     s.stats.lastStore.Format(time.RFC3339),
-			"verbose":        s.verbose,
+			"type":          "qmd",
+			"queries_total": s.stats.queries,
+			"chunks_stored": s.stats.storedChunks,
+			"last_query":    s.stats.lastQuery.Format(time.RFC3339),
+			"last_store":    s.stats.lastStore.Format(time.RFC3339),
+			"verbose":       s.verbose,
 		},
 	}
-	
+
 	return stats, nil
 }
 
@@ -232,7 +232,7 @@ func (s *QMDStore) Close() error {
 	if s.verbose {
 		log.Printf("[QMDStore] Closing")
 	}
-	
+
 	// Nothing to close for the KB store wrapper
 	return nil
 }
@@ -245,24 +245,24 @@ func NewQMDStoreFromConfig(qmdConfig *qmdstore.Config, repoPath string, verbose 
 	if err != nil {
 		return nil, fmt.Errorf("failed to create qmd client: %w", err)
 	}
-	
+
 	// Create KB store
 	kbConfig := &qmdstore.KBStoreConfig{
 		QMDClient: qmdClient,
 		RepoPath:  repoPath,
 		Verbose:   verbose,
 	}
-	
+
 	kbStore, err := qmdstore.NewKBStore(kbConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create KB store: %w", err)
 	}
-	
+
 	// Create QMD store wrapper
 	config := &Config{
 		KBStore: kbStore,
 		Verbose: verbose,
 	}
-	
+
 	return NewQMDStore(config)
 }
