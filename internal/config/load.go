@@ -25,7 +25,18 @@ type Config struct {
 
 	ZenContext ZenContextConfig `yaml:"zen_context"`
 
+	MessageBus MessageBusConfig `yaml:"message_bus"`
+
 	Planner PlannerConfig `yaml:"planner"`
+}
+
+// MessageBusConfig holds Block 3 message bus configuration.
+type MessageBusConfig struct {
+	Enabled   bool   `yaml:"enabled"`
+	Kind      string `yaml:"kind"`        // "redis"
+	RedisURL  string `yaml:"redis_url"`
+	Stream    string `yaml:"stream"`
+	Required  bool   `yaml:"required"`
 }
 
 // LoggingConfig holds logging configuration.
@@ -97,6 +108,7 @@ type LedgerConfig struct {
 	Database string `yaml:"database"`
 	User     string `yaml:"user"`
 	SSLMode  string `yaml:"ssl_mode"`
+	Required bool   `yaml:"required"`
 }
 
 // ZenContextConfig holds three-tier memory configuration.
@@ -107,6 +119,7 @@ type ZenContextConfig struct {
 	Journal    JournalConfig   `yaml:"journal"`
 	ClusterID  string          `yaml:"cluster_id"`
 	Verbose    bool            `yaml:"verbose"`
+	Required   bool            `yaml:"required"`
 }
 
 // RedisTierConfig holds Redis configuration.
@@ -266,6 +279,14 @@ func (c *Config) loadFromEnv() {
 	if c.ZenContext.Tier3S3.SessionToken == "" {
 		c.ZenContext.Tier3S3.SessionToken = os.Getenv("AWS_SESSION_TOKEN")
 	}
+	// Message bus
+	if c.MessageBus.RedisURL == "" {
+		c.MessageBus.RedisURL = os.Getenv("REDIS_URL")
+	}
+	if c.MessageBus.Kind == "" && os.Getenv("ZEN_BRAIN_MESSAGE_BUS") == "redis" {
+		c.MessageBus.Enabled = true
+		c.MessageBus.Kind = "redis"
+	}
 }
 
 // setDefaults sets default values for missing configuration.
@@ -288,6 +309,9 @@ func (c *Config) setDefaults() {
 
 	if c.ZenContext.ClusterID == "" {
 		c.ZenContext.ClusterID = "default"
+	}
+	if c.MessageBus.Stream == "" {
+		c.MessageBus.Stream = "zen-brain.events"
 	}
 }
 
@@ -316,6 +340,11 @@ func DefaultConfig() *Config {
 		ZenContext: ZenContextConfig{
 			ClusterID: "default",
 			Verbose:   false,
+		},
+		MessageBus: MessageBusConfig{
+			Enabled:  false,
+			Kind:     "redis",
+			Stream:   "zen-brain.events",
 		},
 		Planner: PlannerConfig{
 			DefaultModel:    "glm-4.7",

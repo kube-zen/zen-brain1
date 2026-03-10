@@ -23,7 +23,8 @@ project_id: zen‑brain
 
 # Component configurations
 context: ...
-journal: ...
+zen_context: ...   # Block 3: tier1_redis, tier2_qmd, tier3_s3, journal, cluster_id, required
+message_bus: ...   # Block 3: enabled, kind, redis_url, stream, required
 ledger: ...
 gate: ...
 policy: ...
@@ -31,6 +32,32 @@ llm: ...
 jira: ...
 kb: ...
 ```
+
+## Block 3 runtime and message bus
+
+Block 3 uses a **canonical bootstrap** (`internal/runtime.Bootstrap`) driven by config and env. The following apply to both `zen-brain` and `apiserver` when they load config.
+
+**Message bus** (optional):
+
+```yaml
+message_bus:
+  enabled: false
+  kind: redis
+  redis_url: ""    # or set REDIS_URL env
+  stream: zen-brain.events
+  required: false
+```
+
+When `ZEN_BRAIN_MESSAGE_BUS=redis` is set, the bus is enabled and uses `REDIS_URL` (default `redis://localhost:6379`). Session lifecycle events (session.created, session.transitioned, etc.) are published to the configured stream when `session.Config.EventBus` is set.
+
+**Strictness (env):** To require capabilities and fail startup when unavailable, set:
+
+- `ZEN_BRAIN_STRICT_RUNTIME=1` — require all of: ZenContext, QMD, Ledger, MessageBus (when enabled).
+- `ZEN_BRAIN_REQUIRE_ZENCONTEXT=1`, `ZEN_BRAIN_REQUIRE_QMD=1`, `ZEN_BRAIN_REQUIRE_LEDGER=1`, `ZEN_BRAIN_REQUIRE_MESSAGEBUS=1` — require the corresponding capability.
+
+Config can also set `zen_context.required`, `ledger.required`, `message_bus.required` in YAML.
+
+**Runtime commands:** `zen-brain runtime doctor` (readable summary), `zen-brain runtime report` (JSON), `zen-brain runtime ping` (exit non-zero if required capability unhealthy).
 
 ## ZenContext Configuration
 

@@ -25,6 +25,7 @@ import (
 	"github.com/kube-zen/zen-brain1/internal/messagebus/redis"
 	internalLedger "github.com/kube-zen/zen-brain1/internal/ledger"
 	"github.com/kube-zen/zen-brain1/internal/planner"
+	"github.com/kube-zen/zen-brain1/internal/runtime"
 	"github.com/kube-zen/zen-brain1/internal/session"
 	"github.com/kube-zen/zen-brain1/pkg/messagebus"
 	zenctx "github.com/kube-zen/zen-brain1/pkg/context"
@@ -62,6 +63,9 @@ func main() {
 	case "office":
 		runOfficeCommand()
 
+	case "runtime":
+		runRuntime()
+
 	case "version":
 		printVersion()
 
@@ -80,6 +84,7 @@ func printUsage() {
 	fmt.Println("  vertical-slice Run end-to-end vertical slice (Jira → analyze → plan → execute → update)")
 	fmt.Println("  intelligence   Block 5 intelligence: mine, analyze, recommend")
 	fmt.Println("  office         Office doctor, search, fetch, watch (Jira)")
+	fmt.Println("  runtime        Runtime doctor, report, ping (Block 3 capabilities)")
 	fmt.Println("  version        Print version information")
 	fmt.Println()
 	fmt.Println("For vertical-slice command:")
@@ -89,8 +94,10 @@ func printUsage() {
 	fmt.Println()
 	fmt.Println("For intelligence command:")
 	fmt.Println("  zen-brain intelligence mine                      Mine proof-of-work artifacts")
-	fmt.Println("  zen-brain intelligence analyze                  Print pattern analysis")
-	fmt.Println("  zen-brain intelligence recommend <workType> <workDomain>   Get template and config recommendations")
+	fmt.Println("  zen-brain intelligence analyze                   Print pattern analysis")
+	fmt.Println("  zen-brain intelligence recommend <workType> <workDomain>  Get template and config recommendations")
+	fmt.Println("  zen-brain intelligence diagnose <workType> <workDomain>    Print failure statistics for work type/domain")
+	fmt.Println("  zen-brain intelligence checkpoint <sessionID>   Print execution checkpoint summary")
 	fmt.Println()
 	fmt.Println("For office command:")
 	fmt.Println("  zen-brain office doctor              Print config, connectors, Jira URL, API reachability")
@@ -299,17 +306,57 @@ func runVerticalSlice() {
 		sessionStore = session.NewMemoryStore()
 	}
 
-	// Create and wire real ZenContext (Redis + MinIO)
-	fmt.Println("  - Initializing ZenContext (tiered memory)...")
-	zenContext, err := createRealZenContext()
-	if err != nil {
-		log.Printf("Warning: failed to create real ZenContext: %v", err)
-		log.Printf("Falling back to mock ZenContext")
-		zenContext = newMockZenContext()
-	} else {
-		fmt.Println("  ✓ ZenContext initialized (Redis + MinIO)")
+	// Block 3: canonical bootstrap from config (or fallback)
+	fmt.Println("  - Block 3 runtime bootstrap...")
+	var zenContext zenctx.ZenContext
+	var ledgerClient ledger.ZenLedgerClient
+	var msgBus messagebus.MessageBus
+	var rt *runtime.Runtime
+	if cfg, cfgErr := config.LoadConfig(""); cfgErr == nil && cfg != nil {
+		ctxB := context.Background()
+		var errB error
+		rt, errB = runtime.Bootstrap(ctxB, cfg)
+		if errB != nil {
+			log.Printf("Warning: runtime.Bootstrap failed: %v", errB)
+		}
+		if rt != nil {
+			zenContext = rt.ZenContext
+			ledgerClient = rt.Ledger
+			msgBus = rt.MessageBus
+			if rt.Report != nil {
+				fmt.Println("  " + runtimeCapabilityBanner(rt.Report))
+			}
+		}
+	}
+	if zenContext == nil {
+		zenContext, err = createRealZenContext()
+		if err != nil {
+			log.Printf("Warning: failed to create real ZenContext: %v", err)
+			log.Printf("Falling back to mock ZenContext")
+			zenContext = newMockZenContext()
+		} else {
+			fmt.Println("  ✓ ZenContext initialized (Redis + MinIO)")
+		}
+	}
+	if ledgerClient == nil {
+		ledgerClient = ledgerClientOrStub()
+	}
+	if msgBus == nil && os.Getenv("ZEN_BRAIN_MESSAGE_BUS") == "redis" {
+		redisURL := os.Getenv("REDIS_URL")
+		if redisURL == "" {
+			redisURL = "redis://localhost:6379"
+		}
+		if bus, errBus := redis.New(&redis.Config{RedisURL: redisURL}); errBus == nil {
+			msgBus = bus
+			fmt.Println("  ✓ Message bus (Redis) enabled")
+		}
 	}
 	sessionConfig.ZenContext = zenContext
+	// Block 3: wire message bus for session lifecycle events (journal can be added when available)
+	if msgBus != nil {
+		sessionConfig.EventBus = msgBus
+		sessionConfig.EventStream = "zen-brain.events"
+	}
 
 	sessionManager, err := session.New(sessionConfig, sessionStore)
 	if err != nil {
@@ -359,11 +406,13 @@ func runVerticalSlice() {
 	}
 	fmt.Println("  ✓ Factory initialized")
 
-	// Step 6: Initialize Planner
+	// Step 6: Initialize Planner (ledgerClient from bootstrap or stub)
 	fmt.Println("[6/7] Initializing Planner...")
-	ledgerClient := ledgerClientOrStub() // Block 3.6: CockroachDB when ZEN_LEDGER_DSN or LEDGER_DATABASE_URL set
-	if closer, ok := ledgerClient.(interface{ Close() error }); ok {
+	if closer, ok := ledgerClient.(interface{ Close() error }); ok && closer != nil {
 		defer func() { _ = closer.Close() }()
+	}
+	if rt != nil {
+		defer func() { _ = rt.Close() }()
 	}
 	plannerConfig := planner.DefaultConfig()
 	plannerConfig.OfficeManager = officeManager
@@ -392,20 +441,9 @@ func runVerticalSlice() {
 		fmt.Println("  ✓ LLM Gateway token recording enabled (ZenLedger)")
 	}
 
-	// Block 3.1: Optional message bus for vertical slice events
-	var msgBus messagebus.MessageBus
-	if os.Getenv("ZEN_BRAIN_MESSAGE_BUS") == "redis" {
-		redisURL := os.Getenv("REDIS_URL")
-		if redisURL == "" {
-			redisURL = "redis://localhost:6379"
-		}
-		if bus, err := redis.New(&redis.Config{RedisURL: redisURL}); err != nil {
-			log.Printf("Warning: message bus (Redis) not available: %v", err)
-		} else {
-			msgBus = bus
-			defer func() { _ = msgBus.Close() }()
-			fmt.Println("  ✓ Message bus (Redis) enabled")
-		}
+	// Message bus set from bootstrap or env above; ensure close on exit
+	if msgBus != nil {
+		defer func() { _ = msgBus.Close() }()
 	}
 
 	// Step 7: Fetch and process work item
@@ -427,6 +465,8 @@ func runVerticalSlice() {
 	var workItem *contracts.WorkItem
 	var workSession *contracts.Session
 	var analysisResult *contracts.AnalysisResult
+	var resumeCheckpoint *session.ExecutionCheckpoint
+	var proofPathsFromCheckpoint []string
 
 	if resumeSessionID != "" {
 		// Resume existing session (persistent store required)
@@ -471,6 +511,20 @@ func runVerticalSlice() {
 		if analysisResult != nil {
 			fmt.Printf("  Analysis: cost $%.2f, confidence %.1f%%\n", analysisResult.EstimatedTotalCostUSD, analysisResult.Confidence*100)
 		}
+		// Load execution checkpoint for ReMe/resume continuity
+		cp, err := sessionManager.GetExecutionCheckpoint(ctx, workSession.ID)
+		if err == nil && cp != nil {
+			resumeCheckpoint = cp
+			proofPathsFromCheckpoint = append([]string(nil), cp.ProofPaths...)
+			fmt.Println("Execution checkpoint loaded:")
+			fmt.Printf("  stage: %s, tasks: %d, proofs: %d\n", cp.Stage, len(cp.BrainTaskIDs), len(cp.ProofPaths))
+			if cp.SelectedModel != "" {
+				fmt.Printf("  selected model: %s\n", cp.SelectedModel)
+			}
+			if cp.LastRecommendation != "" {
+				fmt.Printf("  last recommendation: %s\n", cp.LastRecommendation)
+			}
+		}
 	} else {
 		if useMock {
 			workItem = createMockWorkItem()
@@ -494,7 +548,7 @@ func runVerticalSlice() {
 			log.Fatalf("Error creating session: %v", err)
 		}
 		fmt.Printf("✓ Session created: %s\n", workSession.ID)
-		publishVerticalSliceEvent(msgBus, "zen-brain.events", "session.created", workSession.ID, map[string]string{"session_id": workSession.ID, "work_item_id": workItem.ID})
+		// session.created is emitted by session manager when EventBus is configured
 
 		// Analyze work item
 		analysisResult, err = intentAnalyzer.Analyze(ctx, workItem)
@@ -530,9 +584,33 @@ func runVerticalSlice() {
 		}
 	}
 
+	// Block 5: get model recommendation for checkpoint and one-line output
+	var selectedModelID, modelSource string
+	var modelConfidence float64
+	projectID := workItem.ProjectID
+	if projectID == "" {
+		projectID = "default"
+	}
+	if modelRouter != nil {
+		if modelRec, err := modelRouter.RecommendModel(ctx, projectID, string(workItem.WorkType)); err == nil && modelRec != nil {
+			selectedModelID = modelRec.ModelID
+			modelSource = modelRec.Source
+			modelConfidence = modelRec.Confidence
+		}
+	}
+	if selectedModelID == "" {
+		selectedModelID = plannerConfig.DefaultModel
+		modelSource = "default"
+	}
+
+	skipReplay := session.ShouldSkipReplayForResume(resumeCheckpoint)
+
 	fmt.Println()
 	// Step 8: Process work item through Planner + Factory
 	fmt.Println("[8/8] Processing work item through Planner + Factory...")
+	if skipReplay {
+		fmt.Println("Resume loaded prior execution checkpoint; skipping blind task replay")
+	}
 	startTime := time.Now()
 
 	// If we resumed and session was not yet in_progress, transition now
@@ -564,7 +642,14 @@ func runVerticalSlice() {
 
 	fmt.Println()
 	fmt.Println("Executing tasks through Factory...")
-	if len(analysisResult.BrainTaskSpecs) > 0 {
+	if skipReplay {
+		brainTaskIDs = append(brainTaskIDs, resumeCheckpoint.BrainTaskIDs...)
+		proofPaths = append(proofPaths, proofPathsFromCheckpoint...)
+		lastRecommendation = resumeCheckpoint.LastRecommendation
+		if selectedModelID == "" && resumeCheckpoint.SelectedModel != "" {
+			selectedModelID = resumeCheckpoint.SelectedModel
+		}
+	} else if len(analysisResult.BrainTaskSpecs) > 0 {
 		for _, brainTask := range analysisResult.BrainTaskSpecs {
 			brainTaskIDs = append(brainTaskIDs, brainTask.ID)
 			fmt.Printf("  Executing task: %s\n", brainTask.ID)
@@ -643,7 +728,8 @@ func runVerticalSlice() {
 				fmt.Printf("  ! Task failed: %s - %s\n", executionResult.TaskID, executionResult.Error)
 			}
 		}
-	} else {
+	}
+	if !skipReplay && len(analysisResult.BrainTaskSpecs) == 0 {
 		fmt.Println("  ! No BrainTaskSpecs from analysis, skipping Factory execution")
 	}
 
@@ -689,7 +775,14 @@ func runVerticalSlice() {
 		}
 	}
 
+	// Block 5: print model selection provenance (one concise line)
+	fmt.Printf("Model: %s (source: %s, confidence: %.2f)\n", selectedModelID, modelSource, modelConfidence)
+
 	// ReMe/resume: write structured execution checkpoint into ZenContext SessionContext.State
+	checkpointStage := "proof_attached"
+	if ctx.Err() != context.DeadlineExceeded && len(analysisResult.BrainTaskSpecs) > 0 && tasksSucceeded > 0 {
+		checkpointStage = "execution_complete"
+	}
 	var knowledgeChunkIDs, knowledgeSourcePaths []string
 	if zenContext != nil {
 		if sc, err := zenContext.GetSessionContext(ctx, "default", workSession.ID); err == nil && sc != nil && len(sc.RelevantKnowledge) > 0 {
@@ -699,14 +792,23 @@ func runVerticalSlice() {
 			}
 		}
 	}
+	analysisSummaryShort := ""
+	if analysisResult != nil && analysisResult.AnalysisNotes != "" {
+		analysisSummaryShort = analysisResult.AnalysisNotes
+		if len(analysisSummaryShort) > 500 {
+			analysisSummaryShort = analysisSummaryShort[:497] + "..."
+		}
+	}
 	checkpoint := &session.ExecutionCheckpoint{
-		Stage:                "proof_attached",
+		Stage:                checkpointStage,
 		SessionID:            workSession.ID,
 		WorkItemID:           workItem.ID,
 		BrainTaskIDs:         brainTaskIDs,
 		ProofPaths:           proofPaths,
 		LastRecommendation:   lastRecommendation,
-		KnowledgeChunkIDs:     knowledgeChunkIDs,
+		SelectedModel:        selectedModelID,
+		AnalysisSummary:      analysisSummaryShort,
+		KnowledgeChunkIDs:    knowledgeChunkIDs,
 		KnowledgeSourcePaths: knowledgeSourcePaths,
 		UpdatedAt:            time.Now(),
 	}
@@ -1128,4 +1230,50 @@ func min(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// getZenContext returns a ZenContext for use by other commands (e.g. intelligence).
+// Uses config bootstrap when possible, otherwise real or mock.
+func getZenContext() zenctx.ZenContext {
+	cfg, err := config.LoadConfig("")
+	if err != nil || cfg == nil {
+		cfg = config.DefaultConfig()
+	}
+	rt, _ := runtime.Bootstrap(context.Background(), cfg)
+	if rt != nil && rt.ZenContext != nil {
+		return rt.ZenContext
+	}
+	zc, _ := createRealZenContext()
+	if zc != nil {
+		return zc
+	}
+	return newMockZenContext()
+}
+
+func runtimeCapabilityBanner(r *runtime.RuntimeReport) string {
+	if r == nil {
+		return "ZenContext=? Ledger=? MessageBus=?"
+	}
+	zc := string(r.ZenContext.Mode)
+	if zc == "" {
+		zc = "disabled"
+	}
+	if r.Tier1Hot.Healthy {
+		zc += " (tier1 ok)"
+	}
+	if r.Tier2Warm.Mode == runtime.ModeReal && !r.Tier2Warm.Healthy {
+		zc += ", tier2 degraded"
+	}
+	if r.Tier3Cold.Mode == runtime.ModeDisabled {
+		zc += ", tier3 disabled"
+	}
+	ledgerMode := string(r.Ledger.Mode)
+	if ledgerMode == "" {
+		ledgerMode = "stub"
+	}
+	mbMode := string(r.MessageBus.Mode)
+	if mbMode == "" {
+		mbMode = "disabled"
+	}
+	return "ZenContext=" + zc + " Ledger=" + ledgerMode + " MessageBus=" + mbMode
 }

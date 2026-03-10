@@ -108,6 +108,9 @@ func (m *DefaultManager) CreateSession(ctx context.Context, workItem *contracts.
 
 	log.Printf("Created session %s for work item %s", session.ID, workItem.ID)
 
+	// Block 3: emit session.created to journal and message bus when configured
+	EmitSessionCreated(ctx, m.config, session, workItem.ID)
+
 	// Create corresponding ZenContext SessionContext if ZenContext is configured
 	if m.zenctx != nil {
 		zenSession := &zenctx.SessionContext{
@@ -157,6 +160,8 @@ func (m *DefaultManager) UpdateExecutionCheckpoint(ctx context.Context, sessionI
 	if err := m.zenctx.StoreSessionContext(ctx, sc.ClusterID, sc); err != nil {
 		return fmt.Errorf("store session context: %w", err)
 	}
+	// Block 3: emit session.checkpoint_updated to journal and message bus when configured
+	EmitSessionCheckpointUpdated(ctx, m.config, sessionID, checkpoint.WorkItemID, checkpoint.Stage)
 	return nil
 }
 
@@ -312,6 +317,9 @@ func (m *DefaultManager) TransitionState(ctx context.Context, sessionID string, 
 	// Update ZenContext LastAccessedAt
 	m.updateZenContextLastAccessed(ctx, sessionID)
 
+	// Block 3: emit session.transitioned to journal and message bus when configured
+	EmitSessionTransitioned(ctx, m.config, sessionID, session.WorkItemID, string(oldState), string(newState), reason, agent)
+
 	log.Printf("Session %s transitioned: %s -> %s (reason: %s, agent: %s)",
 		sessionID, oldState, newState, reason, agent)
 	return nil
@@ -343,6 +351,9 @@ func (m *DefaultManager) AddEvidence(ctx context.Context, sessionID string, evid
 
 	// Update ZenContext LastAccessedAt
 	m.updateZenContextLastAccessed(ctx, sessionID)
+
+	// Block 3: emit session.evidence_added to journal and message bus when configured
+	EmitSessionEvidenceAdded(ctx, m.config, sessionID, session.WorkItemID, evidence)
 
 	log.Printf("Added evidence %s to session %s (type: %s)",
 		evidence.ID, sessionID, evidence.Type)

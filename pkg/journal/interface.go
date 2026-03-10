@@ -45,6 +45,12 @@ const (
 	EventSessionStarted EventType = "session_started"
 	EventSessionEnded   EventType = "session_ended"
 
+	// Session lifecycle (Block 3 nervous system)
+	EventSessionCreated          EventType = "session.created"
+	EventSessionTransitioned     EventType = "session.transitioned"
+	EventSessionEvidenceAdded    EventType = "session.evidence_added"
+	EventSessionCheckpointUpdated EventType = "session.checkpoint_updated"
+
 	// Policy events
 	EventPolicyViolation EventType = "policy_violation"
 	EventGateEnforced    EventType = "gate_enforced"

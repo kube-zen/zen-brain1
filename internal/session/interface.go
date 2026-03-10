@@ -9,7 +9,19 @@ import (
 
 	zenctx "github.com/kube-zen/zen-brain1/pkg/context"
 	"github.com/kube-zen/zen-brain1/pkg/contracts"
+	"github.com/kube-zen/zen-brain1/pkg/journal"
+	"github.com/kube-zen/zen-brain1/pkg/messagebus"
 )
+
+// JournalRecorder records journal entries (optional Block 3 write-side).
+type JournalRecorder interface {
+	Record(ctx context.Context, entry journal.Entry) (*journal.Receipt, error)
+}
+
+// EventPublisher publishes events to the message bus (optional Block 3 nervous system).
+type EventPublisher interface {
+	Publish(ctx context.Context, stream string, event *messagebus.Event) error
+}
 
 // Manager manages work sessions.
 type Manager interface {
@@ -104,6 +116,11 @@ type Config struct {
 
 	// ZenContext integration (optional)
 	ZenContext zenctx.ZenContext `yaml:"-" json:"-"`
+
+	// Block 3: optional journal and message bus sinks for lifecycle events
+	Journal    JournalRecorder `yaml:"-" json:"-"`
+	EventBus  EventPublisher  `yaml:"-" json:"-"`
+	EventStream string `yaml:"event_stream" json:"event_stream"` // default: zen-brain.events
 }
 
 // DefaultConfig returns the default configuration.
@@ -115,5 +132,6 @@ func DefaultConfig() *Config {
 		MaxSessionAge:   7 * 24 * time.Hour,
 		CleanupInterval: 1 * time.Hour,
 		StaleThreshold:  2 * time.Hour,
+		EventStream:     "zen-brain.events",
 	}
 }
