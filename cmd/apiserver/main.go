@@ -17,7 +17,12 @@ func main() {
 	if p := os.Getenv("API_SERVER_PORT"); p != "" {
 		addr = ":" + p
 	}
+	apiKey := os.Getenv("ZEN_API_KEY") // when set, API requires X-API-Key or Authorization: Bearer
 	srv := apiserver.New(addr, nil)
+	srv.AuthAPIKey = apiKey
+	if apiKey != "" {
+		log.Println("API auth enabled (ZEN_API_KEY set); /healthz and /readyz are exempt")
+	}
 	srv.Handle("/api/v1/sessions", apiserver.SessionsHandler(nil))
 	srv.Handle("/api/v1/health", apiserver.HealthDetailHandler(nil))
 

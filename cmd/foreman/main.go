@@ -17,6 +17,7 @@ import (
 	"github.com/kube-zen/zen-brain1/internal/factory"
 	"github.com/kube-zen/zen-brain1/internal/foreman"
 	"github.com/kube-zen/zen-brain1/internal/gate"
+	"github.com/kube-zen/zen-brain1/internal/guardian"
 )
 
 var scheme = runtime.NewScheme()
@@ -69,6 +70,7 @@ func main() {
 	reconciler := &foreman.Reconciler{
 		Client:     mgr.GetClient(),
 		Gate:       gate.NewStubGate(),
+		Guardian:   guardian.NewStubGuardian(),
 		Dispatcher: worker,
 	}
 	if err = reconciler.SetupWithManager(mgr); err != nil {

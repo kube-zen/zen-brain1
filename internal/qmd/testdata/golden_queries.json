@@ -1,0 +1,58 @@
+[
+  {
+    "query": "three tier architecture",
+    "description": "Should return document about three-tier memory architecture",
+    "expected_document_titles": ["Three‑Tier Memory Architecture"],
+    "expected_domain": "core",
+    "min_score": 0.9
+  },
+  {
+    "query": "factory execution bounded loop",
+    "description": "Should return document about factory bounded execution",
+    "expected_document_titles": ["Factory: Bounded Execution"],
+    "expected_domain": "execution",
+    "min_score": 0.9
+  },
+  {
+    "query": "jira integration",
+    "description": "Should return document about Jira integration",
+    "expected_document_titles": ["Jira Integration"],
+    "expected_domain": "office",
+    "min_score": 0.85
+  },
+  {
+    "query": "proof of work",
+    "description": "Should return document about proof-of-work artifacts",
+    "expected_document_titles": ["Proof of Work Artifacts"],
+    "expected_domain": "evidence",
+    "min_score": 0.85
+  },
+  {
+    "query": "zen-brain overview",
+    "description": "Should return general overview document",
+    "expected_document_titles": ["Zen‑Brain Overview"],
+    "expected_domain": "core",
+    "min_score": 0.6
+  },
+  {
+    "query": "design principles",
+    "description": "Should return document about design principles",
+    "expected_document_titles": ["Design Principles"],
+    "expected_domain": "core",
+    "min_score": 0.6
+  },
+  {
+    "query": "scope filtering test",
+    "description": "Test that scope filtering works (uses generic mock results)",
+    "scopes": ["architecture"],
+    "expected_document_titles": ["Design Principles"],
+    "min_score": 0.6
+  },
+  {
+    "query": "tag filtering test",
+    "description": "Test that tag filtering works (uses generic mock results)",
+    "tags": ["architecture"],
+    "expected_document_titles": ["Design Principles"],
+    "min_score": 0.6
+  }
+]

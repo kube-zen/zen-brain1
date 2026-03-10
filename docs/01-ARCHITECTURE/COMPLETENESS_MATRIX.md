@@ -20,9 +20,9 @@
 | **QMD / KB** | Partial | Real when `qmd` CLI present; FallbackToMock when not. Population (Block 5.1) not done. | `internal/qmd/adapter.go`, `kb_store.go` |
 | **Message bus** | Real | Redis when `ZEN_BRAIN_MESSAGE_BUS=redis`; optional. | `internal/messagebus/redis/` |
 | **ZenLedger** | Real | CockroachDB when DSN set; stub otherwise. | `internal/ledger/cockroach.go`, `stub.go` |
-| **API server** | Partial | Real: health, sessions, health-detail. Missing: auth, more endpoints. | `internal/apiserver/`, `cmd/apiserver/` |
+| **API server** | Partial | Real: health, sessions, health-detail. Auth: optional ZEN_API_KEY (X-API-Key or Bearer); /healthz, /readyz exempt. More endpoints TBD. | `internal/apiserver/`, `auth.go`, `cmd/apiserver/` |
 | **Factory execution** | Partial | Real: BoundedExecutor runs real shell, workspace allocation, proof-of-work. Templates: some steps are echo-only (simulated output); useful_templates do create real files. | `internal/factory/bounded_executor.go`, `factory.go`, `work_templates.go`, `useful_templates.go` |
-| **Foreman / Worker** | Real | CRDs, reconciler, worker pool, FactoryTaskRunner, ZenGate stub, metrics, queue status. | `internal/foreman/`, `cmd/foreman/` |
+| **Foreman / Worker** | Real | CRDs, reconciler, worker pool, FactoryTaskRunner, ZenGate stub, ZenGuardian stub (CheckSafety, RecordEvent), metrics, queue status. | `internal/foreman/`, `cmd/foreman/`, `pkg/guardian/`, `internal/guardian/` |
 | **Evidence Vault** | Real | Interface + MemoryVault; Store/GetBySession/GetByTask. | `internal/evidence/vault.go` |
 | **Funding aggregator** | Real | T661 + IRAP from Vault evidence. | `internal/funding/aggregator.go` |
 | **Agent–context binding** | Real | GetForContinuation / WriteIntermediate; TaskRunnerWithContext. | `internal/agent/binding.go`, `foreman/runner.go` |
@@ -35,7 +35,7 @@
 ## Suggested fix order (production / completeness)
 
 1. **Factory templates** – Replace or document echo-only “simulated” steps; add one real “run tests” path (e.g. `go test ./...` in workspace when Go project) or clearly label template tiers (real vs scaffold).
-2. **API surface** – Add auth and key endpoints so the slice is not “open by default” when deployed.
+2. **API surface** – Auth done (ZEN_API_KEY). Add more endpoints as needed.
 3. **QMD** – Document “real vs mock” and how to run with real QMD; optionally implement repo-sync for KB population (Block 5.1).
 4. **K3d** – Add minimal deployable manifest or Helm placeholder for foreman + apiserver (or document “run binaries locally with kubeconfig” as the current path).
 5. **ReMe** – Wire ReConstruct as the standard agent continuation path where ZenContext is configured.

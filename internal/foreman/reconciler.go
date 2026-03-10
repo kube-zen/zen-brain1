@@ -14,6 +14,7 @@ import (
 
 	"github.com/kube-zen/zen-brain1/api/v1alpha1"
 	"github.com/kube-zen/zen-brain1/pkg/gate"
+	"github.com/kube-zen/zen-brain1/pkg/guardian"
 	"github.com/kube-zen/zen-brain1/pkg/policy"
 )
 
@@ -22,6 +23,8 @@ type Reconciler struct {
 	client.Client
 	// Gate is optional; when set, Admit is called before scheduling. Block 4.6.
 	Gate gate.ZenGate
+	// Guardian is optional; when set, CheckSafety before scheduling and RecordEvent after (Block 4.7).
+	Guardian guardian.ZenGuardian
 	// Dispatcher is optional; when set, Dispatch is called after scheduling. Block 4.3.
 	Dispatcher TaskDispatcher
 }
@@ -65,6 +68,21 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 			var queue v1alpha1.BrainQueue
 			if err := r.Get(ctx, client.ObjectKey{Namespace: task.Namespace, Name: task.Spec.QueueName}, &queue); err == nil && queue.Status.Phase == v1alpha1.BrainQueuePhasePaused {
 				logger.Info("queue is paused, requeuing", "task", task.Name, "queue", task.Spec.QueueName)
+				return ctrl.Result{Requeue: true}, nil
+			}
+		}
+		if r.Guardian != nil {
+			safety, err := r.Guardian.CheckSafety(ctx, task.Spec.SessionID, task.Name, guardian.EventTaskStarted)
+			if err != nil {
+				logger.Error(err, "guardian safety check failed", "task", task.Name)
+				return ctrl.Result{}, err
+			}
+			if !safety.Allowed {
+				task.Status.Conditions = append(task.Status.Conditions, metav1.Condition{
+					Type: "GuardianBlocked", Status: metav1.ConditionTrue, Reason: "GuardianSafety",
+					Message: safety.Reason, LastTransitionTime: metav1.Now(), ObservedGeneration: task.Generation,
+				})
+				_ = r.Status().Update(ctx, &task)
 				return ctrl.Result{Requeue: true}, nil
 			}
 		}
@@ -112,6 +130,9 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		})
 		if err := r.Status().Update(ctx, &task); err != nil {
 			return ctrl.Result{}, err
+		}
+		if r.Guardian != nil {
+			_ = r.Guardian.RecordEvent(ctx, guardian.Event{Kind: guardian.EventTaskStarted, SessionID: task.Spec.SessionID, TaskID: task.Name, At: time.Now()})
 		}
 		TasksScheduledTotal.Inc()
 		if r.Dispatcher != nil {

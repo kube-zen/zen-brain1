@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/kube-zen/zen-brain1/pkg/qmd"
-	"github.com/kube-zen/zen-sdk/pkg/retry"
 )
 
 const (

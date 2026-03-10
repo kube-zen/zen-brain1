@@ -15,7 +15,7 @@
 
 **API server:** `make build-apiserver && ./bin/apiserver` — serves `/healthz`, `/readyz`, `/`, `/api/v1/sessions`, `/api/v1/health`.
 
-## Block 4 (Factory) – In progress
+## Block 4 (Factory) – Complete
 
 | Item | Status | Notes |
 |------|--------|------|
@@ -41,8 +41,12 @@
 | **BrainQueue status** | Added | `internal/foreman/queue_status.go`: QueueStatusReconciler watches BrainQueue + BrainTask, sets queue.Status.Depth (Pending count) and InFlight (Scheduled+Running); registered in cmd/foreman |
 | **ZenContext in cluster** | Added | `deployments/zencontext-in-cluster/`: namespace, Redis Deployment+Service, MinIO Deployment+Service; README with REDIS_URL and MinIO endpoint for in-cluster ZenContext |
 
-**Outstanding (Block 3):** KB/QMD adapter; full API surface (auth, more endpoints).  
-**Outstanding (Block 4):** ZenGuardian (optional).
+| **ZenGuardian** | Added | `pkg/guardian/interface.go`: ZenGuardian (RecordEvent, CheckSafety); `internal/guardian/stub.go`: StubGuardian; Foreman Reconciler optional Guardian (CheckSafety before schedule, RecordEvent after) |
+| **API auth** | Added | When `ZEN_API_KEY` set, API requires X-API-Key or Authorization: Bearer; /healthz, /readyz, / exempt. `internal/apiserver/auth.go`, Server.AuthAPIKey, cmd/apiserver |
+
+**Block 4 complete:** CRDs (BrainTask, BrainAgent, BrainQueue, BrainPolicy), Foreman with Gate + Guardian + Dispatcher, worker pool, FactoryTaskRunner, worktree manager, observability, session-affinity, queue status, ZenContext in-cluster, ZenGate/ZenGuardian stubs. Real Guardian/Gate implementations are optional extensions.
+
+**Outstanding (Block 3):** KB/QMD adapter; more API endpoints.
 
 ## Block 5 (Intelligence) – In progress
 
