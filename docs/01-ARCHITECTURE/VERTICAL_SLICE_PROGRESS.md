@@ -156,8 +156,8 @@ The `vertical-slice` command now demonstrates a **working end-to-end pipeline**:
 | Analyzer | ✅ MOCK WIRED | Real LLM calls, no full Analyzer package used |
 | Factory | ✅ FACTORY INTEGRATED | Real Factory execution with workspace isolation, bounded execution, proof-of-work generation |
 | Proof-of-Work | ✅ FULLY WIRED | JSON + Markdown generation with AI attribution |
-| Session Manager | ❌ NOT WIRED | TODO: Wire into pipeline |
-| ZenContext | ❌ NOT WIRED | TODO: Wire for state persistence |
+| Session Manager | ✅ WIRED | CreateSession, GetSession, resume; ZenContext SessionContext stored (cmd/zen-brain/main.go) |
+| ZenContext | ✅ WIRED | Tier 1/2/3, StoreSessionContext/GetSessionContext, ReConstruct (cmd/zen-brain/main.go) |
 
 ## What's Working Right Now
 
@@ -172,8 +172,8 @@ The `vertical-slice` command now demonstrates a **working end-to-end pipeline**:
 8. ✅ Jira status and comment updates (conditional)
 
 ### Partially Functional
-1. ✅ Factory execution (wired, though execution within Factory is simulated)
-2. ⚠ Session management (not wired yet)
+1. ✅ Factory execution (wired; some template steps use echo-only output; BoundedExecutor runs real shell)
+2. ✅ Session management (wired in main.go: SessionManager + ZenContext persistence)
 
 ### Not Yet Wired
 1. ❌ Session Manager integration
@@ -400,7 +400,7 @@ This is a major step toward the complete vertical slice.
 | Proof-of-Work | ✅ FULLY WIRED | JSON + Markdown generation with AI attribution |
 | ZenContext | ✅ FULLY WIRED | Three-tier memory (Redis + QMD + MinIO) |
 | QMD Tier 2 | ✅ FULLY WIRED | Knowledge base queries with mock fallback |
-| Session Manager | ❌ NOT WIRED | TODO: Wire into pipeline |
+| Session Manager | ✅ WIRED | Session create/get/resume; ZenContext write (cmd/zen-brain/main.go) |
 
 ### 5. What's Working Now (Updated)
 1. ✅ LLM Gateway with fallback chain (all tests passing)

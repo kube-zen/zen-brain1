@@ -12,6 +12,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/kube-zen/zen-brain1/api/v1alpha1"
+	zenctx "github.com/kube-zen/zen-brain1/pkg/context"
 )
 
 // Worker is a TaskDispatcher that runs tasks in a pool of goroutines and updates status (Block 4.3).
@@ -20,6 +21,8 @@ type Worker struct {
 	Runner          TaskRunner
 	NumWorkers      int
 	SessionAffinity bool   // when true, route tasks by session to the same worker (Block 4 session-affinity)
+	// ContextBinder optional: when set and Runner implements TaskRunnerWithContext, get session before run and write intermediate state after (Block 5.3).
+	ContextBinder   ContextBinder
 	queue           chan types.NamespacedName   // used when !SessionAffinity
 	queues          []chan types.NamespacedName // used when SessionAffinity (one per worker)
 	affinityMu      sync.Mutex
@@ -192,8 +195,24 @@ func (w *Worker) processOne(ctx context.Context, nn types.NamespacedName) {
 		return
 	}
 
-	// Execute
-	err := w.Runner.Run(ctx, &task)
+	// Execute: use RunWithContext when binder is set and runner supports it (Block 5.3 agent-context binding)
+	var err error
+	if w.ContextBinder != nil {
+		if runnerWithCtx, ok := w.Runner.(TaskRunnerWithContext); ok {
+			var sessionCtx *zenctx.SessionContext
+			clusterID := "default"
+			sessionCtx, _ = w.ContextBinder.GetForContinuation(ctx, clusterID, task.Spec.SessionID, task.Name)
+			var updated *zenctx.SessionContext
+			updated, err = runnerWithCtx.RunWithContext(ctx, &task, sessionCtx)
+			if err == nil && updated != nil {
+				_ = w.ContextBinder.WriteIntermediate(ctx, clusterID, updated)
+			}
+		} else {
+			err = w.Runner.Run(ctx, &task)
+		}
+	} else {
+		err = w.Runner.Run(ctx, &task)
+	}
 	if err != nil {
 		TasksFailedTotal.Inc()
 		task.Status.Phase = v1alpha1.BrainTaskPhaseFailed

@@ -1,0 +1,8 @@
+# Minimal dependencies for k3d dev cluster (make dev-up).
+# Creates namespace for ZenContext; apply zencontext-in-cluster next if needed.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: zen-context
+  labels:
+    app.kubernetes.io/name: zen-context
