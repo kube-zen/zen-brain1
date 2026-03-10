@@ -48,12 +48,16 @@
 
 **Outstanding (Block 3):** KB/QMD adapter; more API endpoints.
 
-## Block 5 (Intelligence) – In progress
+## Block 5 (Intelligence) – Complete
 
 | Item | Status | Notes |
 |------|--------|------|
+| **5.1 QMD Population** | Done | `internal/qmd/populate.go`: Populate(ctx, client, repoPath, paths); `docs/01-ARCHITECTURE/BLOCK5_QMD_POPULATION.md`: sources, scopes, golden-query validation |
+| **5.2 ReMe protocol** | Done | `internal/context/composite.go`: ReconstructSession (Tier 1 → Tier 3 → Journal + KB). `internal/agent/binding.go`: ReMeBinder uses ReConstructSession for GetForContinuation; Worker uses ContextBinder so set `Worker.ContextBinder = agent.NewReMeBinder(zenContext, "default")` for ReMe continuation |
 | **5.3 Agent–context binding** | Done | `internal/agent/binding.go`: AgentContextBinder (GetForContinuation, WriteIntermediate), ZenContextBinder; `foreman`: ContextBinder interface, TaskRunnerWithContext (RunWithContext); Worker uses binder + RunWithContext when set |
 | **5.4 Funding evidence aggregator** | Done | `internal/funding/aggregator.go`: Aggregator from Vault; T661Narrative (Line 242/244/246), IRAPReport, FundingReport; AggregateForSession(s); T661Text(), IRAPMarkdown() |
 
-**Agent-context binding:** Set `Worker.ContextBinder = agent.NewZenContextBinder(zenContext, "default")` and use a runner that implements `TaskRunnerWithContext` to read/write session context (State/Scratchpad) for continuation.  
+**ReMe:** Use `agent.NewReMeBinder(zenContext, "default")` as Worker.ContextBinder to run the full ReMe protocol on continuation (reconstruct from Tier 1/3 + Journal + KB).  
+**Agent-context binding:** Use `agent.NewZenContextBinder(zenContext, "default")` for Tier-1-only continuation. Use a runner that implements `TaskRunnerWithContext` to read/write session context.  
+**QMD:** See `docs/01-ARCHITECTURE/BLOCK5_QMD_POPULATION.md`. Validate with `go test ./internal/qmd/... -run KBQuality`.  
 **Funding reports:** `funding.NewAggregator(vault).AggregateForSession(ctx, sessionID, "Project Title")` returns T661 narrative and IRAP report; use `.T661.T661Text()` or `.IRAP.IRAPMarkdown()` for export.

@@ -45,3 +45,44 @@ func (b *ZenContextBinder) WriteIntermediate(ctx context.Context, clusterID stri
 	}
 	return b.ZenContext.StoreSessionContext(ctx, clusterID, session)
 }
+
+// ReMeBinder implements AgentContextBinder using the ReMe protocol (Block 5.2).
+// GetForContinuation calls ReconstructSession so the agent gets context from Tier 1 → Tier 3 → Journal + KB.
+// Use this when ZenContext is configured and you want full ReMe semantics on startup/continuation.
+type ReMeBinder struct {
+	ZenContext zenctx.ZenContext
+	ClusterID  string
+}
+
+// NewReMeBinder returns a binder that uses ReConstructSession for continuation.
+func NewReMeBinder(zc zenctx.ZenContext, clusterID string) *ReMeBinder {
+	if clusterID == "" {
+		clusterID = "default"
+	}
+	return &ReMeBinder{ZenContext: zc, ClusterID: clusterID}
+}
+
+// GetForContinuation implements AgentContextBinder by running the ReMe protocol.
+func (b *ReMeBinder) GetForContinuation(ctx context.Context, clusterID, sessionID, taskID string) (*zenctx.SessionContext, error) {
+	if clusterID == "" {
+		clusterID = b.ClusterID
+	}
+	req := zenctx.ReMeRequest{
+		SessionID: sessionID,
+		TaskID:    taskID,
+		ClusterID: clusterID,
+	}
+	resp, err := b.ZenContext.ReconstructSession(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	return resp.SessionContext, nil
+}
+
+// WriteIntermediate implements AgentContextBinder.
+func (b *ReMeBinder) WriteIntermediate(ctx context.Context, clusterID string, session *zenctx.SessionContext) error {
+	if clusterID == "" {
+		clusterID = b.ClusterID
+	}
+	return b.ZenContext.StoreSessionContext(ctx, clusterID, session)
+}

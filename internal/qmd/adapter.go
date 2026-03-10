@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/kube-zen/zen-brain1/pkg/qmd"
+	zenretry "github.com/kube-zen/zen-sdk/pkg/retry"
 )
 
 const (
@@ -132,6 +133,52 @@ func (c *Client) checkQmdAvailable(ctx context.Context) error {
 	return nil
 }
 
+// retryWithRetryable wraps a qmd command execution with retry logic.
+func (c *Client) retryWithRetryable(ctx context.Context, operation string, fn func() error) error {
+	var lastErr error
+	
+	// Configure retry for qmd commands
+	retryConfig := zenretry.Config{
+		MaxAttempts:   3,                      // Retry up to 3 times
+		InitialDelay:  200 * time.Millisecond, // Start with 200ms
+		MaxDelay:      5 * time.Second,        // Max 5s between retries
+		Multiplier:    2.0,                    // Exponential backoff (2x)
+		Jitter:        true,                   // Add jitter to prevent thundering herd
+		JitterPercent: 0.1,                    // 10% jitter
+		RetryableErrors: func(err error) bool {
+			// Retry on transient errors: timeouts, rate limits, server errors
+			if err == nil {
+				return false
+			}
+			// Check for timeout errors
+			if ctx.Err() == context.DeadlineExceeded || ctx.Err() == context.Canceled {
+				return false
+			}
+			// Retry on network-like errors (simplified check)
+			errStr := err.Error()
+			return strings.Contains(errStr, "timeout") ||
+				strings.Contains(errStr, "deadline") ||
+				strings.Contains(errStr, "rate limit") ||
+				strings.Contains(errStr, "server error") ||
+				strings.Contains(errStr, "connection refused") ||
+				strings.Contains(errStr, "command not found")
+		},
+	}
+	
+	// Execute with retry logic
+	_ = zenretry.Do(ctx, retryConfig, func() error {
+		err := fn()
+		if err != nil {
+			lastErr = err
+			return err
+		}
+		lastErr = nil
+		return nil
+	})
+	
+	return lastErr
+}
+
 // RefreshIndex updates the search index for the given repository/paths.
 func (c *Client) RefreshIndex(ctx context.Context, req qmd.EmbedRequest) error {
 	if req.RepoPath == "" {
@@ -159,22 +206,43 @@ func (c *Client) RefreshIndex(ctx context.Context, req qmd.EmbedRequest) error {
 	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, c.qmdPath, args...)
+	// Execute with retry logic
+	var output []byte
+	var cmdErr error
+	
+	err := c.retryWithRetryable(ctx, "refresh", func() error {
+		cmd := exec.CommandContext(ctx, c.qmdPath, args...)
 
-	if c.verbose {
-		log.Printf("[QMD] Running: %s %s", c.qmdPath, strings.Join(args, " "))
-	}
+		if c.verbose {
+			log.Printf("[QMD] Running: %s %s", c.qmdPath, strings.Join(args, " "))
+		}
 
-	startTime := time.Now()
-	output, err := cmd.CombinedOutput()
-	elapsed := time.Since(startTime)
+		startTime := time.Now()
+		cmdOutput, err := cmd.CombinedOutput()
+		elapsed := time.Since(startTime)
 
-	if c.verbose {
-		log.Printf("[QMD] Refresh completed in %v, output: %s", elapsed, string(output))
-	}
+		if c.verbose {
+			log.Printf("[QMD] Refresh completed in %v, output: %s", elapsed, string(cmdOutput))
+		}
 
+		if err != nil {
+			output = cmdOutput
+			cmdErr = err
+			return fmt.Errorf("qmd refresh failed: %w, output: %s", err, string(cmdOutput))
+		}
+		
+		output = cmdOutput
+		cmdErr = nil
+		return nil
+	})
+	
 	if err != nil {
-		return fmt.Errorf("qmd refresh failed: %w, output: %s", err, string(output))
+		// err already contains formatted error from retry
+		return err
+	}
+	
+	if cmdErr != nil {
+		return fmt.Errorf("qmd refresh failed: %w, output: %s", cmdErr, string(output))
 	}
 
 	return nil
@@ -213,22 +281,43 @@ func (c *Client) Search(ctx context.Context, req qmd.SearchRequest) ([]byte, err
 	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, c.qmdPath, args...)
+	// Execute with retry logic
+	var output []byte
+	var cmdErr error
+	
+	err := c.retryWithRetryable(ctx, "search", func() error {
+		cmd := exec.CommandContext(ctx, c.qmdPath, args...)
 
-	if c.verbose {
-		log.Printf("[QMD] Running: %s %s", c.qmdPath, strings.Join(args, " "))
-	}
+		if c.verbose {
+			log.Printf("[QMD] Running: %s %s", c.qmdPath, strings.Join(args, " "))
+		}
 
-	startTime := time.Now()
-	output, err := cmd.CombinedOutput()
-	elapsed := time.Since(startTime)
+		startTime := time.Now()
+		cmdOutput, err := cmd.CombinedOutput()
+		elapsed := time.Since(startTime)
 
-	if c.verbose {
-		log.Printf("[QMD] Search completed in %v", elapsed)
-	}
+		if c.verbose {
+			log.Printf("[QMD] Search completed in %v", elapsed)
+		}
 
+		if err != nil {
+			output = cmdOutput
+			cmdErr = err
+			return fmt.Errorf("qmd search failed: %w, output: %s", err, string(cmdOutput))
+		}
+		
+		output = cmdOutput
+		cmdErr = nil
+		return nil
+	})
+	
 	if err != nil {
-		return nil, fmt.Errorf("qmd search failed: %w, output: %s", err, string(output))
+		// err already contains formatted error from retry
+		return nil, err
+	}
+	
+	if cmdErr != nil {
+		return nil, fmt.Errorf("qmd search failed: %w, output: %s", cmdErr, string(output))
 	}
 
 	return output, nil
