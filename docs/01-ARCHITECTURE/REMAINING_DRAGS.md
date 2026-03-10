@@ -8,7 +8,7 @@ Known gaps and polish items after blocks 0–6 and 1.2.3 start. Not blocking the
 2. **Makefile** — `repo-sync` still TODO (clone/pull of configured KB repos for QMD population).
 3. **deployments/k3d/README.md** — In-cluster deploy for core components (foreman, apiserver) still TBD; run binaries locally with kubeconfig for now.
 4. **Factory** — Much better wired, but not yet “fully real, polished execution lane everywhere” (e.g. template tiers, real run-tests path).
-5. **Intelligence** — Thinnest block relative to the architecture (QMD/ReMe/binding in place; richer agent reasoning and model routing TBD).
+5. **Intelligence** — Improved: ReMe passes JournalEntries on SessionContext; Gateway records token usage to ZenLedger when SetTokenRecorder; Planner budget check and RecordPlannedModelSelection; ModelRouter in internal/intelligence for cost-aware model recommendation. Further: richer agent reasoning, more evidence classes.
 
 ## References
 

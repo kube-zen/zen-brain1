@@ -290,6 +290,9 @@ func (c *Composite) ReconstructSession(ctx stdctx.Context, req zenctx.ReMeReques
 		}
 	}
 
+	// Attach journal entries to session context so agents receive causal chain
+	sessionCtx.JournalEntries = journalEntries
+
 	// Step 6: Store reconstructed session in Tier 1 for fast access
 	if err := c.hot.StoreSessionContext(ctx, req.ClusterID, sessionCtx); err != nil && c.verbose {
 		fmt.Printf("[ZenContext] Warning: failed to store in Tier 1: %v\n", err)
