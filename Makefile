@@ -81,12 +81,12 @@ db-reset: db-down db-up ## Reset database (stop, remove, start)
 	@echo "Database reset complete"
 
 ## k3d cluster development (Block 6)
+## Canonical path: python3 scripts/zen.py env redeploy --env sandbox (config/clusters.yaml, 127.0.1.x, zen-brain-registry:5001).
 
-dev-up: ## Start k3d cluster and deploy dependencies
+dev-up: ## Start k3d cluster and deploy dependencies (uses existing registry on localhost:5000)
 	k3d cluster create zen-brain-dev \
-		-p "8080:80@loadbalancer" \
-		-p "26257:26257@loadbalancer" \
-		--registry-create zen-registry:5000
+		-p "8081:80@loadbalancer" \
+		-p "26257:26257@loadbalancer"
 	kubectl apply -f deployments/k3d/dependencies.yaml
 
 dev-down: ## Stop k3d cluster
@@ -100,19 +100,15 @@ dev-clean: ## Reset databases (local Docker: db-reset; for k3d full reset run de
 
 dev-build: build-all ## Build all binaries (foreman, apiserver, zen-brain).
 
-# Build Docker image and load into k3d (Block 6 in-cluster deploy). Run after dev-up.
-dev-image: ## Build zen-brain:dev image and push to local registry (localhost:5000)
+dev-image: ## Build zen-brain:dev image and import into k3d cluster zen-brain-dev
 	docker build -t zen-brain:dev .
-	docker tag zen-brain:dev localhost:5000/zen-brain:dev
-	docker push localhost:5000/zen-brain:dev
-	@echo "✓ Image pushed to local registry: localhost:5000/zen-brain:dev"
+	k3d image import zen-brain:dev -c zen-brain-dev
 
-# Apply in-cluster stack (Block 6 bootstrap). Run after: make dev-up, kubectl apply -f deployments/crds/, make dev-image.
-dev-apply: ## Apply zen-brain namespace, foreman, apiserver, and controller to k3d
+# Apply in-cluster stack (Block 6). Prefer: make dev-up (includes apply). Standalone apply when cluster already exists.
+dev-apply: ## Apply zen-brain namespace, foreman, apiserver to k3d (context from config)
 	kubectl apply -f deployments/k3d/zen-brain-namespace.yaml
 	kubectl apply -f deployments/k3d/foreman.yaml
 	kubectl apply -f deployments/k3d/apiserver.yaml
-	kubectl apply -f deployments/k3d/controller.yaml
 
 ## Code generation
 
