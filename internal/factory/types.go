@@ -134,9 +134,12 @@ type ExecutionResult struct {
 	TestsPassed   bool     `json:"tests_passed,omitempty"`
 
 	// Artifacts
-	ProofOfWorkPath string `json:"proof_of_work_path,omitempty"`
-	LogPath         string `json:"log_path,omitempty"`
-	DiffPath        string `json:"diff_path,omitempty"`
+	ProofOfWorkPath string   `json:"proof_of_work_path,omitempty"`
+	LogPath         string   `json:"log_path,omitempty"`
+	DiffPath        string   `json:"diff_path,omitempty"`
+	ArtifactPaths   []string `json:"artifact_paths,omitempty"` // actual proof bundle paths (JSON, MD, log)
+	GitStatusPath   string   `json:"git_status_path,omitempty"` // e.g. workspace/review/git-status.txt
+	GitDiffStatPath string   `json:"git_diff_stat_path,omitempty"` // e.g. workspace/review/git-diff-stat.txt
 
 	// Git metadata from workspace (when available)
 	GitBranch string `json:"git_branch,omitempty"`
@@ -237,11 +240,13 @@ type ProofOfWorkSummary struct {
 	ReviewNotes       string `json:"review_notes,omitempty"`
 
 	// Artifacts
-	ArtifactPaths []string `json:"artifact_paths,omitempty"`
-	TemplateKey   string   `json:"template_key,omitempty"`
-	GitBranch     string   `json:"git_branch,omitempty"`
-	GitCommit     string   `json:"git_commit,omitempty"`
-	PRURL         string   `json:"pr_url,omitempty"`
+	ArtifactPaths   []string `json:"artifact_paths,omitempty"`
+	GitStatusPath   string   `json:"git_status_path,omitempty"`
+	GitDiffStatPath string   `json:"git_diff_stat_path,omitempty"`
+	TemplateKey     string   `json:"template_key,omitempty"`
+	GitBranch       string   `json:"git_branch,omitempty"`
+	GitCommit       string   `json:"git_commit,omitempty"`
+	PRURL           string   `json:"pr_url,omitempty"`
 
 	// Timestamps
 	GeneratedAt time.Time `json:"generated_at"`

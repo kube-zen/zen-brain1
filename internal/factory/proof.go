@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/kube-zen/zen-brain1/pkg/contracts"
@@ -51,8 +52,8 @@ func (p *proofOfWorkManagerImpl) CreateProofOfWork(ctx context.Context, result *
 		return nil, fmt.Errorf("failed to create artifact directory %s: %w", artifactDir, err)
 	}
 
-	// Generate proof-of-work summary
-	summary := p.generateSummary(result, spec)
+	// Generate proof-of-work summary (OutputLog and git paths set from result/workspace)
+	summary := p.generateSummary(result, spec, artifactDir)
 
 	// Write JSON artifact
 	jsonPath := filepath.Join(artifactDir, "proof-of-work.json")
@@ -71,6 +72,10 @@ func (p *proofOfWorkManagerImpl) CreateProofOfWork(ctx context.Context, result *
 	if err := p.writeExecutionLog(result, logPath); err != nil {
 		return nil, fmt.Errorf("failed to write execution log: %w", err)
 	}
+
+	// Set actual artifact paths (no glob placeholders)
+	summary.ArtifactPaths = []string{jsonPath, mdPath, logPath}
+	sort.Strings(summary.ArtifactPaths)
 
 	artifact := &ProofOfWorkArtifact{
 		Directory:    artifactDir,
@@ -126,14 +131,15 @@ func (p *proofOfWorkManagerImpl) GenerateComment(ctx context.Context, artifact *
 }
 
 // generateSummary creates a proof-of-work summary from execution result.
-func (p *proofOfWorkManagerImpl) generateSummary(result *ExecutionResult, spec *FactoryTaskSpec) *ProofOfWorkSummary {
+// artifactDir is the proof bundle directory (used to surface git review paths from workspace).
+func (p *proofOfWorkManagerImpl) generateSummary(result *ExecutionResult, spec *FactoryTaskSpec, artifactDir string) *ProofOfWorkSummary {
 	summary := &ProofOfWorkSummary{
 		Version:           ProofOfWorkVersion,
 		TaskID:            result.TaskID,
 		SessionID:         result.SessionID,
 		WorkItemID:        result.WorkItemID,
-		SourceKey:         result.WorkItemID, // Same as WorkItemID for MVP
-		SourceSystem:      "",                // Will be populated by office adapter if needed
+		SourceKey:         result.WorkItemID,
+		SourceSystem:      "",
 		WorkType:          string(spec.WorkType),
 		WorkDomain:        string(spec.WorkDomain),
 		Title:             spec.Title,
@@ -143,7 +149,7 @@ func (p *proofOfWorkManagerImpl) generateSummary(result *ExecutionResult, spec *
 		StartedAt:         result.CompletedAt.Add(-result.Duration),
 		CompletedAt:       result.CompletedAt,
 		Duration:          result.Duration,
-		ModelUsed:         "factory-v1", // Kept for backward compatibility
+		ModelUsed:         "factory-v1",
 		AgentRole:         "factory",
 		FilesChanged:      result.FilesChanged,
 		TestsRun:          result.TestsRun,
@@ -153,17 +159,13 @@ func (p *proofOfWorkManagerImpl) generateSummary(result *ExecutionResult, spec *
 		RecommendedAction: result.Recommendation,
 		RequiresApproval:  (result.Recommendation != "merge"),
 		GeneratedAt:       time.Now(),
-		ArtifactPaths: []string{
-			filepath.Join(filepath.Dir(result.WorkspacePath), "proof-of-work", "*.json"),
-			filepath.Join(filepath.Dir(result.WorkspacePath), "proof-of-work", "*.md"),
-		},
-		TemplateKey: result.TemplateKey,
-		GitBranch:   result.GitBranch,
-		GitCommit:   result.GitCommit,
-		PRURL:       "",
+		ArtifactPaths:     nil, // set in CreateProofOfWork after writing files
+		TemplateKey:       result.TemplateKey,
+		GitBranch:         result.GitBranch,
+		GitCommit:         result.GitCommit,
+		PRURL:             "",
 	}
 
-	// Template and intelligence selection metadata
 	if result.TemplateKey != "" {
 		summary.TemplateKey = result.TemplateKey
 		summary.TemplateUsed = result.TemplateKey
@@ -180,19 +182,58 @@ func (p *proofOfWorkManagerImpl) generateSummary(result *ExecutionResult, spec *
 	summary.SelectionConfidence = spec.SelectionConfidence
 	summary.SelectionReasoning = spec.SelectionReasoning
 	if summary.ModelUsed == "factory-v1" && summary.TemplateUsed != "" {
-		summary.ModelUsed = summary.TemplateUsed // Keep ModelUsed populated for backward compatibility
+		summary.ModelUsed = summary.TemplateUsed
 	}
 
-	// Extract execution steps details
 	summary.CommandLog = extractCommandLog(result.ExecutionSteps)
-	summary.OutputLog = result.Error // Use error field as output log
+	// Aggregate step outputs for OutputLog (honest), not result.Error
+	summary.OutputLog = aggregateStepOutput(result.ExecutionSteps)
 	summary.ErrorLog = ""
 	if result.Error != "" {
 		summary.ErrorLog = result.Error
 	}
 
-	// Harden the summary: ensure deterministic output
+	// Surface git review artifacts from workspace when present (review:real lane)
+	if result.WorkspacePath != "" {
+		gitStatus := filepath.Join(result.WorkspacePath, "review", "git-status.txt")
+		gitDiffStat := filepath.Join(result.WorkspacePath, "review", "git-diff-stat.txt")
+		if _, err := os.Stat(gitStatus); err == nil {
+			summary.GitStatusPath = gitStatus
+		}
+		if _, err := os.Stat(gitDiffStat); err == nil {
+			summary.GitDiffStatPath = gitDiffStat
+		}
+	}
+
 	return p.hardenProofOfWorkSummary(summary)
+}
+
+// aggregateStepOutput builds a bounded string from execution step names and output snippets.
+const maxOutputLogLen = 8000
+
+func aggregateStepOutput(steps []*ExecutionStep) string {
+	if len(steps) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	for i, s := range steps {
+		if i > 0 {
+			b.WriteString("\n")
+		}
+		b.WriteString("--- ")
+		b.WriteString(s.Name)
+		b.WriteString(" ---\n")
+		out := s.Output
+		if len(out) > 1200 {
+			out = out[:1200] + "\n... (truncated)"
+		}
+		b.WriteString(out)
+		if b.Len() >= maxOutputLogLen {
+			b.WriteString("\n... (output truncated)")
+			break
+		}
+	}
+	return b.String()
 }
 
 // sortStringSlice sorts a string slice in place for deterministic proof output.
@@ -512,22 +553,36 @@ func (p *proofOfWorkManagerImpl) generateMarkdown(summary *ProofOfWorkSummary) s
 	}
 	md += "\n"
 
-	// Artifacts section
+	// Artifacts section — actual paths when available
 	md += "## Artifacts\n\n"
-	md += "- JSON artifact: `proof-of-work.json`\n"
-	md += "- Markdown artifact: `proof-of-work.md`\n"
-	md += "- Execution log: `execution.log`\n"
+	if len(summary.ArtifactPaths) > 0 {
+		for _, p := range summary.ArtifactPaths {
+			md += fmt.Sprintf("- `%s`\n", p)
+		}
+	} else {
+		md += "- JSON artifact: `proof-of-work.json`\n"
+		md += "- Markdown artifact: `proof-of-work.md`\n"
+		md += "- Execution log: `execution.log`\n"
+	}
 	md += "\n"
 
-	// Git information
-	if summary.GitBranch != "" {
+	// Git information (branch/commit and review:real evidence paths)
+	if summary.GitBranch != "" || summary.GitStatusPath != "" || summary.GitDiffStatPath != "" {
 		md += "## Git Information\n\n"
-		md += fmt.Sprintf("- **Branch:** `%s`\n", summary.GitBranch)
+		if summary.GitBranch != "" {
+			md += fmt.Sprintf("- **Branch:** `%s`\n", summary.GitBranch)
+		}
 		if summary.GitCommit != "" {
 			md += fmt.Sprintf("- **Commit:** `%s`\n", summary.GitCommit)
 		}
 		if summary.PRURL != "" {
 			md += fmt.Sprintf("- **PR:** `%s`\n", summary.PRURL)
+		}
+		if summary.GitStatusPath != "" {
+			md += fmt.Sprintf("- **Git status path:** `%s`\n", summary.GitStatusPath)
+		}
+		if summary.GitDiffStatPath != "" {
+			md += fmt.Sprintf("- **Git diff stat path:** `%s`\n", summary.GitDiffStatPath)
 		}
 		md += "\n"
 	}

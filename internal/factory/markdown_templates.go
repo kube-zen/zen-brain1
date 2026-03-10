@@ -77,6 +77,18 @@ func (m *MarkdownProofOfWorkTemplate) Generate() string {
 		sb.WriteString("\n")
 	}
 
+	// Git evidence (review:real lane)
+	if m.JSONProof.GitStatusPath != "" || m.JSONProof.GitDiffStatPath != "" {
+		sb.WriteString("## Git Evidence\n\n")
+		if m.JSONProof.GitStatusPath != "" {
+			sb.WriteString(fmt.Sprintf("- **Git status:** `%s`\n", m.JSONProof.GitStatusPath))
+		}
+		if m.JSONProof.GitDiffStatPath != "" {
+			sb.WriteString(fmt.Sprintf("- **Git diff stat:** `%s`\n", m.JSONProof.GitDiffStatPath))
+		}
+		sb.WriteString("\n")
+	}
+
 	// Evidence and Artifacts
 	sb.WriteString("## Evidence and Artifacts\n\n")
 	if len(m.JSONProof.ArtifactPaths) == 0 {
