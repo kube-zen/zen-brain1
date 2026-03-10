@@ -363,14 +363,22 @@ func runVerticalSlice() {
 				continue
 			}
 
-			// Generate proof-of-work
-			powArtifact, err := powManager.CreateProofOfWork(ctx, executionResult, factorySpec)
-			if err != nil {
-				log.Printf("  ! Proof-of-work generation failed: %v", err)
-			} else {
+			// Use proof-of-work from Factory (single source); only generate if Factory did not
+			var powArtifact *factory.ProofOfWorkArtifact
+			if executionResult.ProofOfWorkPath != "" {
+				powArtifact, err = powManager.GetProofOfWork(ctx, executionResult.ProofOfWorkPath)
+				if err != nil {
+					log.Printf("  ! Could not load Factory proof-of-work from %s: %v", executionResult.ProofOfWorkPath, err)
+				}
+			}
+			if powArtifact == nil {
+				powArtifact, err = powManager.CreateProofOfWork(ctx, executionResult, factorySpec)
+				if err != nil {
+					log.Printf("  ! Proof-of-work generation failed: %v", err)
+				}
+			}
+			if powArtifact != nil {
 				fmt.Printf("  ✓ Proof-of-work generated: %s\n", powArtifact.JSONPath)
-
-				// Store proof-of-work artifacts as session evidence
 				for _, artifactPath := range []string{powArtifact.JSONPath, powArtifact.MarkdownPath, powArtifact.LogPath} {
 					if artifactPath != "" {
 						evidence := contracts.EvidenceItem{

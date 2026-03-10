@@ -2,6 +2,8 @@
 
 **Purpose:** Single place to resume work on the zen-brain vertical slice. These are the **five main tasks** to tackle next (as of the last planning session).
 
+**Progress (2026-03-09):** Task 1 proven — `zen-brain vertical-slice --mock` runs E2E (Office → Analyze → Plan → Session → Factory → Proof-of-work → Status). Single proof-of-work source: main uses Factory’s artifact via `GetProofOfWork` when present; no duplicate creation.
+
 ---
 
 ## 1) Run and prove the vertical slice in a real local environment

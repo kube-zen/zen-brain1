@@ -87,10 +87,9 @@
 #### Current Factory Status ✅
 - ✅ Factory fully wired into vertical slice
 - ✅ Isolated workspace creation working
-- ✅ Bounded execution loop running
-- ✅ Proof-of-work generation by Factory
-- ⚠ Execution steps within Factory are simulated (sleep)
-- ⚠ Duplicate proof-of-work generation (Factory + our function)
+- ✅ Bounded execution loop running (real shell commands from templates)
+- ✅ Proof-of-work generation by Factory (single source; main uses GetProofOfWork when Factory produced one)
+- ✅ No duplicate proof-of-work (main uses Factory artifact when available)
 
 ## Pipeline Status
 
