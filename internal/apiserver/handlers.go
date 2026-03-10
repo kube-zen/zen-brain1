@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/kube-zen/zen-brain1/internal/evidence"
+	"github.com/kube-zen/zen-brain1/internal/runtime"
 	"github.com/kube-zen/zen-brain1/internal/session"
 )
 
@@ -76,6 +77,33 @@ func HealthDetailHandler(ledgerPing func() error) http.Handler {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(status)
+	})
+}
+
+// RuntimeReportHandler returns a handler that serves the Block 3 RuntimeReport as JSON.
+// When report is nil, returns 503. Use for /api/v1/health when runtime is bootstrapped.
+func RuntimeReportHandler(report *runtime.RuntimeReport) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if report == nil {
+			http.Error(w, "runtime report not available", http.StatusServiceUnavailable)
+			return
+		}
+		status := "ok"
+		for _, cap := range []runtime.CapabilityStatus{
+			report.ZenContext, report.Tier1Hot, report.Tier2Warm, report.Tier3Cold,
+			report.Journal, report.Ledger, report.MessageBus,
+		} {
+			if cap.Required && !cap.Healthy {
+				status = "degraded"
+				break
+			}
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"status": status,
+			"report": report,
+		})
 	})
 }
 

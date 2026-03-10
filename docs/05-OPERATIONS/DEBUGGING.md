@@ -17,6 +17,14 @@ How to debug workers, KB (QMD) queries, LLM calls, and k3d-based local developme
 
 ---
 
+## 0. Block 3 runtime and readiness
+
+- **Capability report:** Run `zen-brain runtime doctor` for a readable summary of ZenContext, Tier1/2/3, Journal, Ledger, MessageBus (real/stub/degraded/disabled). Use `zen-brain runtime report` for JSON; `zen-brain runtime ping` exits non-zero if a required capability is unhealthy.
+- **Readiness:** The API server’s `/readyz` fails when a **required** Block 3 capability is unhealthy (see `internal/apiserver/runtime_checker.go`). Require capabilities via `ZEN_BRAIN_REQUIRE_*` or config `required: true`. `/api/v1/health` returns the full `RuntimeReport` when the server is bootstrapped from config.
+- **Config vs env:** Block 3 bootstrap uses `internal/config` (ZenContext, Ledger, MessageBus). If config load fails, zen-brain falls back to env and optional `createRealZenContext()`; the runtime report still reflects what is real vs stub.
+
+---
+
 ## 1. Debugging workers (Foreman)
 
 - **Run locally:** `make build-foreman && ./bin/foreman`. Use `KUBECONFIG` pointing at your k3d cluster (or default `~/.kube/config`). Apply CRDs first: `kubectl apply -f deployments/crds/`.

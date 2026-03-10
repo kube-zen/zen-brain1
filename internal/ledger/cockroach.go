@@ -51,6 +51,14 @@ func (c *CockroachLedger) Close() error {
 	return c.db.Close()
 }
 
+// Ping verifies the database connection is alive (for health checks).
+func (c *CockroachLedger) Ping(ctx context.Context) error {
+	if c == nil || c.db == nil {
+		return nil
+	}
+	return c.db.PingContext(ctx)
+}
+
 // Record implements TokenRecorder.Record.
 func (c *CockroachLedger) Record(ctx context.Context, record ledger.TokenRecord) error {
 	evidenceClass := ""

@@ -33,7 +33,9 @@
 | **3.6 ZenLedger** | Done | `internal/ledger/cockroach.go`; zen-brain uses CockroachLedger when `ZEN_LEDGER_DSN` or `LEDGER_DATABASE_URL` set via `ledgerClientOrStub()` |
 | **3.7 CockroachDB** | Done | `make db-up`, `make db-down`, `make db-migrate`, `make db-reset`; `migrations/001_*.sql`, `migrations/002_*.sql` |
 
-**API server:** `make build-apiserver && ./bin/apiserver` — serves `/healthz`, `/readyz`, `/`, `/api/v1/sessions`, `/api/v1/health`, `/api/v1/version`, `/api/v1/evidence?session_id=` (version from `API_VERSION` env or `dev`). Handlers tested in `internal/apiserver/handlers_test.go`.
+**Block 3 Fast Completeness (runtime truth):** Canonical bootstrap in `internal/runtime`: `Bootstrap(ctx, cfg)` builds ZenContext, Ledger, MessageBus from `internal/config` (and env); fills `RuntimeReport` with real/stub/mock/degraded/disabled per capability; strictness via `ZEN_BRAIN_STRICT_RUNTIME` and `ZEN_BRAIN_REQUIRE_*`. Commands: `zen-brain runtime doctor`, `zen-brain runtime report`, `zen-brain runtime ping`. Session lifecycle writes to journal and message bus when configured (`session.Config.Journal`, `EventBus`, `EventStream`); events: session.created, session.transitioned, session.evidence_added, session.checkpoint_updated. API server uses `RuntimeChecker` for `/readyz` (fails when a required capability is unhealthy); `/api/v1/health` returns `RuntimeReport` JSON. ZenContext/Ledger/MessageBus are config-driven (no hardcoded localhost in main path). Health probes: `internal/qmd/health.go`, `internal/ledger/health.go`, `internal/context/health.go` (Ping / CheckHot/CheckWarm/CheckCold). Still out of scope: full DLQ, cross-process event replay, durable consumer orchestration.
+
+**API server:** `make build-apiserver && ./bin/apiserver` — serves `/healthz`, `/readyz`, `/`, `/api/v1/sessions`, `/api/v1/health`, `/api/v1/version`, `/api/v1/evidence?session_id=` (version from `API_VERSION` env or `dev`). Readiness reflects Block 3 dependency state; `/api/v1/health` returns runtime report when bootstrapped. Handlers tested in `internal/apiserver/handlers_test.go`.
 
 ## Block 4 (Factory) – Complete
 
