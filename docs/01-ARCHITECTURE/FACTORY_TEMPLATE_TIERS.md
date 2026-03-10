@@ -11,8 +11,9 @@ Steps in these templates are **scaffold/echo** by default: they run shell comman
 **Exception:** The **BoundedExecutor** (`internal/factory/bounded_executor.go`) overrides the command for certain step **names** when the template does not set an explicit `Command`:
 
 - Step name **“Run tests”**, **“go test”**, or **“test”** → runs **real** `go test ./... -count=1` in the workspace when `go.mod` exists; otherwise prints “No go.mod, skipping go test”.
+- Step name **“build”**, **“go build”**, or **“compile”** → runs **real** `go build ./...` when `go.mod` exists; otherwise prints “No go.mod, skipping go build”.
 
-So for any work type (debug, implementation, refactor, docs, test, etc.) that uses a step named “Run tests” or “go test” or “test”, the actual execution is **real** for Go workspaces; all other steps in `work_templates.go` remain echo/scaffold unless a template sets an explicit real `Command`.
+So for any work type that uses those step names, execution is **real** for Go workspaces; all other steps in `work_templates.go` remain echo/scaffold unless a template sets an explicit real `Command`.
 
 ## Tier 2: “Useful” templates (real artifacts)
 

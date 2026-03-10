@@ -15,7 +15,7 @@ import (
 
 	"github.com/kube-zen/zen-brain1/api/v1alpha1"
 	"github.com/kube-zen/zen-brain1/internal/agent"
-	"github.com/kube-zen/zen-brain1/internal/context"
+	internalcontext "github.com/kube-zen/zen-brain1/internal/context"
 	"github.com/kube-zen/zen-brain1/internal/evidence"
 	"github.com/kube-zen/zen-brain1/internal/factory"
 	"github.com/kube-zen/zen-brain1/internal/foreman"
@@ -72,7 +72,7 @@ func main() {
 	worker := foreman.NewWorker(mgr.GetClient(), runner, numWorkers)
 	worker.SessionAffinity = *sessionAffinity
 	if *zenContextRedis != "" {
-		zc, err := context.NewMinimalZenContext(*zenContextRedis, "default")
+		zc, err := internalcontext.NewMinimalZenContext(*zenContextRedis, "default")
 		if err != nil {
 			log.Printf("Warning: ZenContext (ReMe) not available: %v", err)
 		} else {
