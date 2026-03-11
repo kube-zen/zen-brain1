@@ -43,6 +43,7 @@ func NewWorkTypeTemplateRegistry() *WorkTypeTemplateRegistry {
 	registry.registerTestTemplates()
 	registry.registerDebugTemplates()
 	registry.registerUsefulTemplates() // Register templates that do real work
+	registry.registerRepoAwareTemplates() // Register repo-aware templates (A001-A003)
 	registry.registerDefaultTemplate()
 
 	return registry

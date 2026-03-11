@@ -83,8 +83,8 @@ func (p *PostflightVerifier) RunPostflightVerification(ctx context.Context, resu
 		{"execution_completed", p.checkExecutionCompleted},
 		{"workspace_clean", p.checkWorkspaceClean},
 		{"artifacts_generated", p.checkArtifactsGenerated},
-		{"files_verified", p.checkFilesCreated},          // NEW: Verify files were actually created
-		{"tests_verified", p.checkTestsRan},             // NEW: Verify tests actually ran
+		{"files_verified", p.checkFilesCreated},
+		{"tests_verified", p.checkTestsRan},
 		{"git_status", p.checkGitStatus},
 		{"proof_of_work", p.checkProofOfWork},
 	}
@@ -107,7 +107,56 @@ func (p *PostflightVerifier) RunPostflightVerification(ctx context.Context, resu
 		}
 	}
 
+	// Downgrade recommendation if critical checks failed
+	// Critical checks: execution_completed, files_verified (if files declared), proof_of_work
+	criticalChecks := map[string]bool{
+		"execution_completed": true,
+		"files_verified":      result.FilesChanged != nil && len(result.FilesChanged) > 0,
+		"proof_of_work":       true,
+	}
+
+	failedCriticalChecks := []string{}
+	for _, check := range report.Checks {
+		if criticalChecks[check.Name] && !check.Passed {
+			failedCriticalChecks = append(failedCriticalChecks, check.Name)
+		}
+	}
+
+	if len(failedCriticalChecks) > 0 {
+		// Downgrade recommendation based on what failed
+		if checkContains(report.Checks, "execution_completed") && !checkPassed(report.Checks, "execution_completed") {
+			result.Recommendation = "retry"
+		} else if checkContains(report.Checks, "files_verified") && !checkPassed(report.Checks, "files_verified") {
+			result.Recommendation = "investigate"
+		} else if checkContains(report.Checks, "proof_of_work") && !checkPassed(report.Checks, "proof_of_work") {
+			result.Recommendation = "investigate"
+		}
+
+		// Mark result as having verification failures
+		result.VerificationFailed = true
+	}
+
 	return report, nil
+}
+
+// checkPassed checks if a specific check passed.
+func checkPassed(checks []PostflightCheckResult, name string) bool {
+	for _, check := range checks {
+		if check.Name == name {
+			return check.Passed
+		}
+	}
+	return false
+}
+
+// checkContains checks if a check with the given name exists.
+func checkContains(checks []PostflightCheckResult, name string) bool {
+	for _, check := range checks {
+		if check.Name == name {
+			return true
+		}
+	}
+	return false
 }
 
 	// checkExecutionCompleted verifies that execution completed successfully.
@@ -300,18 +349,131 @@ func (p *PostflightVerifier) checkGitStatus(ctx context.Context, result *Executi
 	}, nil
 }
 
-// checkProofOfWork verifies that proof-of-work was generated.
+// checkProofOfWork verifies that proof-of-work was generated and is complete.
 func (p *PostflightVerifier) checkProofOfWork(ctx context.Context, result *ExecutionResult, spec *FactoryTaskSpec) (PostflightCheckResult, error) {
 	start := time.Now()
 
-	// Proof-of-work is optional, so we just check if it exists
-	// In the future, we could verify checksums, signatures, etc.
+	if result.WorkspacePath == "" {
+		return PostflightCheckResult{
+			Name:     "proof_of_work",
+			Passed:   true,
+			Message:  "No workspace path (no proof to verify)",
+			Duration: time.Since(start),
+		}, nil
+	}
+
+	// Check for PROOF_OF_WORK.md or other proof files
+	proofPath := filepath.Join(result.WorkspacePath, "PROOF_OF_WORK.md")
+	if _, err := os.Stat(proofPath); os.IsNotExist(err) {
+		// Check for other common proof files
+		proofPatterns := []string{
+			"PROOF.md",
+			"proof.md",
+			"EVIDENCE.md",
+			"evidence.md",
+			"REVIEW.md",
+			"review.md",
+		}
+
+		proofFound := false
+		for _, pattern := range proofPatterns {
+			path := filepath.Join(result.WorkspacePath, pattern)
+			if _, err := os.Stat(path); err == nil {
+				proofFound = true
+				proofPath = path
+				break
+			}
+		}
+
+		if !proofFound {
+			return PostflightCheckResult{
+				Name:     "proof_of_work",
+				Passed:   false,
+				Message:  "No proof-of-work file generated",
+				Details:  "Expected PROOF_OF_WORK.md or similar",
+				Duration: time.Since(start),
+			}, nil
+		}
+	}
+
+	// Read proof file and verify it has substantive content
+	content, err := os.ReadFile(proofPath)
+	if err != nil {
+		return PostflightCheckResult{
+			Name:     "proof_of_work",
+			Passed:   false,
+			Message:  "Failed to read proof file",
+			Details:  fmt.Sprintf("Error: %v", err),
+			Duration: time.Since(start),
+		}, nil
+	}
+
+	proofContent := string(content)
+
+	// Check for minimal substantive content (at least 100 characters)
+	if len(proofContent) < 100 {
+		return PostflightCheckResult{
+			Name:     "proof_of_work",
+			Passed:   false,
+			Message:  "Proof file is too small",
+			Details:  fmt.Sprintf("Content length: %d characters", len(proofContent)),
+			Duration: time.Since(start),
+		}, nil
+	}
+
+	// Check for work item reference
+	if !strings.Contains(proofContent, "Work Item") &&
+	   !strings.Contains(proofContent, "work_item") &&
+	   !strings.Contains(proofContent, "WorkItem") {
+		return PostflightCheckResult{
+			Name:     "proof_of_work",
+			Passed:   false,
+			Message:  "Proof file missing work item reference",
+			Details:  "Proof should reference the work item ID",
+			Duration: time.Since(start),
+		}, nil
+	}
+
+	// Check for evidence of actual work (not just templates)
+	realWorkPatterns := []string{
+		"Files Created:",
+		"Files Modified:",
+		"## Verification",
+		"Verification:",
+		"## Changed Files",
+		"## Diff",
+		"## Test Results",
+		"test passed",
+		"PASS:",
+		"=== RUN",
+		"--- PASS",
+		"--- FAIL",
+		"exit code:",
+	}
+
+	realWorkFound := false
+	for _, pattern := range realWorkPatterns {
+		if strings.Contains(proofContent, pattern) {
+			realWorkFound = true
+			break
+		}
+	}
+
+	if !realWorkFound {
+		return PostflightCheckResult{
+			Name:     "proof_of_work",
+			Passed:   false,
+			Message:  "Proof file lacks verification evidence",
+			Details:  "Proof should include verification results or evidence of actual work",
+			Duration: time.Since(start),
+		}, nil
+	}
 
 	return PostflightCheckResult{
 		Name:     "proof_of_work",
 		Passed:   true,
-		Message:  "Proof-of-work verification not implemented yet",
-		Details:  "Future: verify checksums, signatures, artifact integrity",
+		Message:  "Proof-of-work verified",
+		Details:  fmt.Sprintf("Proof file has substantive content (%d characters)", len(proofContent)),
 		Duration: time.Since(start),
 	}, nil
 }
