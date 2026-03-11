@@ -14,9 +14,9 @@ coverage.out export-ignore
 *.coverprofile export-ignore
 *.test export-ignore
 
-# Binaries
+# Binaries (root-only so cmd/apiserver, cmd/foreman, charts/zen-brain, deploy/helmfile/zen-brain stay in archive)
 bin/ export-ignore
-zen-brain export-ignore
-apiserver export-ignore
-foreman export-ignore
-controller export-ignore
+/zen-brain export-ignore
+/apiserver export-ignore
+/foreman export-ignore
+/controller export-ignore
