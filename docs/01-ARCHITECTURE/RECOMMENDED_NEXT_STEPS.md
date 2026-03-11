@@ -9,8 +9,8 @@
 | Dimension | Score | Notes |
 |-----------|-------|--------|
 | Architecture completeness | 95% | Design and structure in place; deployment plane is live-proven. |
-| Operational / deployment completeness | 94% | Full sandbox path proven: redeploy exits 0, Helmfile converges, foreman/apiserver/ollama-0 Ready, preload succeeds, OLLAMA_BASE_URL on apiserver. |
-| **Blended overall** | **94%** | Canonical deploy path is real; sandbox is live-proven; Ollama is live-proven. Repo has moved from “nearly production-shaped” to “production-shaped with a focused hardening backlog”. |
+| Operational / deployment completeness | 94% | Full sandbox path proven: redeploy exits 0, Helmfile converges, foreman/apiserver/ollama-0 Ready, preload succeeds, OLLAMA_BASE_URL on apiserver. 95% defensible after personal re-run of live validation. |
+| **Blended overall** | **94–95%** | Canonical deploy path is real; sandbox is live-proven; Ollama is live-proven. Repo has moved from “nearly production-shaped” to “production-shaped with a focused hardening backlog”. |
 
 **Block view:**
 
@@ -47,7 +47,7 @@ The remaining gaps are no longer deploy-path gaps. They are deeper platform matu
 2. **VPA path is not validated in sandbox** — VPA was correctly disabled there to avoid requiring the CRD. The full target operating model is only partially proven.
 3. **Deeper hardening remains** — Fail-closed runtime where appropriate; controller maturity; Factory lane realism; proof/signing depth; broader intelligence maturity.
 
-**Executive call:** Zen-Brain is now at **~94%** completeness overall. That is a strong milestone: canonical deploy path is real, sandbox is live-proven, Ollama is live-proven. The repo has moved from “nearly production-shaped” to “production-shaped with a focused hardening backlog”.
+**Executive call:** Zen-Brain is now at **94–95%** completeness overall. Architecture 95% is justified; operational 94% is the safer read unless live validation is personally re-run. That is a strong milestone: canonical deploy path is real, sandbox is live-proven, Ollama is live-proven. The repo has moved from “nearly production-shaped” to “production-shaped with a focused hardening backlog”.
 
 ---
 
@@ -99,7 +99,7 @@ The remaining gaps are no longer deploy-path gaps. They are deeper platform matu
 
 ## Bottom line
 
-- **95% complete overall** — canonical deploy path is real; sandbox is live-proven; Ollama is live-proven; real inference validated.
+- **94–95% complete overall** — canonical deploy path is real; sandbox is live-proven; Ollama is live-proven; real inference validated in runs.
 - **Current truth:**
   - **Operationally clean:** Yes (Wave 1 done).
   - **Governance-clean:** Yes (zen_sdk_ownership in pre-commit; ADR-0009 + DEPENDENCIES.md).
