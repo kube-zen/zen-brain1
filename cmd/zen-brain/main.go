@@ -63,6 +63,9 @@ func main() {
 	case "office":
 		runOfficeCommand()
 
+	case "analyze":
+		runAnalyzeCommand()
+
 	case "runtime":
 		runRuntime()
 
@@ -84,6 +87,7 @@ func printUsage() {
 	fmt.Println("  vertical-slice Run end-to-end vertical slice (Jira → analyze → plan → execute → update)")
 	fmt.Println("  intelligence   Block 5 intelligence: mine, analyze, recommend")
 	fmt.Println("  office         Office doctor, search, fetch, watch (Jira)")
+	fmt.Println("  analyze        Block 2 analyzer: work-item, history, latest, compare")
 	fmt.Println("  runtime        Runtime doctor, report, ping (Block 3 capabilities)")
 	fmt.Println("  version        Print version information")
 	fmt.Println()
