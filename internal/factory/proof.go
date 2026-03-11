@@ -59,12 +59,14 @@ func (p *proofOfWorkManagerImpl) CreateProofOfWork(ctx context.Context, result *
 		return nil, fmt.Errorf("failed to create artifact directory %s: %w", artifactDir, err)
 	}
 
-	// Generate proof-of-work summary (OutputLog and git paths set from result/workspace)
-	summary := p.generateSummary(result, spec, artifactDir)
+	// INTEGRATION: Use enhanced proof-of-work summary by default
+	// This includes structured inputs/outputs, timeline, and quality metrics
+	enhancedSummary := p.generateEnhancedSummary(result, spec, artifactDir)
+	summary := enhancedSummary.ProofOfWorkSummary // Extract base for backward compatibility
 
-	// Write JSON artifact
+	// Write JSON artifact (includes enhanced fields)
 	jsonPath := filepath.Join(artifactDir, "proof-of-work.json")
-	if err := p.writeJSON(summary, jsonPath); err != nil {
+	if err := p.writeEnhancedJSON(enhancedSummary, jsonPath); err != nil {
 		return nil, fmt.Errorf("failed to write JSON artifact: %w", err)
 	}
 
@@ -403,6 +405,20 @@ func (p *proofOfWorkManagerImpl) writeJSON(summary *ProofOfWorkSummary, path str
 
 	if err := os.WriteFile(path, data, 0644); err != nil {
 		return fmt.Errorf("failed to write JSON file: %w", err)
+	}
+
+	return nil
+}
+
+// writeEnhancedJSON writes enhanced proof-of-work summary to JSON file with structured I/O, timeline, and quality metrics.
+func (p *proofOfWorkManagerImpl) writeEnhancedJSON(summary *EnhancedProofOfWorkSummary, path string) error {
+	data, err := json.MarshalIndent(summary, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal enhanced JSON: %w", err)
+	}
+
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		return fmt.Errorf("failed to write enhanced JSON file: %w", err)
 	}
 
 	return nil

@@ -62,8 +62,8 @@ func main() {
 	flag.StringVar(&clusterID, "cluster-id", envStr("CLUSTER_ID", "default"), "Cluster identifier for session/context lookups and ZenContext.")
 	zenContextRedis := flag.String("zen-context-redis", envStr("ZEN_CONTEXT_REDIS_URL", ""), "Redis URL for ZenContext (ReMe). When set, Worker uses ReMeBinder for session context on continuation.")
 	sessionAffinity := flag.Bool("session-affinity", envBool("ZEN_FOREMAN_SESSION_AFFINITY", false), "Route tasks by session (same session → same worker).")
-	gateMode := flag.String("gate", envStr("ZEN_FOREMAN_GATE", "policy"), "Gate mode: stub (allow all), log (audit only), policy (enforce BrainPolicy when present).")
-	guardianMode := flag.String("guardian", envStr("ZEN_FOREMAN_GUARDIAN", "log"), "Guardian mode: stub (allow all, no log), log (audit log, allow all), circuit-breaker (log + per-session rate limit).")
+	gateMode := flag.String("gate", envStr("ZEN_FOREMAN_GATE", "policy"), "Gate mode: log (audit only), policy (enforce BrainPolicy when present).")
+	guardianMode := flag.String("guardian", envStr("ZEN_FOREMAN_GUARDIAN", "log"), "Guardian mode: log (audit log, allow all), circuit-breaker (log + per-session rate limit).")
 	guardianCircuitMax := flag.Int("guardian-circuit-max-per-session-per-min", envInt("ZEN_FOREMAN_GUARDIAN_CIRCUIT_MAX_PER_SESSION_PER_MIN", 0), "Max tasks per session per minute when guardian=circuit-breaker; 0 = no limit.")
 	flag.Parse()
 
@@ -200,13 +200,12 @@ func main() {
 		g = internalguardian.NewCircuitBreakerGuardian(internalguardian.NewLogGuardian(), cbCfg)
 		log.Printf("Foreman: Guardian=circuit-breaker (max %d/session/min)", *guardianCircuitMax)
 	default:
-		g = internalguardian.NewStubGuardian()
+		// Default to log guardian (fail-safe, not allow-all)
+		g = internalguardian.NewLogGuardian()
+		log.Printf("Foreman: Guardian=log (audit log, default)")
 	}
 	var zenGate gatepkg.ZenGate
 	switch *gateMode {
-	case "stub":
-		zenGate = gate.NewStubGate()
-		log.Printf("Foreman: Gate=stub (allow all)")
 	case "log":
 		zenGate = gate.NewLogGate()
 		log.Printf("Foreman: Gate=log (audit only)")
@@ -214,8 +213,9 @@ func main() {
 		zenGate = gate.NewPolicyGate(mgr.GetClient())
 		log.Printf("Foreman: Gate=policy (enforce BrainPolicy)")
 	default:
+		// Default to policy gate (fail-safe)
 		zenGate = gate.NewPolicyGate(mgr.GetClient())
-		log.Printf("Foreman: Gate=policy (enforce BrainPolicy)")
+		log.Printf("Foreman: Gate=policy (enforce BrainPolicy, default)")
 	}
 	reconciler := &foreman.Reconciler{
 		Client:     mgr.GetClient(),

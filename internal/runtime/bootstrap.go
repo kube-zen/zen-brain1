@@ -124,6 +124,18 @@ func Bootstrap(ctx context.Context, cfg *config.Config) (*Runtime, error) {
 	reqZC, reqQMD, reqLedger, reqMB := strictness(cfg)
 	report := &RuntimeReport{}
 
+	// ENHANCED PREFLIGHT: Run comprehensive preflight checks before initialization
+	// In prod mode, this fails fast on missing critical services
+	preflightReport, preflightErr := EnhancedStrictPreflight(ctx, cfg, report)
+	if preflightErr != nil {
+		return nil, fmt.Errorf("preflight checks failed: %w", preflightErr)
+	}
+	
+	// Store preflight report for diagnostics
+	// In prod mode, preflight failure already returned error
+	// In dev mode, we continue even with warnings
+	report.PreflightReport = preflightReport
+
 	// 1) ZenContext from config
 	zcConfig := configToZenContextConfig(&cfg.ZenContext)
 
