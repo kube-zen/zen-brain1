@@ -16,6 +16,8 @@ apiserver:
   service:
     type: ClusterIP
     externalPort: 8080
+  # zen-glm: when set, ZEN_GLM_API_KEY is injected from this secret (key: api-key). Secret must exist; create from runtime env only.
+  zenGlmSecretName: ""
   resources:
     requests:
       memory: "32Mi"

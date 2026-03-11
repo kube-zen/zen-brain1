@@ -59,11 +59,45 @@ def _ensure_namespaces(context_name: str) -> None:
             _log(f"Created namespace {ns}")
 
 
+def _ensure_zen_glm_secret(context_name: str, config_path: str | None, env: str) -> None:
+    """If deploy.use_zen_glm and ZEN_GLM_API_KEY is set, create/update secret (key from env only, never committed)."""
+    if not _config.get_deploy_use_zen_glm(env, config_path):
+        return
+    key = os.environ.get("ZEN_GLM_API_KEY")
+    if not key or not key.strip():
+        _err("ZEN_GLM_API_KEY is required when deploy.use_zen_glm is true. Set it in the environment and re-run.")
+        raise RuntimeError("ZEN_GLM_API_KEY required for zen-glm")
+    create = subprocess.run(
+        ["kubectl", "--context", context_name, "create", "secret", "generic", "zen-glm-api-key", "-n", "zen-brain",
+         "--from-literal=api-key=" + key.strip(), "--dry-run=client", "-o", "yaml"],
+        capture_output=True,
+        text=True,
+        timeout=15,
+        cwd=_repo_root(),
+    )
+    if create.returncode != 0:
+        _err(create.stderr or "kubectl create secret failed")
+        raise RuntimeError("zen-glm secret create failed")
+    apply = subprocess.run(
+        ["kubectl", "--context", context_name, "apply", "-f", "-"],
+        input=create.stdout,
+        capture_output=True,
+        text=True,
+        timeout=15,
+        cwd=_repo_root(),
+    )
+    if apply.returncode != 0:
+        _err(apply.stderr or "kubectl apply secret failed")
+        raise RuntimeError("zen-glm secret apply failed")
+    _log("zen-glm-api-key secret created/updated (from ZEN_GLM_API_KEY)")
+
+
 def _run_helmfile(env: str, config_path: str | None, context_name: str) -> None:
     """Canonical deployment: render values from clusters.yaml then helmfile sync."""
     import helmfile_values  # noqa: E402
     root = _repo_root()
     _ensure_namespaces(context_name)
+    _ensure_zen_glm_secret(context_name, config_path, env)
     _log("Rendering Helm values from config/clusters.yaml...")
     helmfile_values.render(env, config_path)
     helmfile_path = os.path.join(root, "deploy", "helmfile", "zen-brain", "helmfile.yaml.gotmpl")
