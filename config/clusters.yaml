@@ -33,10 +33,12 @@ clusters:
       zen_brain: "dev"
     deploy:
       use_zencontext: false
-      use_ollama: true
+      use_ollama: false  # k8s ollama disabled - using host Docker ollama
       use_zen_glm: false
+      # Host Ollama (Docker) - apiserver connects to this instead of k8s ollama
+      host_ollama_base_url: "http://host.k3d.internal:11434"
       ollama:
-        enabled: true
+        enabled: false  # k8s ollama disabled
         kind: StatefulSet
         replicas: 1
         models: ["qwen3.5:0.8b"]
