@@ -215,16 +215,18 @@ func (s *Store) DeleteSessionContext(ctx stdctx.Context, clusterID, sessionID st
 	return nil
 }
 
-// QueryKnowledge queries Tier 2 (Warm) for relevant knowledge.
-// This is not supported in Tier 3 (S3).
+// QueryKnowledge is not supported in Tier 3 (S3).
+// Tier 3 is for cold session archival, not knowledge queries.
+// Use Tier 2 (QMD) adapter for knowledge queries.
 func (s *Store) QueryKnowledge(ctx stdctx.Context, opts zenctx.QueryOptions) ([]zenctx.KnowledgeChunk, error) {
-	return nil, fmt.Errorf("QueryKnowledge is not implemented in Tier 3 (S3) - use Tier 2 (QMD) adapter")
+	return nil, fmt.Errorf("architectural boundary: QueryKnowledge not supported in Tier 3 (S3 cold storage) - use Tier 2 (QMD knowledge store)")
 }
 
-// StoreKnowledge stores knowledge in Tier 2 (Warm).
-// This is not supported in Tier 3 (S3).
+// StoreKnowledge is not supported in Tier 3 (S3).
+// Tier 3 is for cold session archival, not knowledge storage.
+// Use Tier 2 (QMD) adapter for knowledge storage.
 func (s *Store) StoreKnowledge(ctx stdctx.Context, chunks []zenctx.KnowledgeChunk) error {
-	return fmt.Errorf("StoreKnowledge is not implemented in Tier 3 (S3) - use Tier 2 (QMD) adapter")
+	return fmt.Errorf("architectural boundary: StoreKnowledge not supported in Tier 3 (S3 cold storage) - use Tier 2 (QMD knowledge store)")
 }
 
 // ArchiveSession archives session context to Tier 3 (Cold).
