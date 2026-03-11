@@ -142,6 +142,8 @@ func (a *DefaultAnalyzer) Analyze(ctx context.Context, workItem *contracts.WorkI
 		RequiresApproval:      a.config.RequireApproval,
 		EstimatedTotalCostUSD: a.estimateTotalCost(brainTaskSpecs),
 	}
+	
+	// Enrich with audit, rich analysis, and other enhancements
 	a.enrichResult(result, workItem)
 
 	if a.HistoryStore != nil {
@@ -159,6 +161,19 @@ func (a *DefaultAnalyzer) Analyze(ctx context.Context, workItem *contracts.WorkI
 // enrichResult sets audit and snapshot fields for durability and auditability.
 func (a *DefaultAnalyzer) enrichResult(result *contracts.AnalysisResult, workItem *contracts.WorkItem) {
 	EnrichForAudit(result, workItem, a.config.AnalyzedBy, a.config.AnalyzerVersion)
+}
+
+// AnalyzeRich performs analysis and returns enhanced rich result with operator-facing content.
+// This is the recommended method for CLI and API consumers that want rich output.
+func (a *DefaultAnalyzer) AnalyzeRich(ctx context.Context, workItem *contracts.WorkItem) (*RichAnalysisResult, error) {
+	// Get base analysis
+	base, err := a.Analyze(ctx, workItem)
+	if err != nil {
+		return nil, err
+	}
+
+	// Enrich with rich operator-facing content
+	return EnrichForRichAnalysis(base, workItem), nil
 }
 
 // EnrichForAudit sets AnalyzedAt, AnalyzedBy, AnalyzerVersion, and WorkItemSnapshot on result (Block 2 enterprise).

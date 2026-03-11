@@ -242,6 +242,24 @@ func (p *proofOfWorkManagerImpl) generateSummary(result *ExecutionResult, spec *
 	return p.hardenProofOfWorkSummary(summary)
 }
 
+// generateEnhancedSummary creates an enhanced proof-of-work summary with structured I/O, timeline, and quality metrics.
+// This is the recommended method for rich output and auditing.
+func (p *proofOfWorkManagerImpl) generateEnhancedSummary(result *ExecutionResult, spec *FactoryTaskSpec, artifactDir string) *EnhancedProofOfWorkSummary {
+	// Get base summary
+	baseSummary := p.generateSummary(result, spec, artifactDir)
+	
+	// Enhance with structured data
+	enhanced := &EnhancedProofOfWorkSummary{
+		ProofOfWorkSummary: baseSummary,
+		Inputs:            GenerateStructuredInputs(result, spec),
+		Outputs:           GenerateStructuredOutputs(result),
+		Timeline:          GenerateExecutionTimeline(result),
+		ProofQuality:      CalculateProofQuality(result),
+	}
+	
+	return enhanced
+}
+
 // aggregateStepOutput builds a bounded string from execution step names and output snippets.
 const maxOutputLogLen = 8000
 
