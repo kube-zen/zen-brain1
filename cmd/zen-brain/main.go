@@ -1261,21 +1261,52 @@ func min(a, b int) int {
 }
 
 // getZenContext returns a ZenContext for use by other commands (e.g. intelligence).
-// Uses config bootstrap when possible, otherwise real or mock.
+// Uses strict runtime bootstrap when possible, otherwise falls back to real or mock.
 func getZenContext() zenctx.ZenContext {
+	profile := os.Getenv("ZEN_RUNTIME_PROFILE")
+	if profile == "" {
+		profile = "dev"
+	}
+
 	cfg, err := config.LoadConfig("")
 	if err != nil || cfg == nil {
 		cfg = config.DefaultConfig()
 	}
-	rt, _ := runtime.Bootstrap(context.Background(), cfg)
-	if rt != nil && rt.ZenContext != nil {
-		return rt.ZenContext
+
+	// Block 3: Use StrictRuntime for canonical behavior
+	strictRT, err := runtime.NewStrictRuntime(context.Background(), &runtime.StrictRuntimeConfig{
+		Profile:        profile,
+		Config:         cfg,
+		EnableHealthCh: false, // No background checks for utility function
+	})
+
+	if err != nil {
+		// In dev mode, allow fallback
+		if profile == "dev" {
+			zc, _ := createRealZenContext()
+			if zc != nil {
+				return zc
+			}
+			return newMockZenContext()
+		}
+		// In strict mode, return nil (caller should handle)
+		return nil
 	}
-	zc, _ := createRealZenContext()
-	if zc != nil {
-		return zc
+
+	if strictRT != nil && strictRT.Runtime() != nil {
+		return strictRT.Runtime().ZenContext
 	}
-	return newMockZenContext()
+
+	// Fallback for dev mode
+	if profile == "dev" {
+		zc, _ := createRealZenContext()
+		if zc != nil {
+			return zc
+		}
+		return newMockZenContext()
+	}
+
+	return nil
 }
 
 func runtimeCapabilityBanner(r *runtime.RuntimeReport) string {
