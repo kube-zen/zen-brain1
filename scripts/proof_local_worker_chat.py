@@ -26,6 +26,16 @@ OUT = "/tmp/proof_response.txt"
 CURL_TIMEOUT = 1500  # Long timeout for sandbox Ollama (warmup + first reply can be 10–15 min)
 
 def main():
+    # Optional: wait so apiserver warmup can complete before sending (deterministic warm path)
+    wait_sec = os.environ.get("PROOF_WAIT_WARMUP_SECONDS")
+    if wait_sec:
+        try:
+            s = int(wait_sec)
+            if s > 0:
+                print(f"Waiting {s}s for warmup to complete...")
+                time.sleep(s)
+        except ValueError:
+            pass
     print(f"Proof: POST {BASE}/api/v1/chat (X-LLM-Provider: local-worker), timeout={CURL_TIMEOUT}s")
 
     # Clean output file
