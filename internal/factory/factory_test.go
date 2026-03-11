@@ -125,8 +125,22 @@ func TestFactoryImpl_StoresSelectedTemplateWhenRecommenderConfigured(t *testing.
 		CreatedAt:      time.Now(),
 		UpdatedAt:      time.Now(),
 	}
+
 	ctx := context.Background()
-	_, err := f.ExecuteTask(ctx, spec)
+
+	// Pre-allocate workspace and initialize git to avoid git validation failures
+	wsMeta, err := f.AllocateWorkspace(ctx, spec.ID, spec.SessionID)
+	if err != nil {
+		t.Fatalf("AllocateWorkspace: %v", err)
+	}
+	spec.WorkspacePath = wsMeta.Path
+
+	// Initialize git repo in workspace
+	exec.Command("git", "init", wsMeta.Path).Run()
+	exec.Command("git", "-C", wsMeta.Path, "config", "user.email", "test@example.com").Run()
+	exec.Command("git", "-C", wsMeta.Path, "config", "user.name", "Test").Run()
+
+	_, err = f.ExecuteTask(ctx, spec)
 	if err != nil {
 		t.Fatalf("ExecuteTask: %v", err)
 	}

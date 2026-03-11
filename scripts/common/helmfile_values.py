@@ -59,8 +59,8 @@ def render(env: str, config_path: str | None = None) -> None:
         apiserver_extra["zenGlmSecretName"] = "zen-glm-api-key"
     zen_values = {
         "image": {"repository": f"{reg_ref}/zen-brain", "tag": tag, "pullPolicy": "IfNotPresent"},
-        # Sandbox CPU: single request budget must cover provider TTL re-warm + one chat (600s was too short)
-    "ollama": {"baseUrl": ollama_base_url, "timeoutSeconds": 1200},
+        # Sandbox CPU: one chat can exceed 30min on slow host; use 3600 so one proof succeeds (port-forward required; LB closes at 600s)
+    "ollama": {"baseUrl": ollama_base_url, "timeoutSeconds": 3600},
         "apiserver": apiserver_extra,
     }
     path = os.path.join(state_dir, "zen-brain-values.yaml")

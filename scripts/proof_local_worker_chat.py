@@ -23,7 +23,7 @@ import json
 # Configuration
 BASE = sys.argv[1] if len(sys.argv) > 1 else "http://127.0.1.6:8080"
 OUT = "/tmp/proof_response.txt"
-CURL_TIMEOUT = 1500  # Long timeout for sandbox Ollama (warmup + first reply can be 10–15 min)
+CURL_TIMEOUT = 4000  # Must be >= server RequestTimeout (e.g. 3600 for sandbox CPU); LB via 127.0.1.6 may close at 600s—use port-forward for long runs
 
 def main():
     # Optional: wait so apiserver warmup can complete before sending (deterministic warm path)
