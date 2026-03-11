@@ -271,6 +271,20 @@ type ProofOfWorkSummary struct {
 	Checksums    map[string]string      `json:"checksums,omitempty"`
 	Environment  *ExecutionEnvironment `json:"environment,omitempty"`
 	MetadataTags map[string]string      `json:"metadata_tags,omitempty"`
+
+	// Enhanced provenance (v2.0+)
+	GitProvenance *GitProvenance `json:"git_provenance,omitempty"`
+}
+
+// GitProvenance represents cryptographic provenance from git commits.
+// Provides verifiable chain of changes linking proof to git history.
+type GitProvenance struct {
+	CommitSHA      string `json:"commit_sha"`       // git commit SHA-256
+	TreeSHA        string `json:"tree_sha"`        // git tree SHA-256
+	ParentCommit   string `json:"parent_commit"`   // parent commit SHA-256
+	CommitMessage  string `json:"commit_message"`   // commit message
+	Committer      string `json:"committer"`         // committer name/email
+	CommitTime     string `json:"commit_time"`     // commit timestamp
 }
 
 // ArtifactSignature represents cryptographic signature information for proof-of-work artifacts.
