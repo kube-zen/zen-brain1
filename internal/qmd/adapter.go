@@ -161,12 +161,12 @@ func (c *Client) retryWithRetryable(ctx context.Context, operation string, fn fu
 				strings.Contains(errStr, "rate limit") ||
 				strings.Contains(errStr, "server error") ||
 				strings.Contains(errStr, "connection refused") ||
-				strings.Contains(errStr, "command not found")
+				strings.Contains(errStr, "executable file not found") // Match actual exec.Command error
 		},
 	}
 	
 	// Execute with retry logic
-	_ = zenretry.Do(ctx, retryConfig, func() error {
+	retryErr := zenretry.Do(ctx, retryConfig, func() error {
 		err := fn()
 		if err != nil {
 			lastErr = err
@@ -175,6 +175,11 @@ func (c *Client) retryWithRetryable(ctx context.Context, operation string, fn fu
 		lastErr = nil
 		return nil
 	})
+	
+	// If retry returned an error, use it (unless we have lastErr)
+	if retryErr != nil && lastErr == nil {
+		lastErr = retryErr
+	}
 	
 	return lastErr
 }
