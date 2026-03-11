@@ -9,15 +9,38 @@ import (
 	"time"
 
 	"github.com/kube-zen/zen-brain1/internal/intelligence"
+	"github.com/kube-zen/zen-brain1/internal/worktree"
 )
 
 // RecommenderInterface is an alias for intelligence.FactoryRecommenderInterface.
 // This provides type safety while avoiding circular dependencies.
 type RecommenderInterface = intelligence.FactoryRecommenderInterface
 
+// FactoryConfig configures Factory behavior for repo-native execution.
+type FactoryConfig struct {
+	// UseGitWorktree enables git worktree-based workspaces (repo-native).
+	// When true, Factory creates git worktrees from GitRepoPath.
+	// When false, Factory creates isolated directories (WorkspaceManagerImpl).
+	UseGitWorktree bool
+
+	// GitRepoPath is the path to the git repository to create worktrees from.
+	// Required when UseGitWorktree is true.
+	GitRepoPath string
+
+	// WorktreeBasePath is the base directory under which worktrees are created.
+	// Required when UseGitWorktree is true.
+	WorktreeBasePath string
+
+	// StrictProofMode enables proof verification (checks actual git changes).
+	// When true, proof generation verifies actual git diffs/commits exist.
+	// When false, proof records paths without verification.
+	StrictProofMode bool
+}
+
 // FactoryImpl implements the Factory interface.
 // It orchestrates task execution with bounded loops and proof-of-work generation.
 type FactoryImpl struct {
+	config                 FactoryConfig // Factory configuration
 	workspaceManager       WorkspaceManager
 	executor               Executor
 	proofOfWorkManager     ProofOfWorkManager
@@ -31,7 +54,9 @@ type FactoryImpl struct {
 	proofVerificationMode   bool               // If true, run enhanced proof verification (default: false)
 }
 
-// NewFactory creates a new Factory instance.
+// NewFactory creates a new Factory instance with default configuration.
+// Uses WorkspaceManagerImpl (isolated directories, not git-backed).
+// For git worktree support, use NewFactoryWithConfig.
 func NewFactory(
 	workspaceManager WorkspaceManager,
 	executor Executor,
@@ -50,6 +75,61 @@ func NewFactory(
 		postflightStrictMode:   false,               // Default to non-strict postflight
 		proofVerificationMode:   false,               // Default to skip proof verification
 	}
+}
+
+// NewFactoryWithConfig creates a new Factory instance with custom configuration.
+// When config.UseGitWorktree is true, creates GitWorkspaceManager for repo-native execution.
+// When config.UseGitWorktree is false, creates WorkspaceManagerImpl (isolated directories).
+func NewFactoryWithConfig(
+	config FactoryConfig,
+	executor Executor,
+	proofOfWorkManager ProofOfWorkManager,
+	runtimeDir string,
+) (*FactoryImpl, error) {
+	var workspaceManager WorkspaceManager
+
+	if config.UseGitWorktree {
+		// Create GitWorkspaceManager for repo-native execution
+		if config.GitRepoPath == "" {
+			return nil, fmt.Errorf("GitRepoPath required when UseGitWorktree is true")
+		}
+		if config.WorktreeBasePath == "" {
+			return nil, fmt.Errorf("WorktreeBasePath required when UseGitWorktree is true")
+		}
+
+		// Create git worktree manager
+		gitManagerConfig := worktree.GitManagerConfig{
+			RepoPath:       config.GitRepoPath,
+			BasePath:       config.WorktreeBasePath,
+			DefaultRef:     "HEAD",
+			BranchPrefix:   "zen",
+			ReuseSessionWT: false,
+		}
+		gitManager, err := worktree.NewGitManager(gitManagerConfig)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create git worktree manager: %w", err)
+		}
+		workspaceManager = NewGitWorkspaceManager(gitManager)
+		log.Printf("[Factory] Git worktree mode enabled (repo=%s, base=%s)", config.GitRepoPath, config.WorktreeBasePath)
+	} else {
+		// Create WorkspaceManagerImpl for isolated directory execution
+		workspaceManager = NewWorkspaceManager(runtimeDir)
+		log.Printf("[Factory] Isolated directory mode enabled")
+	}
+
+	return &FactoryImpl{
+		config:                 config,
+		workspaceManager:       workspaceManager,
+		executor:               executor,
+		proofOfWorkManager:     proofOfWorkManager,
+		templateManager:        NewTemplateManager(),
+		runtimeDir:             runtimeDir,
+		tasks:                  make(map[string]*FactoryTaskSpec),
+		recommender:            nil,
+		preflightMode:          PreflightModeStrict,
+		postflightStrictMode:   config.StrictProofMode,
+		proofVerificationMode:   config.StrictProofMode,
+	}, nil
 }
 
 // SetPreflightMode sets the preflight check mode.
