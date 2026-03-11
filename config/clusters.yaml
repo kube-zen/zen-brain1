@@ -40,7 +40,7 @@ clusters:
         kind: StatefulSet
         replicas: 1
         models: ["qwen3.5:0.8b"]
-        keepAlive: "2m"
+        keepAlive: "30m"  # increased from 2m - was causing cold starts between requests
         persistence:
           enabled: true
           size: 50Gi
