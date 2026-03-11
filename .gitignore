@@ -1,4 +1,4 @@
-# Binaries for programs and plugins
+# Binaries for programs and plugins (root-only; cmd/apiserver and cmd/foreman source are tracked)
 bin/
 /apiserver
 /foreman
@@ -83,3 +83,6 @@ apply_template_*.py
 fix_factory.py
 remove_bounded.py
 template_manager.patch
+
+# Archive artifacts (do not commit)
+*.tar.gz
