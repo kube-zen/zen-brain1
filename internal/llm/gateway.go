@@ -227,6 +227,7 @@ func NewGateway(config *GatewayConfig) (*Gateway, error) {
 
 // registerBuiltinProviders registers the built-in providers.
 // When OLLAMA_BASE_URL is set, the local-worker lane uses a real Ollama provider; otherwise the simulated LocalWorkerProvider is used.
+// When ZEN_GLM_API_KEY is set, the zen-glm provider is registered (Z.AI GLM-5).
 func (g *Gateway) registerBuiltinProviders() error {
 	var localWorker llm.Provider
 	if baseURL := os.Getenv("OLLAMA_BASE_URL"); baseURL != "" {
@@ -242,6 +243,20 @@ func (g *Gateway) registerBuiltinProviders() error {
 	}
 	if err := g.RegisterProvider("local-worker", localWorker); err != nil {
 		return fmt.Errorf("failed to register local worker provider: %w", err)
+	}
+
+	// zen-glm: OpenAI-compatible (Z.AI) when API key is set (from secret/env only)
+	if apiKey := os.Getenv("ZEN_GLM_API_KEY"); apiKey != "" {
+		baseURL := os.Getenv("ZEN_GLM_BASE_URL")
+		model := os.Getenv("ZEN_GLM_MODEL")
+		if model == "" {
+			model = "GLM-5"
+		}
+		zenGLM := NewOpenAICompatibleProvider("zen-glm", baseURL, model, apiKey)
+		if err := g.RegisterProvider("zen-glm", zenGLM); err != nil {
+			return fmt.Errorf("failed to register zen-glm provider: %w", err)
+		}
+		log.Printf("[LLM Gateway] Registered provider: zen-glm (model=%s)", model)
 	}
 
 	// Register planner provider
@@ -270,6 +285,11 @@ func (g *Gateway) initializeFallbackChain() {
 				MaxContextTokens: 4000,
 				CostPerToken:     0.000001, // Very cheap (local)
 				SupportsTools:    g.config.LocalWorkerSupportsTools,
+			},
+			"zen-glm": {
+				MaxContextTokens: 128000,
+				CostPerToken:     0.00002,
+				SupportsTools:    true,
 			},
 			"planner": {
 				MaxContextTokens: 128000,

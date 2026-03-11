@@ -50,8 +50,8 @@ func ChatHandler(gateway *llmgateway.Gateway, warmup *llmgateway.OllamaWarmupCoo
 		}
 		var resp *llm.ChatResponse
 		var err error
-		if preferred == "local-worker" {
-			resp, err = gateway.ChatWithPreferred(r.Context(), req, "local-worker")
+		if preferred != "" {
+			resp, err = gateway.ChatWithPreferred(r.Context(), req, preferred)
 		} else {
 			resp, err = gateway.Chat(r.Context(), req)
 		}

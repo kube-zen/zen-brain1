@@ -133,6 +133,13 @@ def get_deploy_use_ollama(env: str, config_path: str | None = None) -> bool:
     return bool(deploy.get("use_ollama", False))
 
 
+def get_deploy_use_zen_glm(env: str, config_path: str | None = None) -> bool:
+    """Whether apiserver uses zen-glm (Z.AI GLM-5) instead of Ollama for chat. API key from secret only."""
+    block = get_cluster_block(env, config_path)
+    deploy = block.get("deploy") or {}
+    return bool(deploy.get("use_zen_glm", False))
+
+
 def get_deploy_apiserver_external_port(env: str, config_path: str | None = None) -> int:
     """Apiserver external port (host)."""
     block = get_cluster_block(env, config_path)
