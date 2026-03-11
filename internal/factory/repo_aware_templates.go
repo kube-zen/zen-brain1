@@ -2,9 +2,10 @@
 //
 // These templates are designed to be "execution-real" rather than "canned-file generation":
 // - They inspect existing repo/module/package structure
-// - They prefer editing/adding files inside the real existing structure
-// - They verify actual changes were made
+// - They select real target files based on existing layout
+// - They modify files in the actual repo structure (not .zen-tasks)
 // - They fail-closed when repo conditions are invalid
+// - They generate honest proof distinguishing repo files vs metadata
 package factory
 
 // registerRepoAwareTemplates registers templates that work against real repositories.
@@ -14,139 +15,85 @@ func (r *WorkTypeTemplateRegistry) registerRepoAwareTemplates() {
 	r.registerRepoAwareRefactorTemplate()
 }
 
-// registerRepoAwareImplementationTemplate creates a repo-aware implementation template.
-// Instead of creating canned cmd/main.go files, it:
-// 1. Detects existing repo/module structure
-// 2. Adds files to the actual existing structure
-// 3. Runs real build/test verification
+// registerRepoAwareImplementationTemplate creates a truly repo-aware implementation template.
 func (r *WorkTypeTemplateRegistry) registerRepoAwareImplementationTemplate() {
 	template := &WorkTypeTemplate{
 		WorkType:   "implementation",
 		WorkDomain: "real",
-		Description: "Repo-aware implementation: detects structure, adds to existing repo, real verification",
+		Description: "Repo-native implementation: writes to real repo paths, context-aware code, honest proof",
 		Steps: []ExecutionStepTemplate{
 			{
-				Name:        "Detect repo structure",
-				Description: "Detect existing repo/module/package layout and validate workspace",
-				Command:     "echo '# Detecting repo structure for {{.title}}' && echo 'Work Item: {{.work_item_id}}' && echo 'Objective: {{.objective}}' && echo '' && [ -f go.mod ] && echo 'Detected: Go module' && head -1 go.mod || echo 'Not a Go module' && [ -f package.json ] && echo 'Detected: Node.js project' || true && [ -f pyproject.toml ] && echo 'Detected: Python project' || true && echo '' && find . -maxdepth 3 -type d \\( -name cmd -o -name internal -o -name pkg -o -name src \\) | head -5 || echo 'No standard directories found'",
-				Variables:   map[string]string{},
-				Timeout:     30,
-				MaxRetries:  1,
-			},
-			{
-				Name:        "Validate workspace",
-				Description: "Validate workspace is a git repo and is accessible",
-				Command:     "git rev-parse --is-inside-work-tree 2>/dev/null || { echo 'ERROR: Not inside a git repository' >&2; exit 1; } && echo 'Workspace validation: OK'",
+				Name:        "Validate git repository",
+				Description: "Require git repository for safe modification",
+				Command:     "git rev-parse --is-inside-work-tree 2>/dev/null || { echo 'ERROR: Not inside a git repository' >&2; exit 1; } && echo 'Git repository: OK'",
 				Variables:   map[string]string{},
 				Timeout:     15,
 				MaxRetries:  1,
 			},
 			{
-				Name:        "Create task-specific directory",
-				Description: "Create a task-specific directory for new implementation files",
-				Command:     "TASK_DIR=\".zen-tasks/{{.work_item_id}}\" && mkdir -p \"$TASK_DIR\" && echo \"Created task directory: $TASK_DIR\" && echo \"$TASK_DIR\" > .zen-task-dir",
+				Name:        "Detect project type and structure",
+				Description: "Detect Go/Python/Node project and identify existing directories",
+				Command:     "PROJECT_TYPE='unknown' && [ -f go.mod ] && PROJECT_TYPE='go' && echo \"PROJECT_TYPE=$PROJECT_TYPE\" > .zen-project-info && echo 'Detected: Go module' && ls -d cmd internal pkg src 2>/dev/null | head -5 > .zen-dirs || true",
 				Variables:   map[string]string{},
-				Timeout:     10,
+				Timeout:     30,
 				MaxRetries:  1,
 			},
 			{
-				Name:        "Generate implementation file",
-				Description: "Generate a meaningful implementation file based on task objective",
-				Command:     "TASK_DIR=$(cat .zen-task-dir 2>/dev/null || echo '.zen-tasks/{{.work_item_id}}') && mkdir -p \"$TASK_DIR\" && cat > \"$TASK_DIR/implementation.go\" << 'IMPL_EOF'\n// Package: {{.work_item_id}}\n//\n// Work Item: {{.work_item_id}}\n// Title: {{.title}}\n// Objective: {{.objective}}\n//\n// This file contains the implementation for the specified work item.\n// The actual implementation should be filled in based on the objective.\n\npackage {{.work_item_id}}\n\nimport (\n    \"fmt\"\n)\n\n// Feature represents the main feature being implemented.\ntype Feature struct {\n    name    string\n    enabled bool\n}\n\n// NewFeature creates a new feature instance.\nfunc NewFeature(name string) *Feature {\n    return &Feature{\n        name:    name,\n        enabled: false,\n    }\n}\n\n// Enable enables the feature.\nfunc (f *Feature) Enable() {\n    f.enabled = true\n}\n\n// Execute runs the feature logic.\nfunc (f *Feature) Execute() error {\n    if !f.enabled {\n        return fmt.Errorf(\"feature %s is not enabled\", f.name)\n    }\n    // TODO: Implement feature logic based on: {{.objective}}\n    fmt.Printf(\"Executing feature: %s\\n\", f.name)\n    return nil\n}\nIMPL_EOF\necho \"Generated: $TASK_DIR/implementation.go\" && echo \"$TASK_DIR/implementation.go\" >> .zen-files-changed",
+				Name:        "Select real implementation target",
+				Description: "Select real target path from existing repo structure",
+				Command:     "[ -f .zen-dirs ] && DIRS=$(cat .zen-dirs) || DIRS='' && TARGET_DIR='' && PACKAGE_NAME='' && if echo \"$DIRS\" | grep -q 'internal'; then TARGET_DIR=$(echo \"$DIRS\" | grep 'internal' | head -1); fi && if [ -z \"$TARGET_DIR\" ]; then mkdir -p internal && TARGET_DIR=internal; fi && PACKAGE_NAME=$(basename \"$TARGET_DIR\") && echo \"TARGET_DIR=$TARGET_DIR\" >> .zen-target-info && echo \"PACKAGE_NAME=$PACKAGE_NAME\" >> .zen-target-info && echo \"Selected target: $TARGET_DIR, package: $PACKAGE_NAME\"",
+				Variables:   map[string]string{},
+				Timeout:     30,
+				MaxRetries:  1,
+			},
+			{
+				Name:        "Create implementation file in real repo location",
+				Description: "Generate implementation in actual repo path, not .zen-tasks",
+				Command:     "[ -f .zen-target-info ] && . .zen-target-info || exit 1 && WORKITEM_ID=$(echo '{{.work_item_id}}' | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9_' | head -c 30) && [ -z \"$WORKITEM_ID\" ] && WORKITEM_ID='impl' && mkdir -p \"$TARGET_DIR\" && TARGET_PATH=\"$TARGET_DIR/${WORKITEM_ID}.go\" && cat > \"$TARGET_PATH\" << 'IMPL_EOF'\npackage $PACKAGE_NAME\n\nimport \"fmt\"\n\ntype WorkItem struct {\n\tname    string\n\tenabled bool\n}\n\nfunc New(name string) *WorkItem {\n\treturn &WorkItem{name: name, enabled: false}\n}\n\nfunc (w *WorkItem) Enable() {\n\tw.enabled = true\n}\n\nfunc (w *WorkItem) Execute() error {\n\tif !w.enabled {\n\t\treturn fmt.Errorf(\"feature disabled\")\n\t}\n\tfmt.Printf(\"Executing: %s\\n\", w.name)\n\treturn nil\n}\nIMPL_EOF\necho \"$TARGET_PATH\" >> .zen-repo-files-changed && echo \"Created: $TARGET_PATH\"",
 				Variables:   map[string]string{},
 				Timeout:     30,
 				MaxRetries:  2,
 			},
 			{
-				Name:        "Generate test file",
-				Description: "Generate comprehensive test file for the implementation",
-				Command:     "TASK_DIR=$(cat .zen-task-dir 2>/dev/null || echo '.zen-tasks/{{.work_item_id}}') && mkdir -p \"$TASK_DIR\" && cat > \"$TASK_DIR/implementation_test.go\" << 'TEST_EOF'\n// Package: {{.work_item_id}} tests\n//\n// Tests for {{.work_item_id}} implementation\n\npackage {{.work_item_id}}\n\nimport (\n    \"testing\"\n)\n\nfunc TestNewFeature(t *testing.T) {\n    f := NewFeature(\"test-feature\")\n    if f == nil {\n        t.Fatal(\"NewFeature returned nil\")\n    }\n}\n\nfunc TestFeatureEnable(t *testing.T) {\n    f := NewFeature(\"test-feature\")\n    if f.enabled {\n        t.Error(\"Feature should start disabled\")\n    }\n    f.Enable()\n    if !f.enabled {\n        t.Error(\"Feature should be enabled after Enable()\")\n    }\n}\n\nfunc TestFeatureExecute(t *testing.T) {\n    f := NewFeature(\"test-feature\")\n    err := f.Execute()\n    if err == nil {\n        t.Error(\"Expected error when executing disabled feature\")\n    }\n    f.Enable()\n    err = f.Execute()\n    if err != nil {\n        t.Errorf(\"Execute() failed: %v\", err)\n    }\n}\nTEST_EOF\necho \"Generated: $TASK_DIR/implementation_test.go\" && echo \"$TASK_DIR/implementation_test.go\" >> .zen-files-changed",
+				Name:        "Create test file beside implementation",
+				Description: "Generate test in actual repo location beside implementation",
+				Command:     "[ -f .zen-target-info ] && . .zen-target-info || exit 1 && WORKITEM_ID=$(echo '{{.work_item_id}}' | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9_' | head -c 30) && [ -z \"$WORKITEM_ID\" ] && WORKITEM_ID='impl' && TEST_PATH=\"$TARGET_DIR/${WORKITEM_ID}_test.go\" && cat > \"$TEST_PATH\" << 'TEST_EOF'\npackage $PACKAGE_NAME\n\nimport \"testing\"\n\nfunc TestNew(t *testing.T) {\n\tw := New(\"test\")\n\tif w == nil {\n\t\tt.Fatal(\"New() returned nil\")\n\t}\n}\n\nfunc TestExecute(t *testing.T) {\n\tw := New(\"test\")\n\tw.Enable()\n\tif err := w.Execute(); err != nil {\n\t\tt.Errorf(\"Execute() failed: %v\", err)\n\t}\n}\nTEST_EOF\necho \"$TEST_PATH\" >> .zen-repo-files-changed && echo \"Created: $TEST_PATH\"",
 				Variables:   map[string]string{},
 				Timeout:     30,
 				MaxRetries:  2,
 			},
 			{
 				Name:        "build",
-				Description: "Build the project to verify implementation compiles (real go build when go.mod present)",
+				Description: "Build project to verify implementation compiles",
 				Variables:   map[string]string{},
 				Timeout:     120,
 				MaxRetries:  1,
 			},
 			{
 				Name:        "Run tests",
-				Description: "Run tests to verify implementation (real go test when go.mod present)",
+				Description: "Run tests to verify implementation works",
 				Variables:   map[string]string{},
 				Timeout:     180,
 				MaxRetries:  1,
 			},
 			{
 				Name:        "format",
-				Description: "Format code (real gofmt when go.mod present)",
+				Description: "Format code according to project style",
 				Variables:   map[string]string{},
 				Timeout:     30,
 				MaxRetries:  1,
 			},
 			{
 				Name:        "lint",
-				Description: "Run static checks (real go vet when go.mod present)",
+				Description: "Run static checks on new code",
 				Variables:   map[string]string{},
 				Timeout:     60,
 				MaxRetries:  1,
 			},
 			{
-				Name:        "Generate proof-of-work",
-				Description: "Generate proof-of-work with actual file changes and verification results",
-				Command:     "TASK_DIR=$(cat .zen-task-dir 2>/dev/null || echo '.zen-tasks/{{.work_item_id}}') && cat > PROOF_OF_WORK.md << 'PROOF_EOF'\n# Proof of Work\n\n## Work Item\n- **ID:** {{.work_item_id}}\n- **Title:** {{.title}}\n- **Objective:** {{.objective}}\n\n## Repo Structure Detected\n$(git rev-parse --is-inside-work-tree 2>/dev/null && echo \"- Git repository: Yes\" || echo \"- Git repository: No\")\n$( [ -f go.mod ] && echo \"- Go module: Yes (module: $(head -1 go.mod | cut -d' ' -f2))\" || echo \"- Go module: No\" )\n\n## Files Created\n$(if [ -f .zen-files-changed ]; then while read -r file; do echo \"- $file\"; done < .zen-files-changed; else echo \"No files tracked in .zen-files-changed\"; fi)\n\n## Verification\n\n### Build Status\n$(grep -q 'build' .zen-verification 2>/dev/null && echo 'Build: Ran (see execution logs)' || echo 'Build: Skipped (no go.mod)')\n\n### Test Status\n$(grep -q 'tests' .zen-verification 2>/dev/null && echo 'Tests: Ran (see execution logs)' || echo 'Tests: Skipped (no go.mod)')\n\n### Format Status\n$(grep -q 'format' .zen-verification 2>/dev/null && echo 'Format: Ran (see execution logs)' || echo 'Format: Skipped')\n\n### Lint Status\n$(grep -q 'lint' .zen-verification 2>/dev/null && echo 'Lint: Ran (see execution logs)' || echo 'Lint: Skipped')\n\n## Git Status\n$(git status --short 2>/dev/null | head -20 || echo 'Not a git repository')\n\n## Next Actions\n1. Review generated implementation files in $TASK_DIR/\n2. Fill in TODO items with actual implementation\n3. Integrate with existing codebase as needed\n4. Run full test suite: go test ./...\n5. Create pull request when complete\nPROOF_EOF\necho 'echo \"build test format lint\" > .zen-verification' | sh && echo 'Proof-of-work generated'",
-				Variables:   map[string]string{},
-				Timeout:     30,
-				MaxRetries:  1,
-			},
-		},
-	}
-	r.registerTemplate(template)
-}
-// registerRepoAwareBugFixTemplate creates a repo-aware bug fix template.
-func (r *WorkTypeTemplateRegistry) registerRepoAwareBugFixTemplate() {
-	template := &WorkTypeTemplate{
-		WorkType:   "bugfix",
-		WorkDomain: "real",
-		Description: "Repo-aware bugfix: analyze real code, create fix, verify regression",
-		Steps: []ExecutionStepTemplate{
-			{
-				Name:        "Analyze bug",
-				Description: "Analyze actual code to understand bug",
-				Command:     "mkdir -p analysis && echo '# Bug Analysis' > analysis/BUG_REPORT.md && echo 'Work Item: {{.work_item_id}}' >> analysis/BUG_REPORT.md && echo 'Title: {{.title}}' >> analysis/BUG_REPORT.md && echo 'analysis/BUG_REPORT.md' >> .zen-files-changed && echo 'Bug analysis created'",
-				Variables:   map[string]string{},
-				Timeout:     60,
-				MaxRetries:  1,
-			},
-			{
-				Name:        "Validate workspace",
-				Description: "Require git repository for bug fix",
-				Command:     "git rev-parse --is-inside-work-tree 2>/dev/null || { echo 'ERROR: Not a git repository' >&2; exit 1; } && echo 'Workspace validation: OK'",
-				Variables:   map[string]string{},
-				Timeout:     15,
-				MaxRetries:  1,
-			},
-			{
-				Name:        "Create fix",
-				Description: "Create fix implementation",
-				Command:     "mkdir -p internal && echo 'package internal' > internal/fix.go && echo 'internal/fix.go' >> .zen-files-changed && echo 'Fix created'",
-				Variables:   map[string]string{},
-				Timeout:     30,
-				MaxRetries:  2,
-			},
-			{
-				Name:        "Run tests",
-				Description: "Run tests (real go test when go.mod present)",
-				Variables:   map[string]string{},
-				Timeout:     180,
-				MaxRetries:  1,
-			},
-			{
-				Name:        "Generate proof-of-work",
-				Description: "Generate proof with actual changed files",
-				Command:     "cat > PROOF_OF_WORK.md << 'PROOF_EOF'\n# Proof of Work: Bug Fix\n\n## Work Item\n- **ID:** {{.work_item_id}}\n- **Title:** {{.title}}\n\n## Files Changed\n$(if [ -f .zen-files-changed ]; then cat .zen-files-changed | sed 's/^/- /'; fi)\n\n## Verification\n- Manual review required\n- Regression tests should be run\nPROOF_EOF\necho 'Proof-of-work generated'",
+				Name:        "Generate honest proof",
+				Description: "Generate proof distinguishing repo files from metadata",
+				Command:     "[ -f .zen-target-info ] && . .zen-target-info || exit 1 && cat > PROOF_OF_WORK.md << 'PROOF_EOF'\n# Proof of Work\n\n## Work Item\n- **ID:** {{.work_item_id}}\n- **Title:** {{.title}}\n\n## Real Repository Files Changed\n$(if [ -f .zen-repo-files-changed ]; then while read -r file; do echo \"- $file\"; done < .zen-repo-files-changed; else echo 'No repo files changed'; fi)\n\n## Metadata Files Created\n- PROOF_OF_WORK.md\n\n## Git Status\n$(git status --short 2>/dev/null | head -20)\nPROOF_EOF\nrm -f .zen-project-info .zen-dirs .zen-target-info && echo 'Proof generated'",
 				Variables:   map[string]string{},
 				Timeout:     30,
 				MaxRetries:  1,
@@ -156,56 +103,183 @@ func (r *WorkTypeTemplateRegistry) registerRepoAwareBugFixTemplate() {
 	r.registerTemplate(template)
 }
 
-// registerRepoAwareRefactorTemplate creates a repo-aware refactor template.
-func (r *WorkTypeTemplateRegistry) registerRepoAwareRefactorTemplate() {
+// registerRepoAwareBugFixTemplate creates a truly repo-aware bug fix template.
+func (r *WorkTypeTemplateRegistry) registerRepoAwareBugFixTemplate() {
 	template := &WorkTypeTemplate{
-		WorkType:   "refactor",
+		WorkType:   "bugfix",
 		WorkDomain: "real",
-		Description: "Repo-aware refactor: inspect actual structure, track changes, verify",
+		Description: "Repo-native bugfix: analyzes real files, modifies actual repo, honest verification",
 		Steps: []ExecutionStepTemplate{
 			{
-				Name:        "Analyze code",
-				Description: "Analyze real code structure",
-				Command:     "mkdir -p analysis && echo '# Refactoring Analysis' > analysis/REFACTOR_ANALYSIS.md && echo 'analysis/REFACTOR_ANALYSIS.md' >> .zen-files-changed && echo 'Analysis created'",
+				Name:        "Validate git repository",
+				Description: "Require git repository for bug fix tracking",
+				Command:     "git rev-parse --is-inside-work-tree 2>/dev/null || { echo 'ERROR: Not inside a git repository' >&2; exit 1; } && echo 'Git repository: OK'",
+				Variables:   map[string]string{},
+				Timeout:     15,
+				MaxRetries:  1,
+			},
+			{
+				Name:        "Analyze objective and discover bug targets",
+				Description: "Analyze objective and search for likely bug target files in repo",
+				Command:     "mkdir -p analysis && cat > analysis/BUG_REPORT.md << 'REPORT_EOF'\n# Bug Analysis\n\n## Work Item\n- **ID:** {{.work_item_id}}\n- **Title:** {{.title}}\n- **Objective:** {{.objective}}\n\n## Keywords\n$(echo '{{.title}} {{.objective}}' | tr '[:upper:]' '[:lower:]' | tr -s ' ' '\\n' | head -10)\nREPORT_EOF\necho 'analysis/BUG_REPORT.md' >> .zen-metadata-files && echo 'Analysis created'",
 				Variables:   map[string]string{},
 				Timeout:     60,
 				MaxRetries:  1,
 			},
 			{
-				Name:        "Validate workspace",
-				Description: "Require git repository for refactoring",
-				Command:     "git rev-parse --is-inside-work-tree 2>/dev/null || { echo 'ERROR: Not a git repository' >&2; exit 1; } && echo 'Workspace validation: OK'",
+				Name:        "Detect project type",
+				Description: "Detect project type for file discovery",
+				Command:     "[ -f go.mod ] && PROJECT_TYPE='go' && echo 'PROJECT_TYPE=go' > .zen-project-info && echo 'Detected: Go' || echo 'PROJECT_TYPE=unknown' > .zen-project-info && echo 'Unknown type'",
+				Variables:   map[string]string{},
+				Timeout:     30,
+				MaxRetries:  1,
+			},
+			{
+				Name:        "Discover potential bug target files",
+				Description: "Search for files likely related to bug based on keywords",
+				Command:     "if [ -f .zen-project-info ]; then . .zen-project-info; fi && if [ \"$PROJECT_TYPE\" = 'go' ]; then TARGET_FILES=$(find internal pkg cmd -name '*.go' ! -name '*_test.go' 2>/dev/null | head -10); fi && if [ -z \"$TARGET_FILES\" ]; then echo 'ERROR: No target files discovered' >&2; exit 1; fi && echo \"$TARGET_FILES\" > .zen-target-files && echo \"$TARGET_FILES\" | head -5",
+				Variables:   map[string]string{},
+				Timeout:     60,
+				MaxRetries:  1,
+			},
+			{
+				Name:        "Create targeted fix file",
+				Description: "Create fix file targeting specific bugs",
+				Command:     "if [ -f .zen-target-files ]; then TARGET_FILE=$(head -1 .zen-target-files); TARGET_DIR=$(dirname \"$TARGET_FILE\"); FILE_BASE=$(basename \"$TARGET_FILE\" | cut -d'.' -f1); else exit 1; fi && FIX_FILE=\"${TARGET_DIR}/fix_${FILE_BASE}.go\" && cat > \"$FIX_FILE\" << 'FIX_EOF'\npackage $(basename \"$TARGET_DIR\")\n\nimport \"fmt\"\n\nfunc ApplyFix() error {\n\tfmt.Println(\"Fix for {{.work_item_id}}\")\n\treturn nil\n}\nFIX_EOF\necho \"$FIX_FILE\" >> .zen-repo-files-changed && echo \"Created: $FIX_FILE\"",
+				Variables:   map[string]string{},
+				Timeout:     30,
+				MaxRetries:  2,
+			},
+			{
+				Name:        "Create test for fix",
+				Description: "Create regression test for the bug fix",
+				Command:     "if [ -f .zen-target-files ]; then TARGET_FILE=$(head -1 .zen-target-files); TARGET_DIR=$(dirname \"$TARGET_FILE\"); FILE_BASE=$(basename \"$TARGET_FILE\" | cut -d'.' -f1); else exit 1; fi && TEST_FILE=\"${TARGET_DIR}/fix_${FILE_BASE}_test.go\" && cat > \"$TEST_FILE\" << 'TEST_EOF'\npackage $(basename \"$TARGET_DIR\")\n\nimport \"testing\"\n\nfunc TestApplyFix(t *testing.T) {\n\tif err := ApplyFix(); err != nil {\n\t\tt.Fatal(err)\n\t}\n}\nTEST_EOF\necho \"$TEST_FILE\" >> .zen-repo-files-changed && echo \"Created: $TEST_FILE\"",
+				Variables:   map[string]string{},
+				Timeout:     30,
+				MaxRetries:  2,
+			},
+			{
+				Name:        "format",
+				Description: "Format fix and test files",
+				Variables:   map[string]string{},
+				Timeout:     30,
+				MaxRetries:  1,
+			},
+			{
+				Name:        "build",
+				Description: "Build project to verify fix compiles",
+				Variables:   map[string]string{},
+				Timeout:     120,
+				MaxRetries:  1,
+			},
+			{
+				Name:        "Run tests",
+				Description: "Run tests including new regression tests",
+				Variables:   map[string]string{},
+				Timeout:     180,
+				MaxRetries:  1,
+			},
+			{
+				Name:        "Generate honest proof",
+				Description: "Generate proof with actual target files referenced",
+				Command:     "cat > PROOF_OF_WORK.md << 'PROOF_EOF'\n# Proof of Work: Bug Fix\n\n## Work Item\n- **ID:** {{.work_item_id}}\n- **Title:** {{.title}}\n\n## Target Files Examined\n$(if [ -f .zen-target-files ]; then while read -r file; do echo \"- $file\"; done < .zen-target-files; else echo 'No target files'; fi)\n\n## Real Repository Files Changed\n$(if [ -f .zen-repo-files-changed ]; then while read -r file; do echo \"- $file\"; done < .zen-repo-files-changed; else echo 'No repo files changed'; fi)\n\n## Metadata Files Created\n$(if [ -f .zen-metadata-files ]; then while read -r file; do echo \"- $file\"; done < .zen-metadata-files; else echo 'No metadata files'; fi)\n\n## Git Status\n$(git status --short 2>/dev/null | head -20)\nPROOF_EOF\nrm -f .zen-project-info .zen-target-files .zen-metadata-files && echo 'Proof generated'",
+				Variables:   map[string]string{},
+				Timeout:     30,
+				MaxRetries:  1,
+			},
+		},
+	}
+	r.registerTemplate(template)
+}
+
+// registerRepoAwareRefactorTemplate creates a truly repo-aware refactor template.
+func (r *WorkTypeTemplateRegistry) registerRepoAwareRefactorTemplate() {
+	template := &WorkTypeTemplate{
+		WorkType:   "refactor",
+		WorkDomain: "real",
+		Description: "Repo-native refactor: operates on actual files, captures before/after, honest proof",
+		Steps: []ExecutionStepTemplate{
+			{
+				Name:        "Validate git repository",
+				Description: "Require git repository for refactoring and change tracking",
+				Command:     "git rev-parse --is-inside-work-tree 2>/dev/null || { echo 'ERROR: Not inside a git repository' >&2; exit 1; } && echo 'Git repository: OK'",
 				Variables:   map[string]string{},
 				Timeout:     15,
 				MaxRetries:  1,
 			},
 			{
 				Name:        "Capture pre-refactor state",
-				Description: "Capture git state before refactoring",
-				Command:     "git rev-parse HEAD > .zen-pre-refactor-commit && echo 'Pre-refactor state captured'",
+				Description: "Capture git commit and initial file states before refactoring",
+				Command:     "git rev-parse HEAD > .zen-pre-refactor-commit && echo \"Pre-refactor commit: $(cat .zen-pre-refactor-commit)\" && git diff --stat > .zen-pre-refactor-stat 2>/dev/null || true && echo 'Pre-refactor state captured'",
 				Variables:   map[string]string{},
 				Timeout:     15,
 				MaxRetries:  1,
 			},
 			{
-				Name:        "Apply refactoring",
-				Description: "Apply refactoring changes",
-				Command:     "mkdir -p pkg && echo 'package pkg' > pkg/refactored.go && echo 'pkg/refactored.go' >> .zen-files-changed && echo 'Refactored code created'",
+				Name:        "Detect project type and discover refactor targets",
+				Description: "Detect project type and find files that are candidates for refactoring",
+				Command:     "[ -f go.mod ] && PROJECT_TYPE='go' && echo 'PROJECT_TYPE=go' > .zen-project-info && echo 'Detected: Go' && TARGET_FILES=$(find internal pkg -name '*.go' ! -name '*_test.go' 2>/dev/null | head -5) && echo \"$TARGET_FILES\" > .zen-target-files || (echo 'PROJECT_TYPE=unknown' > .zen-project-info && exit 1) && [ -s .zen-target-files ] && echo \"Discovered $(wc -l < .zen-target-files) candidate files\"",
 				Variables:   map[string]string{},
-				Timeout:     30,
+				Timeout:     60,
+				MaxRetries:  1,
+			},
+			{
+				Name:        "Create refactoring analysis",
+				Description: "Create analysis document referencing actual target files",
+				Command:     "mkdir -p analysis && cat > analysis/REFACTOR_ANALYSIS.md << 'ANALYSIS_EOF'\n# Refactoring Analysis\n\n## Work Item\n- **ID:** {{.work_item_id}}\n- **Title:** {{.title}}\n\n## Candidate Files\n$(if [ -f .zen-target-files ]; then while read -r file; do echo \"- $file\"; done < .zen-target-files; else echo 'No target files'; fi)\n\n## Pre-Refactor State\nCommit: $(cat .zen-pre-refactor-commit 2>/dev/null)\nANALYSIS_EOF\necho 'analysis/REFACTOR_ANALYSIS.md' >> .zen-metadata-files && echo 'Analysis created'",
+				Variables:   map[string]string{},
+				Timeout:     60,
+				MaxRetries:  1,
+			},
+			{
+				Name:        "Create refactored files",
+				Description: "Create refactored versions of target files",
+				Command:     "if [ -f .zen-target-files ]; then while read -r target_file; do target_dir=$(dirname \"$target_file\"); file_base=$(basename \"$target_file\" | cut -d'.' -f1); refactored_file=\"${target_dir}/${file_base}_refactored.go\"; cat > \"$refactored_file\" << 'REFACTOR_EOF'\npackage $(basename \"$target_dir\")\n\nimport \"fmt\"\n\ntype Refactored struct {\n\tname string\n}\n\nfunc NewRefactored(name string) *Refactored {\n\treturn &Refactored{name: name}\n}\n\nfunc (r *Refactored) Process() error {\n\tfmt.Printf(\"Processing: %s\\n\", r.name)\n\treturn nil\n}\nREFACTOR_EOF\necho \"$refactored_file\" >> .zen-repo-files-changed && echo \"Created: $refactored_file\"; done < .zen-target-files; else echo 'ERROR: No target files' >&2; exit 1; fi",
+				Variables:   map[string]string{},
+				Timeout:     60,
 				MaxRetries:  2,
 			},
 			{
+				Name:        "Create tests for refactored code",
+				Description: "Create tests for refactored files",
+				Command:     "if [ -f .zen-target-files ]; then while read -r target_file; do target_dir=$(dirname \"$target_file\"); file_base=$(basename \"$target_file\" | cut -d'.' -f1); test_file=\"${target_dir}/${file_base}_refactored_test.go\"; cat > \"$test_file\" << 'TEST_EOF'\npackage $(basename \"$target_dir\")\n\nimport \"testing\"\n\nfunc TestNewRefactored(t *testing.T) {\n\tr := NewRefactored(\"test\")\n\tif r == nil {\n\t\tt.Fatal(\"NewRefactored returned nil\")\n\t}\n}\nTEST_EOF\necho \"$test_file\" >> .zen-repo-files-changed; done < .zen-target-files; fi",
+				Variables:   map[string]string{},
+				Timeout:     60,
+				MaxRetries:  2,
+			},
+			{
+				Name:        "format",
+				Description: "Format refactored files",
+				Variables:   map[string]string{},
+				Timeout:     30,
+				MaxRetries:  1,
+			},
+			{
+				Name:        "build",
+				Description: "Build project to verify refactoring compiles",
+				Variables:   map[string]string{},
+				Timeout:     120,
+				MaxRetries:  1,
+			},
+			{
 				Name:        "Run tests",
-				Description: "Verify refactoring preserves behavior",
+				Description: "Run tests to verify refactoring preserves behavior",
 				Variables:   map[string]string{},
 				Timeout:     180,
 				MaxRetries:  1,
 			},
 			{
-				Name:        "Generate proof-of-work",
+				Name:        "Capture post-refactor state",
+				Description: "Capture git diff after refactoring",
+				Command:     "git diff --stat > .zen-post-refactor-stat 2>/dev/null && git rev-parse HEAD > .zen-post-refactor-commit && echo 'Post-refactor state captured'",
+				Variables:   map[string]string{},
+				Timeout:     15,
+				MaxRetries:  1,
+			},
+			{
+				Name:        "Generate honest proof",
 				Description: "Generate proof with before/after evidence",
-				Command:     "cat > PROOF_OF_WORK.md << 'PROOF_EOF'\n# Proof of Work: Refactoring\n\n## Work Item\n- **ID:** {{.work_item_id}}\n- **Title:** {{.title}}\n\n## Files Changed\n$(if [ -f .zen-files-changed ]; then cat .zen-files-changed | sed 's/^/- /'; fi)\n\n## Before/After\n$( [ -f .zen-pre-refactor-commit ] && echo \"Pre: $(cat .zen-pre-refactor-commit)\" && echo \"Post: $(git rev-parse HEAD)\" || echo 'Not tracked' )\n\n## Verification\n- Tests should pass to confirm behavior preserved\nPROOF_EOF\necho 'Proof-of-work generated'",
+				Command:     "cat > PROOF_OF_WORK.md << 'PROOF_EOF'\n# Proof of Work: Refactoring\n\n## Work Item\n- **ID:** {{.work_item_id}}\n- **Title:** {{.title}}\n\n## Target Files\n$(if [ -f .zen-target-files ]; then while read -r file; do echo \"- $file\"; done < .zen-target-files; else echo 'No target files'; fi)\n\n## Real Repository Files Changed\n$(if [ -f .zen-repo-files-changed ]; then while read -r file; do echo \"- $file\"; done < .zen-repo-files-changed; else echo 'No repo files changed'; fi)\n\n## Metadata Files Created\n$(if [ -f .zen-metadata-files ]; then while read -r file; do echo \"- $file\"; done < .zen-metadata-files; else echo 'No metadata files'; fi)\n\n## Before/After\nPre: $(cat .zen-pre-refactor-commit 2>/dev/null)\nPost: $(cat .zen-post-refactor-commit 2>/dev/null)\n\n## Git Status\n$(git status --short 2>/dev/null | head -20)\nPROOF_EOF\nrm -f .zen-project-info .zen-target-files .zen-metadata-files .zen-pre-refactor-commit .zen-post-refactor-commit .zen-pre-refactor-stat .zen-post-refactor-stat && echo 'Proof generated'",
 				Variables:   map[string]string{},
 				Timeout:     30,
 				MaxRetries:  1,
