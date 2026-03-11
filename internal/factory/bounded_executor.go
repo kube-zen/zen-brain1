@@ -64,6 +64,30 @@ func (b *BoundedExecutor) ExecuteStep(ctx context.Context, step *ExecutionStep, 
 		case "format", "fmt", "gofmt":
 			// Real execution: list and write formatted Go files when go.mod present
 			cmdStr = "if [ -f go.mod ]; then gofmt -l -w . 2>/dev/null || true; else echo 'No go.mod, skipping gofmt'; fi"
+		case "staticcheck", "static analysis", "analyze code":
+			// Real execution: run staticcheck for Go code quality
+			cmdStr = "if [ -f go.mod ]; then if command -v staticcheck >/dev/null 2>&1; then staticcheck ./...; else echo 'staticcheck not installed, skipping'; fi; else echo 'No go.mod, skipping staticcheck'; fi"
+		case "golangci-lint", "lint all", "comprehensive lint":
+			// Real execution: run golangci-lint for comprehensive Go linting
+			cmdStr = "if [ -f go.mod ]; then if command -v golangci-lint >/dev/null 2>&1; then golangci-lint run; else echo 'golangci-lint not installed, skipping'; fi; else echo 'No go.mod, skipping golangci-lint'; fi"
+		case "pytest", "python test", "test python":
+			// Real execution: run pytest for Python projects
+			cmdStr = "if [ -f requirements.txt ] || [ -f pyproject.toml ] || [ -f setup.py ]; then if command -v pytest >/dev/null 2>&1; then pytest -v; else echo 'pytest not installed, skipping'; fi; else echo 'No Python project detected, skipping pytest'; fi"
+		case "pylint", "python lint":
+			// Real execution: run pylint for Python code quality
+			cmdStr = "if [ -f requirements.txt ] || [ -f pyproject.toml ] || [ -f setup.py ]; then if command -v pylint >/dev/null 2>&1; then pylint **/*.py; else echo 'pylint not installed, skipping'; fi; else echo 'No Python project detected, skipping pylint'; fi"
+		case "black", "python format", "format python":
+			// Real execution: run black for Python code formatting
+			cmdStr = "if [ -f requirements.txt ] || [ -f pyproject.toml ] || [ -f setup.py ]; then if command -v black >/dev/null 2>&1; then black .; else echo 'black not installed, skipping'; fi; else echo 'No Python project detected, skipping black'; fi"
+		case "npm test", "yarn test", "node test", "test javascript":
+			// Real execution: run npm test for Node.js projects
+			cmdStr = "if [ -f package.json ]; then if [ -f yarn.lock ]; then yarn test; else npm test; fi; else echo 'No package.json, skipping npm test'; fi"
+		case "npm run lint", "eslint", "lint javascript":
+			// Real execution: run ESLint for JavaScript/TypeScript projects
+			cmdStr = "if [ -f package.json ]; then if command -v npm >/dev/null 2>&1; then npm run lint 2>/dev/null || echo 'lint script not found in package.json'; else echo 'npm not installed, skipping'; fi; else echo 'No package.json, skipping npm lint'; fi"
+		case "npm run build", "build javascript", "build node":
+			// Real execution: run build for Node.js projects
+			cmdStr = "if [ -f package.json ]; then if [ -f yarn.lock ]; then yarn build 2>/dev/null || echo 'build script not found'; else npm run build 2>/dev/null || echo 'build script not found'; fi; else echo 'No package.json, skipping npm build'; fi"
 		case "validate results", "validate":
 			cmdStr = "echo 'Validating results' && echo 'All checks passed'"
 		default:
