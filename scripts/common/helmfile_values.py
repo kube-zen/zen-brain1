@@ -38,6 +38,7 @@ def render(env: str, config_path: str | None = None) -> None:
 
     use_zencontext = _config.get_deploy_use_zencontext(env, config_path)
     use_ollama = _config.get_deploy_use_ollama(env, config_path)
+    use_zen_glm = _config.get_deploy_use_zen_glm(env, config_path)
     tag = _config.get_zen_brain_tag(env, config_path)
     ollama_block = _config.get_deploy_ollama(env, config_path)
     apiserver_port = _config.get_deploy_apiserver_external_port(env, config_path)
@@ -52,12 +53,14 @@ def render(env: str, config_path: str | None = None) -> None:
 
     # zen-brain (core): use cluster registry ref so k3d image import matches (e.g. zen-brain-registry:5000/zen-brain)
     reg_ref = _config.get_registry_cluster_ref(config_path)
+    ollama_base_url = "" if use_zen_glm else ("http://ollama:11434" if use_ollama else "")
+    apiserver_extra = {"service": {"type": "LoadBalancer", "externalPort": apiserver_port}}
+    if use_zen_glm:
+        apiserver_extra["zenGlmSecretName"] = "zen-glm-api-key"
     zen_values = {
         "image": {"repository": f"{reg_ref}/zen-brain", "tag": tag, "pullPolicy": "IfNotPresent"},
-        "ollama": {"baseUrl": "http://ollama:11434" if use_ollama else "", "timeoutSeconds": 600},
-        "apiserver": {
-            "service": {"type": "LoadBalancer", "externalPort": apiserver_port},
-        },
+        "ollama": {"baseUrl": ollama_base_url, "timeoutSeconds": 600},
+        "apiserver": apiserver_extra,
     }
     path = os.path.join(state_dir, "zen-brain-values.yaml")
     with open(path, "w", encoding="utf-8") as f:
