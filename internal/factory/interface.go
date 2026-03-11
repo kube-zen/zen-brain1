@@ -117,3 +117,19 @@ type ProofOfWorkManager interface {
 	// This is optional - artifacts can exist without signatures.
 	SignArtifact(ctx context.Context, artifact *ProofOfWorkArtifact, signature *ArtifactSignature) error
 }
+
+// WorktreeManager manages git worktrees for isolated task execution.
+// Worktrees provide parallel execution without dirty state conflicts.
+type WorktreeManager interface {
+	// Prepare creates a git worktree for the given task/session and returns its path.
+	Prepare(ctx context.Context, taskID, sessionID string) (workDir string, cleanup func(), err error)
+
+	// Cleanup removes a git worktree after task completion.
+	Cleanup(ctx context.Context, worktreePath string) error
+
+	// ListWorktrees returns all active worktrees for a session.
+	ListWorktrees(ctx context.Context, sessionID string) ([]string, error)
+
+	// ValidateWorktree checks if a worktree is valid and ready for use.
+	ValidateWorktree(ctx context.Context, worktreePath string) (bool, error)
+}
