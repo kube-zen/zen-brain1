@@ -64,6 +64,15 @@ func (f *FactoryImpl) ExecuteTask(ctx context.Context, spec *FactoryTaskSpec) (*
 
 	log.Printf("[Factory] Executing task: task_id=%s session_id=%s title=%s", spec.ID, spec.SessionID, spec.Title)
 
+	// Run preflight checks (fail-closed)
+	preflightChecker := NewPreflightChecker(f.workspaceManager, nil)
+	preflightReport, err := preflightChecker.MustRunPreflightChecks(ctx, spec)
+	if err != nil {
+		log.Printf("[Factory] Preflight checks failed: task_id=%s error=%v", spec.ID, err)
+		return f.createErrorResult(spec, err, "preflight checks failed"), err
+	}
+	log.Printf("[Factory] Preflight checks passed: task_id=%s checks=%d", spec.ID, len(preflightReport.Checks))
+
 	// Store task
 	f.tasksMutex.Lock()
 	f.tasks[spec.ID] = spec
@@ -140,6 +149,23 @@ func (f *FactoryImpl) ExecuteTask(ctx context.Context, spec *FactoryTaskSpec) (*
 		result.ArtifactPaths = artifact.Summary.ArtifactPaths
 		result.GitStatusPath = artifact.Summary.GitStatusPath
 		result.GitDiffStatPath = artifact.Summary.GitDiffStatPath
+	}
+
+	// Run postflight verification (fail-closed)
+	postflightVerifier := NewPostflightVerifier(f.workspaceManager)
+	postflightReport, err := postflightVerifier.RunPostflightVerification(ctx, result, spec)
+	if err != nil {
+		log.Printf("[Factory] Postflight verification failed: task_id=%s error=%v", spec.ID, err)
+		// Non-fatal: log warning but don't fail the task
+	} else if !postflightReport.AllPassed {
+		log.Printf("[Factory] Postflight checks failed (non-fatal): task_id=%s failed=%d", spec.ID, len(postflightReport.Checks))
+		for _, check := range postflightReport.Checks {
+			if !check.Passed {
+				log.Printf("[Factory]   - %s: %s", check.Name, check.Message)
+			}
+		}
+	} else {
+		log.Printf("[Factory] Postflight checks passed: task_id=%s checks=%d", spec.ID, len(postflightReport.Checks))
 	}
 
 	log.Printf("[Factory] Task execution completed: task_id=%s status=%s duration=%s proof=%s", spec.ID, result.Status, result.Duration.String(), proofPath)
