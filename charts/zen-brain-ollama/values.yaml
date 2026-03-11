@@ -7,8 +7,8 @@ replicas: 1
 
 image: ollama/ollama:latest
 
-# OLLAMA_KEEP_ALIVE: lower than default (5m) for aggressive memory reuse when many models
-keepAlive: "2m"  # e.g. "2m", "5m"
+# OLLAMA_KEEP_ALIVE: keep model loaded for warm inference; 30m for sandbox to avoid cold starts
+keepAlive: "30m"  # was "2m" which caused models to evict before warmupTTL (5m) expired
 
 models: []  # e.g. ["qwen3.5:0.8b"]; preload Job pulls declaratively
 

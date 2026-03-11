@@ -66,6 +66,9 @@ func main() {
 	case "analyze":
 		runAnalyzeCommand()
 
+	case "factory":
+		runFactoryCommand()
+
 	case "runtime":
 		runRuntime()
 
@@ -88,6 +91,7 @@ func printUsage() {
 	fmt.Println("  intelligence   Block 5 intelligence: mine, analyze, recommend")
 	fmt.Println("  office         Office doctor, search, fetch, watch (Jira)")
 	fmt.Println("  analyze        Block 2 analyzer: work-item, history, latest, compare")
+	fmt.Println("  factory        Block 4 factory: execute, status, proof, workspaces, cleanup")
 	fmt.Println("  runtime        Runtime doctor, report, ping (Block 3 capabilities)")
 	fmt.Println("  version        Print version information")
 	fmt.Println()
