@@ -92,7 +92,7 @@ def _ensure_zen_glm_secret(context_name: str, config_path: str | None, env: str)
     _log("zen-glm-api-key secret created/updated (from ZEN_GLM_API_KEY)")
 
 
-def _run_helmfile(env: str, config_path: str | None, context_name: str) -> None:
+def _run_helmfile(env: str, config_path: str | None, context_name: str, skip_ollama: bool = False) -> None:
     """Canonical deployment: render values from clusters.yaml then helmfile sync."""
     import helmfile_values  # noqa: E402
     root = _repo_root()
@@ -105,11 +105,12 @@ def _run_helmfile(env: str, config_path: str | None, context_name: str) -> None:
         _err(f"ERROR: Helmfile not found: {helmfile_path}")
         raise FileNotFoundError(helmfile_path)
     _log("Running Helmfile (canonical deployment path)...")
-    _run(
-        ["helmfile", "-e", env, "-f", helmfile_path, "--kube-context", context_name, "sync"],
-        timeout=900,
-        cwd=root,
-    )
+    cmd = ["helmfile", "-e", env, "-f", helmfile_path, "--kube-context", context_name]
+    if skip_ollama:
+        _log("Skipping ollama release (using selector)...")
+        cmd.extend(["--selector", "component!=ollama"])
+    cmd.append("sync")
+    _run(cmd, timeout=900, cwd=root)
 
 
 def _build_and_load_image(env: str, config_path: str | None, build: bool) -> None:
@@ -151,6 +152,7 @@ def cmd_redeploy(
     skip_manifests: bool,
     skip_build: bool,
     skip_image_load: bool,
+    skip_ollama: bool,
     force_recreate: bool,
 ) -> int:
     if not env:
@@ -181,7 +183,7 @@ def cmd_redeploy(
     if not skip_image_load:
         _build_and_load_image(env, config_path, build=not skip_build)
     if not skip_manifests:
-        _run_helmfile(env, config_path, context_name)
+        _run_helmfile(env, config_path, context_name, skip_ollama=skip_ollama)
     _wait_rollout(context_name)
 
     _log("")

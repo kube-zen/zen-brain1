@@ -16,11 +16,15 @@ releases:
     chart: ../../../charts/zen-brain-crds
     namespace: zen-brain
     force: false
+    labels:
+      component: crds
     # CRDs only; no values
 
   - name: zen-brain-dependencies
     chart: ../../../charts/zen-brain-dependencies
     namespace: zen-context
+    labels:
+      component: dependencies
     values:
       - ../../../charts/zen-brain-dependencies/values.yaml
       - ../../../.artifacts/state/{{ .Environment.Name }}/zen-brain-dependencies-values.yaml
@@ -28,6 +32,8 @@ releases:
   - name: zen-brain-ollama
     chart: ../../../charts/zen-brain-ollama
     namespace: zen-brain
+    labels:
+      component: ollama
     values:
       - ../../../charts/zen-brain-ollama/values.yaml
       - ../../../.artifacts/state/{{ .Environment.Name }}/zen-brain-ollama-values.yaml
@@ -35,6 +41,8 @@ releases:
   - name: zen-brain-core
     chart: ../../../charts/zen-brain
     namespace: zen-brain
+    labels:
+      component: core
     values:
       - ../../../charts/zen-brain/values.yaml
       - ../../../.artifacts/state/{{ .Environment.Name }}/zen-brain-values.yaml
