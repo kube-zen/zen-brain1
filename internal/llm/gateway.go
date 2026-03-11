@@ -761,6 +761,22 @@ func (g *Gateway) GetStats() *GatewayStats {
 	return &stats
 }
 
+// MarkLocalWorkerWarmed marks the local-worker provider's model as warmed.
+// Call this after external warmup (e.g., warmup coordinator) to prevent duplicate warmup probes.
+func (g *Gateway) MarkLocalWorkerWarmed() {
+	g.mu.RLock()
+	provider, exists := g.providers["local-worker"]
+	g.mu.RUnlock()
+
+	if !exists {
+		return
+	}
+
+	if ollamaProvider, ok := provider.(*OllamaProvider); ok {
+		ollamaProvider.MarkWarmed(g.config.LocalWorkerModel)
+	}
+}
+
 // Helper function
 func containsCaseInsensitive(s, substr string) bool {
 	if len(s) < len(substr) {

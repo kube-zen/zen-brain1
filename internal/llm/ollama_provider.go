@@ -98,6 +98,14 @@ func (p *OllamaProvider) Name() string {
 	return "ollama"
 }
 
+// MarkWarmed marks a model as warmed (e.g., called by warmup coordinator after successful warmup).
+// This prevents ensureOllamaWarmed from sending another warmup probe.
+func (p *OllamaProvider) MarkWarmed(model string) {
+	p.warmupMu.Lock()
+	p.warmupAt[model] = time.Now()
+	p.warmupMu.Unlock()
+}
+
 // SupportsTools returns true; Ollama supports tools when the model does.
 func (p *OllamaProvider) SupportsTools() bool {
 	return true
@@ -105,13 +113,18 @@ func (p *OllamaProvider) SupportsTools() bool {
 
 // ensureOllamaWarmed runs a tiny chat probe on the real path once per model per TTL (zen-brain 0.1 fallback).
 // If the model was unloaded after startup warmup, this warms it again before the real request.
-func (p *OllamaProvider) ensureOllamaWarmed(ctx context.Context, model string) {
+// Uses a background context with headerTo timeout to avoid being canceled by client disconnects.
+func (p *OllamaProvider) ensureOllamaWarmed(model string) {
 	p.warmupMu.Lock()
 	if t, ok := p.warmupAt[model]; ok && time.Since(t) < ollamaWarmupTTL {
 		p.warmupMu.Unlock()
 		return
 	}
 	p.warmupMu.Unlock()
+	// Use background context with our own timeout - not tied to HTTP request
+	ctx, cancel := context.WithTimeout(context.Background(), p.headerTo)
+	defer cancel()
+
 	body := ollamaChatRequest{
 		Model:     model,
 		Messages:  []ollamaMessage{{Role: "user", Content: "."}},
@@ -148,7 +161,7 @@ func (p *OllamaProvider) Chat(ctx context.Context, req llm.ChatRequest) (*llm.Ch
 	if req.Model != "" {
 		model = req.Model
 	}
-	p.ensureOllamaWarmed(ctx, model)
+	p.ensureOllamaWarmed(model)
 	start := time.Now()
 	messages := make([]ollamaMessage, 0, len(req.Messages))
 	for _, m := range req.Messages {
