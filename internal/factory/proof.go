@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
@@ -1117,6 +1118,92 @@ func ComputeFileSHA256(path string) (string, error) {
 		return "", fmt.Errorf("failed to read file %s: %w", path, err)
 	}
 	return ComputeSHA256(data), nil
+}
+
+// isGitRepo returns true if path is a git repository.
+func isGitRepo(path string) bool {
+	gitDir := filepath.Join(path, ".git")
+	info, err := os.Stat(gitDir)
+	if err != nil {
+		return false
+	}
+	return info.IsDir()
+}
+
+// verifyActualGitChanges verifies that actual git changes exist in workspace.
+// Returns: (hasChanges bool, changedFiles []string, commitSHA string, error error)
+// If no changes exist, returns false and empty arrays.
+// If changes exist but not committed, returns true but empty commitSHA.
+// If changes are committed, returns true and the commit SHA.
+func verifyActualGitChanges(workspacePath string) (bool, []string, string, error) {
+	// Check if workspace is a git repository
+	if !isGitRepo(workspacePath) {
+		return false, nil, "", fmt.Errorf("workspace is not a git repository: %s", workspacePath)
+	}
+
+	// Check for uncommitted changes
+	cmd := exec.Command("git", "-C", workspacePath, "status", "--porcelain")
+	output, err := cmd.Output()
+	if err != nil {
+		return false, nil, "", fmt.Errorf("git status failed: %w", err)
+	}
+
+	// If no changes, don't claim any files
+	statusOutput := strings.TrimSpace(string(output))
+	if len(statusOutput) == 0 {
+		return false, nil, "", nil
+	}
+
+	// Parse git status to get actual changed files
+	changedFiles := parseGitStatus(statusOutput)
+
+	// Check for commit SHA (work was committed)
+	commitSHA := ""
+	commitSHABytes, err := exec.Command("git", "-C", workspacePath, "rev-parse", "HEAD").Output()
+	if err == nil {
+		commitSHA = strings.TrimSpace(string(commitSHABytes))
+	}
+
+	return true, changedFiles, commitSHA, nil
+}
+
+// extractGitCommitSHA reads .zen-commit-sha file if it exists.
+func extractGitCommitSHA(workspacePath string) (string, error) {
+	commitSHAFile := filepath.Join(workspacePath, ".zen-commit-sha")
+	data, err := os.ReadFile(commitSHAFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			// File doesn't exist - workspace didn't create a commit
+			return "", nil
+		}
+		return "", err
+	}
+
+	commitSHA := strings.TrimSpace(string(data))
+	return commitSHA, nil
+}
+
+// parseGitStatus parses git status --porcelain output to extract changed files.
+// Returns a list of changed file paths.
+func parseGitStatus(gitStatusOutput string) []string {
+	var changedFiles []string
+	lines := strings.Split(gitStatusOutput, "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		// Git status --porcelain format: XY filename
+		// We only need the filename (2+ chars)
+		if len(line) > 3 {
+			filePathStr := line[3:]
+			// Skip untracked files in .zen-* directories (metadata)
+			if !strings.HasPrefix(filePathStr, ".zen-") {
+				changedFiles = append(changedFiles, filePathStr)
+			}
+		}
+	}
+	return changedFiles
 }
 
 // VerifyChecksum verifies that a file matches the expected SHA256 checksum.
