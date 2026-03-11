@@ -233,6 +233,13 @@ type ProofOfWorkSummary struct {
 	OutputLog  string   `json:"output_log,omitempty"`
 	ErrorLog   string   `json:"error_log,omitempty"`
 
+	// Structured inputs/outputs for audit trail
+	StructuredInputs  map[string]interface{} `json:"structured_inputs,omitempty"`
+	StructuredOutputs map[string]interface{} `json:"structured_outputs,omitempty"`
+	StepExitStatuses  map[string]int               `json:"step_exit_statuses,omitempty"` // step_name -> exit_code
+	OverallExitStatus int                           `json:"overall_exit_status"` // 0 = success
+	TouchedFiles      []TouchedFile                `json:"touched_files,omitempty"` // files read/written
+
 	// SR&ED
 	EvidenceItems []contracts.EvidenceItem `json:"evidence_items,omitempty"`
 
@@ -284,6 +291,15 @@ type ExecutionEnvironment struct {
 	Hostname     string `json:"hostname"`      // Hostname where proof was generated
 	FactoryVersion string `json:"factory_version"` // Factory version/tag
 	Timestamp    string `json:"timestamp"`      // When environment was captured (RFC3339)
+}
+
+// TouchedFile represents a file that was read or written during execution.
+type TouchedFile struct {
+	Path         string    `json:"path"`
+	Operation    string    `json:"operation"` // "read", "write", "delete"
+	Size         int64     `json:"size,omitempty"`
+	Checksum     string    `json:"checksum,omitempty"`
+	ModifiedAt   time.Time `json:"modified_at,omitempty"`
 }
 
 // ArtifactChecksums stores checksums for all proof-of-work files.
