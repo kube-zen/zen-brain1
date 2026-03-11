@@ -5,6 +5,7 @@ package main
 import (
 	"flag"
 	"log"
+	"net/http"
 	"os"
 	"strconv"
 
@@ -18,12 +19,14 @@ import (
 
 	"github.com/kube-zen/zen-brain1/api/v1alpha1"
 	"github.com/kube-zen/zen-brain1/internal/agent"
+	"github.com/kube-zen/zen-brain1/internal/config"
 	internalcontext "github.com/kube-zen/zen-brain1/internal/context"
 	"github.com/kube-zen/zen-brain1/internal/evidence"
 	"github.com/kube-zen/zen-brain1/internal/foreman"
 	"github.com/kube-zen/zen-brain1/internal/gate"
 	internalguardian "github.com/kube-zen/zen-brain1/internal/guardian"
 	internalledger "github.com/kube-zen/zen-brain1/internal/ledger"
+	internalruntime "github.com/kube-zen/zen-brain1/internal/runtime"
 	gatepkg "github.com/kube-zen/zen-brain1/pkg/gate"
 	"github.com/kube-zen/zen-brain1/pkg/guardian"
 	"github.com/kube-zen/zen-brain1/pkg/ledger"
@@ -67,6 +70,7 @@ func main() {
 	// Set up controller-runtime logger using klog
 	ctrl.SetLogger(klog.NewKlogr())
 
+	// Block 3: Create context early for strict runtime bootstrap
 	ctx := ctrl.SetupSignalHandler()
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
@@ -79,11 +83,64 @@ func main() {
 	if err != nil {
 		log.Fatalf("Foreman: failed to create manager: %v", err)
 	}
+
+	// Block 3: Canonical strict runtime bootstrap
+	profile := os.Getenv("ZEN_RUNTIME_PROFILE")
+	if profile == "" {
+		profile = "dev"
+	}
+
+	appCfg, errCfg := config.LoadConfig("")
+	if errCfg != nil {
+		log.Printf("Config load failed (%v), using defaults", errCfg)
+		appCfg = config.DefaultConfig()
+	}
+
+	strictRT, errRT := internalruntime.NewStrictRuntime(ctx, &internalruntime.StrictRuntimeConfig{
+		Profile:        profile,
+		Config:         appCfg,
+		EnableHealthCh: true,
+	})
+
+	if errRT != nil {
+		// In strict mode (prod/staging), fail immediately
+		if profile == "prod" || profile == "staging" {
+			log.Fatalf("Foreman: strict runtime bootstrap failed: %v", errRT)
+		}
+		// In dev mode, continue with warning
+		log.Printf("Foreman: runtime bootstrap warning (dev mode): %v", errRT)
+	}
+
+	// Start live health checker for dynamic readiness
+	var healthChecker *internalruntime.LiveHealthChecker
+	if strictRT != nil {
+		healthChecker = internalruntime.NewLiveHealthChecker(&internalruntime.LiveHealthCheckerConfig{
+			StrictRuntime: strictRT,
+			RefreshPeriod: 30e9, // 30 seconds
+		})
+		if err := healthChecker.Start(ctx); err != nil {
+			log.Printf("Foreman: warning: live health checker failed to start: %v", err)
+		} else {
+			defer healthChecker.Stop()
+		}
+	}
+
+	// Wire readiness check to use StrictRuntime
+	if strictRT != nil {
+		if err := mgr.AddReadyzCheck("readyz", func(req *http.Request) error {
+			return strictRT.CheckReadiness(req.Context())
+		}); err != nil {
+			log.Fatalf("Foreman: failed to add readyz check: %v", err)
+		}
+		log.Printf("Foreman: readiness check using strict runtime (profile=%s)", profile)
+	} else {
+		if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
+			log.Fatalf("Foreman: failed to add readyz check: %v", err)
+		}
+	}
+
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		log.Fatalf("Foreman: failed to add healthz check: %v", err)
-	}
-	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
-		log.Fatalf("Foreman: failed to add readyz check: %v", err)
 	}
 	log.Printf("Foreman: manager created, health probe server on %s", probeAddr)
 
