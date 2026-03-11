@@ -124,6 +124,15 @@ func Bootstrap(ctx context.Context, cfg *config.Config) (*Runtime, error) {
 
 	// 1) ZenContext from config
 	zcConfig := configToZenContextConfig(&cfg.ZenContext)
+	
+	// In strict mode, reject localhost defaults for Redis
+	if zcConfig != nil && zcConfig.Tier1Redis != nil && zcConfig.Tier1Redis.Addr == "localhost:6379" {
+		if reqZC || (cfg != nil && cfg.ZenContext.Required) {
+			return nil, fmt.Errorf("tier1_redis.addr cannot be localhost in strict mode (set TIER1_REDIS_ADDR)")
+		}
+		log.Printf("[Bootstrap] Warning: using localhost Redis in non-strict mode")
+	}
+	
 	zenContext, errZC := internalcontext.NewZenContext(zcConfig)
 	if errZC != nil {
 		report.ZenContext = CapabilityStatus{Name: "zen_context", Mode: ModeDegraded, Healthy: false, Required: reqZC, Message: errZC.Error()}

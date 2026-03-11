@@ -113,6 +113,13 @@ func (cb *CircuitBreaker) State() CircuitState {
 	return cb.state
 }
 
+// Failures returns the current failure count.
+func (cb *CircuitBreaker) Failures() int {
+	cb.mu.RLock()
+	defer cb.mu.RUnlock()
+	return cb.failures
+}
+
 // Stats returns circuit breaker statistics.
 func (cb *CircuitBreaker) Stats() map[string]interface{} {
 	cb.mu.RLock()
