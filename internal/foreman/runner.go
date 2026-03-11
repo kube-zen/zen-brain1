@@ -42,10 +42,5 @@ type ContextBinder interface {
 	WriteIntermediate(ctx context.Context, clusterID string, session *zenctx.SessionContext) error
 }
 
-// PlaceholderRunner is a TaskRunner that does no work and succeeds (Block 4.3 placeholder).
-type PlaceholderRunner struct{}
-
-// Run returns a completed outcome without performing work.
-func (PlaceholderRunner) Run(ctx context.Context, task *v1alpha1.BrainTask) (*TaskRunOutcome, error) {
-	return &TaskRunOutcome{ResultStatus: "completed"}, nil
-}
+// NOTE: PlaceholderRunner was removed. FactoryTaskRunner is the default and only runner.
+// The foreman always uses real execution through the Factory.
