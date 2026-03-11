@@ -86,3 +86,8 @@ template_manager.patch
 
 # Archive artifacts (do not commit)
 *.tar.gz
+scripts/
+
+# Python cache
+__pycache__/
+*.pyc
