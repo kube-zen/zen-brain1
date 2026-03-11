@@ -18,14 +18,17 @@ type RecommenderInterface = intelligence.FactoryRecommenderInterface
 // FactoryImpl implements the Factory interface.
 // It orchestrates task execution with bounded loops and proof-of-work generation.
 type FactoryImpl struct {
-	workspaceManager   WorkspaceManager
-	executor           Executor
-	proofOfWorkManager ProofOfWorkManager
-	templateManager    *TemplateManager
-	runtimeDir         string
-	tasks              map[string]*FactoryTaskSpec
-	tasksMutex         sync.RWMutex
-	recommender        RecommenderInterface // Optional intelligence recommender for template auto-selection
+	workspaceManager       WorkspaceManager
+	executor               Executor
+	proofOfWorkManager     ProofOfWorkManager
+	templateManager        *TemplateManager
+	runtimeDir             string
+	tasks                  map[string]*FactoryTaskSpec
+	tasksMutex             sync.RWMutex
+	recommender            RecommenderInterface // Optional intelligence recommender for template auto-selection
+	preflightMode          PreflightMode       // Mode for preflight checks (default: strict)
+	postflightStrictMode   bool               // If true, postflight failures are fatal (default: false)
+	proofVerificationMode   bool               // If true, run enhanced proof verification (default: false)
 }
 
 // NewFactory creates a new Factory instance.
@@ -36,14 +39,35 @@ func NewFactory(
 	runtimeDir string,
 ) *FactoryImpl {
 	return &FactoryImpl{
-		workspaceManager:   workspaceManager,
-		executor:           executor,
-		proofOfWorkManager: proofOfWorkManager,
-		templateManager:    NewTemplateManager(),
-		runtimeDir:         runtimeDir,
-		tasks:              make(map[string]*FactoryTaskSpec),
-		recommender:        nil,
+		workspaceManager:       workspaceManager,
+		executor:               executor,
+		proofOfWorkManager:     proofOfWorkManager,
+		templateManager:        NewTemplateManager(),
+		runtimeDir:             runtimeDir,
+		tasks:                  make(map[string]*FactoryTaskSpec),
+		recommender:            nil,
+		preflightMode:          PreflightModeStrict, // Default to strict mode
+		postflightStrictMode:   false,               // Default to non-strict postflight
+		proofVerificationMode:   false,               // Default to skip proof verification
 	}
+}
+
+// SetPreflightMode sets the preflight check mode.
+// Valid modes: "lenient" (non-fatal), "strict" (critical checks fail), "fail-closed" (all checks fail)
+func (f *FactoryImpl) SetPreflightMode(mode PreflightMode) {
+	f.preflightMode = mode
+}
+
+// SetPostflightStrictMode enables strict postflight verification.
+// When true, postflight failures are fatal to the task.
+func (f *FactoryImpl) SetPostflightStrictMode(strict bool) {
+	f.postflightStrictMode = strict
+}
+
+// SetProofVerificationMode enables enhanced proof verification.
+// When true, proof artifacts are comprehensively verified after generation.
+func (f *FactoryImpl) SetProofVerificationMode(enabled bool) {
+	f.proofVerificationMode = enabled
 }
 
 // SetRecommender sets the intelligence recommender for template auto-selection.
@@ -64,14 +88,36 @@ func (f *FactoryImpl) ExecuteTask(ctx context.Context, spec *FactoryTaskSpec) (*
 
 	log.Printf("[Factory] Executing task: task_id=%s session_id=%s title=%s", spec.ID, spec.SessionID, spec.Title)
 
-	// Run preflight checks (fail-closed)
-	preflightChecker := NewPreflightChecker(f.workspaceManager, nil)
-	preflightReport, err := preflightChecker.MustRunPreflightChecks(ctx, spec)
+	// Run preflight checks (using enhanced checker when mode is set)
+	var preflightReport interface{}
+	var err error
+	if f.preflightMode != "" {
+		// Use enhanced preflight checker with configured mode
+		enhancedChecker := NewEnhancedPreflightChecker(f.workspaceManager, nil, f.preflightMode)
+		if f.preflightMode == PreflightModeFailClosed {
+			preflightReport, err = enhancedChecker.MustRunEnhancedPreflightChecks(ctx, spec)
+		} else {
+			preflightReport, err = enhancedChecker.RunEnhancedPreflightChecks(ctx, spec)
+		}
+	} else {
+		// Use basic preflight checker (backward compatibility)
+		basicChecker := NewPreflightChecker(f.workspaceManager, nil)
+		preflightReport, err = basicChecker.MustRunPreflightChecks(ctx, spec)
+	}
+
 	if err != nil {
 		log.Printf("[Factory] Preflight checks failed: task_id=%s error=%v", spec.ID, err)
 		return f.createErrorResult(spec, err, "preflight checks failed"), err
 	}
-	log.Printf("[Factory] Preflight checks passed: task_id=%s checks=%d", spec.ID, len(preflightReport.Checks))
+
+	// Extract number of checks from report (type assertion)
+	var checkCount int
+	if report, ok := preflightReport.(*PreflightReport); ok {
+		checkCount = len(report.Checks)
+		log.Printf("[Factory] Preflight checks passed: task_id=%s mode=%s checks=%d", spec.ID, f.preflightMode, checkCount)
+	} else {
+		log.Printf("[Factory] Preflight checks passed: task_id=%s mode=%s", spec.ID, f.preflightMode)
+	}
 
 	// Store task
 	f.tasksMutex.Lock()
@@ -151,21 +197,57 @@ func (f *FactoryImpl) ExecuteTask(ctx context.Context, spec *FactoryTaskSpec) (*
 		result.GitDiffStatPath = artifact.Summary.GitDiffStatPath
 	}
 
-	// Run postflight verification (fail-closed)
-	postflightVerifier := NewPostflightVerifier(f.workspaceManager)
-	postflightReport, err := postflightVerifier.RunPostflightVerification(ctx, result, spec)
+	// Run postflight verification (using enhanced verifier when strict mode is enabled)
+	var postflightReport interface{}
+	if f.postflightStrictMode {
+		// Use enhanced postflight verifier with strict mode
+		enhancedVerifier := NewEnhancedPostflightVerifier(f.workspaceManager, true)
+		postflightReport, err = enhancedVerifier.RunEnhancedPostflightVerification(ctx, result, spec)
+	} else {
+		// Use basic postflight verifier
+		basicVerifier := NewPostflightVerifier(f.workspaceManager)
+		postflightReport, err = basicVerifier.RunPostflightVerification(ctx, result, spec)
+	}
+
 	if err != nil {
 		log.Printf("[Factory] Postflight verification failed: task_id=%s error=%v", spec.ID, err)
+		// In strict mode, this is fatal
+		if f.postflightStrictMode {
+			return result, err
+		}
 		// Non-fatal: log warning but don't fail the task
-	} else if !postflightReport.AllPassed {
-		log.Printf("[Factory] Postflight checks failed (non-fatal): task_id=%s failed=%d", spec.ID, len(postflightReport.Checks))
-		for _, check := range postflightReport.Checks {
-			if !check.Passed {
-				log.Printf("[Factory]   - %s: %s", check.Name, check.Message)
+	}
+
+	// Extract check results from report
+	if report, ok := postflightReport.(*PostflightReport); ok {
+		if !report.AllPassed {
+			log.Printf("[Factory] Postflight checks failed (non-fatal): task_id=%s failed=%d", spec.ID, len(report.Checks))
+			for _, check := range report.Checks {
+				if !check.Passed {
+					log.Printf("[Factory]   - %s: %s", check.Name, check.Message)
+				}
+			}
+		} else {
+			log.Printf("[Factory] Postflight checks passed: task_id=%s checks=%d", spec.ID, len(report.Checks))
+		}
+	}
+
+	// Run enhanced proof verification if enabled
+	if f.proofVerificationMode && artifact != nil {
+		proofVerifier := NewProofVerifier(f.proofOfWorkManager, f.postflightStrictMode)
+		verificationReport, err := proofVerifier.VerifyProof(ctx, artifact)
+		if err != nil {
+			log.Printf("[Factory] Proof verification failed: task_id=%s error=%v", spec.ID, err)
+		} else {
+			log.Printf("[Factory] Proof verification completed: task_id=%s score=%.2f passed=%v",
+				spec.ID, verificationReport.OverallScore, verificationReport.AllPassed)
+			if !verificationReport.AllPassed && len(verificationReport.Recommendations) > 0 {
+				log.Printf("[Factory] Proof verification recommendations: task_id=%s", spec.ID)
+				for _, rec := range verificationReport.Recommendations {
+					log.Printf("[Factory]   - %s", rec)
+				}
 			}
 		}
-	} else {
-		log.Printf("[Factory] Postflight checks passed: task_id=%s checks=%d", spec.ID, len(postflightReport.Checks))
 	}
 
 	log.Printf("[Factory] Task execution completed: task_id=%s status=%s duration=%s proof=%s", spec.ID, result.Status, result.Duration.String(), proofPath)
