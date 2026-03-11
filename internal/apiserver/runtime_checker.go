@@ -1,6 +1,7 @@
 package apiserver
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"sync"
@@ -52,3 +53,64 @@ func (c *RuntimeChecker) StartupCheck(r *http.Request) error {
 
 // Ensure RuntimeChecker implements zenhealth.Checker.
 var _ zenhealth.Checker = (*RuntimeChecker)(nil)
+
+// ============================================================================
+// LiveRuntimeChecker - Block 3 A002: Live readiness with dependency truth
+// ============================================================================
+
+// LiveRuntimeChecker implements zenhealth.Checker using StrictRuntime and LiveHealthChecker.
+// Unlike static RuntimeChecker, this reflects CURRENT dependency health, not just bootstrap state.
+type LiveRuntimeChecker struct {
+	strictRuntime *runtime.StrictRuntime
+	healthChecker *runtime.LiveHealthChecker
+	mu            sync.RWMutex
+}
+
+// NewLiveRuntimeChecker creates a live readiness checker.
+func NewLiveRuntimeChecker(strictRT *runtime.StrictRuntime, hc *runtime.LiveHealthChecker) *LiveRuntimeChecker {
+	return &LiveRuntimeChecker{
+		strictRuntime: strictRT,
+		healthChecker: hc,
+	}
+}
+
+// LivenessCheck returns nil if the process is alive (lightweight).
+func (c *LiveRuntimeChecker) LivenessCheck(*http.Request) error {
+	return nil
+}
+
+// ReadinessCheck performs LIVE dependency health check.
+// This reflects post-startup dependency loss, not just bootstrap state.
+func (c *LiveRuntimeChecker) ReadinessCheck(r *http.Request) error {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	// No strict runtime = always ready (dev mode without bootstrap)
+	if c.strictRuntime == nil {
+		return nil
+	}
+
+	// Use StrictRuntime's CheckReadiness which checks current health
+	ctx := context.Background()
+	if err := c.strictRuntime.CheckReadiness(ctx); err != nil {
+		return err
+	}
+
+	// Also check circuit breaker states
+	breakers := c.strictRuntime.GetAllCircuitBreakers()
+	for name, cb := range breakers {
+		if cb.State() == runtime.CircuitStateOpen {
+			return fmt.Errorf("circuit breaker open for %s", name)
+		}
+	}
+
+	return nil
+}
+
+// StartupCheck uses StrictRuntime validation for startup.
+func (c *LiveRuntimeChecker) StartupCheck(r *http.Request) error {
+	return c.ReadinessCheck(r)
+}
+
+// Ensure LiveRuntimeChecker implements zenhealth.Checker.
+var _ zenhealth.Checker = (*LiveRuntimeChecker)(nil)

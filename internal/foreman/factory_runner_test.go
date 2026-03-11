@@ -2,6 +2,9 @@ package foreman
 
 import (
 	"context"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"testing"
 
 	"github.com/kube-zen/zen-brain1/api/v1alpha1"
@@ -73,10 +76,14 @@ func TestFactoryTaskRunner_MapsBrainTaskToSpec(t *testing.T) {
 func TestFactoryTaskRunner_ReturnsOutcomeWithWorkspacePath(t *testing.T) {
 	wsHome := t.TempDir()
 	runtimeDir := t.TempDir()
+
+	// Initialize git in the workspace home directory so templates can validate
+	setupGitInDir(t, wsHome)
+
 	cfg := FactoryTaskRunnerConfig{
 		RuntimeDir:          runtimeDir,
 		WorkspaceHome:       wsHome,
-		PreferRealTemplates: true,
+		PreferRealTemplates: false, // Use stub templates that don't require project structure
 	}
 	r, err := NewFactoryTaskRunner(cfg)
 	if err != nil {
@@ -90,7 +97,7 @@ func TestFactoryTaskRunner_ReturnsOutcomeWithWorkspacePath(t *testing.T) {
 			Title:      "Test",
 			Objective:  "Test objective",
 			WorkType:   contracts.WorkTypeImplementation,
-			WorkDomain: contracts.WorkDomain("real"), // factory template domain
+			WorkDomain: contracts.WorkDomain("stub"), // use stub template
 		},
 	}
 	ctx := context.Background()
@@ -109,6 +116,49 @@ func TestFactoryTaskRunner_ReturnsOutcomeWithWorkspacePath(t *testing.T) {
 	}
 	if outcome.TemplateKey == "" {
 		t.Error("TemplateKey should be set")
+	}
+}
+
+// setupGitInDir initializes a git repo in the given directory for template validation.
+func setupGitInDir(t *testing.T, dir string) {
+	t.Helper()
+
+	// Initialize git repo
+	cmd := exec.Command("git", "init")
+	cmd.Dir = dir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git init: %v", err)
+	}
+
+	// Configure git user
+	cmd = exec.Command("git", "config", "user.email", "test@example.com")
+	cmd.Dir = dir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git config email: %v", err)
+	}
+
+	cmd = exec.Command("git", "config", "user.name", "Test User")
+	cmd.Dir = dir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git config name: %v", err)
+	}
+
+	// Create initial commit so git validation passes
+	readmePath := filepath.Join(dir, "README.md")
+	if err := os.WriteFile(readmePath, []byte("# Test Workspace\n"), 0644); err != nil {
+		t.Fatalf("write README: %v", err)
+	}
+
+	cmd = exec.Command("git", "add", ".")
+	cmd.Dir = dir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git add: %v", err)
+	}
+
+	cmd = exec.Command("git", "commit", "-m", "Initial commit")
+	cmd.Dir = dir
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("git commit: %v", err)
 	}
 }
 

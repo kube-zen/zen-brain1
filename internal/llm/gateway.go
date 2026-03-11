@@ -161,6 +161,11 @@ func (g *Gateway) retryWithRetryable(ctx context.Context, providerName string, f
 			lastErr = err
 			return err
 		}
+		// Handle case where provider returns nil response without error
+		if resp == nil {
+			lastErr = fmt.Errorf("provider returned nil response without error")
+			return lastErr
+		}
 		lastResponse = resp
 		return nil
 	})
@@ -473,6 +478,14 @@ func (g *Gateway) chatWithPreferred(ctx context.Context, req llm.ChatRequest, pr
 		g.stats.RoutingErrors++
 		g.stats.mu.Unlock()
 		return nil, fmt.Errorf("chat request failed (provider=%s): %w", providerName, err)
+	}
+
+	// Defensive check: provider returned nil response without error
+	if resp == nil {
+		g.stats.mu.Lock()
+		g.stats.RoutingErrors++
+		g.stats.mu.Unlock()
+		return nil, fmt.Errorf("provider %s returned nil response without error", providerName)
 	}
 
 	// Log routing information
