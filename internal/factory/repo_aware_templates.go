@@ -103,6 +103,14 @@ func (r *WorkTypeTemplateRegistry) registerRepoAwareImplementationTemplate() {
 				Timeout:     30,
 				MaxRetries:  1,
 			},
+			{
+				Name:        "Commit work to git",
+				Description: "Create git commit with structured message for cryptographic provenance",
+				Command:     "if [ -f .zen-repo-files-changed ] && [ -s .zen-repo-files-changed ]; then git add . && git commit -m \"feat: Implement work item {{.work_item_id}}\n\n- Template: implementation:real\n- Work Item: {{.work_item_id}}\n- Title: {{.title}}\n- Files changed: $(wc -l < .zen-repo-files-changed)\n\nProof-of-work: $(if [ -f PROOF_OF_WORK.md ]; then cat PROOF_OF_WORK.md | head -c 20; else echo 'none'; fi)\" && COMMIT_SHA=$(git rev-parse HEAD) && echo \"$COMMIT_SHA\" > .zen-commit-sha && echo \"Committed: $COMMIT_SHA\"; else echo 'No changes to commit'; fi",
+				Variables:   map[string]string{},
+				Timeout:     30,
+				MaxRetries:  1,
+			},
 		},
 	}
 	r.registerTemplate(template)
@@ -188,6 +196,14 @@ func (r *WorkTypeTemplateRegistry) registerRepoAwareBugFixTemplate() {
 				Name:        "Generate honest proof",
 				Description: "Generate proof with actual target files referenced",
 				Command:     "cat > PROOF_OF_WORK.md << 'PROOF_EOF'\n# Proof of Work: Bug Fix\n\n## Work Item\n- **ID:** {{.work_item_id}}\n- **Title:** {{.title}}\n\n## Target Files Examined\n$(if [ -f .zen-target-files ]; then while read -r file; do echo \"- $file\"; done < .zen-target-files; else echo 'No target files'; fi)\n\n## Real Repository Files Changed\n$(if [ -f .zen-repo-files-changed ]; then while read -r file; do echo \"- $file\"; done < .zen-repo-files-changed; else echo 'No repo files changed'; fi)\n\n## Metadata Files Created\n$(if [ -f .zen-metadata-files ]; then while read -r file; do echo \"- $file\"; done < .zen-metadata-files; else echo 'No metadata files'; fi)\n\n## Git Status\n$(git status --short 2>/dev/null | head -20)\nPROOF_EOF\nrm -f .zen-project-info .zen-target-files .zen-metadata-files && echo 'Proof generated'",
+				Variables:   map[string]string{},
+				Timeout:     30,
+				MaxRetries:  1,
+			},
+			{
+				Name:        "Commit work to git",
+				Description: "Create git commit with structured message for cryptographic provenance",
+				Command:     "if [ -f .zen-repo-files-changed ] && [ -s .zen-repo-files-changed ]; then git add . && git commit -m \"fix: Implement work item {{.work_item_id}}\n\n- Template: bugfix:real\n- Work Item: {{.work_item_id}}\n- Title: {{.title}}\n- Files changed: $(wc -l < .zen-repo-files-changed)\n\nProof-of-work: $(if [ -f PROOF_OF_WORK.md ]; then cat PROOF_OF_WORK.md | head -c 20; else echo 'none'; fi)\" && COMMIT_SHA=$(git rev-parse HEAD) && echo \"$COMMIT_SHA\" > .zen-commit-sha && echo \"Committed: $COMMIT_SHA\"; else echo 'No changes to commit'; fi",
 				Variables:   map[string]string{},
 				Timeout:     30,
 				MaxRetries:  1,
@@ -289,6 +305,14 @@ func (r *WorkTypeTemplateRegistry) registerRepoAwareRefactorTemplate() {
 				Timeout:     30,
 				MaxRetries:  1,
 			},
+			{
+				Name:        "Commit work to git",
+				Description: "Create git commit with structured message for cryptographic provenance",
+				Command:     "if [ -f .zen-repo-files-changed ] && [ -s .zen-repo-files-changed ]; then git add . && git commit -m \"refactor: Refactor code for work item {{.work_item_id}}\n\n- Template: refactor:real\n- Work Item: {{.work_item_id}}\n- Title: {{.title}}\n- Files changed: $(wc -l < .zen-repo-files-changed)\n\nProof-of-work: $(if [ -f PROOF_OF_WORK.md ]; then cat PROOF_OF_WORK.md | head -c 20; else echo 'none'; fi)\" && COMMIT_SHA=$(git rev-parse HEAD) && echo \"$COMMIT_SHA\" > .zen-commit-sha && echo \"Committed: $COMMIT_SHA\"; else echo 'No changes to commit'; fi",
+				Variables:   map[string]string{},
+				Timeout:     30,
+				MaxRetries:  1,
+			},
 		},
 	}
 	r.registerTemplate(template)
@@ -353,6 +377,14 @@ func (r *WorkTypeTemplateRegistry) registerRepoAwareDocsTemplate() {
 				Name:        "Generate honest proof",
 				Description: "Generate proof distinguishing repo files from metadata",
 				Command:     "if [ -f .zen-target-info ]; then . .zen-target-info; fi && cat > PROOF_OF_WORK.md << 'PROOF_EOF'\n# Proof of Work: Documentation\n\n## Work Item\n- **ID:** {{.work_item_id}}\n- **Title:** {{.title}}\n\n## Real Repository Files Changed\n$(if [ -f .zen-repo-files-changed ]; then while read -r file; do echo \"- $file\"; done < .zen-repo-files-changed; else echo 'No repo files changed'; fi)\n\n## Metadata Files Created\n$(if [ -f .zen-metadata-files ]; then while read -r file; do echo \"- $file\"; done < .zen-metadata-files; else echo 'No metadata files'; fi)\n\n## Git Status\n$(git status --short 2>/dev/null | head -20)\nPROOF_EOF\nrm -f .zen-project-info .zen-target-info .zen-doc-dirs .zen-metadata-files .zen-repo-files-changed && echo 'Proof generated'",
+				Variables:   map[string]string{},
+				Timeout:     30,
+				MaxRetries:  1,
+			},
+			{
+				Name:        "Commit work to git",
+				Description: "Create git commit with structured message for cryptographic provenance",
+				Command:     "if [ -f .zen-repo-files-changed ] && [ -s .zen-repo-files-changed ]; then git add . && git commit -m \"docs: Add documentation for work item {{.work_item_id}}\n\n- Template: docs:real\n- Work Item: {{.work_item_id}}\n- Title: {{.title}}\n- Files changed: $(wc -l < .zen-repo-files-changed)\n\nProof-of-work: $(if [ -f PROOF_OF_WORK.md ]; then cat PROOF_OF_WORK.md | head -c 20; else echo 'none'; fi)\" && COMMIT_SHA=$(git rev-parse HEAD) && echo \"$COMMIT_SHA\" > .zen-commit-sha && echo \"Committed: $COMMIT_SHA\"; else echo 'No changes to commit'; fi",
 				Variables:   map[string]string{},
 				Timeout:     30,
 				MaxRetries:  1,
@@ -431,6 +463,14 @@ func (r *WorkTypeTemplateRegistry) registerRepoAwareTestTemplate() {
 				Timeout:     30,
 				MaxRetries:  1,
 			},
+			{
+				Name:        "Commit work to git",
+				Description: "Create git commit with structured message for cryptographic provenance",
+				Command:     "if [ -f .zen-repo-files-changed ] && [ -s .zen-repo-files-changed ]; then git add . && git commit -m \"test: Add tests for work item {{.work_item_id}}\n\n- Template: test:real\n- Work Item: {{.work_item_id}}\n- Title: {{.title}}\n- Files changed: $(wc -l < .zen-repo-files-changed)\n\nProof-of-work: $(if [ -f PROOF_OF_WORK.md ]; then cat PROOF_OF_WORK.md | head -c 20; else echo 'none'; fi)\" && COMMIT_SHA=$(git rev-parse HEAD) && echo \"$COMMIT_SHA\" > .zen-commit-sha && echo \"Committed: $COMMIT_SHA\"; else echo 'No changes to commit'; fi",
+				Variables:   map[string]string{},
+				Timeout:     30,
+				MaxRetries:  1,
+			},
 		},
 	}
 	r.registerTemplate(template)
@@ -487,6 +527,14 @@ func (r *WorkTypeTemplateRegistry) registerRepoAwareCICDTemplate() {
 				Name:        "Generate honest proof",
 				Description: "Generate proof with CI/CD workflow changes",
 				Command:     "cat > PROOF_OF_WORK.md << 'PROOF_EOF'\n# Proof of Work: CI/CD\n\n## Work Item\n- **ID:** {{.work_item_id}}\n- **Title:** {{.title}}\n\n## Real Repository Files Changed\n$(if [ -f .zen-repo-files-changed ]; then while read -r file; do echo \"- $file\"; done < .zen-repo-files-changed; else echo 'No repo files changed'; fi)\n\n## Metadata Files Created\n$(if [ -f .zen-metadata-files ]; then while read -r file; do echo \"- $file\"; done < .zen-metadata-files; else echo 'No metadata files'; fi)\n\n## Git Status\n$(git status --short 2>/dev/null | head -20)\nPROOF_EOF\nrm -f .zen-project-info .zen-metadata-files .zen-repo-files-changed && echo 'Proof generated'",
+				Variables:   map[string]string{},
+				Timeout:     30,
+				MaxRetries:  1,
+			},
+			{
+				Name:        "Commit work to git",
+				Description: "Create git commit with structured message for cryptographic provenance",
+				Command:     "if [ -f .zen-repo-files-changed ] && [ -s .zen-repo-files-changed ]; then git add . && git commit -m \"cicd: Add CI/CD for work item {{.work_item_id}}\n\n- Template: cicd:real\n- Work Item: {{.work_item_id}}\n- Title: {{.title}}\n- Files changed: $(wc -l < .zen-repo-files-changed)\n\nProof-of-work: $(if [ -f PROOF_OF_WORK.md ]; then cat PROOF_OF_WORK.md | head -c 20; else echo 'none'; fi)\" && COMMIT_SHA=$(git rev-parse HEAD) && echo \"$COMMIT_SHA\" > .zen-commit-sha && echo \"Committed: $COMMIT_SHA\"; else echo 'No changes to commit'; fi",
 				Variables:   map[string]string{},
 				Timeout:     30,
 				MaxRetries:  1,
@@ -575,6 +623,14 @@ func (r *WorkTypeTemplateRegistry) registerRepoAwareMonitoringTemplate() {
 				Timeout:     30,
 				MaxRetries:  1,
 			},
+			{
+				Name:        "Commit work to git",
+				Description: "Create git commit with structured message for cryptographic provenance",
+				Command:     "if [ -f .zen-repo-files-changed ] && [ -s .zen-repo-files-changed ]; then git add . && git commit -m \"monitoring: Add monitoring for work item {{.work_item_id}}\n\n- Template: monitoring:real\n- Work Item: {{.work_item_id}}\n- Title: {{.title}}\n- Files changed: $(wc -l < .zen-repo-files-changed)\n\nProof-of-work: $(if [ -f PROOF_OF_WORK.md ]; then cat PROOF_OF_WORK.md | head -c 20; else echo 'none'; fi)\" && COMMIT_SHA=$(git rev-parse HEAD) && echo \"$COMMIT_SHA\" > .zen-commit-sha && echo \"Committed: $COMMIT_SHA\"; else echo 'No changes to commit'; fi",
+				Variables:   map[string]string{},
+				Timeout:     30,
+				MaxRetries:  1,
+			},
 		},
 	}
 	r.registerTemplate(template)
@@ -647,6 +703,14 @@ func (r *WorkTypeTemplateRegistry) registerRepoAwareMigrationTemplate() {
 				Name:        "Generate honest proof",
 				Description: "Generate proof with migration changes",
 				Command:     "cat > PROOF_OF_WORK.md << 'PROOF_EOF'\n# Proof of Work: Migration\n\n## Work Item\n- **ID:** {{.work_item_id}}\n- **Title:** {{.title}}\n\n## Real Repository Files Changed\n$(if [ -f .zen-repo-files-changed ]; then while read -r file; do echo \"- $file\"; done < .zen-repo-files-changed; else echo 'No repo files changed'; fi)\n\n## Git Status\n$(git status --short 2>/dev/null | head -20)\nPROOF_EOF\nrm -f .zen-project-info .zen-target-info .zen-repo-files-changed && echo 'Proof generated'",
+				Variables:   map[string]string{},
+				Timeout:     30,
+				MaxRetries:  1,
+			},
+			{
+				Name:        "Commit work to git",
+				Description: "Create git commit with structured message for cryptographic provenance",
+				Command:     "if [ -f .zen-repo-files-changed ] && [ -s .zen-repo-files-changed ]; then git add . && git commit -m \"migration: Add migration for work item {{.work_item_id}}\n\n- Template: migration:real\n- Work Item: {{.work_item_id}}\n- Title: {{.title}}\n- Files changed: $(wc -l < .zen-repo-files-changed)\n\nProof-of-work: $(if [ -f PROOF_OF_WORK.md ]; then cat PROOF_OF_WORK.md | head -c 20; else echo 'none'; fi)\" && COMMIT_SHA=$(git rev-parse HEAD) && echo \"$COMMIT_SHA\" > .zen-commit-sha && echo \"Committed: $COMMIT_SHA\"; else echo 'No changes to commit'; fi",
 				Variables:   map[string]string{},
 				Timeout:     30,
 				MaxRetries:  1,
