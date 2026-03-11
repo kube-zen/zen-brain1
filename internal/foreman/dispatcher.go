@@ -8,16 +8,14 @@ import (
 )
 
 // TaskDispatcher dispatches a scheduled BrainTask to a worker (Block 4.3).
-// When nil, Foreman only updates status to Scheduled; no actual dispatch.
+//
+// When nil, Foreman only updates status to Scheduled; no actual dispatch occurs.
+// This is the canonical way to disable dispatch (e.g., for testing or dry-run mode).
+//
+// The real implementation is Worker (see worker.go), which implements TaskDispatcher
+// with a goroutine pool, session affinity, and context binding support.
 type TaskDispatcher interface {
 	// Dispatch sends the task to a worker. Called after admission and status transition to Scheduled.
+	// Implementations must be non-blocking; enqueue the task and return immediately.
 	Dispatch(ctx context.Context, task *v1alpha1.BrainTask) error
-}
-
-// NoOpDispatcher is a TaskDispatcher that does nothing (placeholder until workers are implemented).
-type NoOpDispatcher struct{}
-
-// Dispatch is a no-op.
-func (NoOpDispatcher) Dispatch(ctx context.Context, task *v1alpha1.BrainTask) error {
-	return nil
 }

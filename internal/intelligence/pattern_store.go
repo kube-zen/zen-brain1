@@ -228,6 +228,16 @@ func (s *JSONPatternStore) GetAllFailureStats(ctx context.Context) ([]FailureSta
 	return s.failureStore.GetAllFailureStats(ctx)
 }
 
+// StoreFailureStats persists failure statistics (delegates to failure store).
+func (s *JSONPatternStore) StoreFailureStats(ctx context.Context, stats *FailureStatistics) error {
+	return s.failureStore.StoreFailureStats(ctx, stats)
+}
+
+// ClearFailureStats clears all stored failure statistics (delegates to failure store).
+func (s *JSONPatternStore) ClearFailureStats(ctx context.Context) error {
+	return s.failureStore.ClearFailureStats(ctx)
+}
+
 // ClearPatterns clears all stored patterns.
 func (s *JSONPatternStore) ClearPatterns(ctx context.Context) error {
 	s.mu.Lock()

@@ -25,10 +25,11 @@ type PolicyGate struct {
 	client client.Client
 }
 
-// NewPolicyGate returns a ZenGate that enforces BrainPolicy CRDs. Requires a non-nil Client.
+// NewPolicyGate returns a ZenGate that enforces BrainPolicy CRDs.
+// Requires a non-nil Client; panics if client is nil (programming error).
 func NewPolicyGate(c client.Client) gatepkg.ZenGate {
 	if c == nil {
-		return NewStubGate()
+		panic("NewPolicyGate: client is nil (programming error)")
 	}
 	return &PolicyGate{client: c}
 }
