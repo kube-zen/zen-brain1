@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kube-zen/zen-brain1/internal/config"
 	"github.com/kube-zen/zen-brain1/internal/factory"
 	"github.com/kube-zen/zen-brain1/pkg/contracts"
 )
