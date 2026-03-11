@@ -152,10 +152,11 @@ type ExecutionResult struct {
 	GitCommit string `json:"git_commit,omitempty"`
 
 	// Error handling
-	Error          string `json:"error,omitempty"`
-	ErrorCode      string `json:"error_code,omitempty"`
-	NeedsRetry     bool   `json:"needs_retry,omitempty"`
-	Recommendation string `json:"recommendation,omitempty"` // merge, retry, escalate
+	Error              string `json:"error,omitempty"`
+	ErrorCode          string `json:"error_code,omitempty"`
+	NeedsRetry         bool   `json:"needs_retry,omitempty"`
+	Recommendation     string `json:"recommendation,omitempty"` // merge, retry, escalate
+	VerificationFailed bool   `json:"verification_failed,omitempty"` // postflight checks failed
 
 	// SR&ED
 	SREDEvidence []contracts.EvidenceItem `json:"sred_evidence,omitempty"`
