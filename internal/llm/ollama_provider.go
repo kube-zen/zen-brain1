@@ -159,10 +159,6 @@ func (p *OllamaProvider) Chat(ctx context.Context, req llm.ChatRequest) (*llm.Ch
 		Messages:  messages,
 		Stream:    false,
 		KeepAlive: p.keepAlive,
-		Options: map[string]any{
-			"num_gpu": 0,
-			"num_ctx": 2048,
-		},
 	}
 	payload, err := json.Marshal(body)
 	if err != nil {
