@@ -177,7 +177,11 @@ func runFactoryProof() {
 	showJSON := hasFlag("--json")
 
 	// Look for proof artifacts
-	runtimeDir := "/tmp/zen-brain-factory"
+	// Use ZEN_BRAIN_RUNTIME_DIR if set, otherwise use ZEN_BRAIN_HOME/runtime
+	runtimeDir := os.Getenv("ZEN_BRAIN_RUNTIME_DIR")
+	if runtimeDir == "" {
+		runtimeDir = filepath.Join(config.HomeDir(), "runtime")
+	}
 	proofDir := filepath.Join(runtimeDir, "proof-of-work")
 
 	// Find most recent proof for this task
@@ -468,7 +472,11 @@ func printProofOfWork(proof *factory.ProofOfWorkArtifact, showFull bool) {
 
 func buildFactory() (*factory.FactoryImpl, error) {
 	// Build with default configuration (isolated directory mode)
-	runtimeDir := "/tmp/zen-brain-factory"
+	// Use ZEN_BRAIN_RUNTIME_DIR if set, otherwise use ZEN_BRAIN_HOME/runtime
+	runtimeDir := os.Getenv("ZEN_BRAIN_RUNTIME_DIR")
+	if runtimeDir == "" {
+		runtimeDir = filepath.Join(config.HomeDir(), "runtime")
+	}
 
 	workspaceManager := factory.NewWorkspaceManager(runtimeDir)
 	executor := factory.NewBoundedExecutor()
