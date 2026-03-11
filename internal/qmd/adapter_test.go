@@ -2,6 +2,7 @@ package qmd
 
 import (
 	"context"
+	"os/exec"
 	"strings"
 	"testing"
 	"time"
@@ -347,6 +348,13 @@ func TestRefreshIndex_MissingRepoPath(t *testing.T) {
 }
 
 func TestRefreshIndex_MissingPaths(t *testing.T) {
+	// NOTE: This test requires qmd to NOT be installed
+	// If qmd is installed, this test will pass unexpectedly
+	// TODO: Update test to use mock client or skipif qmd installed
+	if _, err := exec.LookPath("qmd"); err == nil {
+		t.Skip("qmd is installed, skipping test that expects qmd to be missing")
+	}
+
 	client := &Client{
 		qmdPath: "qmd",
 		timeout: DefaultTimeout,
@@ -365,6 +373,7 @@ func TestRefreshIndex_MissingPaths(t *testing.T) {
 	// Should fail because qmd isn't actually installed
 	if err == nil {
 		t.Error("Expected error (qmd not installed)")
+		return // Prevent panic on nil error
 	}
 
 	// But the error should be about qmd, not about missing paths
@@ -420,6 +429,13 @@ func TestSearch_MissingQuery(t *testing.T) {
 }
 
 func TestSearch_DefaultLimit(t *testing.T) {
+	// NOTE: This test requires qmd to NOT be installed
+	// If qmd is installed, this test will pass unexpectedly
+	// TODO: Update test to use mock client or skipif qmd installed
+	if _, err := exec.LookPath("qmd"); err == nil {
+		t.Skip("qmd is installed, skipping test that expects qmd to be missing")
+	}
+
 	client := &Client{
 		qmdPath: "qmd",
 		timeout: DefaultTimeout,
@@ -439,6 +455,7 @@ func TestSearch_DefaultLimit(t *testing.T) {
 	// Should fail because qmd isn't actually installed
 	if err == nil {
 		t.Error("Expected error (qmd not installed)")
+		return // Prevent continuation on nil error
 	}
 }
 
