@@ -2,6 +2,7 @@ package factory
 
 import (
 	"context"
+	"os"
 	"testing"
 	"time"
 )
@@ -290,6 +291,297 @@ func TestPostflightReport_AllPassed(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPostflightVerifier_checkFilesCreated(t *testing.T) {
+	verifier := NewPostflightVerifier(nil)
+	ctx := context.Background()
+
+	t.Run("files_exist", func(t *testing.T) {
+		// Create temp directory and files
+		tmpDir := t.TempDir()
+		file1 := tmpDir + "/test1.go"
+		file2 := tmpDir + "/test2.go"
+
+		if err := os.WriteFile(file1, []byte("package test"), 0644); err != nil {
+			t.Fatalf("Failed to create file1: %v", err)
+		}
+		if err := os.WriteFile(file2, []byte("package test"), 0644); err != nil {
+			t.Fatalf("Failed to create file2: %v", err)
+		}
+
+		result := &ExecutionResult{
+			WorkspacePath: tmpDir,
+			FilesChanged:  []string{file1, file2},
+			Success:       true,
+		}
+
+		spec := &FactoryTaskSpec{ID: "test-task"}
+
+		checkResult, err := verifier.checkFilesCreated(ctx, result, spec)
+		if err != nil {
+			t.Fatalf("checkFilesCreated failed: %v", err)
+		}
+
+		if !checkResult.Passed {
+			t.Errorf("Expected check to pass, got: %s - %s", checkResult.Message, checkResult.Details)
+		}
+	})
+
+	t.Run("files_missing", func(t *testing.T) {
+		tmpDir := t.TempDir()
+
+		result := &ExecutionResult{
+			WorkspacePath: tmpDir,
+			FilesChanged:  []string{"nonexistent1.go", "nonexistent2.go"},
+			Success:       true,
+		}
+
+		spec := &FactoryTaskSpec{ID: "test-task"}
+
+		checkResult, err := verifier.checkFilesCreated(ctx, result, spec)
+		if err != nil {
+			t.Fatalf("checkFilesCreated failed: %v", err)
+		}
+
+		if checkResult.Passed {
+			t.Error("Expected check to fail for missing files")
+		}
+
+		if checkResult.Details == "" {
+			t.Error("Expected details about missing files")
+		}
+	})
+
+	t.Run("no_files_declared", func(t *testing.T) {
+		result := &ExecutionResult{
+			FilesChanged: []string{},
+			Success:      true,
+		}
+
+		spec := &FactoryTaskSpec{ID: "test-task"}
+
+		checkResult, err := verifier.checkFilesCreated(ctx, result, spec)
+		if err != nil {
+			t.Fatalf("checkFilesCreated failed: %v", err)
+		}
+
+		if !checkResult.Passed {
+			t.Error("Expected check to pass when no files declared")
+		}
+	})
+}
+
+func TestPostflightVerifier_checkTestsRan(t *testing.T) {
+	verifier := NewPostflightVerifier(nil)
+	ctx := context.Background()
+
+	t.Run("tests_ran_with_go_output", func(t *testing.T) {
+		result := &ExecutionResult{
+			TestsRun:    []string{"TestExample"},
+			TestsPassed: true,
+			ExecutionSteps: []*ExecutionStep{
+				{
+					StepID: "test-1",
+					Name:   "Run tests",
+					Status: StepStatusCompleted,
+					Output: "=== RUN   TestExample\n--- PASS: TestExample (0.00s)\nPASS\nok  example 0.001s",
+				},
+			},
+		}
+
+		spec := &FactoryTaskSpec{ID: "test-task"}
+
+		checkResult, err := verifier.checkTestsRan(ctx, result, spec)
+		if err != nil {
+			t.Fatalf("checkTestsRan failed: %v", err)
+		}
+
+		if !checkResult.Passed {
+			t.Errorf("Expected check to pass for real test output, got: %s", checkResult.Message)
+		}
+	})
+
+	t.Run("tests_ran_with_pytest_output", func(t *testing.T) {
+		result := &ExecutionResult{
+			TestsRun:    []string{"test_example"},
+			TestsPassed: true,
+			ExecutionSteps: []*ExecutionStep{
+				{
+					StepID: "pytest-1",
+					Name:   "pytest",
+					Status: StepStatusCompleted,
+					Output: "test_example.py::test_example PASSED    [100%]\n1 passed in 0.01s",
+				},
+			},
+		}
+
+		spec := &FactoryTaskSpec{ID: "test-task"}
+
+		checkResult, err := verifier.checkTestsRan(ctx, result, spec)
+		if err != nil {
+			t.Fatalf("checkTestsRan failed: %v", err)
+		}
+
+		if !checkResult.Passed {
+			t.Errorf("Expected check to pass for pytest output, got: %s", checkResult.Message)
+		}
+	})
+
+	t.Run("tests_declared_but_no_steps", func(t *testing.T) {
+		result := &ExecutionResult{
+			TestsRun:       []string{"TestExample"},
+			TestsPassed:    false,
+			ExecutionSteps: []*ExecutionStep{},
+		}
+
+		spec := &FactoryTaskSpec{ID: "test-task"}
+
+		checkResult, err := verifier.checkTestsRan(ctx, result, spec)
+		if err != nil {
+			t.Fatalf("checkTestsRan failed: %v", err)
+		}
+
+		if checkResult.Passed {
+			t.Error("Expected check to fail when tests declared but no steps found")
+		}
+	})
+
+	t.Run("test_steps_with_fake_output", func(t *testing.T) {
+		result := &ExecutionResult{
+			TestsRun:    []string{"TestExample"},
+			TestsPassed: true,
+			ExecutionSteps: []*ExecutionStep{
+				{
+					StepID: "test-1",
+					Name:   "test",
+					Status: StepStatusCompleted,
+					Output: "Simulating test execution",
+				},
+			},
+		}
+
+		spec := &FactoryTaskSpec{ID: "test-task"}
+
+		checkResult, err := verifier.checkTestsRan(ctx, result, spec)
+		if err != nil {
+			t.Fatalf("checkTestsRan failed: %v", err)
+		}
+
+		if checkResult.Passed {
+			t.Error("Expected check to fail for fake test output")
+		}
+	})
+
+	t.Run("no_tests_declared", func(t *testing.T) {
+		result := &ExecutionResult{
+			TestsRun:       []string{},
+			TestsPassed:    false,
+			ExecutionSteps: []*ExecutionStep{},
+		}
+
+		spec := &FactoryTaskSpec{ID: "test-task"}
+
+		checkResult, err := verifier.checkTestsRan(ctx, result, spec)
+		if err != nil {
+			t.Fatalf("checkTestsRan failed: %v", err)
+		}
+
+		if !checkResult.Passed {
+			t.Error("Expected check to pass when no tests declared")
+		}
+	})
+}
+
+func TestPostflightVerifier_RunPostflightVerification_WithNewChecks(t *testing.T) {
+	verifier := NewPostflightVerifier(nil)
+	ctx := context.Background()
+
+	t.Run("all_checks_included", func(t *testing.T) {
+		result := &ExecutionResult{
+			TaskID:    "test-task",
+			SessionID: "test-session",
+			Success:   true,
+		}
+
+		spec := &FactoryTaskSpec{
+			ID:        "test-task",
+			SessionID: "test-session",
+		}
+
+		report, err := verifier.RunPostflightVerification(ctx, result, spec)
+		if err != nil {
+			t.Fatalf("RunPostflightVerification failed: %v", err)
+		}
+
+		// Verify new checks are included
+		checkNames := make(map[string]bool)
+		for _, check := range report.Checks {
+			checkNames[check.Name] = check.Passed
+		}
+
+		expectedChecks := []string{
+			"execution_completed",
+			"workspace_clean",
+			"artifacts_generated",
+			"files_verified",
+			"tests_verified",
+			"git_status",
+			"proof_of_work",
+		}
+
+		for _, expected := range expectedChecks {
+			if _, ok := checkNames[expected]; !ok {
+				t.Errorf("Expected check '%s' to be present", expected)
+			}
+		}
+
+		if len(report.Checks) < len(expectedChecks) {
+			t.Errorf("Expected at least %d checks, got %d", len(expectedChecks), len(report.Checks))
+		}
+	})
+
+	t.Run("files_verified_check_fails_on_missing_files", func(t *testing.T) {
+		result := &ExecutionResult{
+			TaskID:         "test-task",
+			SessionID:      "test-session",
+			Success:        true,
+			FilesChanged:   []string{"/nonexistent/file.go"},
+			WorkspacePath:  "/tmp",
+		}
+
+		spec := &FactoryTaskSpec{
+			ID:        "test-task",
+			SessionID: "test-session",
+		}
+
+		report, err := verifier.RunPostflightVerification(ctx, result, spec)
+		if err != nil {
+			t.Fatalf("RunPostflightVerification failed: %v", err)
+		}
+
+		// Should have at least one failed check (files_verified)
+		if report.AllPassed {
+			t.Error("Expected AllPassed=false when files are missing")
+		}
+
+		// Find files_verified check
+		var filesCheck *PostflightCheckResult
+		for i := range report.Checks {
+			if report.Checks[i].Name == "files_verified" {
+				filesCheck = &report.Checks[i]
+				break
+			}
+		}
+
+		if filesCheck == nil {
+			t.Fatal("files_verified check not found")
+		}
+
+		if filesCheck.Passed {
+			t.Error("Expected files_verified check to fail for missing files")
+		}
+	})
 }
 
 // Mock implementations for testing

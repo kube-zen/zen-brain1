@@ -83,6 +83,8 @@ func (p *PostflightVerifier) RunPostflightVerification(ctx context.Context, resu
 		{"execution_completed", p.checkExecutionCompleted},
 		{"workspace_clean", p.checkWorkspaceClean},
 		{"artifacts_generated", p.checkArtifactsGenerated},
+		{"files_verified", p.checkFilesCreated},          // NEW: Verify files were actually created
+		{"tests_verified", p.checkTestsRan},             // NEW: Verify tests actually ran
 		{"git_status", p.checkGitStatus},
 		{"proof_of_work", p.checkProofOfWork},
 	}
@@ -310,6 +312,146 @@ func (p *PostflightVerifier) checkProofOfWork(ctx context.Context, result *Execu
 		Passed:   true,
 		Message:  "Proof-of-work verification not implemented yet",
 		Details:  "Future: verify checksums, signatures, artifact integrity",
+		Duration: time.Since(start),
+	}, nil
+}
+
+// checkFilesCreated verifies that declared files were actually created/modified.
+func (p *PostflightVerifier) checkFilesCreated(ctx context.Context, result *ExecutionResult, spec *FactoryTaskSpec) (PostflightCheckResult, error) {
+	start := time.Now()
+
+	if len(result.FilesChanged) == 0 {
+		return PostflightCheckResult{
+			Name:     "files_verified",
+			Passed:   true,
+			Message:  "No files declared as changed",
+			Duration: time.Since(start),
+		}, nil
+	}
+
+	// Verify each declared file exists
+	missingFiles := []string{}
+	for _, filePath := range result.FilesChanged {
+		// Use absolute path
+		absPath := filePath
+		if !filepath.IsAbs(filePath) && result.WorkspacePath != "" {
+			absPath = filepath.Join(result.WorkspacePath, filePath)
+		}
+
+		if _, err := os.Stat(absPath); os.IsNotExist(err) {
+			missingFiles = append(missingFiles, filePath)
+		}
+	}
+
+	if len(missingFiles) > 0 {
+		return PostflightCheckResult{
+			Name:     "files_verified",
+			Passed:   false,
+			Message:  fmt.Sprintf("%d files declared as changed but not found", len(missingFiles)),
+			Details:  strings.Join(missingFiles, ", "),
+			Duration: time.Since(start),
+		}, nil
+	}
+
+	return PostflightCheckResult{
+		Name:     "files_verified",
+		Passed:   true,
+		Message:  fmt.Sprintf("All %d declared files verified", len(result.FilesChanged)),
+		Duration: time.Since(start),
+	}, nil
+}
+
+// checkTestsRan verifies that declared tests actually ran.
+func (p *PostflightVerifier) checkTestsRan(ctx context.Context, result *ExecutionResult, spec *FactoryTaskSpec) (PostflightCheckResult, error) {
+	start := time.Now()
+
+	// If no tests declared, pass
+	if len(result.TestsRun) == 0 {
+		return PostflightCheckResult{
+			Name:     "tests_verified",
+			Passed:   true,
+			Message:  "No tests declared",
+			Duration: time.Since(start),
+		}, nil
+	}
+
+	// Check execution steps for test-related steps
+	testSteps := []*ExecutionStep{}
+	for _, step := range result.ExecutionSteps {
+		stepName := strings.ToLower(step.Name)
+		if strings.Contains(stepName, "test") || strings.Contains(stepName, "verify") {
+			testSteps = append(testSteps, step)
+		}
+	}
+
+	// If tests declared but no test steps found, that's suspicious
+	if len(result.TestsRun) > 0 && len(testSteps) == 0 {
+		return PostflightCheckResult{
+			Name:     "tests_verified",
+			Passed:   false,
+			Message:  "Tests declared but no test execution steps found",
+			Details:  fmt.Sprintf("Declared: %v", result.TestsRun),
+			Duration: time.Since(start),
+		}, nil
+	}
+
+	// Check if test steps have meaningful output (not just echo)
+	for _, step := range testSteps {
+		if step.Output == "" {
+			continue
+		}
+
+		output := strings.ToLower(step.Output)
+
+		// Exclude obvious simulation patterns
+		if strings.Contains(output, "simulating") ||
+			strings.Contains(output, "echo ") ||
+			strings.Contains(output, "placeholder") {
+			continue
+		}
+
+		// Real test output requires MULTIPLE patterns (not just one)
+		// This distinguishes "test passed" from "simulating test execution"
+		patternCount := 0
+		realPatterns := []string{
+			"=== run",      // Go test
+			"--- pass",     // Go test
+			"--- fail",     // Go test
+			"passed",       // Generic
+			"failed",       // Generic
+			"ok ",          // Go test
+			"error:",       // Error output
+			"assertion",    // Test assertion
+			"expect",       // Test expectation
+			"::",           // pytest pattern (test_file.py::test_name)
+		}
+
+		for _, pattern := range realPatterns {
+			if strings.Contains(output, pattern) {
+				patternCount++
+			}
+		}
+
+		// Need at least 2 patterns to be considered real test output
+		// (e.g., "=== RUN" and "--- PASS", or "passed" and "ok")
+		if patternCount >= 2 {
+			// Test produced real output
+			return PostflightCheckResult{
+				Name:     "tests_verified",
+				Passed:   result.TestsPassed,
+				Message:  fmt.Sprintf("Test execution verified (%d test steps)", len(testSteps)),
+				Details:  fmt.Sprintf("Tests passed: %v, Steps: %d", result.TestsPassed, len(testSteps)),
+				Duration: time.Since(start),
+			}, nil
+		}
+	}
+
+	// Tests declared but no real test output found
+	return PostflightCheckResult{
+		Name:     "tests_verified",
+		Passed:   false,
+		Message:  "Tests declared but test steps lack real output",
+		Details:  "Test steps found but output doesn't match real test patterns",
 		Duration: time.Since(start),
 	}, nil
 }
