@@ -34,7 +34,7 @@ clusters:
     deploy:
       use_zencontext: false
       use_ollama: true
-      use_zen_glm: true
+      use_zen_glm: false
       ollama:
         enabled: true
         kind: StatefulSet
