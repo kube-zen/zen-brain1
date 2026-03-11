@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/kube-zen/zen-brain1/internal/intelligence"
 	"github.com/kube-zen/zen-brain1/internal/session"
@@ -89,15 +90,94 @@ func runIntelligence() {
 		workType := os.Args[3]
 		workDomain := os.Args[4]
 
-		fmt.Printf("Failure Diagnosis for %s/%s:\n", workType, workDomain)
+		fmt.Printf("Enhanced Failure Diagnosis for %s/%s:\n", workType, workDomain)
 		fmt.Println()
 
+		// INTEGRATION: Use enhanced failure analyzer
+		failureAnalyzer := intelligence.NewFailureAnalyzer(patternStore)
+		
+		// Get root cause analysis
+		rootCauses, err := failureAnalyzer.AnalyzeRootCauses(ctx)
+		if err != nil {
+			fmt.Printf("Root cause analysis failed: %v\n", err)
+		} else {
+			// Filter to relevant work type/domain
+			relevantRootCauses := []intelligence.RootCauseAnalysis{}
+			for _, rc := range rootCauses {
+				if rc.WorkType == workType && rc.WorkDomain == workDomain {
+					relevantRootCauses = append(relevantRootCauses, rc)
+				}
+			}
+			
+			if len(relevantRootCauses) > 0 {
+				fmt.Println("ROOT CAUSE ANALYSIS:")
+				for i, rc := range relevantRootCauses {
+					fmt.Printf("\n%d. %s (confidence: %.2f)\n", i+1, rc.RootCause, rc.Confidence)
+					fmt.Printf("   Failure Mode:  %s\n", rc.FailureMode)
+					fmt.Printf("   Occurrences:   %d\n", rc.Occurrences)
+					if len(rc.Evidence) > 0 {
+						fmt.Printf("   Evidence:\n")
+						for _, e := range rc.Evidence {
+							fmt.Printf("     - %s\n", e)
+						}
+					}
+					if rc.MitigationStrategy != "" {
+						fmt.Printf("   Mitigation:    %s\n", rc.MitigationStrategy)
+					}
+				}
+				fmt.Println()
+			}
+		}
+
+		// Get correlations
+		correlations, err := failureAnalyzer.AnalyzeCorrelations(ctx)
+		if err != nil {
+			fmt.Printf("Correlation analysis failed: %v\n", err)
+		} else {
+			// Filter to relevant
+			relevantCorrelations := []intelligence.FailureCorrelation{}
+			for _, c := range correlations {
+				if strings.Contains(c.FailureMode, workType) || strings.Contains(c.CorrelatedFactor, workDomain) {
+					relevantCorrelations = append(relevantCorrelations, c)
+				}
+			}
+			
+			if len(relevantCorrelations) > 0 {
+				fmt.Println("FAILURE CORRELATIONS:")
+				for i, c := range relevantCorrelations {
+					fmt.Printf("%d. %s <-> %s\n", i+1, c.FailureMode, c.CorrelatedFactor)
+					fmt.Printf("   Type:     %s\n", c.CorrelationType)
+					fmt.Printf("   Strength: %.2f (sample size: %d)\n", c.Strength, c.SampleSize)
+				}
+				fmt.Println()
+			}
+		}
+
+		// Get predictive model
+		model, err := failureAnalyzer.BuildPredictiveModel(ctx, workType, workDomain)
+		if err != nil {
+			fmt.Printf("Predictive model failed: %v\n", err)
+		} else if model != nil {
+			fmt.Println("PREDICTIVE MODEL:")
+			fmt.Printf("   Predicted Failure: %s (probability: %.2f)\n", model.PredictedFailureMode, model.Probability)
+			fmt.Printf("   Confidence:        %.2f\n", model.Confidence)
+			if len(model.RiskFactors) > 0 {
+				fmt.Printf("   Risk Factors:\n")
+				for _, rf := range model.RiskFactors {
+					fmt.Printf("     - %s\n", rf)
+				}
+			}
+			fmt.Println()
+		}
+
+		// Fallback to basic statistics if enhanced analysis not available
 		failureStats, err := patternStore.GetFailureStats(ctx, workType, workDomain)
 		if err != nil {
-			fmt.Printf("No failure statistics found: %v\n", err)
+			fmt.Printf("No basic failure statistics found: %v\n", err)
 			return
 		}
 
+		fmt.Println("BASIC STATISTICS:")
 		fmt.Printf("Total failures:      %d\n", failureStats.TotalFailures)
 
 		if failureStats.TemplateName != "" {

@@ -24,11 +24,12 @@ type CapabilityStatus struct {
 
 // RuntimeReport is the unified Block 3 capability report.
 type RuntimeReport struct {
-	ZenContext CapabilityStatus `json:"zen_context"`
-	Tier1Hot   CapabilityStatus  `json:"tier1_hot"`
-	Tier2Warm  CapabilityStatus  `json:"tier2_warm"`
-	Tier3Cold  CapabilityStatus  `json:"tier3_cold"`
-	Journal    CapabilityStatus  `json:"journal"`
-	Ledger     CapabilityStatus  `json:"ledger"`
-	MessageBus CapabilityStatus  `json:"message_bus"`
+	ZenContext      CapabilityStatus `json:"zen_context"`
+	Tier1Hot        CapabilityStatus  `json:"tier1_hot"`
+	Tier2Warm       CapabilityStatus  `json:"tier2_warm"`
+	Tier3Cold       CapabilityStatus  `json:"tier3_cold"`
+	Journal         CapabilityStatus  `json:"journal"`
+	Ledger          CapabilityStatus  `json:"ledger"`
+	MessageBus      CapabilityStatus  `json:"message_bus"`
+	PreflightReport *EnhancedPreflightReport `json:"preflight_report,omitempty"` // Enhanced preflight results
 }

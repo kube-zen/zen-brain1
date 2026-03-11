@@ -40,6 +40,49 @@ func Doctor(ctx context.Context, cfg *config.Config, report *RuntimeReport) {
 	printCapability("MessageBus", report.MessageBus, profile)
 	fmt.Println()
 
+	// Show enhanced preflight results (if available)
+	if report.PreflightReport != nil {
+		fmt.Println("PREFLIGHT CHECKS:")
+		fmt.Printf("  Profile:         %s\n", report.PreflightReport.Profile)
+		fmt.Printf("  Strict Mode:     %v\n", report.PreflightReport.StrictMode)
+		fmt.Printf("  All Passed:      %v\n", report.PreflightReport.AllPassed)
+		fmt.Printf("  Critical Passed: %v\n", report.PreflightReport.CriticalPassed)
+		fmt.Printf("  Duration:        %v\n", report.PreflightReport.Duration)
+		
+		if len(report.PreflightReport.Checks) > 0 {
+			fmt.Println("\n  Detailed Checks:")
+			for _, check := range report.PreflightReport.Checks {
+				status := "✓"
+				if !check.Healthy {
+					status = "✗"
+				}
+				required := ""
+				if check.Required {
+					required = " [required]"
+				}
+				fmt.Printf("    %s %-20s %s%s\n", status, check.Name+":", check.Mode, required)
+				if check.Message != "" {
+					fmt.Printf("       └─ %s\n", check.Message)
+				}
+			}
+		}
+		
+		if len(report.PreflightReport.Warnings) > 0 {
+			fmt.Println("\n  Warnings:")
+			for _, warning := range report.PreflightReport.Warnings {
+				fmt.Printf("    ⚠️  %s\n", warning)
+			}
+		}
+		
+		if len(report.PreflightReport.Recommendations) > 0 {
+			fmt.Println("\n  Recommendations:")
+			for _, rec := range report.PreflightReport.Recommendations {
+				fmt.Printf("    💡 %s\n", rec)
+			}
+		}
+		fmt.Println()
+	}
+
 	// Show circuit breaker states (A002)
 	fmt.Println("CIRCUIT BREAKERS:")
 	registry := GetCircuitBreakerRegistry()
