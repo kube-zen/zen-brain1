@@ -46,10 +46,12 @@ func TestDoctor_PrintsSummary(t *testing.T) {
 	if !strings.Contains(output, "Tier1 (Hot)") {
 		t.Error("Doctor output missing Tier1")
 	}
+	// Doctor outputs "healthy=true" for healthy capabilities
 	if !strings.Contains(output, "healthy=true") {
 		t.Error("Doctor output missing healthy status")
 	}
-	if !strings.Contains(output, "required=true") {
+	// Doctor outputs "[required]" for required capabilities
+	if !strings.Contains(output, "[required]") {
 		t.Error("Doctor output missing required status")
 	}
 }
