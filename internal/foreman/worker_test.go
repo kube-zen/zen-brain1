@@ -115,21 +115,8 @@ func TestWorker_PersistsOutcomeAnnotations(t *testing.T) {
 	}
 }
 
-func TestPlaceholderRunner_ReturnsOutcome(t *testing.T) {
-	var r PlaceholderRunner
-	ctx := context.Background()
-	task := &v1alpha1.BrainTask{}
-	outcome, err := r.Run(ctx, task)
-	if err != nil {
-		t.Fatalf("Run: %v", err)
-	}
-	if outcome == nil {
-		t.Fatal("outcome should not be nil")
-	}
-	if outcome.ResultStatus != "completed" {
-		t.Errorf("ResultStatus: got %q", outcome.ResultStatus)
-	}
-}
+// PlaceholderRunner was removed - FactoryTaskRunner is now the default runner.
+// This test has been removed.
 
 func TestWorker_ProcessOne_NoDoubleRun(t *testing.T) {
 	task := &v1alpha1.BrainTask{

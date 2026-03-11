@@ -1,6 +1,6 @@
 // Command apiserver runs the zen-brain API server (Block 3.4).
 // Serves /healthz, /readyz and optional future REST endpoints.
-// Block 3: bootstrap runtime first; /readyz reflects real dependency state; /api/v1/health returns runtime report.
+// Block 3: StrictRuntime bootstrap; /readyz reflects LIVE dependency state; /api/v1/health returns runtime report.
 package main
 
 import (
@@ -24,7 +24,12 @@ func main() {
 		addr = ":" + p
 	}
 
-	// Block 3: canonical bootstrap from config
+	// Block 3: Canonical strict runtime bootstrap from config
+	profile := os.Getenv("ZEN_RUNTIME_PROFILE")
+	if profile == "" {
+		profile = detectProfile()
+	}
+
 	cfg, errLoad := config.LoadConfig("")
 	if errLoad != nil || cfg == nil {
 		if errLoad != nil {
@@ -32,15 +37,50 @@ func main() {
 		}
 		cfg = config.DefaultConfig()
 	}
-	rt, errBootstrap := runtime.Bootstrap(ctx, cfg)
-	if errBootstrap != nil {
-		log.Printf("Runtime bootstrap warning: %v", errBootstrap)
-	}
-	if rt != nil && rt.Report != nil {
-		log.Println("Block 3 capability banner:", capabilityBanner(rt.Report))
+
+	// Use StrictRuntime for fail-closed behavior
+	strictRT, errRT := runtime.NewStrictRuntime(ctx, &runtime.StrictRuntimeConfig{
+		Profile:        profile,
+		Config:         cfg,
+		EnableHealthCh: true, // Enable live health monitoring
+	})
+
+	if errRT != nil {
+		// In strict mode (prod/staging), fail immediately
+		if profile == "prod" || profile == "staging" {
+			log.Fatalf("Strict runtime bootstrap failed: %v", errRT)
+		}
+		// In dev mode, continue with warning
+		log.Printf("Runtime bootstrap warning (dev mode): %v", errRT)
 	}
 
-	checker := apiserver.NewRuntimeChecker(rt.Report)
+	// Start live health checker for dynamic readiness
+	var healthChecker *runtime.LiveHealthChecker
+	if strictRT != nil {
+		healthChecker = runtime.NewLiveHealthChecker(&runtime.LiveHealthCheckerConfig{
+			StrictRuntime:  strictRT,
+			RefreshPeriod:   30e9, // 30 seconds
+		})
+		if err := healthChecker.Start(ctx); err != nil {
+			log.Printf("Warning: live health checker failed to start: %v", err)
+		} else {
+			defer healthChecker.Stop()
+			log.Printf("Live health checker started (30s refresh)")
+		}
+	}
+
+	var rt *runtime.Runtime
+	var report *runtime.RuntimeReport
+	if strictRT != nil {
+		rt = strictRT.Runtime()
+		report = strictRT.Report()
+	}
+	if report != nil {
+		log.Println("Block 3 capability banner:", capabilityBanner(report))
+	}
+
+	// Use live readiness checker instead of static report
+	checker := apiserver.NewLiveRuntimeChecker(strictRT, healthChecker)
 	srv := apiserver.New(addr, checker)
 	srv.AuthAPIKey = os.Getenv("ZEN_API_KEY")
 	if srv.AuthAPIKey != "" {
@@ -111,9 +151,23 @@ func main() {
 	if err := srv.Shutdown(context.Background()); err != nil {
 		log.Printf("Shutdown error: %v", err)
 	}
-	if rt != nil {
-		_ = rt.Close()
+	if strictRT != nil {
+		_ = strictRT.Close()
 	}
+}
+
+// detectProfile detects runtime profile from environment
+func detectProfile() string {
+	if os.Getenv("ZEN_BRAIN_STRICT_RUNTIME") != "" {
+		return "prod"
+	}
+	if os.Getenv("KUBERNETES_SERVICE_HOST") != "" {
+		if os.Getenv("ZEN_BRAIN_ENV") == "production" {
+			return "prod"
+		}
+		return "staging"
+	}
+	return "dev"
 }
 
 func capabilityBanner(r *runtime.RuntimeReport) string {

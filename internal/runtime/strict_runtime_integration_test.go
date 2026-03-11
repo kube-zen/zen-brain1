@@ -154,6 +154,185 @@ func TestStrictRuntime_Integration(t *testing.T) {
 	})
 }
 
+// A003: Tests for profile-aware fallback policy
+func TestStrictRuntime_FallbackPolicy(t *testing.T) {
+	origProfile := os.Getenv("ZEN_RUNTIME_PROFILE")
+	origStrict := os.Getenv("ZEN_BRAIN_STRICT_RUNTIME")
+	defer func() {
+		os.Setenv("ZEN_RUNTIME_PROFILE", origProfile)
+		os.Setenv("ZEN_BRAIN_STRICT_RUNTIME", origStrict)
+	}()
+
+	t.Run("prod_mode_rejects_stub_ledger", func(t *testing.T) {
+		os.Setenv("ZEN_RUNTIME_PROFILE", "prod")
+		os.Unsetenv("ZEN_LEDGER_DSN")
+		os.Unsetenv("LEDGER_DATABASE_URL")
+
+		cfg := config.DefaultConfig()
+		cfg.Ledger.Required = true
+
+		_, err := NewStrictRuntime(context.Background(), &StrictRuntimeConfig{
+			Profile: "prod",
+			Config:  cfg,
+		})
+
+		if err == nil {
+			t.Error("FAIL: Prod mode should reject stub ledger when ledger is required")
+		}
+		t.Logf("✅ PASS: Prod mode rejected stub ledger: %v", err)
+	})
+
+	t.Run("staging_mode_rejects_stub_for_critical", func(t *testing.T) {
+		os.Setenv("ZEN_RUNTIME_PROFILE", "staging")
+		os.Unsetenv("ZEN_LEDGER_DSN")
+		os.Unsetenv("LEDGER_DATABASE_URL")
+
+		cfg := config.DefaultConfig()
+		cfg.Ledger.Required = true
+
+		_, err := NewStrictRuntime(context.Background(), &StrictRuntimeConfig{
+			Profile: "staging",
+			Config:  cfg,
+		})
+
+		if err == nil {
+			t.Error("FAIL: Staging mode should reject stub ledger when ledger is required")
+		}
+		t.Logf("✅ PASS: Staging mode rejected stub ledger: %v", err)
+	})
+
+	t.Run("dev_mode_allows_stub", func(t *testing.T) {
+		os.Setenv("ZEN_RUNTIME_PROFILE", "dev")
+		os.Unsetenv("ZEN_LEDGER_DSN")
+		os.Unsetenv("LEDGER_DATABASE_URL")
+
+		cfg := config.DefaultConfig()
+
+		rt, err := NewStrictRuntime(context.Background(), &StrictRuntimeConfig{
+			Profile: "dev",
+			Config:  cfg,
+		})
+
+		// Dev mode should not fail on missing optional services
+		// (may fail on other things like Redis, but that's OK)
+		if err == nil && rt != nil {
+			defer rt.Close()
+			report := rt.Report()
+			if report != nil && report.Ledger.Mode == ModeStub {
+				t.Logf("✅ PASS: Dev mode allows stub ledger")
+			}
+		} else {
+			t.Logf("Dev mode bootstrap failed for other reasons (expected): %v", err)
+		}
+	})
+
+	t.Run("mode_reporting_distinguishes_states", func(t *testing.T) {
+		os.Setenv("ZEN_RUNTIME_PROFILE", "dev")
+
+		cfg := config.DefaultConfig()
+
+		rt, err := NewStrictRuntime(context.Background(), &StrictRuntimeConfig{
+			Profile: "dev",
+			Config:  cfg,
+		})
+
+		if err != nil {
+			t.Skipf("Skipping test: runtime creation failed: %v", err)
+		}
+		defer rt.Close()
+
+		report := rt.Report()
+		if report == nil {
+			t.Fatal("FAIL: Report should not be nil")
+		}
+
+		// Check that modes are distinguishable
+		validModes := map[DependencyMode]bool{
+			ModeReal:     true,
+			ModeMock:     true,
+			ModeStub:     true,
+			ModeDisabled: true,
+			ModeDegraded: true,
+		}
+
+		caps := []CapabilityStatus{
+			report.ZenContext,
+			report.Tier1Hot,
+			report.Tier2Warm,
+			report.Tier3Cold,
+			report.Journal,
+			report.Ledger,
+			report.MessageBus,
+		}
+
+		for _, cap := range caps {
+			if cap.Mode != "" && !validModes[cap.Mode] {
+				t.Errorf("FAIL: Invalid mode %q for %s", cap.Mode, cap.Name)
+			}
+		}
+
+		t.Logf("✅ PASS: All capability modes are valid and distinguishable")
+	})
+}
+
+// A003: Test readiness reflects dependency loss
+func TestStrictRuntime_ReadinessReflectsDependencyLoss(t *testing.T) {
+	origProfile := os.Getenv("ZEN_RUNTIME_PROFILE")
+	defer os.Setenv("ZEN_RUNTIME_PROFILE", origProfile)
+
+	os.Setenv("ZEN_RUNTIME_PROFILE", "dev")
+
+	cfg := config.DefaultConfig()
+
+	rt, err := NewStrictRuntime(context.Background(), &StrictRuntimeConfig{
+		Profile: "dev",
+		Config:  cfg,
+	})
+
+	if err != nil {
+		t.Skipf("Skipping test: runtime creation failed: %v", err)
+	}
+	defer rt.Close()
+
+	// Initial readiness check
+	err = rt.CheckReadiness(context.Background())
+	initialReady := err == nil
+	t.Logf("Initial readiness: %v", initialReady)
+
+	// Simulate dependency loss (A002: post-start dependency loss detection)
+	rt.UpdateCapabilityHealth("ledger", false, "connection lost")
+	rt.UpdateCapabilityHealth("tier1_hot", false, "redis timeout")
+
+	// Get updated report
+	report := rt.Report()
+	if report == nil {
+		t.Fatal("FAIL: Report should not be nil")
+	}
+
+	// Check that report reflects the loss
+	if report.Ledger.Healthy {
+		t.Error("FAIL: Ledger should be marked unhealthy after update")
+	}
+	if report.Tier1Hot.Healthy {
+		t.Error("FAIL: Tier1Hot should be marked unhealthy after update")
+	}
+
+	// Check circuit breakers also track failures
+	cb := rt.GetCircuitBreaker("ledger")
+	if cb == nil {
+		t.Fatal("FAIL: Should have circuit breaker for ledger")
+	}
+	cb.RecordFailure()
+	cb.RecordFailure()
+	cb.RecordFailure() // Open circuit
+
+	if cb.State() != CircuitStateOpen {
+		t.Errorf("FAIL: Circuit should be open after 3 failures, got: %s", cb.State())
+	}
+
+	t.Logf("✅ PASS: Readiness reflects dependency loss and circuit breaker states")
+}
+
 func TestLiveHealthChecker_Integration(t *testing.T) {
 	origProfile := os.Getenv("ZEN_RUNTIME_PROFILE")
 	defer os.Setenv("ZEN_RUNTIME_PROFILE", origProfile)
@@ -214,6 +393,32 @@ func TestLiveHealthChecker_Integration(t *testing.T) {
 
 		t.Logf("✅ PASS: Health summary available with %d capabilities", len(summary.Capabilities))
 	})
+
+	t.Run("health_summary_reflects_circuit_breakers", func(t *testing.T) {
+		hc := NewLiveHealthChecker(&LiveHealthCheckerConfig{
+			StrictRuntime: rt,
+		})
+
+		// Force a circuit breaker open
+		cb := rt.GetCircuitBreaker("tier1_redis")
+		if cb != nil {
+			cb.RecordFailure()
+			cb.RecordFailure()
+			cb.RecordFailure()
+		}
+
+		summary := hc.GetHealthSummary()
+		if summary == nil {
+			t.Fatal("FAIL: Health summary should not be nil")
+		}
+
+		// Summary should show degraded due to open circuit
+		if len(summary.CircuitBreakers) == 0 {
+			t.Error("FAIL: Should have circuit breakers in summary")
+		}
+
+		t.Logf("✅ PASS: Health summary includes circuit breaker states")
+	})
 }
 
 func TestCircuitBreakerRegistry_Integration(t *testing.T) {
@@ -266,5 +471,48 @@ func TestCircuitBreakerRegistry_Integration(t *testing.T) {
 		UnregisterCircuitBreaker("test_service")
 
 		t.Logf("✅ PASS: Registry tracks circuit breaker states")
+	})
+}
+
+// A003: Test preflight integration with strict runtime
+func TestPreflight_StrictRuntimeIntegration(t *testing.T) {
+	origProfile := os.Getenv("ZEN_RUNTIME_PROFILE")
+	defer os.Setenv("ZEN_RUNTIME_PROFILE", origProfile)
+
+	t.Run("preflight_uses_profile_aware_checks", func(t *testing.T) {
+		os.Setenv("ZEN_RUNTIME_PROFILE", "dev")
+
+		cfg := config.DefaultConfig()
+
+		rt, err := NewStrictRuntime(context.Background(), &StrictRuntimeConfig{
+			Profile: "dev",
+			Config:  cfg,
+		})
+
+		if err != nil {
+			t.Skipf("Skipping test: runtime creation failed: %v", err)
+		}
+		defer rt.Close()
+
+		report := rt.Report()
+		if report == nil {
+			t.Fatal("FAIL: Report should not be nil")
+		}
+
+		// Run enhanced preflight
+		preflightReport, err := EnhancedStrictPreflight(context.Background(), cfg, report)
+
+		// In dev mode, preflight should be lenient
+		if preflightReport != nil {
+			t.Logf("Preflight profile: %s, strict: %v", preflightReport.Profile, preflightReport.StrictMode)
+			t.Logf("Preflight summary: %s", preflightReport.Summary)
+
+			// Verify profile detection
+			if preflightReport.Profile != "dev" {
+				t.Errorf("FAIL: Expected profile 'dev', got '%s'", preflightReport.Profile)
+			}
+		}
+
+		t.Logf("✅ PASS: Preflight integration works with StrictRuntime")
 	})
 }

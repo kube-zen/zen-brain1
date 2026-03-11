@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/kube-zen/zen-brain1/internal/analyzer"
@@ -155,15 +156,45 @@ func runAnalyzeHistory() {
 		return
 	}
 
-	// Human-readable summary
-	fmt.Printf("Analysis history for %s (%d analyses):\n\n", workItemID, len(history))
+	// Human-readable summary with Jira linkage (A005)
+	fmt.Printf("=== Analysis History for %s ===\n\n", workItemID)
+	fmt.Printf("Total analyses: %d\n\n", len(history))
+
 	for i, result := range history {
-		fmt.Printf("%d. Analysis at %s\n", i+1, result.AnalyzedAt.Format(time.RFC3339))
-		fmt.Printf("   Confidence: %.2f  Tasks: %d  Analyzer: %s\n",
-			result.Confidence, len(result.BrainTaskSpecs), result.AnalyzerVersion)
+		fmt.Printf("Analysis #%d\n", i+1)
+		fmt.Printf("  Time:       %s\n", result.AnalyzedAt.Format(time.RFC3339))
+		fmt.Printf("  Confidence: %.2f\n", result.Confidence)
+		fmt.Printf("  Tasks:      %d\n", len(result.BrainTaskSpecs))
+		fmt.Printf("  Analyzer:   %s\n", result.AnalyzerVersion)
+
+		// Jira linkage (A005)
 		if result.WorkItemSnapshot != nil {
-			fmt.Printf("   Jira Key: %s  Work Type: %s\n",
-				result.WorkItemSnapshot.SourceKey, result.WorkItemSnapshot.WorkType)
+			fmt.Printf("  Jira Key:   %s\n", result.WorkItemSnapshot.SourceKey)
+			fmt.Printf("  Work Type:  %s\n", result.WorkItemSnapshot.WorkType)
+			fmt.Printf("  Work Domain: %s\n", result.WorkItemSnapshot.WorkDomain)
+		}
+
+		// Cost tracking
+		if result.EstimatedTotalCostUSD > 0 {
+			fmt.Printf("  Est. Cost:  $%.2f\n", result.EstimatedTotalCostUSD)
+		}
+
+		// Task summary
+		if len(result.BrainTaskSpecs) > 0 {
+			fmt.Printf("  Task List:\n")
+			for j, spec := range result.BrainTaskSpecs {
+				fmt.Printf("    %d. %s\n", j+1, spec.Title)
+			}
+		}
+		fmt.Println()
+	}
+
+	// Show confidence trend (A005)
+	if len(history) > 1 {
+		fmt.Println("📈 CONFIDENCE TREND")
+		for i, result := range history {
+			bar := strings.Repeat("█", int(result.Confidence*10))
+			fmt.Printf("  #%d: %s %.0f%%\n", i+1, bar, result.Confidence*100)
 		}
 		fmt.Println()
 	}
@@ -215,9 +246,10 @@ func runAnalyzeLatest() {
 	var workItem *contracts.WorkItem
 	if latest.WorkItemSnapshot != nil {
 		workItem = &contracts.WorkItem{
-			ID:       latest.WorkItemSnapshot.ID,
-			Title:    latest.WorkItemSnapshot.Title,
-			WorkType: contracts.WorkType(latest.WorkItemSnapshot.WorkType),
+			ID:         latest.WorkItemSnapshot.ID,
+			Title:      latest.WorkItemSnapshot.Title,
+			WorkType:   contracts.WorkType(latest.WorkItemSnapshot.WorkType),
+			WorkDomain: contracts.WorkDomain(latest.WorkItemSnapshot.WorkDomain),
 			Source: contracts.SourceMetadata{
 				IssueKey: latest.WorkItemSnapshot.SourceKey,
 			},
@@ -226,6 +258,15 @@ func runAnalyzeLatest() {
 
 	richResult := analyzer.EnrichForRichAnalysis(latest, workItem)
 	printRichAnalysisSummary(richResult, showFull)
+
+	// Show history context (A005)
+	if len(history) > 1 {
+		fmt.Printf("\n📚 HISTORY CONTEXT\n")
+		fmt.Printf("  This is analysis #%d of %d for this work item\n", len(history), len(history))
+		fmt.Printf("  First analyzed: %s\n", history[0].AnalyzedAt.Format(time.RFC3339))
+		fmt.Printf("  Use 'zen-brain analyze history %s' to see full history\n", workItemID)
+		fmt.Printf("  Use 'zen-brain analyze compare %s 1 %d' to compare with first\n", workItemID, len(history))
+	}
 }
 
 func runAnalyzeCompare() {
@@ -311,11 +352,19 @@ func printRichAnalysisSummary(rich *analyzer.RichAnalysisResult, showFull bool) 
 		fmt.Println()
 	}
 
-	// Task summary
+	// Task summary with breakdown
 	fmt.Printf("📊 TASK BREAKDOWN\n")
 	fmt.Printf("  Total tasks: %d\n", len(rich.BrainTaskSpecs))
 	if len(rich.BrainTaskSpecs) > 0 {
 		fmt.Printf("  Estimated cost: $%.2f\n", rich.EstimatedTotalCostUSD)
+		for i, spec := range rich.BrainTaskSpecs {
+			if i < 5 {
+				fmt.Printf("    %d. %s (%s)\n", i+1, spec.Title, spec.WorkType)
+			}
+		}
+		if len(rich.BrainTaskSpecs) > 5 {
+			fmt.Printf("    ... and %d more\n", len(rich.BrainTaskSpecs)-5)
+		}
 	}
 	fmt.Println()
 
@@ -324,26 +373,46 @@ func printRichAnalysisSummary(rich *analyzer.RichAnalysisResult, showFull bool) 
 		fmt.Printf("⚠️  RISK ASSESSMENT\n")
 		fmt.Printf("  Overall risk: %s\n", rich.RiskAssessment.OverallRisk)
 		if len(rich.RiskAssessment.RiskFactors) > 0 {
-			fmt.Printf("  Risk factors: %d\n", len(rich.RiskAssessment.RiskFactors))
+			for _, factor := range rich.RiskAssessment.RiskFactors {
+				fmt.Printf("    - %s: %s (severity: %s)\n", factor.Category, factor.Description, factor.Severity)
+			}
 		}
 		fmt.Println()
 	}
 
-	// Audit trail
-	if rich.AuditTrail != nil && showFull {
+	// Audit trail - ALWAYS show (A005 Jira-linked auditability)
+	if rich.AuditTrail != nil {
 		fmt.Printf("🔍 AUDIT TRAIL\n")
-		fmt.Printf("  Analysis ID: %s\n", rich.AuditTrail.AnalysisID)
+		fmt.Printf("  Analysis ID:     %s\n", rich.AuditTrail.AnalysisID)
 		if rich.AuditTrail.JiraKey != "" {
-			fmt.Printf("  Jira key: %s\n", rich.AuditTrail.JiraKey)
+			fmt.Printf("  Jira key:        %s\n", rich.AuditTrail.JiraKey)
 		}
+		fmt.Printf("  Work item ID:    %s\n", rich.AuditTrail.WorkItemID)
 		fmt.Printf("  Work item source: %s\n", rich.AuditTrail.WorkItemSource)
-		fmt.Printf("  Analyzed at: %s\n", rich.AuditTrail.CustodyStart.Format(time.RFC3339))
-		fmt.Printf("  Analyzer version: %s\n", rich.AnalyzerVersion)
+		fmt.Printf("  Analyzed at:     %s\n", rich.AuditTrail.CustodyStart.Format(time.RFC3339))
+		fmt.Printf("  Analyzer:        %s\n", rich.AnalyzerVersion)
 		if len(rich.AuditTrail.ChainOfTrust) > 0 {
-			fmt.Printf("  Chain of trust: %s\n", rich.AuditTrail.ChainOfTrust)
+			fmt.Printf("  Chain of trust:  %s\n", strings.Join(rich.AuditTrail.ChainOfTrust, " → "))
+		}
+		// Show Jira correlations (A005)
+		if len(rich.AuditTrail.JiraLinkage) > 0 {
+			fmt.Printf("  Jira linkages:   %d\n", len(rich.AuditTrail.JiraLinkage))
+			for _, link := range rich.AuditTrail.JiraLinkage {
+				fmt.Printf("    - %s → %s (%s)\n", link.SourceID, link.TargetJiraKey, link.CorrelationType)
+			}
+		}
+		// Show task chain (A005)
+		if len(rich.AuditTrail.TaskChain) > 0 {
+			fmt.Printf("  Task chain:      %d tasks\n", len(rich.AuditTrail.TaskChain))
 		}
 		fmt.Println()
 	}
+
+	// Replay/correlation IDs (A005)
+	fmt.Printf("🔗 REPLAYABILITY\n")
+	fmt.Printf("  Replay ID:       %s\n", rich.ReplayID)
+	fmt.Printf("  Correlation ID:  %s\n", rich.CorrelationID)
+	fmt.Println()
 
 	// Action items (if full output)
 	if showFull && len(rich.ActionItems) > 0 {
