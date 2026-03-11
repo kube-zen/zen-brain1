@@ -4,10 +4,51 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
 )
+
+// initGitRepo initializes a git repository in the given path for testing
+func initGitRepo(t *testing.T, path string) {
+	t.Helper()
+	cmds := [][]string{
+		{"git", "init", path},
+		{"git", "-C", path, "config", "user.email", "test@example.com"},
+		{"git", "-C", path, "config", "user.name", "Test"},
+	}
+	for _, args := range cmds {
+		cmd := exec.Command(args[0], args[1:]...)
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to run %v: %v", args, err)
+		}
+	}
+}
+
+// initGitRepoWithCommit initializes a git repository with an initial commit.
+// This is required for templates that validate git repo status.
+func initGitRepoWithCommit(t *testing.T, path string) {
+	t.Helper()
+	initGitRepo(t, path)
+
+	// Create a minimal file and commit so git rev-parse works
+	dummyFile := filepath.Join(path, ".gitkeep")
+	if err := os.WriteFile(dummyFile, []byte{}, 0644); err != nil {
+		t.Fatalf("failed to create .gitkeep: %v", err)
+	}
+
+	cmds := [][]string{
+		{"git", "-C", path, "add", ".gitkeep"},
+		{"git", "-C", path, "commit", "-m", "Initial commit"},
+	}
+	for _, args := range cmds {
+		cmd := exec.Command(args[0], args[1:]...)
+		if err := cmd.Run(); err != nil {
+			t.Fatalf("failed to run %v: %v", args, err)
+		}
+	}
+}
 
 // TestUsefulTemplates tests that the useful templates are registered and accessible.
 func TestUsefulTemplates(t *testing.T) {
@@ -157,6 +198,9 @@ func TestFactoryWithUsefulTemplate(t *testing.T) {
 	tempDir := t.TempDir()
 	ctx := context.Background()
 
+	// Initialize git repo in base dir (required for git validation steps)
+	initGitRepoWithCommit(t, tempDir)
+
 	// Create Factory with temp directory
 	workspaceManager := NewWorkspaceManager(tempDir)
 	executor := NewBoundedExecutor()
@@ -248,6 +292,9 @@ func TestRefactorTemplate(t *testing.T) {
 		t.Fatalf("Failed to create base dir: %v", err)
 	}
 	defer os.RemoveAll(baseDir)
+
+	// Initialize git repo (required for git validation steps)
+	initGitRepoWithCommit(t, baseDir)
 
 	// Create factory
 	workspaceManager := NewWorkspaceManager(baseDir)
@@ -390,6 +437,10 @@ func TestReviewRealTemplate(t *testing.T) {
 	}
 	tempDir := t.TempDir()
 	ctx := context.Background()
+
+	// Initialize git repo (required for git validation steps)
+	initGitRepoWithCommit(t, tempDir)
+
 	workspaceManager := NewWorkspaceManager(tempDir)
 	executor := NewBoundedExecutor()
 	powManager := NewProofOfWorkManager(tempDir)
@@ -472,6 +523,9 @@ func TestCICDTemplate(t *testing.T) {
 		t.Fatalf("Failed to create base dir: %v", err)
 	}
 	defer os.RemoveAll(baseDir)
+
+	// Initialize git repo (required for git validation steps)
+	initGitRepoWithCommit(t, baseDir)
 
 	workspaceManager := NewWorkspaceManager(baseDir)
 	executor := NewBoundedExecutor()
@@ -607,6 +661,9 @@ func TestDatabaseMigrationTemplate(t *testing.T) {
 	}
 	defer os.RemoveAll(baseDir)
 
+	// Initialize git repo (required for git validation steps)
+	initGitRepoWithCommit(t, baseDir)
+
 	workspaceManager := NewWorkspaceManager(baseDir)
 	executor := NewBoundedExecutor()
 	powManager := NewProofOfWorkManager(baseDir)
@@ -682,6 +739,9 @@ func TestMonitoringTemplate(t *testing.T) {
 		t.Fatalf("Failed to create base dir: %v", err)
 	}
 	defer os.RemoveAll(baseDir)
+
+	// Initialize git repo (required for git validation steps)
+	initGitRepoWithCommit(t, baseDir)
 
 	workspaceManager := NewWorkspaceManager(baseDir)
 	executor := NewBoundedExecutor()
