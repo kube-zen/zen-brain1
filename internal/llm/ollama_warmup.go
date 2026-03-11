@@ -174,13 +174,15 @@ func preloadGenerate(ctx context.Context, baseURL, model, keepAlive string, time
 	return nil
 }
 
-// verifyChat calls POST /api/chat with a tiny message and keep_alive to verify the real app path; returns load_duration from response.
+// verifyChat calls POST /api/chat with a tiny message, num_predict=1 (like zen-brain max_tokens=1 probe), and keep_alive.
+// So verify completes in seconds after preload instead of a full generation that can take 10+ min on CPU.
 func verifyChat(ctx context.Context, baseURL, model, keepAlive string, timeout time.Duration) (loadDuration time.Duration, err error) {
 	body := map[string]interface{}{
 		"model":      model,
 		"messages":   []map[string]string{{"role": "user", "content": "."}},
 		"stream":     false,
 		"keep_alive": keepAlive,
+		"options":    map[string]any{"num_predict": 1},
 	}
 	payload, err := json.Marshal(body)
 	if err != nil {
