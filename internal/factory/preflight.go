@@ -4,6 +4,7 @@ package factory
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -266,15 +267,103 @@ func (p *PreflightChecker) checkWorkspaceConfig(ctx context.Context, spec *Facto
 func (p *PreflightChecker) checkResourceAvailability(ctx context.Context, spec *FactoryTaskSpec) (PreflightCheckResult, error) {
 	start := time.Now()
 
-	// Check disk space (basic check)
-	// This is a placeholder - real implementation would check actual disk space
-	// and memory availability
+	// Check disk space on workspace directory
+	workspacePath := spec.WorkspacePath
+	if workspacePath == "" {
+		// Use current directory if workspace not set
+		workspacePath = "."
+	}
+
+	// Get disk space using 'df' command
+	var freeSpaceBytes uint64
+	cmd := exec.CommandContext(ctx, "df", "-B1", workspacePath)
+	output, err := cmd.Output()
+	if err != nil {
+		return PreflightCheckResult{
+			Name:     "resource_availability",
+			Passed:   false,
+			Message:  "Failed to check disk space",
+			Details:  fmt.Sprintf("Error: %v", err),
+			Duration: time.Since(start),
+		}, nil
+	}
+
+	// Parse df output to get available space
+	// Format: Filesystem 1K-blocks Used Available Use% Mounted
+	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+	if len(lines) < 2 {
+		return PreflightCheckResult{
+			Name:     "resource_availability",
+			Passed:   false,
+			Message:  "Failed to parse disk space output",
+			Details:  string(output),
+			Duration: time.Since(start),
+		}, nil
+	}
+
+	fields := strings.Fields(lines[1])
+	if len(fields) >= 4 {
+		// Available field is the 4th column (index 3)
+		fmt.Sscanf(fields[3], "%d", &freeSpaceBytes)
+	}
+
+	// Minimum required: 500 MB
+	const minRequiredBytes = 500 * 1024 * 1024
+
+	if freeSpaceBytes < minRequiredBytes {
+		return PreflightCheckResult{
+			Name:     "resource_availability",
+			Passed:   false,
+			Message:  "Insufficient disk space",
+			Details:  fmt.Sprintf("Available: %d MB, Required: %d MB", freeSpaceBytes/(1024*1024), minRequiredBytes/(1024*1024)),
+			FixSuggestion: "Free up disk space or choose a different workspace location",
+			Duration: time.Since(start),
+		}, nil
+	}
+
+	// Check memory (basic check via /proc/meminfo on Linux)
+	memAvailableMB := 0
+	if _, err := os.Stat("/proc/meminfo"); err == nil {
+		memData, err := os.ReadFile("/proc/meminfo")
+		if err == nil {
+			// Look for MemAvailable line
+			lines := strings.Split(string(memData), "\n")
+			for _, line := range lines {
+				if strings.HasPrefix(line, "MemAvailable:") {
+					fields := strings.Fields(line)
+					if len(fields) >= 2 {
+						fmt.Sscanf(fields[1], "%d", &memAvailableMB)
+					}
+					break
+				}
+			}
+		}
+	}
+
+	// Minimum required: 100 MB
+	const minRequiredMemoryMB = 100
+
+	if memAvailableMB > 0 && memAvailableMB < minRequiredMemoryMB {
+		return PreflightCheckResult{
+			Name:     "resource_availability",
+			Passed:   false,
+			Message:  "Insufficient memory",
+			Details:  fmt.Sprintf("Available: %d MB, Required: %d MB", memAvailableMB, minRequiredMemoryMB),
+			FixSuggestion: "Close other applications or increase available memory",
+			Duration: time.Since(start),
+		}, nil
+	}
+
+	details := fmt.Sprintf("Disk: %d MB free", freeSpaceBytes/(1024*1024))
+	if memAvailableMB > 0 {
+		details += fmt.Sprintf(", Memory: %d MB available", memAvailableMB)
+	}
 
 	return PreflightCheckResult{
 		Name:     "resource_availability",
 		Passed:   true,
-		Message:  "Resource availability check passed",
-		Details:  "Disk space and memory checks not implemented yet",
+		Message:  "Sufficient resources available",
+		Details:  details,
 		Duration: time.Since(start),
 	}, nil
 }
