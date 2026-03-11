@@ -231,6 +231,13 @@ func (p *proofOfWorkManagerImpl) generateSummary(result *ExecutionResult, spec *
 		}
 	}
 
+	// Extract structured inputs/outputs for audit trail
+	summary.StructuredInputs = p.extractStructuredInputs(spec, result)
+	summary.StructuredOutputs = p.extractStructuredOutputs(result)
+	summary.StepExitStatuses = p.extractStepExitStatuses(result)
+	summary.OverallExitStatus = p.computeOverallExitStatus(result)
+	summary.TouchedFiles = p.extractTouchedFiles(result)
+
 	return p.hardenProofOfWorkSummary(summary)
 }
 
@@ -1136,4 +1143,172 @@ func (s *ProofOfWorkSummary) ComputeProofDigest() (string, error) {
 	}
 
 	return ComputeSHA256(data), nil
+}
+
+// extractStructuredInputs extracts structured inputs from task spec and execution context.
+func (p *proofOfWorkManagerImpl) extractStructuredInputs(spec *FactoryTaskSpec, result *ExecutionResult) map[string]interface{} {
+	inputs := make(map[string]interface{})
+
+	// Task specification
+	inputs["task_id"] = spec.ID
+	inputs["session_id"] = spec.SessionID
+	inputs["work_item_id"] = spec.WorkItemID
+	inputs["work_type"] = string(spec.WorkType)
+	inputs["work_domain"] = string(spec.WorkDomain)
+	inputs["priority"] = string(spec.Priority)
+	inputs["title"] = spec.Title
+	inputs["objective"] = spec.Objective
+
+	// Constraints
+	if len(spec.Constraints) > 0 {
+		inputs["constraints"] = spec.Constraints
+	}
+	if spec.TimeoutSeconds > 0 {
+		inputs["timeout_seconds"] = spec.TimeoutSeconds
+	}
+	if spec.MaxRetries > 0 {
+		inputs["max_retries"] = spec.MaxRetries
+	}
+
+	// Template selection
+	if spec.SelectedTemplate != "" {
+		inputs["template_used"] = spec.SelectedTemplate
+	} else if spec.TemplateKey != "" {
+		inputs["template_used"] = spec.TemplateKey
+	}
+	if spec.SelectionSource != "" {
+		inputs["selection_source"] = spec.SelectionSource
+	}
+	if spec.SelectionConfidence > 0 {
+		inputs["selection_confidence"] = spec.SelectionConfidence
+	}
+	if spec.SelectionReasoning != "" {
+		inputs["selection_reasoning"] = spec.SelectionReasoning
+	}
+
+	// Workspace configuration
+	inputs["workspace_path"] = result.WorkspacePath
+
+	// KB scopes
+	if len(spec.KBScopes) > 0 {
+		inputs["kb_scopes"] = spec.KBScopes
+	}
+
+	return inputs
+}
+
+// extractStructuredOutputs extracts structured outputs from execution result.
+func (p *proofOfWorkManagerImpl) extractStructuredOutputs(result *ExecutionResult) map[string]interface{} {
+	outputs := make(map[string]interface{})
+
+	// Execution outcome
+	outputs["status"] = string(result.Status)
+	outputs["success"] = result.Success
+	outputs["completed_at"] = result.CompletedAt.Format(time.RFC3339)
+	outputs["duration_seconds"] = result.Duration.Seconds()
+
+	// Step execution summary
+	outputs["total_steps"] = result.TotalSteps
+	outputs["completed_steps"] = result.CompletedSteps
+	outputs["failed_steps_count"] = len(result.FailedSteps)
+
+	// File changes
+	if len(result.FilesChanged) > 0 {
+		outputs["files_changed"] = result.FilesChanged
+		outputs["files_changed_count"] = len(result.FilesChanged)
+	}
+
+	// Test results
+	if len(result.TestsRun) > 0 {
+		outputs["tests_run"] = result.TestsRun
+		outputs["tests_passed"] = result.TestsPassed
+	}
+
+	// Artifact paths
+	if len(result.ArtifactPaths) > 0 {
+		outputs["artifact_paths"] = result.ArtifactPaths
+	}
+	if result.ProofOfWorkPath != "" {
+		outputs["proof_of_work_path"] = result.ProofOfWorkPath
+	}
+
+	// Git metadata
+	if result.GitBranch != "" {
+		outputs["git_branch"] = result.GitBranch
+	}
+	if result.GitCommit != "" {
+		outputs["git_commit"] = result.GitCommit
+	}
+
+	// Template used
+	if result.TemplateKey != "" {
+		outputs["template_key"] = result.TemplateKey
+	}
+
+	// Error information (if failed)
+	if result.Error != "" {
+		outputs["error"] = result.Error
+		outputs["error_code"] = result.ErrorCode
+		outputs["needs_retry"] = result.NeedsRetry
+		outputs["recommendation"] = result.Recommendation
+	}
+
+	return outputs
+}
+
+// extractStepExitStatuses extracts exit status for each execution step.
+func (p *proofOfWorkManagerImpl) extractStepExitStatuses(result *ExecutionResult) map[string]int {
+	statuses := make(map[string]int)
+
+	for _, step := range result.ExecutionSteps {
+		statusKey := fmt.Sprintf("%s_%s", step.StepID, step.Name)
+		statuses[statusKey] = step.ExitCode
+
+		// Also store by step name for easier lookup
+		statuses[step.Name] = step.ExitCode
+	}
+
+	return statuses
+}
+
+// computeOverallExitStatus computes the overall exit status (0 = success).
+func (p *proofOfWorkManagerImpl) computeOverallExitStatus(result *ExecutionResult) int {
+	if result.Success {
+		return 0
+	}
+
+	// Return first non-zero exit code from failed steps
+	for _, step := range result.FailedSteps {
+		if step.ExitCode != 0 {
+			return step.ExitCode
+		}
+	}
+
+	// Generic failure code
+	return 1
+}
+
+// extractTouchedFiles extracts files that were read/written during execution.
+func (p *proofOfWorkManagerImpl) extractTouchedFiles(result *ExecutionResult) []TouchedFile {
+	touched := make([]TouchedFile, 0)
+
+	// Files changed (written/modified)
+	for _, file := range result.FilesChanged {
+		touched = append(touched, TouchedFile{
+			Path:      file,
+			Operation: "write",
+		})
+	}
+
+	// For real worktree execution, we could scan git status here
+	// For now, just record what we know
+	if result.WorkspacePath != "" {
+		// Add workspace path as context
+		touched = append(touched, TouchedFile{
+			Path:      result.WorkspacePath,
+			Operation: "context",
+		})
+	}
+
+	return touched
 }
