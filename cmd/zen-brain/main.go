@@ -409,9 +409,10 @@ func runVerticalSlice() {
 
 	// Step 5: Initialize Factory and Block 5 intelligence
 	fmt.Println("[5/7] Initializing Factory...")
+	// Use ZEN_BRAIN_RUNTIME_DIR if set, otherwise use ZEN_BRAIN_HOME/runtime
 	runtimeDir := os.Getenv("ZEN_BRAIN_RUNTIME_DIR")
 	if runtimeDir == "" {
-		runtimeDir = "/tmp/zen-brain-factory"
+		runtimeDir = filepath.Join(config.HomeDir(), "runtime")
 	}
 	patternStorePath := filepath.Join(runtimeDir, "patterns")
 	patternStore, errPattern := intelligence.NewJSONPatternStore(patternStorePath)

@@ -6,6 +6,9 @@
 // - They modify files in the actual repo structure (not .zen-tasks)
 // - They fail-closed when repo conditions are invalid
 // - They generate honest proof distinguishing repo files vs metadata
+//
+// Documentation templates intentionally include TODO placeholders for human completion.
+// Code templates are fully functional and do NOT contain TODO placeholders.
 package factory
 
 // registerRepoAwareTemplates registers templates that work against real repositories.
@@ -586,7 +589,7 @@ func (r *WorkTypeTemplateRegistry) registerRepoAwareMonitoringTemplate() {
 			{
 				Name:        "Create monitoring endpoints",
 				Description: "Create HTTP handler for metrics endpoint",
-				Command:     "cat > internal/metrics/handler.go << 'HANDLER_EOF'\npackage metrics\n\nimport (\n\t\"net/http\"\n\n\t\"github.com/prometheus/client_golang/prometheus/promhttp\"\n)\n\n// Handler returns the Prometheus metrics handler\nfunc Handler() http.Handler {\n\treturn promhttp.Handler()\n}\n\n// MetricsMiddleware wraps an http.Handler with metrics collection\nfunc MetricsMiddleware(next http.Handler) http.Handler {\n\treturn http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {\n\t\t// TODO: Add metrics collection here\n\t\tnext.ServeHTTP(w, r)\n\t})\n}\nHANDLER_EOF\necho 'internal/metrics/handler.go' >> .zen-repo-files-changed && echo 'Created: internal/metrics/handler.go'",
+				Command:     "cat > internal/metrics/handler.go << 'HANDLER_EOF'\npackage metrics\n\nimport (\n\t\"net/http\"\n\t\"time\"\n\n\t\"github.com/prometheus/client_golang/prometheus/promhttp\"\n)\n\n// Handler returns the Prometheus metrics handler\nfunc Handler() http.Handler {\n\treturn promhttp.Handler()\n}\n\n// responseWriter wraps http.ResponseWriter to capture status code\n type responseWriter struct {\n\thttp.ResponseWriter\n\tstatusCode int\n}\n\nfunc (rw *responseWriter) WriteHeader(code int) {\n\trw.statusCode = code\n\trw.ResponseWriter.WriteHeader(code)\n}\n\n// MetricsMiddleware wraps an http.Handler with metrics collection\nfunc MetricsMiddleware(next http.Handler) http.Handler {\n\treturn http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {\n\t\tstart := time.Now()\n\t\trw := &responseWriter{ResponseWriter: w, statusCode: 200}\n\t\tnext.ServeHTTP(rw, r)\n\t\tduration := time.Since(start).Seconds()\n\t\t\n\t\tRequestCount.WithLabelValues(r.Method, r.URL.Path, string(rune(rw.statusCode))).Inc()\n\t\tRequestDuration.WithLabelValues(r.Method, r.URL.Path).Observe(duration)\n\t})\n}\nHANDLER_EOF\necho 'internal/metrics/handler.go' >> .zen-repo-files-changed && echo 'Created: internal/metrics/handler.go'",
 				Variables:   map[string]string{},
 				Timeout:     30,
 				MaxRetries:  2,
