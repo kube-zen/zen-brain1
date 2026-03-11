@@ -351,6 +351,187 @@ func (p *PolicyEnforcer) ValidateTest(repoFiles []string, metadataFiles []string
 	return result
 }
 
+// ValidateCICD validates a CI/CD task.
+func (p *PolicyEnforcer) ValidateCICD(repoFiles []string, metadataFiles []string, workflowPath string) *PolicyResult {
+	result := &PolicyResult{
+		Passed:     true,
+		Violations: []PolicyViolation{},
+	}
+
+	// Rule: Must have a workflow file path
+	if workflowPath == "" {
+		result.Passed = false
+		result.Violations = append(result.Violations, PolicyViolation{
+			Rule:   "cicd-must-have-workflow",
+			Reason: "No workflow file path specified for CI/CD setup",
+			Fatal:  true,
+			Suggestion: "CI/CD must create or modify a workflow file in .github/workflows/, .gitlab-ci.yml, or similar.",
+		})
+	}
+
+	// Rule: Workflow file must be in CI/CD directory
+	if workflowPath != "" && !strings.HasPrefix(workflowPath, ".github/workflows/") &&
+		!strings.HasPrefix(workflowPath, ".circleci/") &&
+		workflowPath != ".gitlab-ci.yml" && workflowPath != "Jenkinsfile" {
+		result.Passed = false
+		result.Violations = append(result.Violations, PolicyViolation{
+			Rule:   "cicd-workflow-must-be-in-cicd-directory",
+			Reason: fmt.Sprintf("Workflow file %s is not in a CI/CD directory", workflowPath),
+			Fatal:  true,
+			Suggestion: "CI/CD workflow files must be in .github/workflows/, .circleci/, or be .gitlab-ci.yml or Jenkinsfile.",
+		})
+	}
+
+	// Rule: Must create at least 1 CI/CD file
+	cicdFiles := 0
+	for _, file := range repoFiles {
+		if strings.Contains(file, ".github/workflows/") || strings.Contains(file, ".circleci/") ||
+			file == ".gitlab-ci.yml" || file == "Jenkinsfile" {
+			cicdFiles++
+		}
+	}
+	if cicdFiles == 0 {
+		result.Passed = false
+		result.Violations = append(result.Violations, PolicyViolation{
+			Rule:   "cicd-must-create-workflow-files",
+			Reason: "CI/CD did not create any workflow files",
+			Fatal:  true,
+			Suggestion: "CI/CD must create workflow configuration files in the appropriate directory.",
+		})
+	}
+
+	// Rule: Metadata-only execution is a failure
+	if len(repoFiles) == 0 && len(metadataFiles) > 0 {
+		result.Passed = false
+		result.Violations = append(result.Violations, PolicyViolation{
+			Rule:   "no-metadata-only-execution",
+			Reason: "CI/CD created only metadata files, no repository files were changed",
+			Fatal:  true,
+			Suggestion: "CI/CD must write actual workflow configuration files to the repository. " +
+				"Metadata-only execution is considered a failure.",
+		})
+	}
+
+	return result
+}
+
+// ValidateMonitoring validates a monitoring task.
+func (p *PolicyEnforcer) ValidateMonitoring(repoFiles []string, metadataFiles []string, metricsPath string) *PolicyResult {
+	result := &PolicyResult{
+		Passed:     true,
+		Violations: []PolicyViolation{},
+	}
+
+	// Rule: Must create metrics code
+	metricsFiles := 0
+	for _, file := range repoFiles {
+		if strings.Contains(file, "metrics/metrics.go") || strings.Contains(file, "metrics/handler.go") {
+			metricsFiles++
+		}
+	}
+	if metricsFiles == 0 {
+		result.Passed = false
+		result.Violations = append(result.Violations, PolicyViolation{
+			Rule:   "monitoring-must-create-metrics-code",
+			Reason: "Monitoring did not create any metrics code files",
+			Fatal:  true,
+			Suggestion: "Monitoring must create metrics code in internal/metrics/ or similar location.",
+		})
+	}
+
+	// Rule: Must create monitoring configuration
+	configFiles := 0
+	for _, file := range repoFiles {
+		if strings.Contains(file, "monitoring/prometheus.yml") || strings.Contains(file, "monitoring/dashboards/") {
+			configFiles++
+		}
+	}
+	if configFiles == 0 {
+		result.Passed = false
+		result.Violations = append(result.Violations, PolicyViolation{
+			Rule:   "monitoring-must-create-config-files",
+			Reason: "Monitoring did not create any configuration files",
+			Fatal:  true,
+			Suggestion: "Monitoring must create configuration files (prometheus.yml, dashboards/) in monitoring/.",
+		})
+	}
+
+	// Rule: Metadata-only execution is a failure
+	if len(repoFiles) == 0 && len(metadataFiles) > 0 {
+		result.Passed = false
+		result.Violations = append(result.Violations, PolicyViolation{
+			Rule:   "no-metadata-only-execution",
+			Reason: "Monitoring created only metadata files, no repository files were changed",
+			Fatal:  true,
+			Suggestion: "Monitoring must write actual metrics and configuration files to the repository. " +
+				"Metadata-only execution is considered a failure.",
+		})
+	}
+
+	return result
+}
+
+// ValidateMigration validates a database migration task.
+func (p *PolicyEnforcer) ValidateMigration(repoFiles []string, metadataFiles []string, migrationPath string) *PolicyResult {
+	result := &PolicyResult{
+		Passed:     true,
+		Violations: []PolicyViolation{},
+	}
+
+	// Rule: Must have a migration file path
+	if migrationPath == "" {
+		result.Passed = false
+		result.Violations = append(result.Violations, PolicyViolation{
+			Rule:   "migration-must-have-migration-file",
+			Reason: "No migration file path specified",
+			Fatal:  true,
+			Suggestion: "Migration must create SQL migration files in migrations/ directory.",
+		})
+	}
+
+	// Rule: Migration file must be in migrations/ directory
+	if migrationPath != "" && !strings.HasPrefix(migrationPath, "migrations/") {
+		result.Passed = false
+		result.Violations = append(result.Violations, PolicyViolation{
+			Rule:   "migration-must-be-in-migrations-directory",
+			Reason: fmt.Sprintf("Migration file %s is not in migrations/ directory", migrationPath),
+			Fatal:  true,
+			Suggestion: "Migration files must be in migrations/ directory with timestamp naming.",
+		})
+	}
+
+	// Rule: Must create at least 1 migration file (up or down)
+	migrationFiles := 0
+	for _, file := range repoFiles {
+		if strings.Contains(file, "migrations/") && (strings.HasSuffix(file, ".up.sql") || strings.HasSuffix(file, ".down.sql")) {
+			migrationFiles++
+		}
+	}
+	if migrationFiles < 1 {
+		result.Passed = false
+		result.Violations = append(result.Violations, PolicyViolation{
+			Rule:   "migration-must-create-sql-files",
+			Reason: "Migration did not create any SQL migration files",
+			Fatal:  true,
+			Suggestion: "Migration must create SQL files (.up.sql and .down.sql) in migrations/ directory.",
+		})
+	}
+
+	// Rule: Metadata-only execution is a failure
+	if len(repoFiles) == 0 && len(metadataFiles) > 0 {
+		result.Passed = false
+		result.Violations = append(result.Violations, PolicyViolation{
+			Rule:   "no-metadata-only-execution",
+			Reason: "Migration created only metadata files, no repository files were changed",
+			Fatal:  true,
+			Suggestion: "Migration must write actual SQL migration files to the repository. " +
+				"Metadata-only execution is considered a failure.",
+		})
+	}
+
+	return result
+}
+
 // FormatPolicyResult formats a policy result for human-readable output.
 func FormatPolicyResult(result *PolicyResult) string {
 	if result.Passed {
