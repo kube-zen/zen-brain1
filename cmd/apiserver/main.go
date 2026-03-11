@@ -80,6 +80,14 @@ func main() {
 			}
 			warmup = llm.NewOllamaWarmupCoordinator(baseURL, model, keepAlive, warmupSec)
 			go warmup.DoWarmup(context.Background())
+			// Mark the gateway's provider as warmed after warmup completes
+			go func() {
+				warmup.WaitReady(context.Background(), 0) // Wait forever for warmup
+				if result, done := warmup.Result(); done && result.Success {
+					gateway.MarkLocalWorkerWarmed()
+					log.Printf("[apiserver] marked local-worker as warmed after startup warmup")
+				}
+			}()
 		}
 		srv.Handle("/api/v1/chat", apiserver.ChatHandler(gateway, warmup))
 	}
