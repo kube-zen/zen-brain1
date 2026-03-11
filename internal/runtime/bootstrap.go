@@ -80,9 +80,11 @@ func configToZenContextConfig(c *config.ZenContextConfig) *internalcontext.ZenCo
 		ReadTimeout:  c.Tier1Redis.ReadTimeout,
 		WriteTimeout: c.Tier1Redis.WriteTimeout,
 	}
+	// FAIL CLOSED: Do not default to localhost:6379
+	// Redis must be explicitly configured via TIER1_REDIS_ADDR or config file
 	if out.Tier1Redis.Addr == "" {
-		out.Tier1Redis.Addr = "localhost:6379"
-		log.Printf("[Bootstrap] Using default Redis address: %s (set TIER1_REDIS_ADDR to override)", out.Tier1Redis.Addr)
+		log.Printf("[Bootstrap] Tier1 Redis not configured (set TIER1_REDIS_ADDR to enable)")
+		// Leave Addr empty - ZenContext will use stub/mode=stub when addr is empty
 	}
 	// Tier2 QMD
 	out.Tier2QMD = &internalcontext.QMDConfig{
@@ -124,15 +126,15 @@ func Bootstrap(ctx context.Context, cfg *config.Config) (*Runtime, error) {
 
 	// 1) ZenContext from config
 	zcConfig := configToZenContextConfig(&cfg.ZenContext)
-	
-	// In strict mode, reject localhost defaults for Redis
-	if zcConfig != nil && zcConfig.Tier1Redis != nil && zcConfig.Tier1Redis.Addr == "localhost:6379" {
+
+	// FAIL CLOSED: If Redis required but not configured, fail immediately
+	if zcConfig != nil && zcConfig.Tier1Redis != nil && zcConfig.Tier1Redis.Addr == "" {
 		if reqZC || (cfg != nil && cfg.ZenContext.Required) {
-			return nil, fmt.Errorf("tier1_redis.addr cannot be localhost in strict mode (set TIER1_REDIS_ADDR)")
+			return nil, fmt.Errorf("tier1_redis.addr is required when zen_context is required (set TIER1_REDIS_ADDR)")
 		}
-		log.Printf("[Bootstrap] Warning: using localhost Redis in non-strict mode")
+		log.Printf("[Bootstrap] Warning: Tier1 Redis not configured, using stub/mode=stub")
 	}
-	
+
 	zenContext, errZC := internalcontext.NewZenContext(zcConfig)
 	if errZC != nil {
 		report.ZenContext = CapabilityStatus{Name: "zen_context", Mode: ModeDegraded, Healthy: false, Required: reqZC, Message: errZC.Error()}
@@ -203,18 +205,23 @@ func Bootstrap(ctx context.Context, cfg *config.Config) (*Runtime, error) {
 		if redisURL == "" {
 			redisURL = os.Getenv("REDIS_URL")
 		}
+		// FAIL CLOSED: Require explicit Redis URL for message bus
 		if redisURL == "" {
-			redisURL = "redis://localhost:6379"
-		}
-		bus, errBus := redis.New(&redis.Config{RedisURL: redisURL})
-		if errBus != nil {
-			report.MessageBus = CapabilityStatus{Name: "message_bus", Mode: ModeDegraded, Healthy: false, Required: cfg.MessageBus.Required, Message: errBus.Error()}
 			if cfg.MessageBus.Required {
-				return &Runtime{ZenContext: zenContext, Ledger: ledgerClient, Report: report}, fmt.Errorf("message_bus required but init failed: %w", errBus)
+				return &Runtime{ZenContext: zenContext, Ledger: ledgerClient, Report: report}, fmt.Errorf("message_bus redis URL required (set MESSAGEBUS_REDIS_URL or REDIS_URL)")
 			}
+			report.MessageBus = CapabilityStatus{Name: "message_bus", Mode: ModeStub, Healthy: true, Required: cfg.MessageBus.Required, Message: "no redis URL configured"}
 		} else {
-			msgBus = bus
-			report.MessageBus = CapabilityStatus{Name: "message_bus", Mode: ModeReal, Healthy: true, Required: cfg.MessageBus.Required}
+			bus, errBus := redis.New(&redis.Config{RedisURL: redisURL})
+			if errBus != nil {
+				report.MessageBus = CapabilityStatus{Name: "message_bus", Mode: ModeDegraded, Healthy: false, Required: cfg.MessageBus.Required, Message: errBus.Error()}
+				if cfg.MessageBus.Required {
+					return &Runtime{ZenContext: zenContext, Ledger: ledgerClient, Report: report}, fmt.Errorf("message_bus required but init failed: %w", errBus)
+				}
+			} else {
+				msgBus = bus
+				report.MessageBus = CapabilityStatus{Name: "message_bus", Mode: ModeReal, Healthy: true, Required: cfg.MessageBus.Required}
+			}
 		}
 	} else {
 		report.MessageBus = CapabilityStatus{Name: "message_bus", Mode: ModeDisabled, Healthy: false, Required: reqMB}
