@@ -46,7 +46,7 @@ func (r *WorkTypeTemplateRegistry) registerRepoAwareImplementationTemplate() {
 			{
 				Name:        "Select real implementation target",
 				Description: "Select real target path from existing repo structure",
-				Command:     "[ -f .zen-dirs ] && DIRS=$(cat .zen-dirs) || DIRS='' && TARGET_DIR='' && PACKAGE_NAME='' && if echo \"$DIRS\" | grep -q 'internal'; then TARGET_DIR=$(echo \"$DIRS\" | grep 'internal' | head -1); fi && if [ -z \"$TARGET_DIR\" ]; then mkdir -p internal && TARGET_DIR=internal; fi && PACKAGE_NAME=$(basename \"$TARGET_DIR\") && echo \"TARGET_DIR=$TARGET_DIR\" >> .zen-target-info && echo \"PACKAGE_NAME=$PACKAGE_NAME\" >> .zen-target-info && echo \"Selected target: $TARGET_DIR, package: $PACKAGE_NAME\"",
+				Command:     "[ -f .zen-dirs ] && DIRS=$(cat .zen-dirs) || DIRS='' && TARGET_DIR='' && PACKAGE_NAME='' && if echo \"$DIRS\" | grep -q 'internal'; then TARGET_DIR=$(echo \"$DIRS\" | grep 'internal' | head -1); fi && if [ -z \"$TARGET_DIR\" ]; then echo 'ERROR: Cannot determine target directory - no valid directories found' >&2; exit 1; fi && PACKAGE_NAME=$(basename \"$TARGET_DIR\") && echo \"export TARGET_DIR=$TARGET_DIR\" >> .zen-target-info && echo \"export PACKAGE_NAME=$PACKAGE_NAME\" >> .zen-target-info && echo \"Selected target: $TARGET_DIR, package: $PACKAGE_NAME\"",
 				Variables:   map[string]string{},
 				Timeout:     30,
 				MaxRetries:  1,
@@ -54,7 +54,7 @@ func (r *WorkTypeTemplateRegistry) registerRepoAwareImplementationTemplate() {
 			{
 				Name:        "Create implementation file in real repo location",
 				Description: "Generate implementation in actual repo path, not .zen-tasks",
-				Command:     "[ -f .zen-target-info ] && . .zen-target-info || exit 1 && WORKITEM_ID=$(echo '{{.work_item_id}}' | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9_' | head -c 30) && [ -z \"$WORKITEM_ID\" ] && WORKITEM_ID='impl' && mkdir -p \"$TARGET_DIR\" && TARGET_PATH=\"$TARGET_DIR/${WORKITEM_ID}.go\" && cat > \"$TARGET_PATH\" << 'IMPL_EOF'\npackage $PACKAGE_NAME\n\nimport \"fmt\"\n\ntype WorkItem struct {\n\tname    string\n\tenabled bool\n}\n\nfunc New(name string) *WorkItem {\n\treturn &WorkItem{name: name, enabled: false}\n}\n\nfunc (w *WorkItem) Enable() {\n\tw.enabled = true\n}\n\nfunc (w *WorkItem) Execute() error {\n\tif !w.enabled {\n\t\treturn fmt.Errorf(\"feature disabled\")\n\t}\n\tfmt.Printf(\"Executing: %s\\n\", w.name)\n\treturn nil\n}\nIMPL_EOF\necho \"$TARGET_PATH\" >> .zen-repo-files-changed && echo \"Created: $TARGET_PATH\"",
+				Command:     "[ -f .zen-target-info ] && . .zen-target-info || exit 1 && WORKITEM_ID=$(echo '{{.work_item_id}}' | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9_' | head -c 30) && [ -z \"$WORKITEM_ID\" ] && WORKITEM_ID='impl' || true && mkdir -p \"$TARGET_DIR\" && TARGET_PATH=\"$TARGET_DIR/${WORKITEM_ID}.go\" && cat > \"$TARGET_PATH\" << IMPL_EOF\npackage $PACKAGE_NAME\n\nimport \"fmt\"\n\ntype WorkItem struct {\n\tname    string\n\tenabled bool\n}\n\nfunc New(name string) *WorkItem {\n\treturn &WorkItem{name: name, enabled: false}\n}\n\nfunc (w *WorkItem) Enable() {\n\tw.enabled = true\n}\n\nfunc (w *WorkItem) Execute() error {\n\tif !w.enabled {\n\t\treturn fmt.Errorf(\"feature disabled\")\n\t}\n\tfmt.Printf(\"Executing: %s\\n\", w.name)\n\treturn nil\n}\nIMPL_EOF\necho \"$TARGET_PATH\" >> .zen-repo-files-changed && echo \"Created: $TARGET_PATH\"",
 				Variables:   map[string]string{},
 				Timeout:     30,
 				MaxRetries:  2,
@@ -62,7 +62,7 @@ func (r *WorkTypeTemplateRegistry) registerRepoAwareImplementationTemplate() {
 			{
 				Name:        "Create test file beside implementation",
 				Description: "Generate test in actual repo location beside implementation",
-				Command:     "[ -f .zen-target-info ] && . .zen-target-info || exit 1 && WORKITEM_ID=$(echo '{{.work_item_id}}' | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9_' | head -c 30) && [ -z \"$WORKITEM_ID\" ] && WORKITEM_ID='impl' && TEST_PATH=\"$TARGET_DIR/${WORKITEM_ID}_test.go\" && cat > \"$TEST_PATH\" << 'TEST_EOF'\npackage $PACKAGE_NAME\n\nimport \"testing\"\n\nfunc TestNew(t *testing.T) {\n\tw := New(\"test\")\n\tif w == nil {\n\t\tt.Fatal(\"New() returned nil\")\n\t}\n}\n\nfunc TestExecute(t *testing.T) {\n\tw := New(\"test\")\n\tw.Enable()\n\tif err := w.Execute(); err != nil {\n\t\tt.Errorf(\"Execute() failed: %v\", err)\n\t}\n}\nTEST_EOF\necho \"$TEST_PATH\" >> .zen-repo-files-changed && echo \"Created: $TEST_PATH\"",
+				Command:     "[ -f .zen-target-info ] && . .zen-target-info || exit 1 && WORKITEM_ID=$(echo '{{.work_item_id}}' | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9_' | head -c 30) && [ -z \"$WORKITEM_ID\" ] && WORKITEM_ID='impl' || true && TEST_PATH=\"$TARGET_DIR/${WORKITEM_ID}_test.go\" && cat > \"$TEST_PATH\" << TEST_EOF\npackage $PACKAGE_NAME\n\nimport \"testing\"\n\nfunc TestNew(t *testing.T) {\n\tw := New(\"test\")\n\tif w == nil {\n\t\tt.Fatal(\"New() returned nil\")\n\t}\n}\n\nfunc TestExecute(t *testing.T) {\n\tw := New(\"test\")\n\tw.Enable()\n\tif err := w.Execute(); err != nil {\n\t\tt.Errorf(\"Execute() failed: %v\", err)\n\t}\n}\nTEST_EOF\necho \"$TEST_PATH\" >> .zen-repo-files-changed && echo \"Created: $TEST_PATH\"",
 				Variables:   map[string]string{},
 				Timeout:     30,
 				MaxRetries:  2,
@@ -98,7 +98,7 @@ func (r *WorkTypeTemplateRegistry) registerRepoAwareImplementationTemplate() {
 			{
 				Name:        "Generate honest proof",
 				Description: "Generate proof distinguishing repo files from metadata",
-				Command:     "[ -f .zen-target-info ] && . .zen-target-info || exit 1 && cat > PROOF_OF_WORK.md << 'PROOF_EOF'\n# Proof of Work\n\n## Work Item\n- **ID:** {{.work_item_id}}\n- **Title:** {{.title}}\n\n## Real Repository Files Changed\n$(if [ -f .zen-repo-files-changed ]; then while read -r file; do echo \"- $file\"; done < .zen-repo-files-changed; else echo 'No repo files changed'; fi)\n\n## Metadata Files Created\n- PROOF_OF_WORK.md\n\n## Git Status\n$(git status --short 2>/dev/null | head -20)\nPROOF_EOF\nrm -f .zen-project-info .zen-dirs .zen-target-info && echo 'Proof generated'",
+				Command:     "[ -f .zen-target-info ] && . .zen-target-info || exit 1 && cat > PROOF_OF_WORK.md << PROOF_EOF\n# Proof of Work\n\n## Work Item\n- **ID:** {{.work_item_id}}\n- **Title:** {{.title}}\n\n## Real Repository Files Changed\n$(if [ -f .zen-repo-files-changed ]; then while read -r file; do echo \"- $file\"; done < .zen-repo-files-changed; else echo 'No repo files changed'; fi)\n\n## Metadata Files Created\n- PROOF_OF_WORK.md\n\n## Git Status\n$(git status --short 2>/dev/null | head -20)\nPROOF_EOF\nrm -f .zen-project-info .zen-dirs .zen-target-info && echo 'Proof generated'",
 				Variables:   map[string]string{},
 				Timeout:     30,
 				MaxRetries:  1,
@@ -150,7 +150,7 @@ func (r *WorkTypeTemplateRegistry) registerRepoAwareBugFixTemplate() {
 			{
 				Name:        "Create targeted fix file",
 				Description: "Create fix file targeting specific bugs",
-				Command:     "if [ -f .zen-target-files ]; then TARGET_FILE=$(head -1 .zen-target-files); TARGET_DIR=$(dirname \"$TARGET_FILE\"); FILE_BASE=$(basename \"$TARGET_FILE\" | cut -d'.' -f1); else exit 1; fi && FIX_FILE=\"${TARGET_DIR}/fix_${FILE_BASE}.go\" && cat > \"$FIX_FILE\" << 'FIX_EOF'\npackage $(basename \"$TARGET_DIR\")\n\nimport \"fmt\"\n\nfunc ApplyFix() error {\n\tfmt.Println(\"Fix for {{.work_item_id}}\")\n\treturn nil\n}\nFIX_EOF\necho \"$FIX_FILE\" >> .zen-repo-files-changed && echo \"Created: $FIX_FILE\"",
+				Command:     "if [ -f .zen-target-files ]; then TARGET_FILE=$(head -1 .zen-target-files); TARGET_DIR=$(dirname \"$TARGET_FILE\"); FILE_BASE=$(basename \"$TARGET_FILE\" | cut -d'.' -f1); else exit 1; fi && FIX_FILE=\"${TARGET_DIR}/fix_${FILE_BASE}.go\" && cat > \"$FIX_FILE\" << FIX_EOF\npackage $(basename \"$TARGET_DIR\")\n\nimport \"fmt\"\n\nfunc ApplyFix() error {\n\tfmt.Println(\"Fix for {{.work_item_id}}\")\n\treturn nil\n}\nFIX_EOF\necho \"$FIX_FILE\" >> .zen-repo-files-changed && echo \"Created: $FIX_FILE\"",
 				Variables:   map[string]string{},
 				Timeout:     30,
 				MaxRetries:  2,
@@ -320,7 +320,7 @@ func (r *WorkTypeTemplateRegistry) registerRepoAwareDocsTemplate() {
 			{
 				Name:        "Determine documentation target",
 				Description: "Select target path based on objective and existing structure",
-				Command:     "if [ -f .zen-project-info ]; then . .zen-project-info; fi && OBJECTIVE_LC=$(echo '{{.objective}}' | tr '[:upper:]' '[:lower:]') && if echo \"$OBJECTIVE_LC\" | grep -qi 'api\\|rest\\|grpc'; then TARGET_DIR='docs/api'; elif echo \"$OBJECTIVE_LC\" | grep -qi 'guide\\|how-to\\|tutorial\\|getting started'; then TARGET_DIR='docs/guides'; else TARGET_DIR='docs'; fi && mkdir -p \"$TARGET_DIR\" && DOC_NAME=$(echo '{{.title}}' | tr ' ' '-' | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9-') && [ -z \"$DOC_NAME\" ] && DOC_NAME='new-doc' && TARGET_PATH=\"${TARGET_DIR}/${DOC_NAME}.md\" && echo \"TARGET_PATH=$TARGET_PATH\" > .zen-target-info && echo \"Selected: $TARGET_PATH\"",
+				Command:     "if [ -f .zen-project-info ]; then . .zen-project-info; fi && OBJECTIVE_LC=$(echo '{{.objective}}' | tr '[:upper:]' '[:lower:]') && if echo \"$OBJECTIVE_LC\" | grep -qi 'api\\|rest\\|grpc'; then TARGET_DIR='docs/api'; elif echo \"$OBJECTIVE_LC\" | grep -qi 'guide\\|how-to\\|tutorial\\|getting started'; then TARGET_DIR='docs/guides'; else TARGET_DIR='docs'; fi && mkdir -p \"$TARGET_DIR\" && DOC_NAME=$(echo '{{.title}}' | tr ' ' '-' | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9-') && [ -z \"$DOC_NAME\" ] && DOC_NAME='new-doc' && TARGET_PATH=\"${TARGET_DIR}/${DOC_NAME}.md\" && echo \"export TARGET_PATH=$TARGET_PATH\" > .zen-target-info && echo \"Selected: $TARGET_PATH\"",
 				Variables:   map[string]string{},
 				Timeout:     30,
 				MaxRetries:  1,
