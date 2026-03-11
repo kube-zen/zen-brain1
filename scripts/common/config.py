@@ -140,6 +140,13 @@ def get_deploy_use_zen_glm(env: str, config_path: str | None = None) -> bool:
     return bool(deploy.get("use_zen_glm", False))
 
 
+def get_deploy_host_ollama_base_url(env: str, config_path: str | None = None) -> str:
+    """Host Ollama base URL (e.g. http://host.k3d.internal:11434) for Docker-based Ollama."""
+    block = get_cluster_block(env, config_path)
+    deploy = block.get("deploy") or {}
+    return str(deploy.get("host_ollama_base_url") or "").strip()
+
+
 def get_deploy_apiserver_external_port(env: str, config_path: str | None = None) -> int:
     """Apiserver external port (host)."""
     block = get_cluster_block(env, config_path)
