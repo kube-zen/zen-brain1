@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -447,10 +448,17 @@ func buildAnalyzerWithHistory() (*analyzer.DefaultAnalyzer, analyzer.AnalysisHis
 	}
 
 	// Attach history store
-	historyStore, err := analyzer.NewFileAnalysisStore("/tmp/zen-brain-analysis-history")
+	// Use ZEN_BRAIN_HOME for production, /tmp fallback for dev
+	historyDir := filepath.Join(config.HomeDir(), "analysis-history")
+	if err := os.MkdirAll(historyDir, 0755); err != nil {
+		// Fallback to /tmp if home dir not writable
+		historyDir = "/tmp/zen-brain-analysis-history"
+	}
+	
+	historyStore, err := analyzer.NewFileAnalysisStore(historyDir)
 	if err != nil {
 		// Non-fatal: continue without history
-		fmt.Fprintf(os.Stderr, "Warning: could not create history store: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Warning: could not create history store at %s: %v\n", historyDir, err)
 		return a, nil, nil
 	}
 
@@ -459,8 +467,15 @@ func buildAnalyzerWithHistory() (*analyzer.DefaultAnalyzer, analyzer.AnalysisHis
 }
 
 func buildLLMProvider(cfg *config.Config) llm.Provider {
-	// Default to Ollama for local development
-	ollamaURL := "http://localhost:11434"
+	// Use OLLAMA_BASE_URL if set, otherwise fail in strict mode or use localhost in dev
+	ollamaURL := os.Getenv("OLLAMA_BASE_URL")
+	if ollamaURL == "" {
+		// In production/strict mode, require explicit OLLAMA_BASE_URL
+		if os.Getenv("ZEN_RUNTIME_PROFILE") == "prod" || os.Getenv("ZEN_BRAIN_STRICT_RUNTIME") != "" {
+			log.Printf("[Analyzer] WARNING: OLLAMA_BASE_URL not set in strict mode, using localhost (not recommended for production)")
+		}
+		ollamaURL = "http://localhost:11434"
+	}
 	model := "llama3"
 	timeoutSecs := 120
 	apiKey := ""

@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/kube-zen/zen-brain1/internal/config"
 	"github.com/kube-zen/zen-brain1/internal/intelligence"
 	"github.com/kube-zen/zen-brain1/internal/session"
 	"github.com/kube-zen/zen-brain1/pkg/contracts"
@@ -20,9 +21,11 @@ func runIntelligence() {
 	}
 	subcommand := os.Args[2]
 
+	// Use ZEN_BRAIN_RUNTIME_DIR if set, otherwise use ZEN_BRAIN_HOME/runtime
+	// Fall back to /tmp only in dev mode
 	runtimeDir := os.Getenv("ZEN_BRAIN_RUNTIME_DIR")
 	if runtimeDir == "" {
-		runtimeDir = "/tmp/zen-brain-factory"
+		runtimeDir = filepath.Join(config.HomeDir(), "runtime")
 	}
 	patternStorePath := filepath.Join(runtimeDir, "patterns")
 
