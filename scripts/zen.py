@@ -92,6 +92,7 @@ def cmd_env(args: argparse.Namespace) -> int:
             skip_manifests=getattr(args, "skip_manifests", False),
             skip_build=getattr(args, "skip_build", False),
             skip_image_load=getattr(args, "skip_image_load", False),
+            skip_ollama=getattr(args, "skip_ollama", False),
             force_recreate=getattr(args, "force_recreate", False),
         )
     if args.env_cmd == "destroy":
@@ -158,6 +159,7 @@ def main() -> int:
     er.add_argument("--skip-manifests", action="store_true")
     er.add_argument("--skip-build", action="store_true", help="Skip docker build (use existing image)")
     er.add_argument("--skip-image-load", action="store_true")
+    er.add_argument("--skip-ollama", action="store_true", help="Skip ollama release (keep existing ollama pod)")
     er.add_argument("--force-recreate", action="store_true")
     ed = env_sub.add_parser("destroy", help="Destroy environment (k3d cluster)")
     _add_env(ed)
