@@ -8,7 +8,7 @@ image:
 # When Ollama is enabled (deploy.use_ollama), set to http://ollama:11434 so gateway uses real Ollama
 ollama:
   baseUrl: ""       # e.g. http://ollama:11434
-  timeoutSeconds: 600  # local-worker/Ollama HTTP timeout; sandbox (CPU-only) can need 5–10min for first reply
+  timeoutSeconds: 1200 # local-worker/Ollama HTTP timeout; sandbox (CPU-only) can need 10–20min for first reply
   keepAlive: "30m"    # OLLAMA_KEEP_ALIVE: how long to keep model resident after preload/verify ("30m", "-1" = indefinite)
 
 apiserver:
