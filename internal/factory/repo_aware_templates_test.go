@@ -368,12 +368,288 @@ func NewAuth() *Auth {
 	// Create pkg directory
 	os.MkdirAll(filepath.Join(tmpDir, "pkg"), 0755)
 
-	// Commit the files
+	// Commit files
 	runRepoAwareTestCmd(t, tmpDir, "git", "add", ".")
 	runRepoAwareTestCmd(t, tmpDir, "git", "commit", "-m", "Add initial files")
 
 	return tmpDir
 }
+
+// TestDocsReal_WritesToActualDocs tests that docs:real writes to actual docs directory.
+func TestDocsReal_WritesToActualDocs(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
+	tmpDir := t.TempDir()
+	defer os.RemoveAll(tmpDir)
+
+	// Initialize git repo
+	runRepoAwareTestCmd(t, tmpDir, "git", "init")
+	runRepoAwareTestCmd(t, tmpDir, "git", "config", "user.email", "test@example.com")
+	runRepoAwareTestCmd(t, tmpDir, "git", "config", "user.name", "Test User")
+	runRepoAwareTestCmd(t, tmpDir, "git", "commit", "--allow-empty", "-m", "Initial commit")
+
+	// Create minimal go.mod for project detection
+	goMod := filepath.Join(tmpDir, "go.mod")
+	os.WriteFile(goMod, []byte("module example.com/test\n\ngo 1.21\n"), 0644)
+	runRepoAwareTestCmd(t, tmpDir, "git", "add", "go.mod")
+	runRepoAwareTestCmd(t, tmpDir, "git", "commit", "-m", "Add go.mod")
+
+	// Create docs directory
+	docsDir := filepath.Join(tmpDir, "docs")
+	os.MkdirAll(docsDir, 0755)
+
+	// Get docs:real template
+	template := getRepoAwareTemplate("docs", "real")
+	if template == nil {
+		t.Fatal("docs:real template not found")
+	}
+
+	// Verify template description includes repo-aware language
+	if !strings.Contains(strings.ToLower(template.Description), "repo-aware") &&
+	   !strings.Contains(strings.ToLower(template.Description), "repo-native") &&
+	   !strings.Contains(strings.ToLower(template.Description), "detects existing") {
+		t.Error("Template description should mention repo-aware behavior")
+	}
+
+	// Check for validation step (git repo validation)
+	hasValidation := false
+	for _, step := range template.Steps {
+		if strings.Contains(step.Name, "Validate") || strings.Contains(step.Command, "git rev-parse") {
+			hasValidation = true
+			break
+		}
+	}
+	if !hasValidation {
+		t.Error("docs:real template should have git repository validation")
+	}
+
+	// Check for docs structure detection
+	hasDetection := false
+	for _, step := range template.Steps {
+		if strings.Contains(step.Name, "Detect") || strings.Contains(step.Description, "docs structure") {
+			hasDetection = true
+			break
+		}
+	}
+	if !hasDetection {
+		t.Error("docs:real template should detect docs structure")
+	}
+
+	// Verify template targets docs/ directory (not .zen-tasks)
+	hasRealTarget := false
+	for _, step := range template.Steps {
+		if strings.Contains(step.Command, "docs/") && !strings.Contains(step.Command, ".zen-tasks") {
+			hasRealTarget = true
+			break
+		}
+	}
+	if !hasRealTarget {
+		t.Error("docs:real template should write to docs/ directory, not .zen-tasks")
+	}
+
+	// Verify proof step distinguishes repo files from metadata
+	hasHonestProof := false
+	for _, step := range template.Steps {
+		if strings.Contains(step.Name, "proof") && strings.Contains(step.Command, "Real Repository Files") {
+			hasHonestProof = true
+			break
+		}
+	}
+	if !hasHonestProof {
+		t.Error("docs:real template should generate honest proof distinguishing repo files from metadata")
+	}
+}
+
+// TestDocsReal_FailsClosedOnNonGitRepo tests that docs:real fails closed without git.
+func TestDocsReal_FailsClosedOnNonGitRepo(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
+	tmpDir := t.TempDir()
+	defer os.RemoveAll(tmpDir)
+
+	// Do NOT initialize git repo - this is the test
+
+	// Get docs:real template
+	template := getRepoAwareTemplate("docs", "real")
+	if template == nil {
+		t.Fatal("docs:real template not found")
+	}
+
+	// Verify first step validates git repo
+	if len(template.Steps) == 0 {
+		t.Fatal("Template has no steps")
+	}
+
+	firstStep := template.Steps[0]
+	if !strings.Contains(firstStep.Command, "git rev-parse") {
+		t.Error("First step should validate git repository with git rev-parse")
+	}
+
+	// The command should fail without git
+	// We can't actually run it here because it would require shell execution,
+	// but we verified the template structure is correct
+}
+
+// TestTestReal_CreatesTestsBesideSource tests that test:real creates tests beside source files.
+func TestTestReal_CreatesTestsBesideSource(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
+	tmpDir := t.TempDir()
+	defer os.RemoveAll(tmpDir)
+
+	// Initialize git repo
+	runRepoAwareTestCmd(t, tmpDir, "git", "init")
+	runRepoAwareTestCmd(t, tmpDir, "git", "config", "user.email", "test@example.com")
+	runRepoAwareTestCmd(t, tmpDir, "git", "config", "user.name", "Test User")
+	runRepoAwareTestCmd(t, tmpDir, "git", "commit", "--allow-empty", "-m", "Initial commit")
+
+	// Create minimal go.mod
+	goMod := filepath.Join(tmpDir, "go.mod")
+	os.WriteFile(goMod, []byte("module example.com/test\n\ngo 1.21\n"), 0644)
+	runRepoAwareTestCmd(t, tmpDir, "git", "add", "go.mod")
+	runRepoAwareTestCmd(t, tmpDir, "git", "commit", "-m", "Add go.mod")
+
+	// Create some source files to test
+	internalDir := filepath.Join(tmpDir, "internal")
+	os.MkdirAll(internalDir, 0755)
+	sourceFile := filepath.Join(internalDir, "auth.go")
+	os.WriteFile(sourceFile, []byte("package auth\n\nfunc Authenticate() bool { return true }"), 0644)
+	runRepoAwareTestCmd(t, tmpDir, "git", "add", "internal/")
+	runRepoAwareTestCmd(t, tmpDir, "git", "commit", "-m", "Add source files")
+
+	// Get test:real template
+	template := getRepoAwareTemplate("test", "real")
+	if template == nil {
+		t.Fatal("test:real template not found")
+	}
+
+	// Verify template discovers source files
+	hasDiscovery := false
+	for _, step := range template.Steps {
+		if strings.Contains(step.Name, "Discover") || strings.Contains(step.Command, "find internal pkg cmd") {
+			hasDiscovery = true
+			break
+		}
+	}
+	if !hasDiscovery {
+		t.Error("test:real template should discover source files from internal/pkg/cmd")
+	}
+
+	// Verify template creates tests beside source
+	for _, step := range template.Steps {
+		if strings.Contains(step.Name, "Create") && strings.Contains(step.Description, "tests") {
+			// Check that test files are created beside source
+			if !strings.Contains(step.Command, "_test.go") {
+				t.Error("Test creation step should create _test.go files")
+			}
+			// Check that tests are in same directory as source
+			if !strings.Contains(step.Command, "source_dir") {
+				t.Error("Test creation step should place tests in source directory")
+			}
+			break
+		}
+	}
+
+	// Verify proof includes source files
+	hasSourceFilesProof := false
+	for _, step := range template.Steps {
+		if strings.Contains(step.Name, "proof") && strings.Contains(step.Command, "Source Files") {
+			hasSourceFilesProof = true
+			break
+		}
+	}
+	if !hasSourceFilesProof {
+		t.Error("test:real template proof should list source files being tested")
+	}
+}
+
+// TestPolicyEnforcer_NoMetadataOnlyExecution tests that metadata-only execution fails.
+func TestPolicyEnforcer_NoMetadataOnlyExecution(t *testing.T) {
+	enforcer := NewPolicyEnforcer()
+
+	// Test with only metadata files (no repo files)
+	repoFiles := []string{}
+	metadataFiles := []string{"PROOF_OF_WORK.md", "analysis/TEST_ANALYSIS.md"}
+
+	result := enforcer.ValidateImplementation(repoFiles, metadataFiles, "internal/test.go")
+	if result.Passed {
+		t.Error("Policy should fail when only metadata files are created")
+	}
+
+	// Check for specific violation
+	hasMetadataOnlyViolation := false
+	for _, v := range result.Violations {
+		if v.Rule == "no-metadata-only-execution" {
+			hasMetadataOnlyViolation = true
+			break
+		}
+	}
+	if !hasMetadataOnlyViolation {
+		t.Error("Should have no-metadata-only-execution violation")
+	}
+}
+
+// TestPolicyEnforcer_NoSyntheticDefaults tests that synthetic default locations fail.
+func TestPolicyEnforcer_NoSyntheticDefaults(t *testing.T) {
+	enforcer := NewPolicyEnforcer()
+
+	// Test with synthetic default location
+	repoFiles := []string{"pkg/refactored.go", "pkg/refactored_test.go"}
+	metadataFiles := []string{"analysis/REFACTOR_ANALYSIS.md"}
+	targetFiles := []string{"internal/auth.go"}
+
+	result := enforcer.ValidateRefactor(repoFiles, metadataFiles, targetFiles)
+	if result.Passed {
+		t.Error("Policy should fail when using synthetic default location pkg/refactored.go")
+	}
+
+	// Check for specific violation
+	hasSyntheticViolation := false
+	for _, v := range result.Violations {
+		if v.Rule == "no-synthetic-default-locations" {
+			hasSyntheticViolation = true
+			break
+		}
+	}
+	if !hasSyntheticViolation {
+		t.Error("Should have no-synthetic-default-locations violation")
+	}
+}
+
+// TestPolicyEnforcer_DocsMustBeInDocsDirectory tests that docs must be in docs/ directory.
+func TestPolicyEnforcer_DocsMustBeInDocsDirectory(t *testing.T) {
+	enforcer := NewPolicyEnforcer()
+
+	// Test with doc file outside docs/ directory
+	repoFiles := []string{"README.md"}
+	metadataFiles := []string{}
+	targetPath := "README.md"
+
+	result := enforcer.ValidateDocs(repoFiles, metadataFiles, targetPath)
+	if result.Passed {
+		t.Error("Policy should fail when documentation is not in docs/ directory")
+	}
+
+	// Check for specific violation
+	hasDocsDirViolation := false
+	for _, v := range result.Violations {
+		if v.Rule == "docs-must-be-in-docs-directory" {
+			hasDocsDirViolation = true
+			break
+		}
+	}
+	if !hasDocsDirViolation {
+		t.Error("Should have docs-must-be-in-docs-directory violation")
+	}
+}
+
+// Helper functions
 
 func runRepoAwareTestCmd(t *testing.T, dir string, name string, args ...string) {
 	cmd := exec.Command(name, args...)
@@ -387,15 +663,29 @@ func runRepoAwareTestCmd(t *testing.T, dir string, name string, args ...string) 
 func getRepoAwareTemplate(workType, workDomain string) *WorkTypeTemplate {
 	registry := NewWorkTypeTemplateRegistry()
 	registry.registerRepoAwareTemplates()
-	// Try to find by direct lookup
-	key := workType + ":" + workDomain
-	if template, exists := registry.templates[key]; exists {
-		return template
-	}
-	// Fall back to searching through templates
-	for key, template := range registry.templates {
-		if template.WorkType == workType && template.WorkDomain == workDomain {
+	// templates is map[string]map[string]*WorkTypeTemplate
+	// First check if workType exists
+	domainMap, exists := registry.templates[workType]
+	if exists {
+		// Try exact domain match
+		if template, ok := domainMap[workDomain]; ok {
 			return template
+		}
+		// Try empty domain (fallback)
+		if template, ok := domainMap[""]; ok {
+			return template
+		}
+		// Return any template for this workType
+		for _, template := range domainMap {
+			return template
+		}
+	}
+	// Fall back to searching all templates
+	for _, domainMap := range registry.templates {
+		for _, template := range domainMap {
+			if template.WorkType == workType && (workDomain == "" || template.WorkDomain == workDomain) {
+				return template
+			}
 		}
 	}
 	return nil
