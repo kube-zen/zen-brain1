@@ -227,24 +227,27 @@ func (s *Store) DeleteSessionContext(ctx stdctx.Context, clusterID, sessionID st
 
 // QueryKnowledge queries Tier 2 (Warm) for relevant knowledge.
 // This is implemented by the QMD adapter, so we delegate to that.
-// For this Tier 1 implementation, we return an error indicating
-// that this operation is not supported in Tier 1.
+// QueryKnowledge is not supported in Tier 1 (Redis).
+// Tier 1 is for hot session context, not knowledge queries.
+// Use Tier 2 (QMD) adapter for knowledge queries.
 func (s *Store) QueryKnowledge(ctx stdctx.Context, opts zenctx.QueryOptions) ([]zenctx.KnowledgeChunk, error) {
-	return nil, fmt.Errorf("QueryKnowledge is not implemented in Tier 1 (Redis) - use Tier 2 (QMD) adapter")
+	return nil, fmt.Errorf("architectural boundary: QueryKnowledge not supported in Tier 1 (Redis hot cache) - use Tier 2 (QMD knowledge store)")
 }
 
-// StoreKnowledge stores knowledge in Tier 2 (Warm).
-// This is not supported in Tier 1 (Redis).
+// StoreKnowledge is not supported in Tier 1 (Redis).
+// Tier 1 is for hot session context, not knowledge storage.
+// Use Tier 2 (QMD) adapter for knowledge storage.
 func (s *Store) StoreKnowledge(ctx stdctx.Context, chunks []zenctx.KnowledgeChunk) error {
-	return fmt.Errorf("StoreKnowledge is not implemented in Tier 1 (Redis) - use Tier 2 (QMD) adapter")
+	return fmt.Errorf("architectural boundary: StoreKnowledge not supported in Tier 1 (Redis hot cache) - use Tier 2 (QMD knowledge store)")
 }
 
 // ArchiveSession archives session context to Tier 3 (Cold).
 // This is implemented by the S3 archival backend, so we delegate to that.
-// For this Tier 1 implementation, we return an error indicating
-// that this operation is not supported in Tier 1.
+// ArchiveSession is not supported in Tier 1 (Redis).
+// Tier 1 is for hot session context, not long-term archival.
+// Use Tier 3 (S3) backend for session archival.
 func (s *Store) ArchiveSession(ctx stdctx.Context, clusterID, sessionID string) error {
-	return fmt.Errorf("ArchiveSession is not implemented in Tier 1 (Redis) - use Tier 3 (S3) backend")
+	return fmt.Errorf("architectural boundary: ArchiveSession not supported in Tier 1 (Redis hot cache) - use Tier 3 (S3 cold storage)")
 }
 
 // ReconstructSession implements the ReMe protocol.

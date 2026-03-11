@@ -60,7 +60,7 @@ func DefaultConfig() *Config {
 		Timeout:               DefaultTimeout,
 		Verbose:               false,
 		SkipAvailabilityCheck: false,
-		FallbackToMock:        true, // Default to mock fallback for better dev experience
+		FallbackToMock:        false, // FAIL CLOSED: Require explicit opt-in for mock fallback
 	}
 }
 
