@@ -154,6 +154,17 @@ func (f *FactoryImpl) ExecuteTask(ctx context.Context, spec *FactoryTaskSpec) (*
 	result, err := f.executor.ExecutePlan(ctx, steps, workspaceMetadata.Path)
 	if err != nil {
 		log.Printf("[Factory] Task execution failed: task_id=%s error=%v", spec.ID, err)
+		// Set TemplateKey on error result before returning
+		if result != nil {
+			result.TaskID = spec.ID
+			result.SessionID = spec.SessionID
+			result.WorkItemID = spec.WorkItemID
+			result.WorkspacePath = workspaceMetadata.Path
+			result.TemplateKey = spec.TemplateKey
+			if result.TemplateKey == "" {
+				result.TemplateKey = spec.SelectedTemplate
+			}
+		}
 		return result, err
 	}
 

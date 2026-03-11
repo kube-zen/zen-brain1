@@ -200,7 +200,8 @@ func GenerateFailureAnalysis(result *ExecutionResult) *FailureAnalysis {
 		failedStep := result.FailedSteps[0]
 		analysis.FailedStep = failedStep.Name
 
-		// Classify failure mode
+		// Classify failure mode (order matters!)
+		// Check test failures first
 		if strings.Contains(strings.ToLower(failedStep.Command), "test") {
 			analysis.FailureMode = "test"
 			analysis.FailureReason = fmt.Sprintf("Test execution failed: %s", truncateStringNew(failedStep.Error, 200))
@@ -209,7 +210,29 @@ func GenerateFailureAnalysis(result *ExecutionResult) *FailureAnalysis {
 				"Check if tests are flaky or have dependencies",
 				"Consider adding retries or fixing test logic",
 			}
-		} else if failedStep.ExitCode >= 128 || (failedStep.ExitCode != 0 && strings.Contains(strings.ToLower(failedStep.Output), "timeout")) {
+		} else if strings.Contains(strings.ToLower(failedStep.Command), "git") ||
+			strings.Contains(strings.ToLower(failedStep.Error), "git") ||
+			strings.Contains(strings.ToLower(failedStep.Error), "repository") {
+			// Check workspace/git errors BEFORE timeout check (exit code 128)
+			analysis.FailureMode = "workspace"
+			analysis.FailureReason = fmt.Sprintf("Workspace/Git error: %s", truncateStringNew(failedStep.Error, 200))
+			analysis.SuggestedFixes = []string{
+				"Clean git state (reset, stash, or rebase)",
+				"Check repository permissions",
+				"Verify git configuration",
+			}
+			// Escalate for severe workspace errors (exit code > 128, not == 128)
+			if failedStep.ExitCode > 128 {
+				analysis.RecoveryPath = "escalate"
+				analysis.Recoverable = false
+			} else {
+				analysis.RecoveryPath = "manual"
+			}
+		} else if strings.Contains(strings.ToLower(failedStep.Output), "timeout") ||
+			strings.Contains(strings.ToLower(failedStep.Error), "timeout") ||
+			strings.Contains(strings.ToLower(failedStep.Output), "timed out") ||
+			strings.Contains(strings.ToLower(failedStep.Error), "timed out") {
+			// Check timeout (check output/error for "timeout" or "timed out")
 			analysis.FailureMode = "timeout"
 			analysis.FailureReason = fmt.Sprintf("Command timed out: %s", truncateStringNew(failedStep.Error, 200))
 			analysis.SuggestedFixes = []string{
@@ -225,23 +248,6 @@ func GenerateFailureAnalysis(result *ExecutionResult) *FailureAnalysis {
 				"Review input validation rules",
 				"Check schema compatibility",
 				"Verify data format requirements",
-			}
-		} else if strings.Contains(strings.ToLower(failedStep.Command), "git") ||
-			strings.Contains(strings.ToLower(failedStep.Error), "git") ||
-			strings.Contains(strings.ToLower(failedStep.Error), "repository") {
-			analysis.FailureMode = "workspace"
-			analysis.FailureReason = fmt.Sprintf("Workspace/Git error: %s", truncateStringNew(failedStep.Error, 200))
-			analysis.SuggestedFixes = []string{
-				"Clean git state (reset, stash, or rebase)",
-				"Check repository permissions",
-				"Verify git configuration",
-			}
-			// Only escalate for exit codes >= 128 for workspace errors
-			if failedStep.ExitCode >= 128 {
-				analysis.RecoveryPath = "escalate"
-				analysis.Recoverable = false
-			} else {
-				analysis.RecoveryPath = "manual"
 			}
 		} else if strings.Contains(strings.ToLower(failedStep.Error), "policy") ||
 			strings.Contains(strings.ToLower(failedStep.Error), "authorized") {
