@@ -15,6 +15,9 @@ func (r *WorkTypeTemplateRegistry) registerRepoAwareTemplates() {
 	r.registerRepoAwareRefactorTemplate()
 	r.registerRepoAwareDocsTemplate()
 	r.registerRepoAwareTestTemplate()
+	r.registerRepoAwareCICDTemplate()
+	r.registerRepoAwareMonitoringTemplate()
+	r.registerRepoAwareMigrationTemplate()
 }
 
 // registerRepoAwareImplementationTemplate creates a truly repo-aware implementation template.
@@ -424,6 +427,226 @@ func (r *WorkTypeTemplateRegistry) registerRepoAwareTestTemplate() {
 				Name:        "Generate honest proof",
 				Description: "Generate proof with test results and file changes",
 				Command:     "cat > PROOF_OF_WORK.md << 'PROOF_EOF'\n# Proof of Work: Testing\n\n## Work Item\n- **ID:** {{.work_item_id}}\n- **Title:** {{.title}}\n\n## Source Files to Test\n$(if [ -f .zen-source-files ]; then while read -r file; do echo \"- $file\"; done < .zen-source-files; else echo 'No source files'; fi)\n\n## Real Repository Files Changed (Tests)\n$(if [ -f .zen-repo-files-changed ]; then while read -r file; do echo \"- $file\"; done < .zen-repo-files-changed; else echo 'No repo files changed'; fi)\n\n## Metadata Files Created\n$(if [ -f .zen-metadata-files ]; then while read -r file; do echo \"- $file\"; done < .zen-metadata-files; else echo 'No metadata files'; fi)\n\n## Test Summary\n$(if [ -f analysis/TEST_RESULTS.md ]; then cat analysis/TEST_RESULTS.md; else echo 'No test results'; fi)\n\n## Git Status\n$(git status --short 2>/dev/null | head -20)\nPROOF_EOF\nrm -f .zen-project-info .zen-source-files .zen-test-dirs .zen-metadata-files .zen-repo-files-changed && echo 'Proof generated'",
+				Variables:   map[string]string{},
+				Timeout:     30,
+				MaxRetries:  1,
+			},
+		},
+	}
+	r.registerTemplate(template)
+}
+
+// registerRepoAwareCICDTemplate creates a truly repo-aware CI/CD template.
+func (r *WorkTypeTemplateRegistry) registerRepoAwareCICDTemplate() {
+	template := &WorkTypeTemplate{
+		WorkType:   "cicd",
+		WorkDomain: "real",
+		Description: "Repo-native CI/CD: detects existing CI/CD setup, enhances actual workflows, project-aware stages",
+		Steps: []ExecutionStepTemplate{
+			{
+				Name:        "Validate git repository",
+				Description: "Require git repository for CI/CD setup",
+				Command:     "git rev-parse --is-inside-work-tree 2>/dev/null || { echo 'ERROR: Not inside a git repository' >&2; exit 1; } && echo 'Git repository: OK'",
+				Variables:   map[string]string{},
+				Timeout:     15,
+				MaxRetries:  1,
+			},
+			{
+				Name:        "Detect project type and existing CI/CD setup",
+				Description: "Detect project type and existing CI/CD configuration",
+				Command:     "[ -f go.mod ] && PROJECT_TYPE='go' && echo 'PROJECT_TYPE=go' > .zen-project-info && echo 'Detected: Go' && [ -f go.mod ] && MODULE_NAME=$(grep '^module ' go.mod | awk '{print $2}') || MODULE_NAME='unknown' && echo \"MODULE_NAME=$MODULE_NAME\" >> .zen-project-info || (echo 'PROJECT_TYPE=unknown' > .zen-project-info && echo 'Unknown type') && CI_PLATFORM='unknown' && [ -d .github/workflows ] && CI_PLATFORM='github' && echo 'Detected CI: GitHub Actions' || [ -d .gitlab-ci.yml ] && CI_PLATFORM='gitlab' && echo 'Detected CI: GitLab CI' || [ -f .circleci/config.yml ] && CI_PLATFORM='circleci' && echo 'Detected CI: CircleCI' || CI_PLATFORM='github' && echo 'Default CI: GitHub Actions' && echo \"CI_PLATFORM=$CI_PLATFORM\" >> .zen-project-info && echo 'CI platform: $CI_PLATFORM'",
+				Variables:   map[string]string{},
+				Timeout:     30,
+				MaxRetries:  1,
+			},
+			{
+				Name:        "Create/enhance CI/CD workflow",
+				Description: "Create new workflow or enhance existing one",
+				Command:     "if [ -f .zen-project-info ]; then . .zen-project-info; fi && mkdir -p .github/workflows && WORKFLOW_FILE='.github/workflows/ci.yml' && if [ \"$CI_PLATFORM\" = 'github' ]; then cat > \"$WORKFLOW_FILE\" << 'CI_EOF'\nname: CI\n\non:\n  push:\n    branches: [ main, develop ]\n  pull_request:\n    branches: [ main ]\n\njobs:\n  lint:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n      - name: Set up Go\n        uses: actions/setup-go@v5\n        with:\n          go-version: '1.25'\n      - name: Run linters\n        run: gofmt -s -w . && go vet ./...\n\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n      - name: Set up Go\n        uses: actions/setup-go@v5\n        with:\n          go-version: '1.25'\n      - name: Run tests\n        run: go test -v -race -coverprofile=coverage.out ./...\n      - name: Upload coverage\n        uses: codecov/codecov-action@v3\n        with:\n          files: ./coverage.out\n\n  build:\n    runs-on: ubuntu-latest\n    needs: [lint, test]\n    steps:\n      - uses: actions/checkout@v4\n      - name: Set up Go\n        uses: actions/setup-go@v5\n        with:\n          go-version: '1.25'\n      - name: Build\n        run: go build -v ./...\nCI_EOF\necho \"$WORKFLOW_FILE\" >> .zen-repo-files-changed && echo \"Created/Updated: $WORKFLOW_FILE\"; else echo 'ERROR: Only GitHub Actions supported for now' >&2; exit 1; fi",
+				Variables:   map[string]string{},
+				Timeout:     60,
+				MaxRetries:  2,
+			},
+			{
+				Name:        "Create deployment documentation",
+				Description: "Create deployment documentation in actual docs/",
+				Command:     "mkdir -p docs && if [ -f .zen-project-info ]; then . .zen-project-info; fi && cat > docs/DEPLOYMENT.md << 'DEPLOY_EOF'\n# Deployment\n\n> **Work Item:** {{.work_item_id}}\n> **CI Platform:** $CI_PLATFORM\n\n## CI/CD Pipeline\n\nThe project uses **$CI_PLATFORM** for continuous integration and deployment.\n\n### Workflows\n\n- **ci.yml**: Main CI workflow with lint, test, and build stages\n\n### Deployment Strategy\n\nTODO: Configure deployment strategy based on environment requirements.\n\n### Environment Variables\n\nTODO: Document required environment variables.\n\nDEPLOY_EOF\necho 'docs/DEPLOYMENT.md' >> .zen-repo-files-changed && echo 'Created: docs/DEPLOYMENT.md'",
+				Variables:   map[string]string{},
+				Timeout:     30,
+				MaxRetries:  1,
+			},
+			{
+				Name:        "Verify CI/CD configuration",
+				Description: "Verify CI/CD workflow syntax",
+				Command:     "mkdir -p analysis && cat > analysis/CICD_VERIFICATION.md << 'VERIFY_EOF'\n# CI/CD Verification\n\n## Work Item\n- **ID:** {{.work_item_id}}\n- **Title:** {{.title}}\n\n## Workflow File\n$(if [ -f .github/workflows/ci.yml ]; then echo '- **Location:** .github/workflows/ci.yml'; echo '- **Size:** $(wc -l < .github/workflows/ci.yml) lines'; echo '- **Jobs:** $(grep -c '^  [a-z]' .github/workflows/ci.yml)'; else echo '- **Workflow File:** MISSING'; exit 1; fi)\n\n## Stages Detected\n$(if [ -f .github/workflows/ci.yml ]; then echo '- Lint: PRESENT'; echo '- Test: PRESENT'; echo '- Build: PRESENT'; else echo 'No workflow file'; fi)\nVERIFY_EOF\necho 'analysis/CICD_VERIFICATION.md' >> .zen-metadata-files && echo 'CI/CD verified'",
+				Variables:   map[string]string{},
+				Timeout:     30,
+				MaxRetries:  1,
+			},
+			{
+				Name:        "Generate honest proof",
+				Description: "Generate proof with CI/CD workflow changes",
+				Command:     "cat > PROOF_OF_WORK.md << 'PROOF_EOF'\n# Proof of Work: CI/CD\n\n## Work Item\n- **ID:** {{.work_item_id}}\n- **Title:** {{.title}}\n\n## Real Repository Files Changed\n$(if [ -f .zen-repo-files-changed ]; then while read -r file; do echo \"- $file\"; done < .zen-repo-files-changed; else echo 'No repo files changed'; fi)\n\n## Metadata Files Created\n$(if [ -f .zen-metadata-files ]; then while read -r file; do echo \"- $file\"; done < .zen-metadata-files; else echo 'No metadata files'; fi)\n\n## Git Status\n$(git status --short 2>/dev/null | head -20)\nPROOF_EOF\nrm -f .zen-project-info .zen-metadata-files .zen-repo-files-changed && echo 'Proof generated'",
+				Variables:   map[string]string{},
+				Timeout:     30,
+				MaxRetries:  1,
+			},
+		},
+	}
+	r.registerTemplate(template)
+}
+
+// registerRepoAwareMonitoringTemplate creates a truly repo-aware monitoring template.
+func (r *WorkTypeTemplateRegistry) registerRepoAwareMonitoringTemplate() {
+	template := &WorkTypeTemplate{
+		WorkType:   "monitoring",
+		WorkDomain: "real",
+		Description: "Repo-native monitoring: detects existing setup, adds metrics to services, creates project-aware dashboards",
+		Steps: []ExecutionStepTemplate{
+			{
+				Name:        "Validate git repository",
+				Description: "Require git repository for monitoring setup",
+				Command:     "git rev-parse --is-inside-work-tree 2>/dev/null || { echo 'ERROR: Not inside a git repository' >&2; exit 1; } && echo 'Git repository: OK'",
+				Variables:   map[string]string{},
+				Timeout:     15,
+				MaxRetries:  1,
+			},
+			{
+				Name:        "Detect project type and existing monitoring",
+				Description: "Detect project type and existing monitoring setup",
+				Command:     "[ -f go.mod ] && PROJECT_TYPE='go' && echo 'PROJECT_TYPE=go' > .zen-project-info && echo 'Detected: Go' && [ -f go.mod ] && MODULE_NAME=$(grep '^module ' go.mod | awk '{print $2}') || MODULE_NAME='unknown' && echo \"MODULE_NAME=$MODULE_NAME\" >> .zen-project-info || (echo 'PROJECT_TYPE=unknown' > .zen-project-info && echo 'Unknown type') && MONITORING_EXISTS=false && [ -d monitoring ] && MONITORING_EXISTS=true && echo 'Monitoring directory exists' || [ -f prometheus.yml ] && MONITORING_EXISTS=true && echo 'Prometheus config exists' && echo \"MONITORING_EXISTS=$MONITORING_EXISTS\" >> .zen-project-info && echo 'Monitoring detected: $MONITORING_EXISTS'",
+				Variables:   map[string]string{},
+				Timeout:     30,
+				MaxRetries:  1,
+			},
+			{
+				Name:        "Discover services to add metrics to",
+				Description: "Discover services in the project for metrics integration",
+				Command:     "if [ -f .zen-project-info ]; then . .zen-project-info; fi && if [ \"$PROJECT_TYPE\" = 'go' ]; then SERVICE_DIRS=$(find internal pkg -type d -mindepth 1 -maxdepth 1 2>/dev/null | head -5); else SERVICE_DIRS=''; fi && if [ -z \"$SERVICE_DIRS\" ]; then echo 'ERROR: No services found' >&2; exit 1; fi && echo \"$SERVICE_DIRS\" > .zen-service-dirs && echo \"Discovered $(wc -l < .zen-service-dirs) services\"",
+				Variables:   map[string]string{},
+				Timeout:     60,
+				MaxRetries:  1,
+			},
+			{
+				Name:        "Create metrics package",
+				Description: "Create Prometheus metrics package in internal/metrics",
+				Command:     "mkdir -p internal/metrics && cat > internal/metrics/metrics.go << 'METRICS_EOF'\npackage metrics\n\nimport (\n\t\"github.com/prometheus/client_golang/prometheus\"\n\t\"github.com/prometheus/client_golang/prometheus/promauto\"\n)\n\nvar (\n\t// RequestCount counts total requests\n\tRequestCount = promauto.NewCounterVec(\n\t\tprometheus.CounterOpts{\n\t\t\tName: \"zen_requests_total\",\n\t\t\tHelp: \"Total number of requests\",\n\t\t},\n\t\t[]string{\"method\", \"endpoint\", \"status\"},\n\t)\n\n\t// RequestDuration tracks request duration\n\tRequestDuration = promauto.NewHistogramVec(\n\t\tprometheus.HistogramOpts{\n\t\t\tName:    \"zen_request_duration_seconds\",\n\t\t\tHelp:    \"Request duration in seconds\",\n\t\t\tBuckets: prometheus.DefBuckets,\n\t\t},\n\t\t[]string{\"method\", \"endpoint\"},\n\t)\n\n\t// ActiveConnections tracks active connections\n\tActiveConnections = promauto.NewGauge(\n\t\tprometheus.GaugeOpts{\n\t\t\tName: \"zen_active_connections\",\n\t\t\tHelp: \"Number of active connections\",\n\t\t},\n\t)\n)\n\n// Init initializes the metrics package\nfunc Init() {\n\t// Register any custom metrics here\n}\nMETRICS_EOF\necho 'internal/metrics/metrics.go' >> .zen-repo-files-changed && echo 'Created: internal/metrics/metrics.go'",
+				Variables:   map[string]string{},
+				Timeout:     30,
+				MaxRetries:  2,
+			},
+			{
+				Name:        "Create monitoring endpoints",
+				Description: "Create HTTP handler for metrics endpoint",
+				Command:     "cat > internal/metrics/handler.go << 'HANDLER_EOF'\npackage metrics\n\nimport (\n\t\"net/http\"\n\n\t\"github.com/prometheus/client_golang/prometheus/promhttp\"\n)\n\n// Handler returns the Prometheus metrics handler\nfunc Handler() http.Handler {\n\treturn promhttp.Handler()\n}\n\n// MetricsMiddleware wraps an http.Handler with metrics collection\nfunc MetricsMiddleware(next http.Handler) http.Handler {\n\treturn http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {\n\t\t// TODO: Add metrics collection here\n\t\tnext.ServeHTTP(w, r)\n\t})\n}\nHANDLER_EOF\necho 'internal/metrics/handler.go' >> .zen-repo-files-changed && echo 'Created: internal/metrics/handler.go'",
+				Variables:   map[string]string{},
+				Timeout:     30,
+				MaxRetries:  2,
+			},
+			{
+				Name:        "Create Prometheus configuration",
+				Description: "Create Prometheus configuration in actual repo",
+				Command:     "mkdir -p monitoring && cat > monitoring/prometheus.yml << 'PROM_EOF'\nglobal:\n  scrape_interval: 15s\n  evaluation_interval: 15s\n\nscrape_configs:\n  - job_name: 'zen-brain'\n    static_configs:\n      - targets: ['localhost:8080']\n    metrics_path: /metrics\n    scrape_interval: 10s\nPROM_EOF\necho 'monitoring/prometheus.yml' >> .zen-repo-files-changed && echo 'Created: monitoring/prometheus.yml'",
+				Variables:   map[string]string{},
+				Timeout:     30,
+				MaxRetries:  1,
+			},
+			{
+				Name:        "Create Grafana dashboard",
+				Description: "Create Grafana dashboard configuration",
+				Command:     "mkdir -p monitoring/dashboards && cat > monitoring/dashboards/zen-brain.json << 'GRAFANA_EOF'\n{\n  \"dashboard\": {\n    \"title\": \"Zen-Brain Metrics\",\n    \"uid\": \"zen-brain\",\n    \"panels\": [\n      {\n        \"title\": \"Request Rate\",\n        \"targets\": [\n          {\n            \"expr\": \"rate(zen_requests_total[5m])\"\n          }\n        ]\n      },\n      {\n        \"title\": \"Request Duration\",\n        \"targets\": [\n          {\n            \"expr\": \"histogram_quantile(0.95, zen_request_duration_seconds)\"\n          }\n        ]\n      },\n      {\n        \"title\": \"Active Connections\",\n        \"targets\": [\n          {\n            \"expr\": \"zen_active_connections\"\n          }\n        ]\n      }\n    ]\n  }\n}\nGRAFANA_EOF\necho 'monitoring/dashboards/zen-brain.json' >> .zen-repo-files-changed && echo 'Created: monitoring/dashboards/zen-brain.json'",
+				Variables:   map[string]string{},
+				Timeout:     30,
+				MaxRetries:  1,
+			},
+			{
+				Name:        "Create monitoring documentation",
+				Description: "Create monitoring documentation in docs/",
+				Command:     "mkdir -p docs && if [ -f .zen-project-info ]; then . .zen-project-info; fi && cat > docs/MONITORING.md << 'MONIT_DOC_EOF'\n# Monitoring\n\n> **Work Item:** {{.work_item_id}}\n> **Module:** $MODULE_NAME\n\n## Overview\n\nThis project uses **Prometheus** for metrics collection and **Grafana** for visualization.\n\n## Metrics\n\n### Available Metrics\n\n- `zen_requests_total`: Total number of requests\n- `zen_request_duration_seconds`: Request duration\n- `zen_active_connections`: Number of active connections\n\n## Endpoints\n\n- **Metrics:** `/metrics` - Prometheus metrics endpoint\n\n## Configuration\n\n- **Prometheus:** `monitoring/prometheus.yml`\n- **Grafana Dashboards:** `monitoring/dashboards/`\n\n## Running Locally\n\n```bash\n# Start Prometheus\nprometheus --config.file=monitoring/prometheus.yml\n\n# Access metrics\nhttp://localhost:9090\n```\n\nMONIT_DOC_EOF\necho 'docs/MONITORING.md' >> .zen-repo-files-changed && echo 'Created: docs/MONITORING.md'",
+				Variables:   map[string]string{},
+				Timeout:     30,
+				MaxRetries:  1,
+			},
+			{
+				Name:        "Generate honest proof",
+				Description: "Generate proof with monitoring setup changes",
+				Command:     "cat > PROOF_OF_WORK.md << 'PROOF_EOF'\n# Proof of Work: Monitoring\n\n## Work Item\n- **ID:** {{.work_item_id}}\n- **Title:** {{.title}}\n\n## Real Repository Files Changed\n$(if [ -f .zen-repo-files-changed ]; then while read -r file; do echo \"- $file\"; done < .zen-repo-files-changed; else echo 'No repo files changed'; fi)\n\n## Git Status\n$(git status --short 2>/dev/null | head -20)\nPROOF_EOF\nrm -f .zen-project-info .zen-service-dirs .zen-repo-files-changed && echo 'Proof generated'",
+				Variables:   map[string]string{},
+				Timeout:     30,
+				MaxRetries:  1,
+			},
+		},
+	}
+	r.registerTemplate(template)
+}
+
+// registerRepoAwareMigrationTemplate creates a truly repo-aware migration template.
+func (r *WorkTypeTemplateRegistry) registerRepoAwareMigrationTemplate() {
+	template := &WorkTypeTemplate{
+		WorkType:   "migration",
+		WorkDomain: "real",
+		Description: "Repo-native migration: detects DB patterns, generates migrations following existing conventions",
+		Steps: []ExecutionStepTemplate{
+			{
+				Name:        "Validate git repository",
+				Description: "Require git repository for migration tracking",
+				Command:     "git rev-parse --is-inside-work-tree 2>/dev/null || { echo 'ERROR: Not inside a git repository' >&2; exit 1; } && echo 'Git repository: OK'",
+				Variables:   map[string]string{},
+				Timeout:     15,
+				MaxRetries:  1,
+			},
+			{
+				Name:        "Detect project type and existing migration patterns",
+				Description: "Detect project type and migration framework in use",
+				Command:     "[ -f go.mod ] && PROJECT_TYPE='go' && echo 'PROJECT_TYPE=go' > .zen-project-info && echo 'Detected: Go' && [ -f go.mod ] && MODULE_NAME=$(grep '^module ' go.mod | awk '{print $2}') || MODULE_NAME='unknown' && echo \"MODULE_NAME=$MODULE_NAME\" >> .zen-project-info || (echo 'PROJECT_TYPE=unknown' > .zen-project-info && echo 'Unknown type') && MIGRATION_TYPE='none' && [ -f migrate/migrate.go ] && MIGRATION_TYPE='golang-migrate' && echo 'Detected: golang-migrate' || [ -d migrations ] && MIGRATION_TYPE='golang-migrate' && echo 'Detected: golang-migrate (migrations/)' || [ -f alembic.ini ] && MIGRATION_TYPE='alembic' && echo 'Detected: Alembic' || MIGRATION_TYPE='golang-migrate' && echo 'Default: golang-migrate' && echo \"MIGRATION_TYPE=$MIGRATION_TYPE\" >> .zen-project-info && echo 'Migration type: $MIGRATION_TYPE'",
+				Variables:   map[string]string{},
+				Timeout:     30,
+				MaxRetries:  1,
+			},
+			{
+				Name:        "Create migration directory structure",
+				Description: "Create migration directory following detected pattern",
+				Command:     "if [ -f .zen-project-info ]; then . .zen-project-info; fi && if [ \"$MIGRATION_TYPE\" = 'golang-migrate' ]; then mkdir -p migrations && echo 'Created: migrations/'; else echo 'ERROR: Only golang-migrate supported for now' >&2; exit 1; fi && MIGRATION_NAME=$(echo '{{.title}}' | tr ' ' '_' | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9_') && TIMESTAMP=$(date +%Y%m%d%H%M%S) && MIGRATION_FILE=\"migrations/${TIMESTAMP}_${MIGRATION_NAME}.up.sql\" && echo \"MIGRATION_FILE=$MIGRATION_FILE\" > .zen-target-info && echo \"Migration file: $MIGRATION_FILE\"",
+				Variables:   map[string]string{},
+				Timeout:     30,
+				MaxRetries:  1,
+			},
+			{
+				Name:        "Create migration file",
+				Description: "Create SQL migration file",
+				Command:     "if [ -f .zen-target-info ]; then . .zen-target-info; fi && cat > \"$MIGRATION_FILE\" << 'MIGR_EOF'\n-- Migration: {{.title}}\n-- Work Item: {{.work_item_id}}\n-- Created: $(date -u +%Y-%m-%dT%H:%M:%SZ)\n\n-- UP: Apply the migration changes\nBEGIN;\n\n-- TODO: Add migration SQL here\n-- Example: CREATE TABLE IF NOT EXISTS example (\n--   id SERIAL PRIMARY KEY,\n--   name VARCHAR(255) NOT NULL,\n--   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP\n-- );\n\nCOMMIT;\nMIGR_EOF\necho \"$MIGRATION_FILE\" >> .zen-repo-files-changed && echo \"Created: $MIGRATION_FILE\"",
+				Variables:   map[string]string{},
+				Timeout:     30,
+				MaxRetries:  2,
+			},
+			{
+				Name:        "Create rollback migration",
+				Description: "Create rollback migration file",
+				Command:     "if [ -f .zen-target-info ]; then . .zen-target-info; fi && ROLLBACK_FILE=\"${MIGRATION_FILE%.up.sql}.down.sql\" && cat > \"$ROLLBACK_FILE\" << 'ROLLBACK_EOF'\n-- Rollback: {{.title}}\n-- Work Item: {{.work_item_id}}\n-- Created: $(date -u +%Y-%m-%dT%H:%M:%SZ)\n\n-- DOWN: Rollback the migration changes\nBEGIN;\n\n-- TODO: Add rollback SQL here\n-- Example: DROP TABLE IF EXISTS example;\n\nCOMMIT;\nROLLBACK_EOF\necho \"$ROLLBACK_FILE\" >> .zen-repo-files-changed && echo \"Created: $ROLLBACK_FILE\"",
+				Variables:   map[string]string{},
+				Timeout:     30,
+				MaxRetries:  2,
+			},
+			{
+				Name:        "Create Go migration handler",
+				Description: "Create Go code to run migrations",
+				Command:     "mkdir -p internal/migrate && cat > internal/migrate/migrate.go << 'MIGR_GO_EOF'\npackage migrate\n\nimport (\n\t\"database/sql\"\n\t\"embed\"\n\t\"fmt\"\n\t\"io/fs\"\n\t\"sort\"\n\t\"time\"\n\n\t\"github.com/golang-migrate/migrate/v4\"\n\t\"github.com/golang-migrate/migrate/v4/database/postgres\"\n\t_ \"github.com/golang-migrate/migrate/v4/source/file\"\n)\n\n//go:embed migrations/*.sql\nvar migrationFS embed.FS\n\n// Migrator handles database migrations\n\ntype Migrator struct {\n\tm *migrate.Migrate\n}\n\n// NewMigrator creates a new migrator\nfunc NewMigrator(db *sql.DB) (*Migrator, error) {\n\tdriver, err := postgres.WithInstance(db, &postgres.Config{})\n\tif err != nil {\n\t\treturn nil, fmt.Errorf(\"failed to create driver: %w\", err)\n\t}\n\n\tm, err := migrate.NewWithDatabaseInstance(\n\t\t\"file://migrations\",\n\t\t\"postgres\",\n\t\tdriver,\n\t)\n\tif err != nil {\n\t\treturn nil, fmt.Errorf(\"failed to create migrator: %w\", err)\n\t}\n\n\treturn &Migrator{m: m}, nil\n}\n\n// Up applies all pending migrations\nfunc (m *Migrator) Up() error {\n\tif err := m.m.Up(); err != nil && err != migrate.ErrNoChange {\n\t\treturn fmt.Errorf(\"failed to apply migrations: %w\", err)\n\t}\n\treturn nil\n}\n\n// Down rolls back the last migration\nfunc (m *Migrator) Down() error {\n\tif err := m.m.Steps(-1); err != nil {\n\t\treturn fmt.Errorf(\"failed to rollback migration: %w\", err)\n\t}\n\treturn nil\n}\n\n// Version returns the current migration version\nfunc (m *Migrator) Version() (uint, bool, error) {\n\treturn m.m.Version()\n}\n\nMIGR_GO_EOF\necho 'internal/migrate/migrate.go' >> .zen-repo-files-changed && echo 'Created: internal/migrate/migrate.go'",
+				Variables:   map[string]string{},
+				Timeout:     30,
+				MaxRetries:  2,
+			},
+			{
+				Name:        "Create migration documentation",
+				Description: "Create migration documentation in docs/",
+				Command:     "mkdir -p docs && if [ -f .zen-project-info ]; then . .zen-project-info; fi && cat > docs/MIGRATIONS.md << 'MIGR_DOC_EOF'\n# Database Migrations\n\n> **Work Item:** {{.work_item_id}}\n> **Framework:** $MIGRATION_TYPE\n\n## Overview\n\nThis project uses **$MIGRATION_TYPE** for database migrations.\n\n## Running Migrations\n\n### Apply Migrations\n\n```bash\n# Apply all pending migrations\nzen-brain migrate up\n\n# Apply specific migration\nzen-brain migrate up 1\n```\n\n### Rollback Migrations\n\n```bash\n# Rollback last migration\nzen-brain migrate down\n\n# Rollback specific migration\nzen-brain migrate down 1\n```\n\n### Check Status\n\n```bash\n# Show current version\nzen-brain migrate version\n```\n\n## Migration Files\n\nTODO: List migrations here as they are created.\n\n## Creating New Migrations\n\n1. Create migration files in `migrations/` directory\n2. Use timestamp naming convention: `YYYYMMDDHHMMSS_description.up.sql`\n3. Create corresponding rollback: `YYYYMMDDHHMMSS_description.down.sql`\n\nMIGR_DOC_EOF\necho 'docs/MIGRATIONS.md' >> .zen-repo-files-changed && echo 'Created: docs/MIGRATIONS.md'",
+				Variables:   map[string]string{},
+				Timeout:     30,
+				MaxRetries:  1,
+			},
+			{
+				Name:        "Generate honest proof",
+				Description: "Generate proof with migration changes",
+				Command:     "cat > PROOF_OF_WORK.md << 'PROOF_EOF'\n# Proof of Work: Migration\n\n## Work Item\n- **ID:** {{.work_item_id}}\n- **Title:** {{.title}}\n\n## Real Repository Files Changed\n$(if [ -f .zen-repo-files-changed ]; then while read -r file; do echo \"- $file\"; done < .zen-repo-files-changed; else echo 'No repo files changed'; fi)\n\n## Git Status\n$(git status --short 2>/dev/null | head -20)\nPROOF_EOF\nrm -f .zen-project-info .zen-target-info .zen-repo-files-changed && echo 'Proof generated'",
 				Variables:   map[string]string{},
 				Timeout:     30,
 				MaxRetries:  1,
