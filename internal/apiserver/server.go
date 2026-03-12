@@ -98,6 +98,16 @@ func (s *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "  /api/v1/evidence  - list evidence by session_id query (optional vault)\n")
 }
 
+// HealthzHandler returns the healthz handler as an http.HandlerFunc.
+func (s *Server) HealthzHandler(w http.ResponseWriter, r *http.Request) {
+	s.handleLiveness(w, r)
+}
+
+// ReadyzHandler returns the readyz handler as an http.HandlerFunc.
+func (s *Server) ReadyzHandler(w http.ResponseWriter, r *http.Request) {
+	s.handleReadiness(w, r)
+}
+
 // alwaysReadyChecker implements health.Checker for a server that is always ready (e.g. minimal API).
 type alwaysReadyChecker struct{}
 

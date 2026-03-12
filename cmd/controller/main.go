@@ -12,7 +12,6 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
@@ -92,7 +91,7 @@ func main() {
 		var err error
 		shutdownOTEL, err = zenobs.Init(ctx, otelConfig)
 		if err != nil {
-			setupLog.Error("Failed to initialize OpenTelemetry, continuing without tracing", zenlog.Error(err))
+			setupLog.Error(err, "Failed to initialize OpenTelemetry, continuing without tracing")
 			shutdownOTEL = nil
 		} else {
 			setupLog.Info("OpenTelemetry initialized",
@@ -102,7 +101,7 @@ func main() {
 			defer func() {
 				if shutdownOTEL != nil {
 					if err := shutdownOTEL(ctx); err != nil {
-						setupLog.Error("Failed to shutdown OpenTelemetry", zenlog.Error(err))
+						setupLog.Error(err, "Failed to shutdown OpenTelemetry")
 					}
 				}
 			}()
@@ -163,14 +162,14 @@ func main() {
 	// Create manager
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), mgrOpts)
 	if err != nil {
-		setupLog.Error("Unable to start manager", zenlog.Error(err))
+		setupLog.Error(err, "Unable to start manager")
 		os.Exit(1)
 	}
 
 	// Create Kubernetes client for event recorder
 	k8sClient, err := kubernetes.NewForConfig(mgr.GetConfig())
 	if err != nil {
-		setupLog.Error("Failed to create Kubernetes client", zenlog.Error(err))
+		setupLog.Error(err, "Failed to create Kubernetes client")
 		os.Exit(1)
 	}
 
@@ -186,7 +185,7 @@ func main() {
 		Log:      logger,
 		Recorder: eventRecorder,
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "Unable to create controller", "controller", "ZenProject")
+		setupLog.Error(err, "Unable to create controller", zenlog.String("controller", "ZenProject"))
 		os.Exit(1)
 	}
 
@@ -196,7 +195,7 @@ func main() {
 		Log:      logger,
 		Recorder: eventRecorder,
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "Unable to create controller", "controller", "ZenCluster")
+		setupLog.Error(err, "Unable to create controller", zenlog.String("controller", "ZenCluster"))
 		os.Exit(1)
 	}
 
