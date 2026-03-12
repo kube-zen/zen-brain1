@@ -1,6 +1,6 @@
-// Package dlq provides Dead Letter Queue (DLQ) utilities for zen-brain1.
+// Package dlqmgr provides Dead Letter Queue (DLQ) utilities for zen-brain1.
 // Uses zen-sdk/pkg/dlq under the hood.
-package dlq
+package dlqmgr
 
 import (
 	"context"

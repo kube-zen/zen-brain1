@@ -37,3 +37,27 @@ internal/foreman/reconciler.go
 internal/foreman/metrics.go
 internal/foreman/worker.go
 internal/qmd/adapter.go
+# zen-sdk package wrappers (using SDK under the hood):
+# - cryptoutil: wrapper around zen-sdk/pkg/crypto for age encryption/decryption
+# - dlqmgr: wrapper around zen-sdk/pkg/dlq for dead letter queue management
+internal/cryptoutil/crypto.go
+internal/dlqmgr/manager.go
+
+# zen-sdk usage (import and use SDK packages, not reimplementations):
+# - project/cluster reconcilers: use zen-sdk events and observability
+# - runtime health checks: use zen-sdk health for component readiness
+# - circuit breakers: local implementation using zen-sdk logging
+internal/zencontroller/project_reconciler.go
+internal/zencontroller/cluster_reconciler.go
+internal/runtime/live_health_checker.go
+internal/runtime/circuit_breaker.go
+
+# Domain-specific functionality (not SDK concerns):
+# - preflight enhanced: factory task preflight validation
+# - proof enhanced: factory proof generation improvements
+# - analyzer enhancements: intent analysis and rich output
+internal/runtime/preflight_enhanced.go
+internal/factory/proof_enhanced.go
+internal/analyzer/rich_output.go
+internal/analyzer/block2_improvements.go
+internal/apiserver/runtime_checker.go

@@ -1,4 +1,4 @@
-package dlq
+package dlqmgr
 
 import (
 	"context"

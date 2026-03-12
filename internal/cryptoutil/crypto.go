@@ -1,6 +1,6 @@
-// Package crypto provides age encryption/decryption utilities for zen-brain1.
+// Package cryptoutil provides age encryption/decryption utilities for zen-brain1.
 // Uses zen-sdk/pkg/crypto under the hood.
-package crypto
+package cryptoutil
 
 import (
 	"fmt"

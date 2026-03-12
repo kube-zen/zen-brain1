@@ -38,7 +38,7 @@ YAML and JSON configuration templates define deploy‑time behavior.
 | Path | Purpose | Canonical For |
 |------|---------|---------------|
 | `configs/config.dev.yaml` | Local development configuration | Local environment defaults |
-| `configs/config.prod.yaml` | Production configuration | Production deployment defaults |
+| `configs/config.example.yaml` | Configuration example with defaults | Template for environment-specific configs |
 | `deployments/` | Kubernetes manifests | Deployment topology and resource limits |
 
 **Rule:** Configuration is authoritative for deploy‑time choices; code should not hardcode values that belong in configuration.
