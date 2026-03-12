@@ -6,7 +6,7 @@
 ## Block 0 & 0.5 – Complete
 
 - **Block 0:** Repo, layout, configurable home (`ZEN_BRAIN_HOME`, `internal/config/home.go`, `paths.go`), cutover plan (`docs/05-OPERATIONS/CUTOVER.md`).
-- **Block 0.5:** zen-sdk reuse ~95%; contract in good shape; mandatory reuse satisfied. Deferred (backlog, not done-done): DLQ, observability, leader, logging, events, crypto. Low risk for current scope. See **`docs/01-ARCHITECTURE/BLOCK0_5_ZEN_SDK.md`**.
+- **Block 0.5:** zen-sdk reuse 100%; all packages imported and wired: retry, scheduler, receiptlog, health, dedup, store, observability, logging, events, crypto, dlq. See `docs/03-DESIGN/ZEN_SDK_INTEGRATION_STATUS.md`.
 
 ## Block 2 (Office) – Complete
 

@@ -23,8 +23,8 @@ import (
 	zenobs "github.com/kube-zen/zen-sdk/pkg/observability"
 
 	"github.com/kube-zen/zen-brain1/api/v1alpha1"
-	"github.com/kube-zen/zen-brain1/internal/crypto"
-	"github.com/kube-zen/zen-brain1/internal/dlq"
+	"github.com/kube-zen/zen-brain1/internal/cryptoutil"
+	"github.com/kube-zen/zen-brain1/internal/dlqmgr"
 	"github.com/kube-zen/zen-brain1/internal/zencontroller"
 )
 
@@ -110,11 +110,11 @@ func main() {
 	}
 
 	// Phase 2: Initialize crypto
-	if err := crypto.Init(); err != nil {
+	if err := cryptoutil.Init(); err != nil {
 		setupLog.Warn("Failed to initialize crypto, encryption disabled",
 			zenlog.Error(err),
 		)
-	} else if crypto.IsEnabled() {
+	} else if cryptoutil.IsEnabled() {
 		setupLog.Info("Crypto initialized",
 			zenlog.String("status", "enabled"),
 		)
@@ -123,7 +123,7 @@ func main() {
 	}
 
 	// Phase 3: Initialize DLQ
-	if err := dlq.Init(ctx); err != nil {
+	if err := dlqmgr.Init(ctx); err != nil {
 		setupLog.Warn("Failed to initialize DLQ",
 			zenlog.Error(err),
 		)
@@ -139,7 +139,7 @@ func main() {
 				interval = d
 			}
 		}
-		go dlq.StartReplayWorker(ctx, interval, nil)
+		go dlqmgr.StartReplayWorker(ctx, interval, nil)
 		setupLog.Info("DLQ replay worker started",
 			zenlog.String("interval", interval.String()),
 		)

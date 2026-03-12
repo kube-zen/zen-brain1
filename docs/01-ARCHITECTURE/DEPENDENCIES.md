@@ -4,9 +4,9 @@
 
 ## zen-sdk Reuse Contract
 
-### Status: ~95% Complete
+### Status: 100% Complete
 
-The reuse contract is in good shape: all mandatory reuse points (receiptlog, dedup, retry, health, store, scheduler) are satisfied and in use. Some items are **explicitly deferred**: DLQ, observability, leader, logging, events, and crypto adoption. This is **low risk** for current scope (no blocking gaps), but those deferred items remain **backlog — not done-done**. When adding DLQ, standardized tracing, HA leader election, structured logging, K8s event recording, or crypto helpers, wire the corresponding zen-sdk packages per this doc.
+All zen-sdk packages are imported and wired: retry, scheduler, receiptlog, health, dedup, store, observability, logging, events, crypto, and dlq.
 
 ---
 
@@ -17,28 +17,18 @@ The reuse contract is in good shape: all mandatory reuse points (receiptlog, ded
 | `pkg/receiptlog` | ZenJournal foundation | `internal/journal/receiptlog/journal.go`; `pkg/journal` interface |
 | `pkg/dedup` | Message bus deduplication | `internal/messagebus/redis/dedup.go` |
 | `pkg/retry` | LLM provider retries, qmd retries | `internal/llm/gateway.go`, `internal/llm/routing/fallback_chain.go`, `internal/qmd/adapter.go` |
-| `pkg/health` | Readiness/liveness endpoints | `internal/apiserver/server.go` |
+| `pkg/health` | Readiness/liveness endpoints | `internal/apiserver/server.go`, `internal/apiserver/runtime_checker.go` |
 | `pkg/store` | Session persistence | `internal/session/sqlite_store.go` |
 | `pkg/scheduler` | QMD index orchestration | `internal/qmd/orchestrator.go` |
+| `pkg/observability` | OpenTelemetry tracing | `cmd/controller/main.go`, `cmd/apiserver/main.go` |
+| `pkg/logging` | Structured logging | `cmd/controller/main.go`, `cmd/apiserver/main.go`, multiple reconcilers |
+| `pkg/events` | Kubernetes event recording | `internal/zencontroller/project_reconciler.go`, `internal/zencontroller/cluster_reconciler.go` |
+| `pkg/crypto` | Age encryption/decryption | `internal/cryptoutil/crypto.go` (wrapper) |
+| `pkg/dlq` | Dead Letter Queue | `internal/dlqmgr/manager.go` (wrapper) |
 
 **go.mod:** `github.com/kube-zen/zen-sdk v0.3.0`. No dependency on zen-lock.
 
----
-
-### zen-sdk Packages Not Yet Used (Deferred)
-
-The following are plan-required but **not yet imported** in zen-brain; use when the corresponding feature is implemented.
-
-| zen-sdk package | Plan requirement | Status |
-|-----------------|------------------|--------|
-| `pkg/dlq` | Failed task/message handling | Deferred; add when implementing DLQ for message bus or task failures |
-| `pkg/observability` | Tracing/metrics wiring | Deferred; Foreman uses Prometheus directly; wire zen-sdk observability when standardizing |
-| `pkg/leader` | Leader election for HA | Deferred; use when running multiple control-plane replicas |
-| `pkg/logging` | Structured logging | Deferred; use when standardizing log format across components |
-| `pkg/events` | Kubernetes event recording | Deferred; use when recording K8s events from controllers |
-| `pkg/crypto` | Encryption and secret-protection | Deferred; use when adding secret encryption or HMAC helpers |
-
-**Migration note (0.5.2):** "Migrate zen-lock/pkg/crypto to zen-sdk" is **N/A** for zen-brain — this repo does not depend on zen-lock. If a future change introduces crypto, use zen-sdk/pkg/crypto (or add it to zen-sdk first per the reuse rule).
+**All zen-sdk packages integrated** - No deferred packages remaining.
 
 ---
 
@@ -91,7 +81,7 @@ Adding a new allowlist entry requires a comment in the allowlist file and, if it
 | Dependency | Use | Location |
 |------------|-----|----------|
 | **Prometheus** | Metrics collection | `internal/foreman/metrics.go` |
-| **OpenTelemetry** (future) | Distributed tracing | Not yet implemented |
+| **OpenTelemetry** | Distributed tracing | `cmd/controller/main.go`, `cmd/apiserver/main.go` |
 
 ---
 
