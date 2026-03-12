@@ -61,17 +61,19 @@ type JournalConfig struct {
 
 // DefaultZenContextConfig returns the default ZenContext configuration.
 // Note: Paths are fallbacks; production should use config/env for explicit values.
+// FAIL CLOSED: Applies real-path discipline to all default paths using HomeDir()
 func DefaultZenContextConfig() *ZenContextConfig {
+	homeDir := filepath.Join(os.Getenv("HOME"), ".zen", "zen-brain1")
 	return &ZenContextConfig{
 		Tier1Redis: tier1.DefaultRedisConfig(),
 		Tier2QMD: &QMDConfig{
-			RepoPath:      "./zen-docs",
+			RepoPath:      filepath.Join(homeDir, "zen-docs"),
 			QMDBinaryPath: "",
 			Verbose:       false,
 		},
 		Tier3S3: tier3.DefaultS3Config(),
 		Journal: &JournalConfig{
-			JournalPath:      "./journal",
+			JournalPath:      filepath.Join(homeDir, "journal"),
 			EnableQueryIndex: true,
 		},
 		Verbose:   false,
