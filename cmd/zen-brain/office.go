@@ -83,6 +83,27 @@ func runOfficeDoctor() {
 
 	connectors := mgr.ListConnectors()
 	fmt.Printf("Connectors: %s\n", strings.Join(connectors, ", "))
+
+	// Office pipeline component status
+	fmt.Println()
+	fmt.Println("=== Office Pipeline Components ===")
+	statuses := integration.GetOfficeComponentStatus(cfg)
+	for _, s := range statuses {
+		status := "✓"
+		if !s.Enabled {
+			status = "✗"
+		}
+		required := ""
+		if s.Required {
+			required = " [required]"
+		}
+		fmt.Printf("  %-15s %s mode=%-10s enabled=%v%s\n",
+			s.Name+":", status, s.Mode, s.Enabled, required)
+		if s.Message != "" {
+			fmt.Printf("                    └─ %s\n", s.Message)
+		}
+	}
+
 	if len(connectors) == 0 {
 		fmt.Println("Cluster mapping: (none)")
 		fmt.Println("Jira: not configured")
