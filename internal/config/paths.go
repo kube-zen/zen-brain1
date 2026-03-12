@@ -56,6 +56,7 @@ func DefaultPaths() *Paths {
 		Evidence: filepath.Join(root, "evidence"),
 		KB:       filepath.Join(root, "kb"),
 		QMD:      filepath.Join(root, "qmd"),
+		Analysis: filepath.Join(root, "analysis"),
 	}
 }
 

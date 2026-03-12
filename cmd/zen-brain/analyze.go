@@ -470,16 +470,10 @@ func buildAnalyzerWithHistory() (*analyzer.DefaultAnalyzer, analyzer.AnalysisHis
 
 func buildLLMProvider(cfg *config.Config) llm.Provider {
 	// FAIL CLOSED: Require explicit OLLAMA_BASE_URL
-	// Do not default to localhost:11434 in production
+	// Do not default to localhost:11434 in any mode (consistent with other dev-default cleanup)
 	ollamaURL := os.Getenv("OLLAMA_BASE_URL")
 	if ollamaURL == "" {
-		// In production/strict mode, fail without explicit URL
-		if os.Getenv("ZEN_RUNTIME_PROFILE") == "prod" || os.Getenv("ZEN_BRAIN_STRICT_RUNTIME") != "" {
-			log.Fatalf("[Analyzer] FAIL CLOSED: OLLAMA_BASE_URL not set in strict mode (set OLLAMA_BASE_URL to continue)")
-		}
-		// Dev mode only: allow localhost with warning
-		log.Printf("[Analyzer] WARNING: OLLAMA_BASE_URL not set, using localhost (dev mode only)")
-		ollamaURL = "http://localhost:11434"
+		log.Fatalf("[Analyzer] FAIL CLOSED: OLLAMA_BASE_URL not set (set OLLAMA_BASE_URL to continue, cannot use default localhost:11434)")
 	}
 	model := "llama3"
 	timeoutSecs := 120
