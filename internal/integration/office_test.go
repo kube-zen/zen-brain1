@@ -11,7 +11,10 @@ import (
 func TestOfficePipeline_ProcessWorkItem(t *testing.T) {
 	ctx := context.Background()
 
-	// Create pipeline with nil config (uses stubs)
+	t.Setenv("ZEN_BRAIN_OFFICE_ALLOW_STUB_KB", "1")
+	t.Setenv("ZEN_BRAIN_OFFICE_ALLOW_STUB_LEDGER", "1")
+
+	// Create pipeline with nil config (explicit dev stubs)
 	pipeline, err := NewOfficePipeline(nil)
 	if err != nil {
 		t.Fatalf("Failed to create pipeline: %v", err)
@@ -80,5 +83,12 @@ func TestOfficePipeline_ProcessWorkItem(t *testing.T) {
 	}
 	if len(pending) > 0 {
 		t.Errorf("Expected no pending approvals, got %d", len(pending))
+	}
+}
+
+func TestNewOfficePipeline_RequiresExplicitStubOptIn(t *testing.T) {
+	_, err := NewOfficePipeline(nil)
+	if err == nil {
+		t.Fatal("expected office pipeline to fail without explicit stub opt-in")
 	}
 }
