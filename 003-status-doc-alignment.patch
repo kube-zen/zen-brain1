@@ -1,0 +1,122 @@
+--- cur/internal/qmd/README.md	2026-03-12 18:37:18.122990728 +0000
++++ work/internal/qmd/README.md	2026-03-12 18:37:22.018315538 +0000
+@@ -2,7 +2,7 @@
+ 
+ This package provides a Go adapter for the `qmd` CLI tool (Quick Markdown Search) and a scheduler-based orchestrator for periodic index refresh.
+ 
+-**Real vs mock:** When the `qmd` CLI is available, the adapter uses it for real search and index updates. When it is not found, the adapter falls back to a mock client (if `FallbackToMock` is true, the default) so the app runs without qmd. See **docs/01-ARCHITECTURE/BLOCK5_QMD_POPULATION.md** (“Real vs mock”) for how to run with real QMD.
++**Real vs mock:** When the `qmd` CLI is available, the adapter uses it for real search and index updates. The current code path is **fail-closed by default** (`FallbackToMock: false` in `adapter.go`), so mock mode must be enabled explicitly for isolated local development or tests. See **docs/01-ARCHITECTURE/BLOCK5_QMD_POPULATION.md** (“Real vs mock”) for how to run with real QMD.
+ 
+ ## Components
+ 
+--- cur/cmd/zen-brain/main.go	2026-03-12 18:37:17.712493176 +0000
++++ work/cmd/zen-brain/main.go	2026-03-12 18:37:22.020752244 +0000
+@@ -1303,7 +1303,7 @@
+ }
+ 
+ // getZenContext returns a ZenContext for use by other commands (e.g. intelligence).
+-// Uses strict runtime bootstrap when possible, otherwise falls back to real or mock.
++// Uses strict runtime bootstrap and fails closed on initialization errors.
+ func getZenContext() zenctx.ZenContext {
+ 	profile := os.Getenv("ZEN_RUNTIME_PROFILE")
+ 	if profile == "" {
+--- cur/docs/04-DEVELOPMENT/CONFIGURATION.md	2026-03-12 18:37:17.830227149 +0000
++++ work/docs/04-DEVELOPMENT/CONFIGURATION.md	2026-03-12 18:37:22.022015023 +0000
+@@ -50,7 +50,7 @@
+   required: false
+ ```
+ 
+-When `ZEN_BRAIN_MESSAGE_BUS=redis` is set, the bus is enabled and uses `REDIS_URL` (default `redis://localhost:6379`). Session lifecycle events (session.created, session.transitioned, etc.) are published to the configured stream when `session.Config.EventBus` is set.
++When `ZEN_BRAIN_MESSAGE_BUS=redis` is set, the bus is enabled and uses `REDIS_URL`. The current path is **fail-closed**: if `REDIS_URL` is unset, startup fails instead of defaulting to `redis://localhost:6379`. Session lifecycle events (session.created, session.transitioned, etc.) are published to the configured stream when `session.Config.EventBus` is set.
+ 
+ **Proof-of-work signing (env):** When `ZEN_PROOF_SIGNING_KEY` is set, proof-of-work artifacts are signed with HMAC-SHA256 (digest of proof data). Verification uses the same key; set the env at verify time to verify. Algorithm: `HMAC-SHA256`; KeyID is a short hash of the key.
+ 
+@@ -65,7 +65,7 @@
+ 
+ **LLM local worker (Ollama):** When **`OLLAMA_BASE_URL`** is set (e.g. `http://localhost:11434` or in-cluster `http://ollama:11434`), the **local-worker** lane uses the real Ollama provider (`internal/llm/ollama_provider.go`) and calls Ollama’s `/api/chat` endpoint. Model and timeout come from gateway config (`local_worker_model`, `local_worker_timeout`). When `OLLAMA_BASE_URL` is unset, the gateway falls back to the simulated local worker (`internal/llm/local_worker.go`). **In-cluster Ollama (Block 5):** Deployment is **Helm/Helmfile-based and declarative**. Set `deploy.use_ollama: true` and `deploy.ollama.models: ["qwen3.5:0.8b"]` (or other models) in `config/clusters.yaml`. Run `make dev-up` or `python3 scripts/zen.py env redeploy --env <env>`; values are generated from clusters.yaml and Helmfile deploys the Ollama chart with a **model preload Job** (no manual `kubectl exec ... ollama pull` in the standard path). For emergency or one-off model pulls, use the StatefulSet pod: `kubectl exec -it ollama-0 -n zen-brain -- ollama pull <model>` (or `statefulset/ollama`). See `deploy/README.md` and `charts/zen-brain-ollama/`.
+ 
+-**Mock/degraded paths (Block 3/5):** By default, capabilities are optional. **QMD** can fall back to mock when the `qmd` CLI is missing or unavailable (Tier 2 warm store then disabled or mock). **Ledger** falls back to stub when no DSN is set or Cockroach is unreachable; the runtime report shows `ledger.mode: stub`. To require a capability and fail startup instead of using a fallback, set the corresponding `ZEN_BRAIN_REQUIRE_*` env or `required: true` in config.
++**Mock/degraded paths (Block 3/5):** Capabilities remain optional in development, but the current QMD adapter path is **fail-closed by default** unless mock mode is enabled explicitly. Ledger can still fall back to stub when no DSN is set or Cockroach is unreachable; the runtime report shows `ledger.mode: stub`. To require a capability and fail startup instead of using a fallback, set the corresponding `ZEN_BRAIN_REQUIRE_*` env or `required: true` in config.
+ 
+ ## ZenContext Configuration
+ 
+--- cur/docs/01-ARCHITECTURE/COMPLETENESS_MATRIX.md	2026-03-12 18:37:17.771111740 +0000
++++ work/docs/01-ARCHITECTURE/COMPLETENESS_MATRIX.md	2026-03-12 18:37:22.022876387 +0000
+@@ -4,17 +4,17 @@
+ 
+ ## Executive status (single narrative)
+ 
+-Zen-Brain is **1.0 production-ready at 99% completeness**. All critical blocks validated, comprehensive test coverage (76+ tests), deployment proven, enhanced intelligence mining with predictive failure analysis.
++Zen-Brain is **production-shaped for internal use at ~95% completeness**. All critical blocks exist, the trustworthy vertical slice is real, and the remaining work is focused hardening and documentation alignment rather than missing architecture.
+ 
+ | Dimension | Score | Notes |
+ |-----------|-------|--------|
+-| **Architecture completeness** | 99% | Blocks 0–6 complete; contracts, CRDs, session/context plumbing solid; deployment plane live-proven; enhanced intelligence mining with predictive analysis. |
+-| **Operational / deployment completeness** | 98% | Full sandbox path proven: redeploy exits 0, Helmfile converges, foreman/apiserver/ollama-0 Ready, preload succeeds, OLLAMA_BASE_URL on apiserver, health probes passing. Real inference validated. |
+-| **Blended overall completeness** | 99% | Production-ready for 1.0 release; remaining 1% reserved for post-1.0 enhancements (real-time streaming, advanced ML). |
++| **Architecture completeness** | 96% | Blocks 0–6 are present; contracts, CRDs, session/context plumbing, and enhanced intelligence are real. Remaining work is stricter default-path cleanup and doc alignment. |
++| **Operational / deployment completeness** | 94% | Canonical deployment and runtime paths are substantially real, but some Office stub lanes and stale docs still reduce trustworthiness of the default story. |
++| **Blended overall completeness** | 95% | Strong internal-use vertical slice with a focused hardening backlog: explicit Office modes, final Block 4 template cleanup, and status/doc consistency. |
+ 
+ **Single source of truth for status:** This matrix, [PROGRESS.md](PROGRESS.md), [RECOMMENDED_NEXT_STEPS.md](RECOMMENDED_NEXT_STEPS.md), and [DEPLOYMENT_VALIDATION.md](../04-DEVELOPMENT/DEPLOYMENT_VALIDATION.md). README Development Status reflects this narrative.
+ 
+-**Remaining gaps (99% → 100%):** (1) Real-time failure streaming (post-1.0); (2) Advanced ML model integration (post-1.0); (3) VPA path validation (optional). See [RECOMMENDED_NEXT_STEPS.md](RECOMMENDED_NEXT_STEPS.md) for full list.
++**Remaining gaps (95% → 100%):** (1) explicit Office stub opt-in / real-mode enforcement; (2) final Block 4 migration template cleanup; (3) status/doc alignment across architecture and operations docs; (4) fresh live-proof reruns. See [RECOMMENDED_NEXT_STEPS.md](RECOMMENDED_NEXT_STEPS.md) for the focused hardening backlog.
+ 
+ **Definitions:**
+ - **Real:** Production code path; no mandatory fallback to mock/simulated behavior.
+@@ -31,7 +31,7 @@
+ | **Office / Jira** | Real | Fetch, update, search, AddAttachment, Search (JQL), Watch (webhook server + HMAC). Config/bootstrap unified (config + env); vertical-slice posts proof comment + attachments + status; `zen-brain office doctor/search/fetch/watch` CLI. Block 2 analysis: durable history store (`ZEN_BRAIN_HOME/analysis`), auditable (AnalyzedAt, AnalyzedBy, AnalyzerVersion, WorkItemSnapshot), GetAnalysisHistory/UpdateAnalysis when store configured. | `internal/office/jira/connector.go`, `internal/analyzer/store.go`, `internal/integration/office_bootstrap.go`, `cmd/zen-brain/office.go`, `README.md` |
+ | **Session manager** | Real | Create, get, resume, evidence; SQLite/memory; ZenContext write; structured execution checkpoint (UpdateExecutionCheckpoint, GetExecutionCheckpoint, GetExecutionCheckpointSummary) for ReMe/resume. | `internal/session/manager.go`, `internal/session/checkpoint.go`, `sqlite_store.go` |
+ | **ZenContext (Tier 1/2/3)** | Real | Redis, QMD store, S3; composite; ReConstruct. Mock: QMD falls back to mock when CLI absent. | `internal/context/composite.go`, `tier1/`, `tier2/`, `tier3/`, `internal/qmd/` |
+-| **QMD / KB** | Partial | Real when `qmd` CLI present; FallbackToMock when not. Block 5.1: Populate() + KB_QMD_STRATEGY.md, golden-query tests. | `internal/qmd/adapter.go`, `kb_store.go`, `populate.go` |
++| **QMD / KB** | Partial | Real when `qmd` CLI is present and configured. Current adapter defaults fail-closed (`FallbackToMock: false`), but docs and some dev flows still need alignment. | `internal/qmd/adapter.go`, `kb_store.go`, `populate.go` |
+ | **Nervous System (Block 3)** | Real | Canonical bootstrap (`internal/runtime.Bootstrap`), config-driven ZenContext/Ledger/MessageBus; `RuntimeReport` marks real/stub/degraded/disabled; `zen-brain runtime doctor/report/ping`; session lifecycle writes to journal + message bus when configured; /readyz reflects required capabilities. **Fail-closed in prod:** Set `ZEN_RUNTIME_PROFILE=prod` or `ZEN_BRAIN_STRICT_RUNTIME=1` to require all capabilities (no QMD mock or ledger stub). Otherwise QMD/Ledger can degrade per PROGRESS.md. | `internal/runtime/`, `internal/config` (MessageBusConfig), `internal/session/events.go`, `internal/apiserver/runtime_checker.go`, `cmd/zen-brain/runtime.go` |
+ | **Message bus** | Real | Redis when `ZEN_BRAIN_MESSAGE_BUS=redis`; optional. | `internal/messagebus/redis/` |
+ | **ZenJournal** | Real | receiptlog-backed event store; query API; ReMe reconstruction uses it. | `pkg/journal`, `internal/journal/receiptlog` |
+@@ -43,7 +43,7 @@
+ | **Funding aggregator** | Real | T661 + IRAP from Vault evidence. | `internal/funding/aggregator.go` |
+ | **Agent–context binding** | Real | GetForContinuation / WriteIntermediate; TaskRunnerWithContext. | `internal/agent/binding.go`, `foreman/runner.go` |
+ | **ReMe protocol** | Real | ReconstructSession in ZenContext; ReMeBinder wires it as agent continuation path (Worker.ContextBinder = NewReMeBinder). | `internal/context/composite.go`, `internal/agent/binding.go` (ReMeBinder) |
+-| **Intelligence (Block 5)** | Real | **99% Complete** ✅ ModelRouter wired into Planner; model-selection provenance (Source, SampleSize, Alternatives) recorded in session evidence; structured ExecutionCheckpoint (stage, proof paths, selected model, analysis summary) in ZenContext; resume consumes checkpoint and skips blind replay when proof_attached/execution_complete; miner uses template_used first (model_used fallback); compatibility-aware recommender with selection reasoning (template/config, recency, failure-aware) in proof-of-work; failure stats + diagnose; **enhanced failure analysis**: RootCauseAnalysis (automated determination + evidence + mitigation), FailureCorrelation (temporal/environmental/causal with statistical strength), PredictiveModel (risk factors + probability-based prediction), FailureDiagnosis (comprehensive report); CLI: `zen-brain intelligence mine | analyze | recommend | diagnose | checkpoint`. See [INTELLIGENCE_MINING.md](../03-DESIGN/INTELLIGENCE_MINING.md). **New in 99%**: ML-inspired pattern recognition, predictive modeling, root cause analysis with evidence and mitigation strategies. | `internal/planner/`, `internal/intelligence/`, `internal/session/checkpoint.go`, `cmd/zen-brain/main.go`, `cmd/zen-brain/intelligence.go`, `internal/intelligence/failure_analysis_enhanced.go` |
++| **Intelligence (Block 5)** | Real | **~92% Complete** ✅ ModelRouter wired into Planner; model-selection provenance, checkpoints, mining, recommendations, and enhanced failure analysis are present. Remaining work is mostly real-path discipline, doc alignment, and fresh end-to-end proof rather than missing features. | `internal/planner/`, `internal/intelligence/`, `internal/session/checkpoint.go`, `cmd/zen-brain/main.go`, `cmd/zen-brain/intelligence.go`, `internal/intelligence/failure_analysis_enhanced.go` |
+ | **Human Gatekeeper** | Real | Block 2.6: Gatekeeper interface, DefaultGatekeeper (approvals, reject, delegate, escalate, notifiers, audit). | `internal/gatekeeper/`, `internal/planner` (GetPendingApprovals) |
+ | **K3d / deployment** | Real | Block 6: dev-up, dev-down, dev-logs, dev-build, dev-image; in-cluster Foreman + API server via `deployments/k3d/foreman.yaml`, `apiserver.yaml` (see k3d README). DEBUGGING.md. | `deployments/k3d/README.md`, `Makefile`, `Dockerfile`, `docs/05-OPERATIONS/DEBUGGING.md` |
+ | **Repo polish** | Partial | Makefile: repo-sync implemented (scripts/repo_sync.py, ZEN_KB_REPO_URL/DIR); pre-commit/repo-check exist. | `Makefile`, `scripts/repo_sync.py`, `scripts/ci/` |
+--- cur/docs/05-OPERATIONS/RELEASE_CHECKLIST.md	2026-03-12 18:37:17.879001036 +0000
++++ work/docs/05-OPERATIONS/RELEASE_CHECKLIST.md	2026-03-12 18:37:22.023721109 +0000
+@@ -1,6 +1,6 @@
+ # 1.0 RELEASE CHECKLIST
+ 
+-**Status**: ✅ PRODUCTION-READY (99% Complete)
++**Status**: ✅ READY FOR INTERNAL USE (~95% Complete)
+ **Date**: 2026-03-11
+ **Release Candidate**: v1.0.0-rc1
+ 
+@@ -28,9 +28,9 @@
+ | 2 - Office | ✅ Complete | 100% | Jira, analyzer, webhooks |
+ | 3 - Nervous System | ✅ Complete | 100% | Runtime, circuit breakers |
+ | 4 - Factory | ✅ Ready | 98% | Static analysis, multi-language, verification |
+-| 5 - Intelligence | ✅ Complete | **99%** | **Enhanced failure analysis, predictive modeling** |
++| 5 - Intelligence | ✅ Strong | **92%** | Enhanced failure analysis and predictive modeling; real-path/doc alignment still needed |
+ | 6 - Developer Experience | ✅ Complete | 95% | Deployment validated |
+-| **Overall** | **✅ READY** | **99%** | **Production-ready** |
++| **Overall** | **✅ READY FOR INTERNAL USE** | **~95%** | Production-shaped with focused hardening backlog |
+ 
+ ---
+ 
+@@ -173,7 +173,7 @@
+ **Recommendation**: ✅ **APPROVED FOR RELEASE**
+ 
+ **Rationale**:
+-- System is production-ready at 98% completeness
++- System is production-shaped for internal use at ~95% completeness
+ - All critical paths validated with comprehensive tests
+ - Deployment path proven in sandbox
+ - Remaining 2% is optimization, not blockers
+@@ -216,4 +216,4 @@
+ 
+ **Release Date**: 2026-03-10
+ **Status**: ✅ READY FOR PRODUCTION
+-**Confidence Level**: HIGH (98% completeness, comprehensive validation)
++**Confidence Level**: MODERATE-HIGH (~95% completeness, strong static validation; rerun live proof before external release)
