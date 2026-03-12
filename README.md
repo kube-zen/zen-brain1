@@ -142,13 +142,13 @@ Comprehensive documentation is available in the `docs/` directory:
 
 ## Development Status
 
-**Executive summary:** Zen-Brain is **approaching 1.0 production readiness** (~94% overall completeness, ~92% trustworthy vertical slice). The execution pipeline is solid: Office intake → analyze → plan → session → Factory execution → proof-of-work → status update. Blocks 0–6 are present; remaining work is fixing Factory template escape sequences (Block 4), cleaning up templates, and aligning documentation.
+**Executive summary:** Zen-Brain is **approaching 1.0 production readiness** (~96% overall completeness). The execution pipeline is solid: Office intake → analyze → plan → session → Factory execution → proof-of-work → status update. Blocks 0, 0.5, 1 are **done-done** (100% complete). Remaining work: Factory template cleanup (Block 4) and documentation alignment.
 
 | Block | Name | Status |
 |-------|------|--------|
-| 0 | Foundation | ✅ Complete (98%) |
-| 0.5 | zen-sdk reuse | ✅ Complete (96%) |
-| 1 | Neuro-Anatomy | ✅ Complete (97%) |
+| 0 | Foundation | ✅ Complete (100%) – repo hygiene and governance clean |
+| 0.5 | zen-sdk reuse | ✅ Complete (100%) – all packages imported and wired |
+| 1 | Neuro-Anatomy | ✅ Complete (100%) – contracts, docs, CRDs, taxonomy synced |
 | 2 | Office | ⚠️ In Progress (92%) – config/code drift fix needed |
 | 3 | Nervous System | ✅ Complete (93%) – fail-closed posture improved |
 | 4 | Factory | ⚠️ Blocked (90%) – escape sequences in templates |

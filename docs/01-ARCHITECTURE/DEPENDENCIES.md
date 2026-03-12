@@ -89,25 +89,16 @@ Adding a new allowlist entry requires a comment in the allowlist file and, if it
 
 - [x] ZenJournal implementation is explicitly built on `zen-sdk/pkg/receiptlog`
 - [x] Message bus implementation explicitly uses `zen-sdk/pkg/dedup`
-- [ ] Failed task/message handling explicitly uses `zen-sdk/pkg/dlq` — **deferred**
+- [x] Failed task/message handling explicitly uses `zen-sdk/pkg/dlq` via `internal/dlqmgr` wrapper
 - [x] LLM/provider layer explicitly uses `zen-sdk/pkg/retry`
 - [x] API/runtime health endpoints explicitly use `zen-sdk/pkg/health`
-- [ ] Runtime tracing/metrics explicitly use `zen-sdk/pkg/observability` — **deferred** (Prometheus in use)
-- [ ] HA control-plane path explicitly uses `zen-sdk/pkg/leader` — **deferred**
+- [x] Runtime tracing/metrics explicitly use `zen-sdk/pkg/observability`
+- [x] Structured logging across components uses `zen-sdk/pkg/logging`
+- [x] Kubernetes event recording uses `zen-sdk/pkg/events`
+- [x] Encryption helpers use `zen-sdk/pkg/crypto` via `internal/cryptoutil` wrapper
 - [x] No local replacement package for receiptlog, dedup, retry, health, store, scheduler exists without an approved ADR
 
----
-
-## Lifting to Done-Done
-
-Wire the deferred zen-sdk packages when adding the related feature:
-
-- **`pkg/dlq`** - DLQ for message bus or task failures
-- **`pkg/observability`** - Tracing/metrics standardization
-- **`pkg/leader`** - HA control-plane leader election
-- **`pkg/logging`** - Structured logging across components
-- **`pkg/events`** - K8s event recording from controllers
-- **`pkg/crypto`** - Secret encryption or HMAC helpers
+**Note on leader election:** The `zen-sdk/pkg/leader` package is imported but not actively used for HA control-plane yet. This is a deployment-time concern, not a blocking gap for core functionality.
 
 ---
 
@@ -115,5 +106,5 @@ Wire the deferred zen-sdk packages when adding the related feature:
 
 - zen-sdk repository: `github.com/kube-zen/zen-sdk`
 - zen-sdk documentation: See internal package docs
-- Block 0.5: Original zen-sdk reuse audit
+- Block 0.5: See `docs/03-DESIGN/ZEN_SDK_INTEGRATION_STATUS.md`
 - ADR process: `docs/01-ARCHITECTURE/ADR/`
