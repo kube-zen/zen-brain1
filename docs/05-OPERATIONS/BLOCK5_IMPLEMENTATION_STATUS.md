@@ -159,8 +159,8 @@ Factory package (`internal/factory/repo_aware_templates.go`) had compilation err
 - Runtime: ZenContext optional, fail-closed posture maintained
 
 **Remaining Issues:**
-- Controller and API server have unrelated compilation errors (type mismatches)
-- These do not affect core vertical slice functionality
+- ✅ **Controller and API server compilation errors resolved** (logging signatures, missing methods)
+- ⚠️ Documentation templates have TODOs (by design, not a bug)
 
 ## Commits
 
@@ -172,5 +172,6 @@ Factory package (`internal/factory/repo_aware_templates.go`) had compilation err
 6. `8285cab` - Status document updates (completeness restored to 95%)
 7. `151cbca` - Office component status reporting (modes.go, office.go)
 8. `342e3e8` - Stub ledger support for vertical-slice (main.go)
+9. `f83e476` - Controller and API server compilation fixes (logging, missing methods)
 
 All commits pushed to `origin/main`.
