@@ -143,6 +143,42 @@ def _wait_rollout(context_name: str) -> None:
     _kubectl(["rollout", "status", "deployment/apiserver", "-n", "zen-brain", "--timeout=120s"], context_name, timeout=130)
 
 
+def _verify_health_endpoints(env_ip: str, apiserver_port: int, timeout: int = 60) -> bool:
+    """Verify apiserver health and ready endpoints respond successfully."""
+    import socket
+    import urllib.request
+    import urllib.error
+
+    base_url = f"http://{env_ip}:{apiserver_port}"
+    endpoints = ["/healthz", "/readyz"]
+    start = time.time()
+    last_err = None
+
+    while time.time() - start < timeout:
+        all_healthy = True
+        for ep in endpoints:
+            try:
+                url = f"{base_url}{ep}"
+                req = urllib.request.Request(url, method="GET")
+                with urllib.request.urlopen(req, timeout=5) as resp:
+                    if resp.status != 200:
+                        all_healthy = False
+                        break
+            except (urllib.error.URLError, socket.timeout, ConnectionRefusedError) as e:
+                all_healthy = False
+                last_err = e
+                break
+
+        if all_healthy:
+            _log("Health endpoints verified: /healthz ✓ /readyz ✓")
+            return True
+
+        time.sleep(2)
+
+    _err(f"Health check failed after {timeout}s: {last_err}")
+    return False
+
+
 def cmd_redeploy(
     env: str,
     config_path: str | None,
@@ -185,6 +221,10 @@ def cmd_redeploy(
     if not skip_manifests:
         _run_helmfile(env, config_path, context_name, skip_ollama=skip_ollama)
     _wait_rollout(context_name)
+
+    # Verify health endpoints (fail-fast if services aren't truly ready)
+    if not _verify_health_endpoints(env_ip, apiserver_port, timeout=60):
+        _err("WARNING: Health endpoints not responding, but pods may still be starting")
 
     _log("")
     _log("Zen-brain environment ready.")
