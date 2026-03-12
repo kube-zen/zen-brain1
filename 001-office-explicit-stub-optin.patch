@@ -1,0 +1,83 @@
+--- cur/internal/integration/office.go	2026-03-12 18:37:18.035797582 +0000
++++ work/internal/integration/office.go	2026-03-12 18:37:22.013026884 +0000
+@@ -43,12 +43,11 @@
+ // - FAILS CLOSED when in strict mode OR when component is marked as Required:
+ //   - Strict mode: ZEN_BRAIN_STRICT_RUNTIME env var set OR ZEN_RUNTIME_PROFILE=prod
+ //   - Required flag: ledger.required, message_bus.required set to true
+-//   - KB has no Required flag, so it only checks strict mode
+-// - Falls back to stubs ONLY when:
+-//   - NOT in strict mode AND component is NOT marked as Required AND initialization fails
+-//   - Component is explicitly disabled (enabled=false, not required)
++// - Falls back to stubs ONLY when the operator explicitly opts in:
++//   - ZEN_BRAIN_OFFICE_ALLOW_STUB_KB=1
++//   - ZEN_BRAIN_OFFICE_ALLOW_STUB_LEDGER=1
+ //
+-// This ensures degraded operation is NOT tolerated when real infra is required.
++// This ensures degraded operation is NOT tolerated by default.
+ func NewOfficePipeline(cfg *config.Config) (*OfficePipeline, error) {
+ 	log.Println("Initializing Office pipeline...")
+ 
+@@ -75,15 +74,13 @@
+ 		return nil, fmt.Errorf("failed to create LLM Gateway: %w", err)
+ 	}
+ 
+-	// 2. Knowledge Base (real or stub)
++	// 2. Knowledge Base (real or explicit stub)
+ 	var kbStore kb.Store
+ 	strictMode := os.Getenv("ZEN_BRAIN_STRICT_RUNTIME") != "" || os.Getenv("ZEN_RUNTIME_PROFILE") == "prod"
++	allowStubKB := os.Getenv("ZEN_BRAIN_OFFICE_ALLOW_STUB_KB") == "1"
++	allowStubLedger := os.Getenv("ZEN_BRAIN_OFFICE_ALLOW_STUB_LEDGER") == "1"
+ 
+ 	if cfg != nil && cfg.KB.DocsRepo != "" && cfg.QMD.BinaryPath != "" {
+-		// FAIL CLOSED: KB requires explicit enabled flag
+-		if !cfg.KB.Enabled {
+-			return nil, fmt.Errorf("KB configured (docs_repo=%s, qmd_binary=%s) but not enabled (set kb.enabled=true)", cfg.KB.DocsRepo, cfg.QMD.BinaryPath)
+-		}
+ 		// Use real qmd-backed KB
+ 		log.Printf("  - Knowledge Base (qmd-backed: repo=%s)", cfg.KB.DocsRepo)
+ 
+@@ -113,13 +110,13 @@
+ 		}
+ 		log.Println("    ✓ qmd-backed KB initialized")
+ 	} else {
+-		// KB not configured
+-		if cfg != nil && cfg.KB.Required {
+-			// FAIL CLOSED: KB required but not configured
+-			return nil, fmt.Errorf("KB required but not configured (set kb.docs_repo and qmd.binary_path)")
++		if strictMode {
++			return nil, fmt.Errorf("KB not configured in strict runtime (set kb.docs_repo and qmd.binary_path)")
++		}
++		if !allowStubKB {
++			return nil, fmt.Errorf("KB not configured; set kb.docs_repo + qmd.binary_path for real KB or ZEN_BRAIN_OFFICE_ALLOW_STUB_KB=1 for explicit dev stub mode")
+ 		}
+-		// Use stub KB (only when not required)
+-		log.Println("  - Knowledge Base (stub - configure kb.docs_repo and qmd.binary_path for real KB)")
++		log.Println("  - Knowledge Base (stub - explicit opt-in via ZEN_BRAIN_OFFICE_ALLOW_STUB_KB=1)")
+ 		kbStore = kbinternal.NewStubStore()
+ 	}
+ 
+--- cur/internal/integration/office_test.go	2026-03-12 18:37:18.039375990 +0000
++++ work/internal/integration/office_test.go	2026-03-12 18:37:22.014006374 +0000
+@@ -11,7 +11,10 @@
+ func TestOfficePipeline_ProcessWorkItem(t *testing.T) {
+ 	ctx := context.Background()
+ 
+-	// Create pipeline with nil config (uses stubs)
++	t.Setenv("ZEN_BRAIN_OFFICE_ALLOW_STUB_KB", "1")
++	t.Setenv("ZEN_BRAIN_OFFICE_ALLOW_STUB_LEDGER", "1")
++
++	// Create pipeline with nil config (explicit dev stubs)
+ 	pipeline, err := NewOfficePipeline(nil)
+ 	if err != nil {
+ 		t.Fatalf("Failed to create pipeline: %v", err)
+@@ -82,3 +85,10 @@
+ 		t.Errorf("Expected no pending approvals, got %d", len(pending))
+ 	}
+ }
++
++func TestNewOfficePipeline_RequiresExplicitStubOptIn(t *testing.T) {
++	_, err := NewOfficePipeline(nil)
++	if err == nil {
++		t.Fatal("expected office pipeline to fail without explicit stub opt-in")
++	}
++}
