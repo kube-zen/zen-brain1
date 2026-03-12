@@ -199,7 +199,7 @@ zen_context:
   tier3_s3:
     bucket: "zen-brain-context"
     region: "us-east-1"
-    endpoint: ""  # Set to "http://localhost:9000" for MinIO
+    endpoint: ""  # REQUIRED for S3/MinIO; empty will FAIL CLOSED (set to "http://localhost:9000" for MinIO)
     access_key_id: ""
     secret_access_key: ""
     session_token: ""
