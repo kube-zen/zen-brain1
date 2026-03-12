@@ -13,6 +13,7 @@ import (
 
 	"github.com/kube-zen/zen-brain1/internal/config"
 	"github.com/kube-zen/zen-brain1/internal/factory"
+	"github.com/kube-zen/zen-brain1/internal/llm"
 	"github.com/kube-zen/zen-brain1/pkg/contracts"
 )
 
@@ -51,7 +52,8 @@ func printFactoryUsage() {
 	fmt.Println("  workspaces          List active workspaces")
 	fmt.Println("  cleanup [--all]     Clean up old workspaces (or all with --all)")
 	fmt.Println()
-	fmt.Println("Output formats:")
+	fmt.Println("Options:")
+	fmt.Println("  --llm               Enable LLM-powered code generation (requires OLLAMA_BASE_URL)")
 	fmt.Println("  --json              Output as JSON")
 	fmt.Println("  --full              Show complete proof details")
 }
@@ -489,6 +491,42 @@ func buildFactory() (*factory.FactoryImpl, error) {
 		proofManager,
 		runtimeDir,
 	)
+
+	// Enable LLM mode if requested and OLLAMA_BASE_URL is set
+	if hasFlag("--llm") {
+		if ollamaURL := os.Getenv("OLLAMA_BASE_URL"); ollamaURL != "" {
+			gw, gwErr := llm.NewGateway(&llm.GatewayConfig{
+				LocalWorkerModel: "qwen3.5:14b",
+			})
+
+			if gwErr == nil {
+				provider, providerFound := gw.GetProvider("ollama")
+				if providerFound {
+					llmConfig := factory.DefaultLLMGeneratorConfig(provider)
+					llmConfig.EnableThinking = true
+					llmConfig.Temperature = 0.3
+					llmConfig.MaxTokens = 4096
+
+					generator, genErr := factory.NewLLMGenerator(llmConfig)
+					if genErr == nil {
+						factoryInst.SetLLMGenerator(generator)
+						log.Printf("✓ LLM mode enabled (provider=%s, model=%s, url=%s)",
+							provider.Name(), llmConfig.Model, ollamaURL)
+					} else {
+						log.Printf("Warning: Failed to create LLM generator: %v", genErr)
+					}
+				} else {
+					log.Printf("Warning: Ollama provider not found")
+				}
+			} else {
+				log.Printf("Warning: Failed to create LLM gateway: %v", gwErr)
+			}
+		} else {
+			log.Printf("Warning: --llm flag set but OLLAMA_BASE_URL not set")
+			log.Printf("LLM mode disabled - falling back to shell templates")
+			log.Printf("Set OLLAMA_BASE_URL to enable LLM mode")
+		}
+	}
 
 	return factoryInst, nil
 }
