@@ -49,8 +49,10 @@ type LoggingConfig struct {
 
 // KBConfig holds knowledge base configuration.
 type KBConfig struct {
+	Enabled     bool   `yaml:"enabled"`
 	DocsRepo    string `yaml:"docs_repo"`
 	SearchLimit int    `yaml:"search_limit"`
+	Required    bool   `yaml:"required"`
 }
 
 // QMDConfig holds QMD configuration.

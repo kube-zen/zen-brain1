@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"path/filepath"
 
 	"github.com/kube-zen/zen-brain1/pkg/kb"
 	qmdpkg "github.com/kube-zen/zen-brain1/pkg/qmd"

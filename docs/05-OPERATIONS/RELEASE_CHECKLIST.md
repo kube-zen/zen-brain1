@@ -1,8 +1,15 @@
 # 1.0 RELEASE CHECKLIST
 
-**Status**: ✅ PRODUCTION-READY (99% Complete)
-**Date**: 2026-03-11
-**Release Candidate**: v1.0.0-rc1
+**Status**: ⚠️ APPROACHING PRODUCTION READINESS (~95% Complete)
+**Date**: 2026-03-12
+**Release Candidate**: v1.0.0-pre
+
+**Outstanding Tasks**:
+1. Fix Office compile/config drift (KB.Enabled/Required fields)
+2. Make Office stubs explicit (no ambient fallback)
+3. Finish Block 4 migration template cleanup
+4. Align status documentation
+5. Fresh Go 1.25 build/test/deploy proof
 
 ---
 
@@ -22,15 +29,15 @@
 ### **System Completeness**
 | Block | Status | Completeness | Notes |
 |-------|--------|--------------|-------|
-| 0 - Foundation | ✅ Complete | 100% | Tooling, config, deploy structure |
-| 0.5 - zen-sdk reuse | ✅ Complete | 95% | Stable and production-ready |
-| 1 - Neuro-Anatomy | ✅ Complete | 98% | Edge cases covered |
-| 2 - Office | ✅ Complete | 100% | Jira, analyzer, webhooks |
-| 3 - Nervous System | ✅ Complete | 100% | Runtime, circuit breakers |
-| 4 - Factory | ✅ Ready | 98% | Static analysis, multi-language, verification |
-| 5 - Intelligence | ✅ Complete | **99%** | **Enhanced failure analysis, predictive modeling** |
-| 6 - Developer Experience | ✅ Complete | 95% | Deployment validated |
-| **Overall** | **✅ READY** | **99%** | **Production-ready** |
+| 0 - Foundation | ✅ Complete | 98% | Tooling, config, deploy structure; status docs need consolidation |
+| 0.5 - zen-sdk reuse | ✅ Complete | 96% | Stable and production-ready; config consistency needed |
+| 1 - Neuro-Anatomy | ✅ Complete | 97% | Edge cases covered; fresh end-to-end proof needed |
+| 2 - Office | ⚠️ In Progress | 92% | Jira, analyzer, webhooks; config/code drift fix needed |
+| 3 - Nervous System | ✅ Complete | 93% | Runtime, circuit breakers; fail-closed posture improved |
+| 4 - Factory | ✅ Ready | 92% | Static analysis, multi-language; migration template cleanup needed |
+| 5 - Intelligence | ✅ Complete | 92% | Enhanced failure analysis, predictive modeling; QMD docs alignment needed |
+| 6 - Developer Experience | ✅ Complete | 94% | Deployment validated; fresh build/test/deploy proof needed |
+| **Overall** | **⚠️ APPROACHING** | **~95%** | **Internal-use ready; Office hardening needed** |
 
 ---
 
