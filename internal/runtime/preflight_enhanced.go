@@ -62,36 +62,7 @@ func DefaultEnhancedPreflightConfig() *EnhancedPreflightConfig {
 	}
 }
 
-// detectRuntimeProfile determines the runtime profile from environment.
-func detectRuntimeProfile() string {
-	// Explicit profile
-	if profile := os.Getenv("ZEN_RUNTIME_PROFILE"); profile != "" {
-		return strings.ToLower(profile)
-	}
-
-	// Strict mode implies prod
-	if os.Getenv("ZEN_BRAIN_STRICT_RUNTIME") != "" {
-		return "prod"
-	}
-
-	// Environment-based detection
-	if os.Getenv("KUBERNETES_SERVICE_HOST") != "" {
-		if os.Getenv("ZEN_BRAIN_ENV") == "production" {
-			return "prod"
-		}
-		return "staging"
-	}
-
-	if os.Getenv("CI") != "" || os.Getenv("GITHUB_ACTIONS") != "" {
-		return "ci"
-	}
-
-	if os.Getenv("GO_TEST") != "" {
-		return "test"
-	}
-
-	return "dev"
-}
+// detectRuntimeProfile is defined in strictness.go.
 
 // EnhancedPreflightCheck represents a comprehensive preflight check.
 type EnhancedPreflightCheck struct {

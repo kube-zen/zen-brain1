@@ -90,14 +90,8 @@ func isStrictMode(profile string) bool {
 	}
 
 	// Check for individual strict flags
-	if os.Getenv("ZEN_BRAIN_REQUIRE_ZENCONTEXT") != "" ||
-		os.Getenv("ZEN_BRAIN_REQUIRE_LEDGER") != "" ||
-		os.Getenv("ZEN_BRAIN_REQUIRE_QMD") != "" ||
-		os.Getenv("ZEN_BRAIN_REQUIRE_MESSAGEBUS") != "" {
-		return true
-	}
-
-	return false
+	req := GetRequirements(nil)
+	return req.ZenContext || req.QMD || req.Ledger || req.MessageBus
 }
 
 // validateStrictRequirements validates all required capabilities are healthy in strict mode.
