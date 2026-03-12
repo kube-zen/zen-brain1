@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/kube-zen/zen-brain1/internal/context/tier1"
@@ -78,6 +79,23 @@ func DefaultZenContextConfig() *ZenContextConfig {
 	}
 }
 
+// resolveToAbsPath resolves a path to an absolute path, applying real-path discipline.
+// Returns the path unchanged if empty. Logs a warning if resolution fails.
+func resolveToAbsPath(path string, verbose bool) string {
+	if path == "" {
+		return path
+	}
+	absPath, err := filepath.Abs(filepath.Clean(path))
+	if err != nil {
+		if verbose {
+			log.Printf("[ZenContextFactory] Warning: failed to resolve absolute path for %q: %v", path, err)
+		}
+		// Return original path as fallback
+		return path
+	}
+	return absPath
+}
+
 // NewZenContext creates a production-ready ZenContext with real Redis and S3 clients.
 // This is the main factory function for production deployments.
 func NewZenContext(config *ZenContextConfig) (zenctx.ZenContext, error) {
@@ -85,8 +103,23 @@ func NewZenContext(config *ZenContextConfig) (zenctx.ZenContext, error) {
 		config = DefaultZenContextConfig()
 	}
 
+	// Apply real-path discipline: resolve all paths to absolute paths
+	if config.Tier2QMD != nil {
+		config.Tier2QMD.RepoPath = resolveToAbsPath(config.Tier2QMD.RepoPath, config.Verbose)
+		config.Tier2QMD.QMDBinaryPath = resolveToAbsPath(config.Tier2QMD.QMDBinaryPath, config.Verbose)
+	}
+	if config.Journal != nil {
+		config.Journal.JournalPath = resolveToAbsPath(config.Journal.JournalPath, config.Verbose)
+	}
+
 	if config.Verbose {
 		log.Printf("[ZenContextFactory] Creating ZenContext with cluster=%s", config.ClusterID)
+		if config.Tier2QMD != nil {
+			log.Printf("[ZenContextFactory] Tier 2 repo path (absolute): %s", config.Tier2QMD.RepoPath)
+		}
+		if config.Journal != nil {
+			log.Printf("[ZenContextFactory] Journal path (absolute): %s", config.Journal.JournalPath)
+		}
 	}
 
 	// Build Tier 1 (Hot) Redis store

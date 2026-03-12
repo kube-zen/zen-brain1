@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	sdkdlq "github.com/kube-zen/zen-sdk/pkg/dlq"
+	"github.com/kube-zen/zen-sdk/pkg/dlq"
 )
 
 func TestInit(t *testing.T) {
@@ -36,7 +36,7 @@ func TestAddFailedEvent(t *testing.T) {
 	require.NoError(t, err)
 
 	// Add a test event
-	event := sdkdlq.Event{
+	event := dlq.Event{
 		Source:    "test-source",
 		Timestamp: time.Now(),
 		RawData:   map[string]interface{}{"key": "value"},
@@ -69,7 +69,7 @@ func TestListFailedEvents(t *testing.T) {
 
 	// Add multiple events
 	for i := 0; i < 5; i++ {
-		event := sdkdlq.Event{
+		event := dlq.Event{
 			Source:    "test-source",
 			Timestamp: time.Now(),
 			RawData:   map[string]interface{}{"index": i},
@@ -82,7 +82,7 @@ func TestListFailedEvents(t *testing.T) {
 	assert.Len(t, events, 5)
 
 	// Filter by source
-	filter := &sdkdlq.Filter{
+	filter := &dlq.Filter{
 		Source: "test-source",
 	}
 	events = ListFailedEvents(filter)
@@ -99,7 +99,7 @@ func TestGetFailedEvent(t *testing.T) {
 	require.NoError(t, err)
 
 	// Add a test event
-	event := sdkdlq.Event{
+	event := dlq.Event{
 		Source:    "test-source",
 		Timestamp: time.Now(),
 		RawData:   map[string]interface{}{"key": "value"},
@@ -126,7 +126,7 @@ func TestReplayFailedEvent(t *testing.T) {
 	require.NoError(t, err)
 
 	// Add a test event
-	event := sdkdlq.Event{
+	event := dlq.Event{
 		Source:    "test-source",
 		Timestamp: time.Now(),
 		RawData:   map[string]interface{}{"key": "value"},
@@ -159,7 +159,7 @@ func TestRemoveFailedEvent(t *testing.T) {
 	require.NoError(t, err)
 
 	// Add a test event
-	event := sdkdlq.Event{
+	event := dlq.Event{
 		Source:    "test-source",
 		Timestamp: time.Now(),
 		RawData:   map[string]interface{}{"key": "value"},
@@ -196,7 +196,7 @@ func TestGetStats(t *testing.T) {
 
 	// Add some events
 	for i := 0; i < 3; i++ {
-		event := sdkdlq.Event{
+		event := dlq.Event{
 			Source:    "test-source",
 			Timestamp: time.Now(),
 			RawData:   map[string]interface{}{"index": i},
@@ -219,7 +219,7 @@ func TestStartReplayWorker(t *testing.T) {
 	require.NoError(t, err)
 
 	// Add a transient event
-	event := sdkdlq.Event{
+	event := dlq.Event{
 		Source:    "test-source",
 		Timestamp: time.Now(),
 		RawData:   map[string]interface{}{"key": "value"},
