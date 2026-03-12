@@ -364,7 +364,7 @@ func runVerticalSlice() {
 	if msgBus == nil && os.Getenv("ZEN_BRAIN_MESSAGE_BUS") == "redis" {
 		redisURL := os.Getenv("REDIS_URL")
 		if redisURL == "" {
-			return fmt.Errorf("ZEN_BRAIN_MESSAGE_BUS=redis but REDIS_URL not set (cannot use default localhost:6379)")
+			log.Fatalf("ZEN_BRAIN_MESSAGE_BUS=redis but REDIS_URL not set (cannot use default localhost:6379)")
 		}
 		if bus, errBus := redis.New(&redis.Config{RedisURL: redisURL}); errBus == nil {
 			msgBus = bus
