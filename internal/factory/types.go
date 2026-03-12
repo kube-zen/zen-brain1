@@ -65,10 +65,18 @@ type WorkspaceMetadata struct {
 	Clean       bool `json:"clean"`
 	Locked      bool `json:"locked"`
 
+	// Workspace Class and Trust Level
+	Class      WorkspaceClass `json:"class,omitempty"`
+	TrustLevel TrustLevel     `json:"trust_level,omitempty"`
+
 	// Git information
 	Branch     string   `json:"branch,omitempty"`
 	BaseCommit string   `json:"base_commit,omitempty"`
 	DirtyFiles []string `json:"dirty_files,omitempty"`
+
+	// Tmpfs acceleration
+	TmpfsMounted bool `json:"tmpfs_mounted,omitempty"`
+	TmpfsSizeMB int  `json:"tmpfs_size_mb,omitempty"`
 
 	// Metrics
 	CreatedAt time.Time `json:"created_at"`
