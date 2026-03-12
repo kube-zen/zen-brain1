@@ -364,7 +364,7 @@ func runVerticalSlice() {
 	if msgBus == nil && os.Getenv("ZEN_BRAIN_MESSAGE_BUS") == "redis" {
 		redisURL := os.Getenv("REDIS_URL")
 		if redisURL == "" {
-			redisURL = "redis://localhost:6379"
+			return fmt.Errorf("ZEN_BRAIN_MESSAGE_BUS=redis but REDIS_URL not set (cannot use default localhost:6379)")
 		}
 		if bus, errBus := redis.New(&redis.Config{RedisURL: redisURL}); errBus == nil {
 			msgBus = bus
@@ -1168,10 +1168,10 @@ func createRealZenContext() (zenctx.ZenContext, error) {
 	// Get home directory with real-path discipline
 	homeDir := filepath.Join(os.Getenv("HOME"), ".zen", "zen-brain1")
 
-	// Read Redis config from environment (or use defaults)
+	// Read Redis config from environment (FAIL CLOSED: no default)
 	redisAddr := os.Getenv("REDIS_URL")
 	if redisAddr == "" {
-		redisAddr = "localhost:6379"
+		return nil, fmt.Errorf("REDIS_URL not set (cannot use default localhost:6379)")
 	}
 	redisConfig := &tier1.RedisConfig{
 		Addr:         redisAddr,
@@ -1184,18 +1184,18 @@ func createRealZenContext() (zenctx.ZenContext, error) {
 		WriteTimeout: 3 * time.Second,
 	}
 
-	// Read S3 config from environment (or use defaults)
+	// Read S3 config from environment (FAIL CLOSED: no default)
 	s3Endpoint := os.Getenv("S3_ENDPOINT")
 	if s3Endpoint == "" {
-		s3Endpoint = "http://localhost:9000"
+		return nil, fmt.Errorf("S3_ENDPOINT not set (cannot use default http://localhost:9000)")
 	}
 	s3AccessKey := os.Getenv("S3_ACCESS_KEY_ID")
 	if s3AccessKey == "" {
-		s3AccessKey = "minioadmin"
+		return nil, fmt.Errorf("S3_ACCESS_KEY_ID not set (cannot use default minioadmin)")
 	}
 	s3SecretKey := os.Getenv("S3_SECRET_ACCESS_KEY")
 	if s3SecretKey == "" {
-		s3SecretKey = "minioadmin"
+		return nil, fmt.Errorf("S3_SECRET_ACCESS_KEY not set (cannot use default minioadmin)")
 	}
 	s3Config := &tier3.S3Config{
 		Bucket:            os.Getenv("S3_BUCKET"),

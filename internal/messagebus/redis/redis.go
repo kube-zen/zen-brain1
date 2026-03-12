@@ -31,9 +31,10 @@ type Config struct {
 }
 
 // DefaultConfig returns a default configuration.
+// FAIL CLOSED: RedisURL must be set explicitly (no localhost default).
 func DefaultConfig() *Config {
 	return &Config{
-		RedisURL:     "redis://localhost:6379",
+		RedisURL:     "", // FAIL CLOSED: no default localhost:6379
 		MaxPending:   1000,
 		ConsumerName: "",
 		BlockTimeout: 5 * time.Second,
@@ -65,6 +66,11 @@ type redisSubscription struct {
 func New(config *Config) (messagebus.MessageBus, error) {
 	if config == nil {
 		config = DefaultConfig()
+	}
+
+	// FAIL CLOSED: RedisURL must be set
+	if config.RedisURL == "" {
+		return nil, fmt.Errorf("RedisURL not set (cannot use default localhost:6379)")
 	}
 
 	opts, err := redis.ParseURL(config.RedisURL)
