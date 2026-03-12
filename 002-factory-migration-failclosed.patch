@@ -1,0 +1,23 @@
+--- cur/internal/factory/repo_aware_templates.go	2026-03-12 18:37:17.997421033 +0000
++++ work/internal/factory/repo_aware_templates.go	2026-03-12 18:37:22.017345499 +0000
+@@ -672,16 +672,16 @@
+ 			},
+ 			{
+ 				Name:        "Create migration file",
+-				Description: "Create SQL migration file",
+-				Command:     "if [ -f .zen-target-info ]; then . .zen-target-info; fi && cat > \"$MIGRATION_FILE\" << 'MIGR_EOF'\n-- Migration: {{.title}}\n-- Work Item: {{.work_item_id}}\n-- Created: $(date -u +%Y-%m-%dT%H:%M:%SZ)\n\n-- UP: Apply the migration changes\nBEGIN;\n\n-- TODO: Add migration SQL here\n-- Example: CREATE TABLE IF NOT EXISTS example (\n--   id SERIAL PRIMARY KEY,\n--   name VARCHAR(255) NOT NULL,\n--   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP\n-- );\n\nCOMMIT;\nMIGR_EOF\necho \"$MIGRATION_FILE\" >> .zen-repo-files-changed && echo \"Created: $MIGRATION_FILE\"",
++				Description: "Create fail-closed SQL migration template",
++				Command:     "if [ -f .zen-target-info ]; then . .zen-target-info; fi && cat > \"$MIGRATION_FILE\" << 'MIGR_EOF'\n-- Migration: {{.title}}\n-- Work Item: {{.work_item_id}}\n-- Created: $(date -u +%Y-%m-%dT%H:%M:%SZ)\n\n-- FAIL-CLOSED TEMPLATE: replace the guarded block below with concrete migration SQL before applying.\nBEGIN;\n\nDO $$\nBEGIN\n  RAISE EXCEPTION 'zen-brain generated migration template for {{.work_item_id}} must be customized before execution';\nEND $$;\n\nCOMMIT;\nMIGR_EOF\necho \"$MIGRATION_FILE\" >> .zen-repo-files-changed && echo \"Created: $MIGRATION_FILE\"",
+ 				Variables:   map[string]string{},
+ 				Timeout:     30,
+ 				MaxRetries:  2,
+ 			},
+ 			{
+ 				Name:        "Create rollback migration",
+-				Description: "Create rollback migration file",
+-				Command:     "if [ -f .zen-target-info ]; then . .zen-target-info; fi && ROLLBACK_FILE=\"${MIGRATION_FILE%.up.sql}.down.sql\" && cat > \"$ROLLBACK_FILE\" << 'ROLLBACK_EOF'\n-- Rollback: {{.title}}\n-- Work Item: {{.work_item_id}}\n-- Created: $(date -u +%Y-%m-%dT%H:%M:%SZ)\n\n-- DOWN: Rollback the migration changes\nBEGIN;\n\n-- TODO: Add rollback SQL here\n-- Example: DROP TABLE IF EXISTS example;\n\nCOMMIT;\nROLLBACK_EOF\necho \"$ROLLBACK_FILE\" >> .zen-repo-files-changed && echo \"Created: $ROLLBACK_FILE\"",
++				Description: "Create fail-closed rollback migration template",
++				Command:     "if [ -f .zen-target-info ]; then . .zen-target-info; fi && ROLLBACK_FILE=\"${MIGRATION_FILE%.up.sql}.down.sql\" && cat > \"$ROLLBACK_FILE\" << 'ROLLBACK_EOF'\n-- Rollback: {{.title}}\n-- Work Item: {{.work_item_id}}\n-- Created: $(date -u +%Y-%m-%dT%H:%M:%SZ)\n\n-- FAIL-CLOSED TEMPLATE: replace the guarded block below with concrete rollback SQL before applying.\nBEGIN;\n\nDO $$\nBEGIN\n  RAISE EXCEPTION 'zen-brain generated rollback template for {{.work_item_id}} must be customized before execution';\nEND $$;\n\nCOMMIT;\nROLLBACK_EOF\necho \"$ROLLBACK_FILE\" >> .zen-repo-files-changed && echo \"Created: $ROLLBACK_FILE\"",
+ 				Variables:   map[string]string{},
+ 				Timeout:     30,
+ 				MaxRetries:  2,
