@@ -16,14 +16,11 @@ func (r *WorkTypeTemplateRegistry) registerRepoAwareTemplates() {
 	r.registerRepoAwareImplementationTemplate()
 	r.registerRepoAwareBugFixTemplate()
 	r.registerRepoAwareRefactorTemplate()
-	// r.registerRepoAwareDocsTemplate() // DISABLED: Complex escape sequences in Command strings cause Go compilation errors
-	// See: docs/04-DEVELOPMENT/FACTORY_TEMPLATE_ISSUES.md for details and fix approach
+	r.registerRepoAwareDocsTemplate()
 	r.registerRepoAwareTestTemplate()
-	// r.registerRepoAwareCICDTemplate() // DISABLED: Complex escape sequences in Command strings cause Go compilation errors
-	// See: docs/04-DEVELOPMENT/FACTORY_TEMPLATE_ISSUES.md for details and fix approach
+	r.registerRepoAwareCICDTemplate()
 	r.registerRepoAwareMonitoringTemplate()
-	// r.registerRepoAwareMigrationTemplate() // DISABLED: Complex escape sequences in Command strings cause Go compilation errors
-	// See: docs/04-DEVELOPMENT/FACTORY_TEMPLATE_ISSUES.md for details and fix approach
+	r.registerRepoAwareMigrationTemplate()
 }
 
 // registerRepoAwareImplementationTemplate creates a truly repo-aware implementation template.
