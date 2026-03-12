@@ -42,20 +42,14 @@ type OfficePipeline struct {
 // - If Message Bus config is available (enabled + redis_url), uses real Redis message bus
 // - FAILS CLOSED when in strict mode OR when component is marked as Required:
 //   - Strict mode: ZEN_BRAIN_STRICT_RUNTIME env var set OR ZEN_RUNTIME_PROFILE=prod
-//   - Required flag: kb.required, ledger.required, message_bus.required set to true
-// - Falls back to stubs ONLY when:
-//   - NOT in strict mode AND component is NOT marked as Required AND initialization fails
-//   - Component is explicitly disabled (enabled=false, not required)
+//   - Required flag: ledger.required, message_bus.required set to true
+// - Falls back to stubs ONLY when the operator explicitly opts in:
+//   - ZEN_BRAIN_OFFICE_ALLOW_STUB_KB=1
+//   - ZEN_BRAIN_OFFICE_ALLOW_STUB_LEDGER=1
 //
-// This ensures degraded operation is NOT tolerated when real infra is required.
+// This ensures degraded operation is NOT tolerated by default.
 func NewOfficePipeline(cfg *config.Config) (*OfficePipeline, error) {
 	log.Println("Initializing Office pipeline...")
-
-	// Helper to check if stub fallback is explicitly allowed
-	stubsAllowed := func() bool {
-		val := os.Getenv("ZEN_BRAIN_ALLOW_STUBS")
-		return val == "1" || val == "true" || val == "yes"
-	}
 
 	// 1. LLM Gateway
 	log.Println("  - LLM Gateway")
@@ -80,14 +74,13 @@ func NewOfficePipeline(cfg *config.Config) (*OfficePipeline, error) {
 		return nil, fmt.Errorf("failed to create LLM Gateway: %w", err)
 	}
 
-	// 2. Knowledge Base (real or stub)
+	// 2. Knowledge Base (real or explicit stub)
 	var kbStore kb.Store
+	strictMode := os.Getenv("ZEN_BRAIN_STRICT_RUNTIME") != "" || os.Getenv("ZEN_RUNTIME_PROFILE") == "prod"
+	allowStubKB := os.Getenv("ZEN_BRAIN_OFFICE_ALLOW_STUB_KB") == "1"
+	allowStubLedger := os.Getenv("ZEN_BRAIN_OFFICE_ALLOW_STUB_LEDGER") == "1"
 
 	if cfg != nil && cfg.KB.DocsRepo != "" && cfg.QMD.BinaryPath != "" {
-		// FAIL CLOSED: KB requires explicit enabled flag
-		if !cfg.KB.Enabled {
-			return nil, fmt.Errorf("KB configured (docs_repo=%s, qmd_binary=%s) but not enabled (set kb.enabled=true)", cfg.KB.DocsRepo, cfg.QMD.BinaryPath)
-		}
 		// Use real qmd-backed KB
 		log.Printf("  - Knowledge Base (qmd-backed: repo=%s)", cfg.KB.DocsRepo)
 
@@ -117,17 +110,13 @@ func NewOfficePipeline(cfg *config.Config) (*OfficePipeline, error) {
 		}
 		log.Println("    ✓ qmd-backed KB initialized")
 	} else {
-		// KB not configured
-		if cfg != nil && cfg.KB.Required {
-			// FAIL CLOSED: KB required but not configured
-			return nil, fmt.Errorf("KB required but not configured (set kb.docs_repo and qmd.binary_path)")
+		if strictMode {
+			return nil, fmt.Errorf("KB not configured in strict runtime (set kb.docs_repo and qmd.binary_path)")
 		}
-		// Check if stub fallback is explicitly allowed
-		if !stubsAllowed() {
-			return nil, fmt.Errorf("KB not configured and stub fallback not allowed (set kb.docs_repo and qmd.binary_path for real KB, or set ZEN_BRAIN_ALLOW_STUBS=1 for stub)")
+		if !allowStubKB {
+			return nil, fmt.Errorf("KB not configured; set kb.docs_repo + qmd.binary_path for real KB or ZEN_BRAIN_OFFICE_ALLOW_STUB_KB=1 for explicit dev stub mode")
 		}
-		// Use stub KB (explicit opt-in via ZEN_BRAIN_ALLOW_STUBS)
-		log.Println("  - Knowledge Base (stub - configure kb.docs_repo and qmd.binary_path for real KB)")
+		log.Println("  - Knowledge Base (stub - explicit opt-in via ZEN_BRAIN_OFFICE_ALLOW_STUB_KB=1)")
 		kbStore = kbinternal.NewStubStore()
 	}
 
@@ -183,17 +172,13 @@ func NewOfficePipeline(cfg *config.Config) (*OfficePipeline, error) {
 		}
 		log.Println("    ✓ CockroachDB ledger initialized")
 	} else {
-		// Ledger not enabled
-		if cfg != nil && cfg.Ledger.Required {
-			// FAIL CLOSED: ledger required but not enabled
-			return nil, fmt.Errorf("Ledger required but not enabled (set ledger.enabled=true)")
+		if strictMode {
+			return nil, fmt.Errorf("Ledger not enabled in strict runtime (set ledger.enabled=true)")
 		}
-		// Check if stub fallback is explicitly allowed
-		if !stubsAllowed() {
-			return nil, fmt.Errorf("Ledger not enabled and stub fallback not allowed (set ledger.enabled=true for real ledger, or set ZEN_BRAIN_ALLOW_STUBS=1 for stub)")
+		if !allowStubLedger {
+			return nil, fmt.Errorf("Ledger not enabled; set ledger.enabled=true for real ledger or ZEN_BRAIN_OFFICE_ALLOW_STUB_LEDGER=1 for explicit dev stub mode")
 		}
-		// Use stub ledger (explicit opt-in via ZEN_BRAIN_ALLOW_STUBS)
-		log.Println("  - Ledger (stub - set ledger.enabled=true for real ledger)")
+		log.Println("  - Ledger (stub - explicit opt-in via ZEN_BRAIN_OFFICE_ALLOW_STUB_LEDGER=1)")
 		ledgerClient = ledgerinternal.NewStubLedgerClient()
 	}
 
