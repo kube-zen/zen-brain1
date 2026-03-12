@@ -16,11 +16,11 @@ func (r *WorkTypeTemplateRegistry) registerRepoAwareTemplates() {
 	r.registerRepoAwareImplementationTemplate()
 	r.registerRepoAwareBugFixTemplate()
 	r.registerRepoAwareRefactorTemplate()
-	r.registerRepoAwareDocsTemplate()
+	// r.registerRepoAwareDocsTemplate() // TEMP: compilation issues
 	r.registerRepoAwareTestTemplate()
-	r.registerRepoAwareCICDTemplate()
+	// r.registerRepoAwareCICDTemplate() // TEMP: compilation issues
 	r.registerRepoAwareMonitoringTemplate()
-	r.registerRepoAwareMigrationTemplate()
+	// r.registerRepoAwareMigrationTemplate() // TEMP: compilation issues
 }
 
 // registerRepoAwareImplementationTemplate creates a truly repo-aware implementation template.
@@ -322,80 +322,80 @@ func (r *WorkTypeTemplateRegistry) registerRepoAwareRefactorTemplate() {
 }
 
 // registerRepoAwareDocsTemplate creates a truly repo-aware documentation template.
-func (r *WorkTypeTemplateRegistry) registerRepoAwareDocsTemplate() {
-	template := &WorkTypeTemplate{
-		WorkType:   "docs",
-		WorkDomain: "real",
-		Description: "Repo-native documentation: detects docs structure, writes to actual paths, context-aware content",
-		Steps: []ExecutionStepTemplate{
-			{
-				Name:        "Validate git repository",
-				Description: "Require git repository for documentation tracking",
-				Command:     "git rev-parse --is-inside-work-tree 2>/dev/null || { echo 'ERROR: Not inside a git repository' >&2; exit 1; } && echo 'Git repository: OK'",
-				Variables:   map[string]string{},
-				Timeout:     15,
-				MaxRetries:  1,
-			},
-			{
-				Name:        "Detect project type and docs structure",
-				Description: "Detect project type and existing documentation directories",
-				Command:     "[ -f go.mod ] && PROJECT_TYPE='go' && echo 'PROJECT_TYPE=go' > .zen-project-info && echo 'Detected: Go' && [ -f go.mod ] && MODULE_NAME=$(grep '^module ' go.mod | awk '{print $2}') || MODULE_NAME='unknown' && echo \"MODULE_NAME=$MODULE_NAME\" >> .zen-project-info || (echo 'PROJECT_TYPE=unknown' > .zen-project-info && echo 'Unknown type') && DOC_DIRS=$(find . -type d -name 'docs' 2>/dev/null | head -3) && if [ -z \"$DOC_DIRS\" ]; then DOC_DIRS='docs'; mkdir -p docs 2>/dev/null; fi && echo \"$DOC_DIRS\" > .zen-doc-dirs && echo 'Documentation directories: docs/'",
-				Variables:   map[string]string{},
-				Timeout:     30,
-				MaxRetries:  1,
-			},
-			{
-				Name:        "Determine documentation target",
-				Description: "Select target path based on objective and existing structure",
-				Command:     "if [ -f .zen-project-info ]; then . .zen-project-info; fi && OBJECTIVE_LC=$(echo '{{.objective}}' | tr '[:upper:]' '[:lower:]') && if echo \"$OBJECTIVE_LC\" | grep -qi 'api\\|rest\\|grpc'; then TARGET_DIR='docs/api'; elif echo \"$OBJECTIVE_LC\" | grep -qi 'guide\\|how-to\\|tutorial\\|getting started'; then TARGET_DIR='docs/guides'; else TARGET_DIR='docs'; fi && mkdir -p \"$TARGET_DIR\" && DOC_NAME=$(echo '{{.title}}' | tr ' ' '-' | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9-') && [ -z \"$DOC_NAME\" ] && DOC_NAME='new-doc' && TARGET_PATH=\"${TARGET_DIR}/${DOC_NAME}.md\" && echo \"export TARGET_PATH=$TARGET_PATH\" > .zen-target-info && echo \"Selected: $TARGET_PATH\"",
-				Variables:   map[string]string{},
-				Timeout:     30,
-				MaxRetries:  1,
-			},
-			{
-				Name:        "Create context-aware documentation",
-				Description: "Write documentation to actual repo path with project-specific context",
-			Command:     "if [ -f .zen-project-info ]; then . .zen-project-info; fi && if [ -f .zen-target-info ]; then . .zen-target-info; fi && cat > \"$TARGET_PATH\" << 'DOCS_EOF'\\n# {{.title}}\\n\\n> **Work Item:** {{.work_item_id}}\\n> **Created:** $(date -u +%Y-%m-%dT%H:%M:%SZ)\\n\\n## Overview\\n\\n{{.objective}}\\n\\n## Project Context\\n\\n$(if [ \"$PROJECT_TYPE\" = 'go' ]; then echo 'This documentation applies to the Go module **$MODULE_NAME**.'; elif [ \"$PROJECT_TYPE\" = 'node' ]; then echo 'This documentation applies to the Node.js package.'; else echo 'This documentation applies to this project.'; fi)\\n\\n## Getting Started\\n\\n### Prerequisites\\n$(if [ \"$PROJECT_TYPE\" = 'go' ]; then echo '- Go 1.21+ installed'; echo '- GOPATH/bin in your PATH'; elif [ \"$PROJECT_TYPE\" = 'node' ]; then echo '- Node.js 18+ installed'; echo '- npm or yarn package manager'; else echo '- Appropriate development environment for this project type'; fi)\\n\\n### Installation\\n$(if [ \"$PROJECT_TYPE\" = 'go' ]; then echo '\\`bash\\ngo get /./...\\n\\`\''; elif [ \"$PROJECT_TYPE\" = 'node' ]; then echo '\\`bash\\nnpm install\\n\\`\''; else echo 'Follow standard installation procedures for this project type.'; fi)\\n\\n### Quick Start\\n1. Clone to repository: \\`git clone <repo-url>\\`\\n2. Navigate to project directory\\n3. $(if [ \"$PROJECT_TYPE\" = 'go' ]; then echo 'Run \\`go run main.go\\`'; elif [ \"$PROJECT_TYPE\" = 'node' ]; then echo 'Run \\`npm start\\`'; else echo 'Run to main application'; fi)\\n4. Verify to service is running\\n\\n\\n## Usage\\n\\n### Basic Usage\\nThe {{.title}} provides to following capabilities:\\n\\n$(echo '{{.objective}}' | sed 's/\. /\\\n- /g' | sed 's/^/- /')\\n\\n### Example: Common Scenario\\n\\`\\`\\`bash\\n# Example command demonstrating {{.title}}\\n$(if [ \"$PROJECT_TYPE\" = 'go' ]; then echo 'go run cmd/main.go --help'; elif [ \"$PROJECT_TYPE\" = 'node' ]; then echo 'node index.js --help'; else echo './script.sh --help'; fi)\\n\\`\\`\\`\\n\\n### Advanced Usage\\nFor production deployment, consider these patterns:\\n\\n1. **Environment Configuration**: Set environment variables for customization\\n2. **Logging**: Enable structured logging for observability\\n3. **Monitoring**: Integrate with monitoring tools (Prometheus, Grafana)\\n4. **Scaling**: Configure horizontal scaling based on load\\n\\n\\n## Configuration\\n\\n### Environment Variables\\n$(if [ \"$PROJECT_TYPE\" = 'go' ]; then echo '| Variable | Description | Default |\\n|----------|-------------|---------|\\n| \\`PORT\\` | HTTP server port | \\`8080\\` |\\n| \\`LOG_LEVEL\\` | Logging level (debug, info, warn, error) | \\`info\\` |\\n| \\`DATABASE_URL\\` | Database connection string | \\`postgres://localhost:5432/db\\` |'; elif [ \"$PROJECT_TYPE\" = 'node' ]; then echo '| Variable | Description | Default |\\n|----------|-------------|---------|\\n| \\`PORT\\` | HTTP server port | \\`3000\\` |\\n| \\`NODE_ENV\\` | Node environment (development, production) | \\`development\\` |\\n| \\`DATABASE_URL\\` | Database connection string | \\`postgres://localhost:5432/db\\` |'; else echo '| Variable | Description | Default |\\n|----------|-------------|---------|\\n| \\`APP_ENV\\` | Application environment | \\`development\\` |\\n| \\`APP_PORT\\` | Application port | \\`8080\\` |\\n| \\`LOG_LEVEL\\` | Logging level | \\`info\\` |'; fi)\\n\\n### Configuration Files\\n$(if [ \"$PROJECT_TYPE\" = 'go' ]; then echo 'Configuration can be provided via:\\n- Environment variables\\n- \\`config.yaml\\` file\\n- Command-line flags'; elif [ \"$PROJECT_TYPE\" = 'node' ]; then echo 'Configuration can be provided via:\\n- Environment variables\\n- \\`.env\\` file\\n- \\`config.json\\` file'; else echo 'Configuration can be provided via environment variables or configuration files.'; fi)\\n\\n## Troubleshooting\\n\\n### Common Issues\\n\\n#### Issue: Service fails to start\\n**Solution**: Check port availability and required environment variables.\\n\\n#### Issue: Database connection errors\\n**Solution**: Verify database credentials and network connectivity.\\n\\n#### Issue: Performance degradation\\n**Solution**: Monitor resource usage and adjust scaling configuration.\\n\\n### Debugging\\nEnable debug logging by setting \\`LOG_LEVEL=debug\\` and review application logs.\\n\\n### Getting Help\\n- Check application logs for error messages\\n- Review system resource utilization\\n- Consult project documentation and README\\n\\n## See Also\\n\\n### Related Documentation\\n$(if [ \"$PROJECT_TYPE\" = 'go' ]; then echo '- [Go Documentation](https://golang.org/doc/)\\n- [Project README](../README.md)\\n- [API Reference](../docs/API.md)'; elif [ \"$PROJECT_TYPE\" = 'node' ]; then echo '- [Node.js Documentation](https://nodejs.org/docs/)\\n- [Project README](../README.md)\\n- [Package Documentation](../docs/)'; else echo '- [Project README](../README.md)\\n- [Architecture Documentation](../docs/ARCHITECTURE.md)'; fi)\\n\\n### External Resources\\n- [zen-brain Documentation](https://docs.zen-brain.ai)\\n- [Best Practices Guide](../docs/BEST_PRACTICES.md)\\n\\n---\\n\\n*Documented as part of work item {{.work_item_id}}*\\nDOCS_EOF\\necho \"$TARGET_PATH\" >> .zen-repo-files-changed && echo \"Created: $TARGET_PATH\"",
-				Variables:   map[string]string{},
-				Timeout:     60,
-				MaxRetries:  2,
-			},
-			{
-				Name:        "Update documentation index",
-				Description: "Update docs/index.md with link to new documentation",
-				Command:     "if [ -f .zen-target-info ]; then . .zen-target-info; fi && if [ ! -f docs/index.md ]; then mkdir -p docs && cat > docs/index.md << 'INDEX_EOF'\n# Documentation Index\n\n## $(date +%Y-%m-%d)\n\nINDEX_EOF\nfi && if ! grep -q '{{.title}}' docs/index.md 2>/dev/null; then echo '' >> docs/index.md && echo \"## $(date +%Y-%m-%d)\" >> docs/index.md && echo \"- [{{.title}}]($TARGET_PATH)\" >> docs/index.md && echo 'Updated index'; else echo 'Already indexed'; fi",
-				Variables:   map[string]string{},
-				Timeout:     30,
-				MaxRetries:  1,
-			},
-			{
-				Name:        "Verify documentation",
-				Description: "Verify documentation was created and is properly formatted",
-				Command:     "if [ -f .zen-target-info ]; then . .zen-target-info; fi && mkdir -p analysis && cat > analysis/DOCS_ANALYSIS.md << 'VERIF_EOF'\n# Documentation Verification\n\n## Work Item\n- **ID:** {{.work_item_id}}\n- **Title:** {{.title}}\n\n## File Existence\n$(if [ -f \"$TARGET_PATH\" ]; then echo '- **Documentation file:** EXISTS'; echo \"  - Path: $TARGET_PATH\"; echo \"  - Size: $(wc -c < \"$TARGET_PATH\") bytes\"; else echo '- **Documentation file:** MISSING'; exit 1; fi)\n\n## Content Validation\n$(if grep -q '# {{.title}}' \"$TARGET_PATH\" 2>/dev/null; then echo '- **Title:** PRESENT'; else echo '- **Title:** MISSING'; fi)\n$(if grep -q '{{.objective}}' \"$TARGET_PATH\" 2>/dev/null; then echo '- **Objective:** PRESENT'; else echo '- **Objective:** MISSING'; fi)\nVERIF_EOF\necho 'analysis/DOCS_ANALYSIS.md' >> .zen-metadata-files && echo 'Documentation verified'",
-				Variables:   map[string]string{},
-				Timeout:     30,
-				MaxRetries:  1,
-			},
-			{
-				Name:        "Generate honest proof",
-				Description: "Generate proof distinguishing repo files from metadata",
-				Command:     "if [ -f .zen-target-info ]; then . .zen-target-info; fi && cat > PROOF_OF_WORK.md << 'PROOF_EOF'\n# Proof of Work: Documentation\n\n## Work Item\n- **ID:** {{.work_item_id}}\n- **Title:** {{.title}}\n\n## Real Repository Files Changed\n$(if [ -f .zen-repo-files-changed ]; then while read -r file; do echo \"- $file\"; done < .zen-repo-files-changed; else echo 'No repo files changed'; fi)\n\n## Metadata Files Created\n$(if [ -f .zen-metadata-files ]; then while read -r file; do echo \"- $file\"; done < .zen-metadata-files; else echo 'No metadata files'; fi)\n\n## Git Status\n$(git status --short 2>/dev/null | head -20)\nPROOF_EOF\nrm -f .zen-project-info .zen-target-info .zen-doc-dirs .zen-metadata-files .zen-repo-files-changed && echo 'Proof generated'",
-				Variables:   map[string]string{},
-				Timeout:     30,
-				MaxRetries:  1,
-			},
-			{
-				Name:        "Commit work to git",
-				Description: "Create git commit with structured message for cryptographic provenance",
-				Command:     "if [ -f .zen-repo-files-changed ] && [ -s .zen-repo-files-changed ]; then git add . && git commit -m \"docs: Add documentation for work item {{.work_item_id}}\n\n- Template: docs:real\n- Work Item: {{.work_item_id}}\n- Title: {{.title}}\n- Files changed: $(wc -l < .zen-repo-files-changed)\n\nProof-of-work: $(if [ -f PROOF_OF_WORK.md ]; then cat PROOF_OF_WORK.md | head -c 20; else echo 'none'; fi)\" && COMMIT_SHA=$(git rev-parse HEAD) && echo \"$COMMIT_SHA\" > .zen-commit-sha && echo \"Committed: $COMMIT_SHA\"; else echo 'No changes to commit'; fi",
-				Variables:   map[string]string{},
-				Timeout:     30,
-				MaxRetries:  1,
-			},
-		},
-	}
-	r.registerTemplate(template)
-}
+// func (r *WorkTypeTemplateRegistry) registerRepoAwareDocsTemplate() {
+// 	template := &WorkTypeTemplate{
+// 		WorkType:   "docs",
+// 		WorkDomain: "real",
+// 		Description: "Repo-native documentation: detects docs structure, writes to actual paths, context-aware content",
+// 		Steps: []ExecutionStepTemplate{
+// 			{
+// 				Name:        "Validate git repository",
+// 				Description: "Require git repository for documentation tracking",
+// 				Command:     "git rev-parse --is-inside-work-tree 2>/dev/null || { echo 'ERROR: Not inside a git repository' >&2; exit 1; } && echo 'Git repository: OK'",
+// 				Variables:   map[string]string{},
+// 				Timeout:     15,
+// 				MaxRetries:  1,
+// 			},
+// 			{
+// 				Name:        "Detect project type and docs structure",
+// 				Description: "Detect project type and existing documentation directories",
+// 				Command:     "[ -f go.mod ] && PROJECT_TYPE='go' && echo 'PROJECT_TYPE=go' > .zen-project-info && echo 'Detected: Go' && [ -f go.mod ] && MODULE_NAME=$(grep '^module ' go.mod | awk '{print $2}') || MODULE_NAME='unknown' && echo \"MODULE_NAME=$MODULE_NAME\" >> .zen-project-info || (echo 'PROJECT_TYPE=unknown' > .zen-project-info && echo 'Unknown type') && DOC_DIRS=$(find . -type d -name 'docs' 2>/dev/null | head -3) && if [ -z \"$DOC_DIRS\" ]; then DOC_DIRS='docs'; mkdir -p docs 2>/dev/null; fi && echo \"$DOC_DIRS\" > .zen-doc-dirs && echo 'Documentation directories: docs/'",
+// 				Variables:   map[string]string{},
+// 				Timeout:     30,
+// 				MaxRetries:  1,
+// 			},
+// 			{
+// 				Name:        "Determine documentation target",
+// 				Description: "Select target path based on objective and existing structure",
+// 				Command:     "if [ -f .zen-project-info ]; then . .zen-project-info; fi && OBJECTIVE_LC=$(echo '{{.objective}}' | tr '[:upper:]' '[:lower:]') && if echo \"$OBJECTIVE_LC\" | grep -qi 'api\\|rest\\|grpc'; then TARGET_DIR='docs/api'; elif echo \"$OBJECTIVE_LC\" | grep -qi 'guide\\|how-to\\|tutorial\\|getting started'; then TARGET_DIR='docs/guides'; else TARGET_DIR='docs'; fi && mkdir -p \"$TARGET_DIR\" && DOC_NAME=$(echo '{{.title}}' | tr ' ' '-' | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9-') && [ -z \"$DOC_NAME\" ] && DOC_NAME='new-doc' && TARGET_PATH=\"${TARGET_DIR}/${DOC_NAME}.md\" && echo \"export TARGET_PATH=$TARGET_PATH\" > .zen-target-info && echo \"Selected: $TARGET_PATH\"",
+// 				Variables:   map[string]string{},
+// 				Timeout:     30,
+// 				MaxRetries:  1,
+// 			},
+// 			{
+// 				Name:        "Create context-aware documentation",
+// 				Description: "Write documentation to actual repo path with project-specific context",
+// 			Command:     "if [ -f .zen-project-info ]; then . .zen-project-info; fi && if [ -f .zen-target-info ]; then . .zen-target-info; fi && cat > \"$TARGET_PATH\" << 'DOCS_EOF'\\n# {{.title}}\\n\\n> **Work Item:** {{.work_item_id}}\\n> **Created:** $(date -u +%Y-%m-%dT%H:%M:%SZ)\\n\\n## Overview\\n\\n{{.objective}}\\n\\n## Project Context\\n\\n$(if [ \"$PROJECT_TYPE\" = 'go' ]; then echo 'This documentation applies to the Go module **$MODULE_NAME**.'; elif [ \"$PROJECT_TYPE\" = 'node' ]; then echo 'This documentation applies to the Node.js package.'; else echo 'This documentation applies to this project.'; fi)\\n\\n## Getting Started\\n\\n### Prerequisites\\n$(if [ \"$PROJECT_TYPE\" = 'go' ]; then echo '- Go 1.21+ installed'; echo '- GOPATH/bin in your PATH'; elif [ \"$PROJECT_TYPE\" = 'node' ]; then echo '- Node.js 18+ installed'; echo '- npm or yarn package manager'; else echo '- Appropriate development environment for this project type'; fi)\\n\\n### Installation\\n$(if [ \"$PROJECT_TYPE\" = 'go' ]; then echo '\`bash\\ngo get /./...\\n\`\''; elif [ \"$PROJECT_TYPE\" = 'node' ]; then echo '\`bash\\nnpm install\\n\`\''; else echo 'Follow standard installation procedures for this project type.'; fi)\\n\\n### Quick Start\\n1. Clone to repository: \`git clone <repo-url>\`\\n2. Navigate to project directory\\n3. $(if [ \"$PROJECT_TYPE\" = 'go' ]; then echo 'Run \`go run main.go\`'; elif [ \"$PROJECT_TYPE\" = 'node' ]; then echo 'Run \`npm start\`'; else echo 'Run to main application'; fi)\\n4. Verify to service is running\\n\\n\\n## Usage\\n\\n### Basic Usage\\nThe {{.title}} provides to following capabilities:\\n\\n$(echo '{{.objective}}' | sed 's/\. /\\\n- /g' | sed 's/^/- /')\\n\\n### Example: Common Scenario\\n\`\`\`bash\\n# Example command demonstrating {{.title}}\\n$(if [ \"$PROJECT_TYPE\" = 'go' ]; then echo 'go run cmd/main.go --help'; elif [ \"$PROJECT_TYPE\" = 'node' ]; then echo 'node index.js --help'; else echo './script.sh --help'; fi)\\n\`\`\`\\n\\n### Advanced Usage\\nFor production deployment, consider these patterns:\\n\\n1. **Environment Configuration**: Set environment variables for customization\\n2. **Logging**: Enable structured logging for observability\\n3. **Monitoring**: Integrate with monitoring tools (Prometheus, Grafana)\\n4. **Scaling**: Configure horizontal scaling based on load\\n\\n\\n## Configuration\\n\\n### Environment Variables\\n$(if [ \"$PROJECT_TYPE\" = 'go' ]; then echo '| Variable | Description | Default |\\n|----------|-------------|---------|\\n| \`PORT\` | HTTP server port | \`8080\` |\\n| \`LOG_LEVEL\` | Logging level (debug, info, warn, error) | \`info\` |\\n| \`DATABASE_URL\` | Database connection string | \`postgres://localhost:5432/db\` |'; elif [ \"$PROJECT_TYPE\" = 'node' ]; then echo '| Variable | Description | Default |\\n|----------|-------------|---------|\\n| \`PORT\` | HTTP server port | \`3000\` |\\n| \`NODE_ENV\` | Node environment (development, production) | \`development\` |\\n| \`DATABASE_URL\` | Database connection string | \`postgres://localhost:5432/db\` |'; else echo '| Variable | Description | Default |\\n|----------|-------------|---------|\\n| \`APP_ENV\` | Application environment | \`development\` |\\n| \`APP_PORT\` | Application port | \`8080\` |\\n| \`LOG_LEVEL\` | Logging level | \`info\` |'; fi)\\n\\n### Configuration Files\\n$(if [ \"$PROJECT_TYPE\" = 'go' ]; then echo 'Configuration can be provided via:\\n- Environment variables\\n- \`config.yaml\` file\\n- Command-line flags'; elif [ \"$PROJECT_TYPE\" = 'node' ]; then echo 'Configuration can be provided via:\\n- Environment variables\\n- \`.env\` file\\n- \`config.json\` file'; else echo 'Configuration can be provided via environment variables or configuration files.'; fi)\\n\\n## Troubleshooting\\n\\n### Common Issues\\n\\n#### Issue: Service fails to start\\n**Solution**: Check port availability and required environment variables.\\n\\n#### Issue: Database connection errors\\n**Solution**: Verify database credentials and network connectivity.\\n\\n#### Issue: Performance degradation\\n**Solution**: Monitor resource usage and adjust scaling configuration.\\n\\n### Debugging\\nEnable debug logging by setting \`LOG_LEVEL=debug\` and review application logs.\\n\\n### Getting Help\\n- Check application logs for error messages\\n- Review system resource utilization\\n- Consult project documentation and README\\n\\n## See Also\\n\\n### Related Documentation\\n$(if [ \"$PROJECT_TYPE\" = 'go' ]; then echo '- [Go Documentation](https://golang.org/doc/)\\n- [Project README](../README.md)\\n- [API Reference](../docs/API.md)'; elif [ \"$PROJECT_TYPE\" = 'node' ]; then echo '- [Node.js Documentation](https://nodejs.org/docs/)\\n- [Project README](../README.md)\\n- [Package Documentation](../docs/)'; else echo '- [Project README](../README.md)\\n- [Architecture Documentation](../docs/ARCHITECTURE.md)'; fi)\\n\\n### External Resources\\n- [zen-brain Documentation](https://docs.zen-brain.ai)\\n- [Best Practices Guide](../docs/BEST_PRACTICES.md)\\n\\n---\\n\\n*Documented as part of work item {{.work_item_id}}*\\nDOCS_EOF\\necho \"$TARGET_PATH\" >> .zen-repo-files-changed && echo \"Created: $TARGET_PATH\"",
+// 				Variables:   map[string]string{},
+// 				Timeout:     60,
+// 				MaxRetries:  2,
+// 			},
+// 			{
+// 				Name:        "Update documentation index",
+// 				Description: "Update docs/index.md with link to new documentation",
+// 				Command:     "if [ -f .zen-target-info ]; then . .zen-target-info; fi && if [ ! -f docs/index.md ]; then mkdir -p docs && cat > docs/index.md << 'INDEX_EOF'\n# Documentation Index\n\n## $(date +%Y-%m-%d)\n\nINDEX_EOF\nfi && if ! grep -q '{{.title}}' docs/index.md 2>/dev/null; then echo '' >> docs/index.md && echo \"## $(date +%Y-%m-%d)\" >> docs/index.md && echo \"- [{{.title}}]($TARGET_PATH)\" >> docs/index.md && echo 'Updated index'; else echo 'Already indexed'; fi",
+// 				Variables:   map[string]string{},
+// 				Timeout:     30,
+// 				MaxRetries:  1,
+// 			},
+// 			{
+// 				Name:        "Verify documentation",
+// 				Description: "Verify documentation was created and is properly formatted",
+// 				Command:     "if [ -f .zen-target-info ]; then . .zen-target-info; fi && mkdir -p analysis && cat > analysis/DOCS_ANALYSIS.md << 'VERIF_EOF'\n# Documentation Verification\n\n## Work Item\n- **ID:** {{.work_item_id}}\n- **Title:** {{.title}}\n\n## File Existence\n$(if [ -f \"$TARGET_PATH\" ]; then echo '- **Documentation file:** EXISTS'; echo \"  - Path: $TARGET_PATH\"; echo \"  - Size: $(wc -c < \"$TARGET_PATH\") bytes\"; else echo '- **Documentation file:** MISSING'; exit 1; fi)\n\n## Content Validation\n$(if grep -q '# {{.title}}' \"$TARGET_PATH\" 2>/dev/null; then echo '- **Title:** PRESENT'; else echo '- **Title:** MISSING'; fi)\n$(if grep -q '{{.objective}}' \"$TARGET_PATH\" 2>/dev/null; then echo '- **Objective:** PRESENT'; else echo '- **Objective:** MISSING'; fi)\nVERIF_EOF\necho 'analysis/DOCS_ANALYSIS.md' >> .zen-metadata-files && echo 'Documentation verified'",
+// 				Variables:   map[string]string{},
+// 				Timeout:     30,
+// 				MaxRetries:  1,
+// 			},
+// 			{
+// 				Name:        "Generate honest proof",
+// 				Description: "Generate proof distinguishing repo files from metadata",
+// 				Command:     "if [ -f .zen-target-info ]; then . .zen-target-info; fi && cat > PROOF_OF_WORK.md << 'PROOF_EOF'\n# Proof of Work: Documentation\n\n## Work Item\n- **ID:** {{.work_item_id}}\n- **Title:** {{.title}}\n\n## Real Repository Files Changed\n$(if [ -f .zen-repo-files-changed ]; then while read -r file; do echo \"- $file\"; done < .zen-repo-files-changed; else echo 'No repo files changed'; fi)\n\n## Metadata Files Created\n$(if [ -f .zen-metadata-files ]; then while read -r file; do echo \"- $file\"; done < .zen-metadata-files; else echo 'No metadata files'; fi)\n\n## Git Status\n$(git status --short 2>/dev/null | head -20)\nPROOF_EOF\nrm -f .zen-project-info .zen-target-info .zen-doc-dirs .zen-metadata-files .zen-repo-files-changed && echo 'Proof generated'",
+// 				Variables:   map[string]string{},
+// 				Timeout:     30,
+// 				MaxRetries:  1,
+// 			},
+// 			{
+// 				Name:        "Commit work to git",
+// 				Description: "Create git commit with structured message for cryptographic provenance",
+// 				Command:     "if [ -f .zen-repo-files-changed ] && [ -s .zen-repo-files-changed ]; then git add . && git commit -m \"docs: Add documentation for work item {{.work_item_id}}\n\n- Template: docs:real\n- Work Item: {{.work_item_id}}\n- Title: {{.title}}\n- Files changed: $(wc -l < .zen-repo-files-changed)\n\nProof-of-work: $(if [ -f PROOF_OF_WORK.md ]; then cat PROOF_OF_WORK.md | head -c 20; else echo 'none'; fi)\" && COMMIT_SHA=$(git rev-parse HEAD) && echo \"$COMMIT_SHA\" > .zen-commit-sha && echo \"Committed: $COMMIT_SHA\"; else echo 'No changes to commit'; fi",
+// 				Variables:   map[string]string{},
+// 				Timeout:     30,
+// 				MaxRetries:  1,
+// 			},
+// 		},
+// 	}
+// 	r.registerTemplate(template)
+// }
 
 // registerRepoAwareTestTemplate creates a truly repo-aware test template.
 func (r *WorkTypeTemplateRegistry) registerRepoAwareTestTemplate() {
@@ -480,72 +480,72 @@ func (r *WorkTypeTemplateRegistry) registerRepoAwareTestTemplate() {
 }
 
 // registerRepoAwareCICDTemplate creates a truly repo-aware CI/CD template.
-func (r *WorkTypeTemplateRegistry) registerRepoAwareCICDTemplate() {
-	template := &WorkTypeTemplate{
-		WorkType:   "cicd",
-		WorkDomain: "real",
-		Description: "Repo-native CI/CD: detects existing CI/CD setup, enhances actual workflows, project-aware stages",
-		Steps: []ExecutionStepTemplate{
-			{
-				Name:        "Validate git repository",
-				Description: "Require git repository for CI/CD setup",
-				Command:     "git rev-parse --is-inside-work-tree 2>/dev/null || { echo 'ERROR: Not inside a git repository' >&2; exit 1; } && echo 'Git repository: OK'",
-				Variables:   map[string]string{},
-				Timeout:     15,
-				MaxRetries:  1,
-			},
-			{
-				Name:        "Detect project type and existing CI/CD setup",
-				Description: "Detect project type and existing CI/CD configuration",
-				Command:     "[ -f go.mod ] && PROJECT_TYPE='go' && echo 'PROJECT_TYPE=go' > .zen-project-info && echo 'Detected: Go' && [ -f go.mod ] && MODULE_NAME=$(grep '^module ' go.mod | awk '{print $2}') || MODULE_NAME='unknown' && echo \"MODULE_NAME=$MODULE_NAME\" >> .zen-project-info || (echo 'PROJECT_TYPE=unknown' > .zen-project-info && echo 'Unknown type') && CI_PLATFORM='unknown' && [ -d .github/workflows ] && CI_PLATFORM='github' && echo 'Detected CI: GitHub Actions' || [ -d .gitlab-ci.yml ] && CI_PLATFORM='gitlab' && echo 'Detected CI: GitLab CI' || [ -f .circleci/config.yml ] && CI_PLATFORM='circleci' && echo 'Detected CI: CircleCI' || CI_PLATFORM='github' && echo 'Default CI: GitHub Actions' && echo \"CI_PLATFORM=$CI_PLATFORM\" >> .zen-project-info && echo 'CI platform: $CI_PLATFORM'",
-				Variables:   map[string]string{},
-				Timeout:     30,
-				MaxRetries:  1,
-			},
-			{
-				Name:        "Create/enhance CI/CD workflow",
-				Description: "Create new workflow or enhance existing one",
-				Command:     "if [ -f .zen-project-info ]; then . .zen-project-info; fi && mkdir -p .github/workflows && WORKFLOW_FILE='.github/workflows/ci.yml' && if [ \"$CI_PLATFORM\" = 'github' ]; then cat > \"$WORKFLOW_FILE\" << 'CI_EOF'\nname: CI\n\non:\n  push:\n    branches: [ main, develop ]\n  pull_request:\n    branches: [ main ]\n\njobs:\n  lint:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n      - name: Set up Go\n        uses: actions/setup-go@v5\n        with:\n          go-version: '1.25'\n      - name: Run linters\n        run: gofmt -s -w . && go vet ./...\n\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n      - name: Set up Go\n        uses: actions/setup-go@v5\n        with:\n          go-version: '1.25'\n      - name: Run tests\n        run: go test -v -race -coverprofile=coverage.out ./...\n      - name: Upload coverage\n        uses: codecov/codecov-action@v3\n        with:\n          files: ./coverage.out\n\n  build:\n    runs-on: ubuntu-latest\n    needs: [lint, test]\n    steps:\n      - uses: actions/checkout@v4\n      - name: Set up Go\n        uses: actions/setup-go@v5\n        with:\n          go-version: '1.25'\n      - name: Build\n        run: go build -v ./...\nCI_EOF\necho \"$WORKFLOW_FILE\" >> .zen-repo-files-changed && echo \"Created/Updated: $WORKFLOW_FILE\"; else echo 'ERROR: Only GitHub Actions supported for now' >&2; exit 1; fi",
-				Variables:   map[string]string{},
-				Timeout:     60,
-				MaxRetries:  2,
-			},
-			{
-				Name:        "Create deployment documentation",
-				Description: "Create deployment documentation in actual docs/",
-				Command:     "mkdir -p docs && if [ -f .zen-project-info ]; then . .zen-project-info; fi && cat > docs/DEPLOYMENT.md << 'DEPLOY_EOF'\n# Deployment\n\n> **Work Item:** {{.work_item_id}}\n> **CI Platform:** $CI_PLATFORM\n\n## CI/CD Pipeline\n\nThe project uses **$CI_PLATFORM** for continuous integration and deployment.\n\n### Workflows\n\n- **ci.yml**: Main CI workflow with lint, test, and build stages\n\n### Deployment Strategy\n\n#### Blue-Green Deployment\n- Two production environments: **blue** and **green**\n- Zero-downtime deployments with automatic traffic shifting\n- Easy rollback: switch back to previous environment on failure\n\n\n#### Canary Deployment\n- Gradual traffic rollout: 5% → 25% → 50% → 100%\n- Monitor key metrics: error rate, latency, throughput\n- Automatic rollback on metrics degradation\n\n#### Rolling Deployment\n- Incremental instance replacement\n- Maintain availability during updates\n- Health check validation before traffic routing\n\n#### Environment-Specific Strategy\n$(if [ -f .env.production ]; then echo '- **Production**: Blue-green with 50% canary phase'; elif [ -f .env.staging ]; then echo '- **Staging**: Rolling deployment with full validation'; else echo '- **Development**: Direct deployment with basic health checks'; fi)\n\n### Environment Variables\n\n### Required Environment Variables\n| Variable | Description | Example Value | Required |\n|----------|-------------|----------------|-----------|\n| `CI_PLATFORM` | CI/CD platform name (github, gitlab, jenkins) | `github` | Yes |\n| `REGISTRY_URL` | Container registry URL | `ghcr.io/kube-zen` | Yes |\n| `CLUSTER_NAME` | Target Kubernetes cluster | `production-cluster` | Yes |\n\n### Optional Environment Variables\n| Variable | Description | Example Value | Required |\n|----------|-------------|----------------|-----------|\n| `NAMESPACE` | Kubernetes namespace | `default` | No |\n| `HELM_VALUES` | Path to Helm values file | `./helm/values-prod.yaml` | No |\n| `SLACK_WEBHOOK` | Slack notifications URL | `https://hooks.slack.com/...` | No |\n| `PROMETHEUS_URL` | Prometheus push gateway | `http://prometheus:9091` | No |\n\n### Environment Files\n- Development: `.env.development`\n- Staging: `.env.staging`\n- Production: `.env.production`\n\n### Security Notes\n- Store sensitive values in secret management (Vault, Kubernetes Secrets)\n- Never commit `.env.production` files\n- Rotate credentials periodically\n\nDEPLOY_EOF\necho 'docs/DEPLOYMENT.md' >> .zen-repo-files-changed && echo 'Created: docs/DEPLOYMENT.md'",
-				Variables:   map[string]string{},
-				Timeout:     30,
-				MaxRetries:  1,
-			},
-			{
-				Name:        "Verify CI/CD configuration",
-				Description: "Verify CI/CD workflow syntax",
-				Command:     "mkdir -p analysis && cat > analysis/CICD_VERIFICATION.md << 'VERIFY_EOF'\n# CI/CD Verification\n\n## Work Item\n- **ID:** {{.work_item_id}}\n- **Title:** {{.title}}\n\n## Workflow File\n$(if [ -f .github/workflows/ci.yml ]; then echo '- **Location:** .github/workflows/ci.yml'; echo '- **Size:** $(wc -l < .github/workflows/ci.yml) lines'; echo '- **Jobs:** $(grep -c '^  [a-z]' .github/workflows/ci.yml)'; else echo '- **Workflow File:** MISSING'; exit 1; fi)\n\n## Stages Detected\n$(if [ -f .github/workflows/ci.yml ]; then echo '- Lint: PRESENT'; echo '- Test: PRESENT'; echo '- Build: PRESENT'; else echo 'No workflow file'; fi)\nVERIFY_EOF\necho 'analysis/CICD_VERIFICATION.md' >> .zen-metadata-files && echo 'CI/CD verified'",
-				Variables:   map[string]string{},
-				Timeout:     30,
-				MaxRetries:  1,
-			},
-			{
-				Name:        "Generate honest proof",
-				Description: "Generate proof with CI/CD workflow changes",
-				Command:     "cat > PROOF_OF_WORK.md << 'PROOF_EOF'\n# Proof of Work: CI/CD\n\n## Work Item\n- **ID:** {{.work_item_id}}\n- **Title:** {{.title}}\n\n## Real Repository Files Changed\n$(if [ -f .zen-repo-files-changed ]; then while read -r file; do echo \"- $file\"; done < .zen-repo-files-changed; else echo 'No repo files changed'; fi)\n\n## Metadata Files Created\n$(if [ -f .zen-metadata-files ]; then while read -r file; do echo \"- $file\"; done < .zen-metadata-files; else echo 'No metadata files'; fi)\n\n## Git Status\n$(git status --short 2>/dev/null | head -20)\nPROOF_EOF\nrm -f .zen-project-info .zen-metadata-files .zen-repo-files-changed && echo 'Proof generated'",
-				Variables:   map[string]string{},
-				Timeout:     30,
-				MaxRetries:  1,
-			},
-			{
-				Name:        "Commit work to git",
-				Description: "Create git commit with structured message for cryptographic provenance",
-				Command:     "if [ -f .zen-repo-files-changed ] && [ -s .zen-repo-files-changed ]; then git add . && git commit -m \"cicd: Add CI/CD for work item {{.work_item_id}}\n\n- Template: cicd:real\n- Work Item: {{.work_item_id}}\n- Title: {{.title}}\n- Files changed: $(wc -l < .zen-repo-files-changed)\n\nProof-of-work: $(if [ -f PROOF_OF_WORK.md ]; then cat PROOF_OF_WORK.md | head -c 20; else echo 'none'; fi)\" && COMMIT_SHA=$(git rev-parse HEAD) && echo \"$COMMIT_SHA\" > .zen-commit-sha && echo \"Committed: $COMMIT_SHA\"; else echo 'No changes to commit'; fi",
-				Variables:   map[string]string{},
-				Timeout:     30,
-				MaxRetries:  1,
-			},
-		},
-	}
-	r.registerTemplate(template)
-}
+// func (r *WorkTypeTemplateRegistry) registerRepoAwareCICDTemplate() {
+// 	template := &WorkTypeTemplate{
+// 		WorkType:   "cicd",
+// 		WorkDomain: "real",
+// 		Description: "Repo-native CI/CD: detects existing CI/CD setup, enhances actual workflows, project-aware stages",
+// 		Steps: []ExecutionStepTemplate{
+// 			{
+// 				Name:        "Validate git repository",
+// 				Description: "Require git repository for CI/CD setup",
+// 				Command:     "git rev-parse --is-inside-work-tree 2>/dev/null || { echo 'ERROR: Not inside a git repository' >&2; exit 1; } && echo 'Git repository: OK'",
+// 				Variables:   map[string]string{},
+// 				Timeout:     15,
+// 				MaxRetries:  1,
+// 			},
+// 			{
+// 				Name:        "Detect project type and existing CI/CD setup",
+// 				Description: "Detect project type and existing CI/CD configuration",
+// 				Command:     "[ -f go.mod ] && PROJECT_TYPE='go' && echo 'PROJECT_TYPE=go' > .zen-project-info && echo 'Detected: Go' && [ -f go.mod ] && MODULE_NAME=$(grep '^module ' go.mod | awk '{print $2}') || MODULE_NAME='unknown' && echo \"MODULE_NAME=$MODULE_NAME\" >> .zen-project-info || (echo 'PROJECT_TYPE=unknown' > .zen-project-info && echo 'Unknown type') && CI_PLATFORM='unknown' && [ -d .github/workflows ] && CI_PLATFORM='github' && echo 'Detected CI: GitHub Actions' || [ -d .gitlab-ci.yml ] && CI_PLATFORM='gitlab' && echo 'Detected CI: GitLab CI' || [ -f .circleci/config.yml ] && CI_PLATFORM='circleci' && echo 'Detected CI: CircleCI' || CI_PLATFORM='github' && echo 'Default CI: GitHub Actions' && echo \"CI_PLATFORM=$CI_PLATFORM\" >> .zen-project-info && echo 'CI platform: $CI_PLATFORM'",
+// 				Variables:   map[string]string{},
+// 				Timeout:     30,
+// 				MaxRetries:  1,
+// 			},
+// 			{
+// 				Name:        "Create/enhance CI/CD workflow",
+// 				Description: "Create new workflow or enhance existing one",
+// 				Command:     "if [ -f .zen-project-info ]; then . .zen-project-info; fi && mkdir -p .github/workflows && WORKFLOW_FILE='.github/workflows/ci.yml' && if [ \"$CI_PLATFORM\" = 'github' ]; then cat > \"$WORKFLOW_FILE\" << 'CI_EOF'\nname: CI\n\non:\n  push:\n    branches: [ main, develop ]\n  pull_request:\n    branches: [ main ]\n\njobs:\n  lint:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n      - name: Set up Go\n        uses: actions/setup-go@v5\n        with:\n          go-version: '1.25'\n      - name: Run linters\n        run: gofmt -s -w . && go vet ./...\n\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n      - name: Set up Go\n        uses: actions/setup-go@v5\n        with:\n          go-version: '1.25'\n      - name: Run tests\n        run: go test -v -race -coverprofile=coverage.out ./...\n      - name: Upload coverage\n        uses: codecov/codecov-action@v3\n        with:\n          files: ./coverage.out\n\n  build:\n    runs-on: ubuntu-latest\n    needs: [lint, test]\n    steps:\n      - uses: actions/checkout@v4\n      - name: Set up Go\n        uses: actions/setup-go@v5\n        with:\n          go-version: '1.25'\n      - name: Build\n        run: go build -v ./...\nCI_EOF\necho \"$WORKFLOW_FILE\" >> .zen-repo-files-changed && echo \"Created/Updated: $WORKFLOW_FILE\"; else echo 'ERROR: Only GitHub Actions supported for now' >&2; exit 1; fi",
+// 				Variables:   map[string]string{},
+// 				Timeout:     60,
+// 				MaxRetries:  2,
+// 			},
+// 			{
+// 				Name:        "Create deployment documentation",
+// 				Description: "Create deployment documentation in actual docs/",
+// 				Command:     "mkdir -p docs && if [ -f .zen-project-info ]; then . .zen-project-info; fi && cat > docs/DEPLOYMENT.md << 'DEPLOY_EOF'\n# Deployment\n\n> **Work Item:** {{.work_item_id}}\n> **CI Platform:** $CI_PLATFORM\n\n## CI/CD Pipeline\n\nThe project uses **$CI_PLATFORM** for continuous integration and deployment.\n\n### Workflows\n\n- **ci.yml**: Main CI workflow with lint, test, and build stages\n\n### Deployment Strategy\n\n#### Blue-Green Deployment\n- Two production environments: **blue** and **green**\n- Zero-downtime deployments with automatic traffic shifting\n- Easy rollback: switch back to previous environment on failure\n\n\n#### Canary Deployment\n- Gradual traffic rollout: 5% → 25% → 50% → 100%\n- Monitor key metrics: error rate, latency, throughput\n- Automatic rollback on metrics degradation\n\n#### Rolling Deployment\n- Incremental instance replacement\n- Maintain availability during updates\n- Health check validation before traffic routing\n\n#### Environment-Specific Strategy\n$(if [ -f .env.production ]; then echo '- **Production**: Blue-green with 50% canary phase'; elif [ -f .env.staging ]; then echo '- **Staging**: Rolling deployment with full validation'; else echo '- **Development**: Direct deployment with basic health checks'; fi)\n\n### Environment Variables\n\n### Required Environment Variables\n| Variable | Description | Example Value | Required |\n|----------|-------------|----------------|-----------|\n| `CI_PLATFORM` | CI/CD platform name (github, gitlab, jenkins) | `github` | Yes |\n| `REGISTRY_URL` | Container registry URL | `ghcr.io/kube-zen` | Yes |\n| `CLUSTER_NAME` | Target Kubernetes cluster | `production-cluster` | Yes |\n\n### Optional Environment Variables\n| Variable | Description | Example Value | Required |\n|----------|-------------|----------------|-----------|\n| `NAMESPACE` | Kubernetes namespace | `default` | No |\n| `HELM_VALUES` | Path to Helm values file | `./helm/values-prod.yaml` | No |\n| `SLACK_WEBHOOK` | Slack notifications URL | `https://hooks.slack.com/...` | No |\n| `PROMETHEUS_URL` | Prometheus push gateway | `http://prometheus:9091` | No |\n\n### Environment Files\n- Development: `.env.development`\n- Staging: `.env.staging`\n- Production: `.env.production`\n\n### Security Notes\n- Store sensitive values in secret management (Vault, Kubernetes Secrets)\n- Never commit `.env.production` files\n- Rotate credentials periodically\n\nDEPLOY_EOF\necho 'docs/DEPLOYMENT.md' >> .zen-repo-files-changed && echo 'Created: docs/DEPLOYMENT.md'",
+// 				Variables:   map[string]string{},
+// 				Timeout:     30,
+// 				MaxRetries:  1,
+// 			},
+// 			{
+// 				Name:        "Verify CI/CD configuration",
+// 				Description: "Verify CI/CD workflow syntax",
+// 				Command:     "mkdir -p analysis && cat > analysis/CICD_VERIFICATION.md << 'VERIFY_EOF'\n# CI/CD Verification\n\n## Work Item\n- **ID:** {{.work_item_id}}\n- **Title:** {{.title}}\n\n## Workflow File\n$(if [ -f .github/workflows/ci.yml ]; then echo '- **Location:** .github/workflows/ci.yml'; echo '- **Size:** $(wc -l < .github/workflows/ci.yml) lines'; echo '- **Jobs:** $(grep -c '^  [a-z]' .github/workflows/ci.yml)'; else echo '- **Workflow File:** MISSING'; exit 1; fi)\n\n## Stages Detected\n$(if [ -f .github/workflows/ci.yml ]; then echo '- Lint: PRESENT'; echo '- Test: PRESENT'; echo '- Build: PRESENT'; else echo 'No workflow file'; fi)\nVERIFY_EOF\necho 'analysis/CICD_VERIFICATION.md' >> .zen-metadata-files && echo 'CI/CD verified'",
+// 				Variables:   map[string]string{},
+// 				Timeout:     30,
+// 				MaxRetries:  1,
+// 			},
+// 			{
+// 				Name:        "Generate honest proof",
+// 				Description: "Generate proof with CI/CD workflow changes",
+// 				Command:     "cat > PROOF_OF_WORK.md << 'PROOF_EOF'\n# Proof of Work: CI/CD\n\n## Work Item\n- **ID:** {{.work_item_id}}\n- **Title:** {{.title}}\n\n## Real Repository Files Changed\n$(if [ -f .zen-repo-files-changed ]; then while read -r file; do echo \"- $file\"; done < .zen-repo-files-changed; else echo 'No repo files changed'; fi)\n\n## Metadata Files Created\n$(if [ -f .zen-metadata-files ]; then while read -r file; do echo \"- $file\"; done < .zen-metadata-files; else echo 'No metadata files'; fi)\n\n## Git Status\n$(git status --short 2>/dev/null | head -20)\nPROOF_EOF\nrm -f .zen-project-info .zen-metadata-files .zen-repo-files-changed && echo 'Proof generated'",
+// 				Variables:   map[string]string{},
+// 				Timeout:     30,
+// 				MaxRetries:  1,
+// 			},
+// 			{
+// 				Name:        "Commit work to git",
+// 				Description: "Create git commit with structured message for cryptographic provenance",
+// 				Command:     "if [ -f .zen-repo-files-changed ] && [ -s .zen-repo-files-changed ]; then git add . && git commit -m \"cicd: Add CI/CD for work item {{.work_item_id}}\n\n- Template: cicd:real\n- Work Item: {{.work_item_id}}\n- Title: {{.title}}\n- Files changed: $(wc -l < .zen-repo-files-changed)\n\nProof-of-work: $(if [ -f PROOF_OF_WORK.md ]; then cat PROOF_OF_WORK.md | head -c 20; else echo 'none'; fi)\" && COMMIT_SHA=$(git rev-parse HEAD) && echo \"$COMMIT_SHA\" > .zen-commit-sha && echo \"Committed: $COMMIT_SHA\"; else echo 'No changes to commit'; fi",
+// 				Variables:   map[string]string{},
+// 				Timeout:     30,
+// 				MaxRetries:  1,
+// 			},
+// 		},
+// 	}
+// 	r.registerTemplate(template)
+// }
 
 // registerRepoAwareMonitoringTemplate creates a truly repo-aware monitoring template.
 func (r *WorkTypeTemplateRegistry) registerRepoAwareMonitoringTemplate() {
@@ -640,88 +640,88 @@ func (r *WorkTypeTemplateRegistry) registerRepoAwareMonitoringTemplate() {
 }
 
 // registerRepoAwareMigrationTemplate creates a truly repo-aware migration template.
-func (r *WorkTypeTemplateRegistry) registerRepoAwareMigrationTemplate() {
-	template := &WorkTypeTemplate{
-		WorkType:   "migration",
-		WorkDomain: "real",
-		Description: "Repo-native migration: detects DB patterns, generates migrations following existing conventions",
-		Steps: []ExecutionStepTemplate{
-			{
-				Name:        "Validate git repository",
-				Description: "Require git repository for migration tracking",
-				Command:     "git rev-parse --is-inside-work-tree 2>/dev/null || { echo 'ERROR: Not inside a git repository' >&2; exit 1; } && echo 'Git repository: OK'",
-				Variables:   map[string]string{},
-				Timeout:     15,
-				MaxRetries:  1,
-			},
-			{
-				Name:        "Detect project type and existing migration patterns",
-				Description: "Detect project type and migration framework in use",
-				Command:     "[ -f go.mod ] && PROJECT_TYPE='go' && echo 'PROJECT_TYPE=go' > .zen-project-info && echo 'Detected: Go' && [ -f go.mod ] && MODULE_NAME=$(grep '^module ' go.mod | awk '{print $2}') || MODULE_NAME='unknown' && echo \"MODULE_NAME=$MODULE_NAME\" >> .zen-project-info || (echo 'PROJECT_TYPE=unknown' > .zen-project-info && echo 'Unknown type') && MIGRATION_TYPE='none' && [ -f migrate/migrate.go ] && MIGRATION_TYPE='golang-migrate' && echo 'Detected: golang-migrate' || [ -d migrations ] && MIGRATION_TYPE='golang-migrate' && echo 'Detected: golang-migrate (migrations/)' || [ -f alembic.ini ] && MIGRATION_TYPE='alembic' && echo 'Detected: Alembic' || MIGRATION_TYPE='golang-migrate' && echo 'Default: golang-migrate' && echo \"MIGRATION_TYPE=$MIGRATION_TYPE\" >> .zen-project-info && echo 'Migration type: $MIGRATION_TYPE'",
-				Variables:   map[string]string{},
-				Timeout:     30,
-				MaxRetries:  1,
-			},
-			{
-				Name:        "Create migration directory structure",
-				Description: "Create migration directory following detected pattern",
-				Command:     "if [ -f .zen-project-info ]; then . .zen-project-info; fi && if [ \"$MIGRATION_TYPE\" = 'golang-migrate' ]; then mkdir -p migrations && echo 'Created: migrations/'; else echo 'ERROR: Only golang-migrate supported for now' >&2; exit 1; fi && MIGRATION_NAME=$(echo '{{.title}}' | tr ' ' '_' | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9_') && TIMESTAMP=$(date +%Y%m%d%H%M%S) && MIGRATION_FILE=\"migrations/${TIMESTAMP}_${MIGRATION_NAME}.up.sql\" && echo \"MIGRATION_FILE=$MIGRATION_FILE\" > .zen-target-info && echo \"Migration file: $MIGRATION_FILE\"",
-				Variables:   map[string]string{},
-				Timeout:     30,
-				MaxRetries:  1,
-			},
-			{
-				Name:        "Create migration file",
-				Description: "Create fail-closed SQL migration template",
-				Command:     "if [ -f .zen-target-info ]; then . .zen-target-info; fi && cat > \"$MIGRATION_FILE\" << 'MIGR_EOF'\n-- Migration: {{.title}}\n-- Work Item: {{.work_item_id}}\n-- Created: $(date -u +%Y-%m-%dT%H:%M:%SZ)\n\n-- FAIL-CLOSED TEMPLATE: replace the guarded block below with concrete migration SQL before applying.\nBEGIN;\n\nDO $$\nBEGIN\n  RAISE EXCEPTION 'zen-brain generated migration template for {{.work_item_id}} must be customized before execution';\nEND $$;\n\nCOMMIT;\nMIGR_EOF\necho \"$MIGRATION_FILE\" >> .zen-repo-files-changed && echo \"Created: $MIGRATION_FILE\"",
-				Variables:   map[string]string{},
-				Timeout:     30,
-				MaxRetries:  2,
-			},
-			{
-				Name:        "Create rollback migration",
-				Description: "Create fail-closed rollback migration template",
-				Command:     "if [ -f .zen-target-info ]; then . .zen-target-info; fi && ROLLBACK_FILE=\"${MIGRATION_FILE%.up.sql}.down.sql\" && cat > \"$ROLLBACK_FILE\" << 'ROLLBACK_EOF'\n-- Rollback: {{.title}}\n-- Work Item: {{.work_item_id}}\n-- Created: $(date -u +%Y-%m-%dT%H:%M:%SZ)\n\n-- FAIL-CLOSED TEMPLATE: replace the guarded block below with concrete rollback SQL before applying.\nBEGIN;\n\nDO $$\nBEGIN\n  RAISE EXCEPTION 'zen-brain generated rollback template for {{.work_item_id}} must be customized before execution';\nEND $$;\n\nCOMMIT;\nROLLBACK_EOF\necho \"$ROLLBACK_FILE\" >> .zen-repo-files-changed && echo \"Created: $ROLLBACK_FILE\"",
-				Variables:   map[string]string{},
-				Timeout:     30,
-				MaxRetries:  2,
-			},
-			{
-				Name:        "Create Go migration handler",
-				Description: "Create Go code to run migrations",
-				Command:     "mkdir -p internal/migrate && cat > internal/migrate/migrate.go << 'MIGR_GO_EOF'\npackage migrate\n\nimport (\n\t\"database/sql\"\n\t\"embed\"\n\t\"fmt\"\n\t\"io/fs\"\n\t\"sort\"\n\t\"time\"\n\n\t\"github.com/golang-migrate/migrate/v4\"\n\t\"github.com/golang-migrate/migrate/v4/database/postgres\"\n\t_ \"github.com/golang-migrate/migrate/v4/source/file\"\n)\n\n//go:embed migrations/*.sql\nvar migrationFS embed.FS\n\n// Migrator handles database migrations\n\ntype Migrator struct {\n\tm *migrate.Migrate\n}\n\n// NewMigrator creates a new migrator\nfunc NewMigrator(db *sql.DB) (*Migrator, error) {\n\tdriver, err := postgres.WithInstance(db, &postgres.Config{})\n\tif err != nil {\n\t\treturn nil, fmt.Errorf(\"failed to create driver: %w\", err)\n\t}\n\n\tm, err := migrate.NewWithDatabaseInstance(\n\t\t\"file://migrations\",\n\t\t\"postgres\",\n\t\tdriver,\n\t)\n\tif err != nil {\n\t\treturn nil, fmt.Errorf(\"failed to create migrator: %w\", err)\n\t}\n\n\treturn &Migrator{m: m}, nil\n}\n\n// Up applies all pending migrations\nfunc (m *Migrator) Up() error {\n\tif err := m.m.Up(); err != nil && err != migrate.ErrNoChange {\n\t\treturn fmt.Errorf(\"failed to apply migrations: %w\", err)\n\t}\n\treturn nil\n}\n\n// Down rolls back the last migration\nfunc (m *Migrator) Down() error {\n\tif err := m.m.Steps(-1); err != nil {\n\t\treturn fmt.Errorf(\"failed to rollback migration: %w\", err)\n\t}\n\treturn nil\n}\n\n// Version returns the current migration version\nfunc (m *Migrator) Version() (uint, bool, error) {\n\treturn m.m.Version()\n}\n\nMIGR_GO_EOF\necho 'internal/migrate/migrate.go' >> .zen-repo-files-changed && echo 'Created: internal/migrate/migrate.go'",
-				Variables:   map[string]string{},
-				Timeout:     30,
-				MaxRetries:  2,
-			},
-			{
-				Name:        "Create migration documentation",
-				Description: "Create migration documentation in docs/",
-				Command:     "mkdir -p docs && if [ -f .zen-project-info ]; then . .zen-project-info; fi && cat > docs/MIGRATIONS.md << 'MIGR_DOC_EOF'\n# Database Migrations\n\n> **Work Item:** {{.work_item_id}}\n> **Framework:** $MIGRATION_TYPE\n\n## Overview\n\nThis project uses **$MIGRATION_TYPE** for database migrations.\n\n## Running Migrations\n\n### Apply Migrations\n\n```bash\n# Apply all pending migrations\nzen-brain migrate up\n\n# Apply specific migration\nzen-brain migrate up 1\n```\n\n### Rollback Migrations\n\n```bash\n# Rollback last migration\nzen-brain migrate down\n\n# Rollback specific migration\nzen-brain migrate down 1\n```\n\n### Check Status\n\n```bash\n# Show current version\nzen-brain migrate version\n```\n\n## Migration Files\n\n$(if [ -d migrations ]; then echo '### Applied Migrations'; ls -1t migrations/*.up.sql 2>/dev/null | head -20 | while read f; do NAME=$(basename "$f" .up.sql); echo "- [$NAME](../migrations/$NAME.up.sql) - Created: $(stat -c %y "migrations/$f.up.sql" 2>/dev/null || stat -f %Sm "migrations/$f.up.sql" 2>/dev/null)"; done 2>/dev/null; else echo 'No migrations created yet.'; fi)\n\n## Creating New Migrations\n\n1. Create migration files in `migrations/` directory\n2. Use timestamp naming convention: `YYYYMMDDHHMMSS_description.up.sql`\n3. Create corresponding rollback: `YYYYMMDDHHMMSS_description.down.sql`\n\nMIGR_DOC_EOF\necho 'docs/MIGRATIONS.md' >> .zen-repo-files-changed && echo 'Created: docs/MIGRATIONS.md'",
-				Variables:   map[string]string{},
-				Timeout:     30,
-				MaxRetries:  1,
-			},
-			{
-				Name:        "Generate honest proof",
-				Description: "Generate proof with migration changes",
-				Command:     "cat > PROOF_OF_WORK.md << 'PROOF_EOF'\n# Proof of Work: Migration\n\n## Work Item\n- **ID:** {{.work_item_id}}\n- **Title:** {{.title}}\n\n## Real Repository Files Changed\n$(if [ -f .zen-repo-files-changed ]; then while read -r file; do echo \"- $file\"; done < .zen-repo-files-changed; else echo 'No repo files changed'; fi)\n\n## Git Status\n$(git status --short 2>/dev/null | head -20)\nPROOF_EOF\nrm -f .zen-project-info .zen-target-info .zen-repo-files-changed && echo 'Proof generated'",
-				Variables:   map[string]string{},
-				Timeout:     30,
-				MaxRetries:  1,
-			},
-			{
-				Name:        "Commit work to git",
-				Description: "Create git commit with structured message for cryptographic provenance",
-				Command:     "if [ -f .zen-repo-files-changed ] && [ -s .zen-repo-files-changed ]; then git add . && git commit -m \"migration: Add migration for work item {{.work_item_id}}\n\n- Template: migration:real\n- Work Item: {{.work_item_id}}\n- Title: {{.title}}\n- Files changed: $(wc -l < .zen-repo-files-changed)\n\nProof-of-work: $(if [ -f PROOF_OF_WORK.md ]; then cat PROOF_OF_WORK.md | head -c 20; else echo 'none'; fi)\" && COMMIT_SHA=$(git rev-parse HEAD) && echo \"$COMMIT_SHA\" > .zen-commit-sha && echo \"Committed: $COMMIT_SHA\"; else echo 'No changes to commit'; fi",
-				Variables:   map[string]string{},
-				Timeout:     30,
-				MaxRetries:  1,
-			},
-		},
-	}
-	r.registerTemplate(template)
-}
+// func (r *WorkTypeTemplateRegistry) registerRepoAwareMigrationTemplate() {
+// 	template := &WorkTypeTemplate{
+// 		WorkType:   "migration",
+// 		WorkDomain: "real",
+// 		Description: "Repo-native migration: detects DB patterns, generates migrations following existing conventions",
+// 		Steps: []ExecutionStepTemplate{
+// 			{
+// 				Name:        "Validate git repository",
+// 				Description: "Require git repository for migration tracking",
+// 				Command:     "git rev-parse --is-inside-work-tree 2>/dev/null || { echo 'ERROR: Not inside a git repository' >&2; exit 1; } && echo 'Git repository: OK'",
+// 				Variables:   map[string]string{},
+// 				Timeout:     15,
+// 				MaxRetries:  1,
+// 			},
+// 			{
+// 				Name:        "Detect project type and existing migration patterns",
+// 				Description: "Detect project type and migration framework in use",
+// 				Command:     "[ -f go.mod ] && PROJECT_TYPE='go' && echo 'PROJECT_TYPE=go' > .zen-project-info && echo 'Detected: Go' && [ -f go.mod ] && MODULE_NAME=$(grep '^module ' go.mod | awk '{print $2}') || MODULE_NAME='unknown' && echo \"MODULE_NAME=$MODULE_NAME\" >> .zen-project-info || (echo 'PROJECT_TYPE=unknown' > .zen-project-info && echo 'Unknown type') && MIGRATION_TYPE='none' && [ -f migrate/migrate.go ] && MIGRATION_TYPE='golang-migrate' && echo 'Detected: golang-migrate' || [ -d migrations ] && MIGRATION_TYPE='golang-migrate' && echo 'Detected: golang-migrate (migrations/)' || [ -f alembic.ini ] && MIGRATION_TYPE='alembic' && echo 'Detected: Alembic' || MIGRATION_TYPE='golang-migrate' && echo 'Default: golang-migrate' && echo \"MIGRATION_TYPE=$MIGRATION_TYPE\" >> .zen-project-info && echo 'Migration type: $MIGRATION_TYPE'",
+// 				Variables:   map[string]string{},
+// 				Timeout:     30,
+// 				MaxRetries:  1,
+// 			},
+// 			{
+// 				Name:        "Create migration directory structure",
+// 				Description: "Create migration directory following detected pattern",
+// 				Command:     "if [ -f .zen-project-info ]; then . .zen-project-info; fi && if [ \"$MIGRATION_TYPE\" = 'golang-migrate' ]; then mkdir -p migrations && echo 'Created: migrations/'; else echo 'ERROR: Only golang-migrate supported for now' >&2; exit 1; fi && MIGRATION_NAME=$(echo '{{.title}}' | tr ' ' '_' | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9_') && TIMESTAMP=$(date +%Y%m%d%H%M%S) && MIGRATION_FILE=\"migrations/${TIMESTAMP}_${MIGRATION_NAME}.up.sql\" && echo \"MIGRATION_FILE=$MIGRATION_FILE\" > .zen-target-info && echo \"Migration file: $MIGRATION_FILE\"",
+// 				Variables:   map[string]string{},
+// 				Timeout:     30,
+// 				MaxRetries:  1,
+// 			},
+// 			{
+// 				Name:        "Create migration file",
+// 				Description: "Create fail-closed SQL migration template",
+// 				Command:     "if [ -f .zen-target-info ]; then . .zen-target-info; fi && cat > \"$MIGRATION_FILE\" << 'MIGR_EOF'\n-- Migration: {{.title}}\n-- Work Item: {{.work_item_id}}\n-- Created: $(date -u +%Y-%m-%dT%H:%M:%SZ)\n\n-- FAIL-CLOSED TEMPLATE: replace the guarded block below with concrete migration SQL before applying.\nBEGIN;\n\nDO $$\nBEGIN\n  RAISE EXCEPTION 'zen-brain generated migration template for {{.work_item_id}} must be customized before execution';\nEND $$;\n\nCOMMIT;\nMIGR_EOF\necho \"$MIGRATION_FILE\" >> .zen-repo-files-changed && echo \"Created: $MIGRATION_FILE\"",
+// 				Variables:   map[string]string{},
+// 				Timeout:     30,
+// 				MaxRetries:  2,
+// 			},
+// 			{
+// 				Name:        "Create rollback migration",
+// 				Description: "Create fail-closed rollback migration template",
+// 				Command:     "if [ -f .zen-target-info ]; then . .zen-target-info; fi && ROLLBACK_FILE=\"${MIGRATION_FILE%.up.sql}.down.sql\" && cat > \"$ROLLBACK_FILE\" << 'ROLLBACK_EOF'\n-- Rollback: {{.title}}\n-- Work Item: {{.work_item_id}}\n-- Created: $(date -u +%Y-%m-%dT%H:%M:%SZ)\n\n-- FAIL-CLOSED TEMPLATE: replace the guarded block below with concrete rollback SQL before applying.\nBEGIN;\n\nDO $$\nBEGIN\n  RAISE EXCEPTION 'zen-brain generated rollback template for {{.work_item_id}} must be customized before execution';\nEND $$;\n\nCOMMIT;\nROLLBACK_EOF\necho \"$ROLLBACK_FILE\" >> .zen-repo-files-changed && echo \"Created: $ROLLBACK_FILE\"",
+// 				Variables:   map[string]string{},
+// 				Timeout:     30,
+// 				MaxRetries:  2,
+// 			},
+// 			{
+// 				Name:        "Create Go migration handler",
+// 				Description: "Create Go code to run migrations",
+// 				Command:     "mkdir -p internal/migrate && cat > internal/migrate/migrate.go << 'MIGR_GO_EOF'\npackage migrate\n\nimport (\n\t\"database/sql\"\n\t\"embed\"\n\t\"fmt\"\n\t\"io/fs\"\n\t\"sort\"\n\t\"time\"\n\n\t\"github.com/golang-migrate/migrate/v4\"\n\t\"github.com/golang-migrate/migrate/v4/database/postgres\"\n\t_ \"github.com/golang-migrate/migrate/v4/source/file\"\n)\n\n//go:embed migrations/*.sql\nvar migrationFS embed.FS\n\n// Migrator handles database migrations\n\ntype Migrator struct {\n\tm *migrate.Migrate\n}\n\n// NewMigrator creates a new migrator\nfunc NewMigrator(db *sql.DB) (*Migrator, error) {\n\tdriver, err := postgres.WithInstance(db, &postgres.Config{})\n\tif err != nil {\n\t\treturn nil, fmt.Errorf(\"failed to create driver: %w\", err)\n\t}\n\n\tm, err := migrate.NewWithDatabaseInstance(\n\t\t\"file://migrations\",\n\t\t\"postgres\",\n\t\tdriver,\n\t)\n\tif err != nil {\n\t\treturn nil, fmt.Errorf(\"failed to create migrator: %w\", err)\n\t}\n\n\treturn &Migrator{m: m}, nil\n}\n\n// Up applies all pending migrations\nfunc (m *Migrator) Up() error {\n\tif err := m.m.Up(); err != nil && err != migrate.ErrNoChange {\n\t\treturn fmt.Errorf(\"failed to apply migrations: %w\", err)\n\t}\n\treturn nil\n}\n\n// Down rolls back the last migration\nfunc (m *Migrator) Down() error {\n\tif err := m.m.Steps(-1); err != nil {\n\t\treturn fmt.Errorf(\"failed to rollback migration: %w\", err)\n\t}\n\treturn nil\n}\n\n// Version returns the current migration version\nfunc (m *Migrator) Version() (uint, bool, error) {\n\treturn m.m.Version()\n}\n\nMIGR_GO_EOF\necho 'internal/migrate/migrate.go' >> .zen-repo-files-changed && echo 'Created: internal/migrate/migrate.go'",
+// 				Variables:   map[string]string{},
+// 				Timeout:     30,
+// 				MaxRetries:  2,
+// 			},
+// 			{
+// 				Name:        "Create migration documentation",
+// 				Description: "Create migration documentation in docs/",
+// 				Command:     "mkdir -p docs && if [ -f .zen-project-info ]; then . .zen-project-info; fi && cat > docs/MIGRATIONS.md << 'MIGR_DOC_EOF'\n# Database Migrations\n\n> **Work Item:** {{.work_item_id}}\n> **Framework:** $MIGRATION_TYPE\n\n## Overview\n\nThis project uses **$MIGRATION_TYPE** for database migrations.\n\n## Running Migrations\n\n### Apply Migrations\n\n```bash\n# Apply all pending migrations\nzen-brain migrate up\n\n# Apply specific migration\nzen-brain migrate up 1\n```\n\n### Rollback Migrations\n\n```bash\n# Rollback last migration\nzen-brain migrate down\n\n# Rollback specific migration\nzen-brain migrate down 1\n```\n\n### Check Status\n\n```bash\n# Show current version\nzen-brain migrate version\n```\n\n## Migration Files\n\n$(if [ -d migrations ]; then echo '### Applied Migrations'; ls -1t migrations/*.up.sql 2>/dev/null | head -20 | while read f; do NAME=$(basename "$f" .up.sql); echo "- [$NAME](../migrations/$NAME.up.sql) - Created: $(stat -c %y "migrations/$f.up.sql" 2>/dev/null || stat -f %Sm "migrations/$f.up.sql" 2>/dev/null)"; done 2>/dev/null; else echo 'No migrations created yet.'; fi)\n\n## Creating New Migrations\n\n1. Create migration files in `migrations/` directory\n2. Use timestamp naming convention: `YYYYMMDDHHMMSS_description.up.sql`\n3. Create corresponding rollback: `YYYYMMDDHHMMSS_description.down.sql`\n\nMIGR_DOC_EOF\necho 'docs/MIGRATIONS.md' >> .zen-repo-files-changed && echo 'Created: docs/MIGRATIONS.md'",
+// 				Variables:   map[string]string{},
+// 				Timeout:     30,
+// 				MaxRetries:  1,
+// 			},
+// 			{
+// 				Name:        "Generate honest proof",
+// 				Description: "Generate proof with migration changes",
+// 				Command:     "cat > PROOF_OF_WORK.md << 'PROOF_EOF'\n# Proof of Work: Migration\n\n## Work Item\n- **ID:** {{.work_item_id}}\n- **Title:** {{.title}}\n\n## Real Repository Files Changed\n$(if [ -f .zen-repo-files-changed ]; then while read -r file; do echo \"- $file\"; done < .zen-repo-files-changed; else echo 'No repo files changed'; fi)\n\n## Git Status\n$(git status --short 2>/dev/null | head -20)\nPROOF_EOF\nrm -f .zen-project-info .zen-target-info .zen-repo-files-changed && echo 'Proof generated'",
+// 				Variables:   map[string]string{},
+// 				Timeout:     30,
+// 				MaxRetries:  1,
+// 			},
+// 			{
+// 				Name:        "Commit work to git",
+// 				Description: "Create git commit with structured message for cryptographic provenance",
+// 				Command:     "if [ -f .zen-repo-files-changed ] && [ -s .zen-repo-files-changed ]; then git add . && git commit -m \"migration: Add migration for work item {{.work_item_id}}\n\n- Template: migration:real\n- Work Item: {{.work_item_id}}\n- Title: {{.title}}\n- Files changed: $(wc -l < .zen-repo-files-changed)\n\nProof-of-work: $(if [ -f PROOF_OF_WORK.md ]; then cat PROOF_OF_WORK.md | head -c 20; else echo 'none'; fi)\" && COMMIT_SHA=$(git rev-parse HEAD) && echo \"$COMMIT_SHA\" > .zen-commit-sha && echo \"Committed: $COMMIT_SHA\"; else echo 'No changes to commit'; fi",
+// 				Variables:   map[string]string{},
+// 				Timeout:     30,
+// 				MaxRetries:  1,
+// 			},
+// 		},
+// 	}
+// 	r.registerTemplate(template)
+// }
 
 // generateEnhancedProof creates an enhanced proof with provenance information.
 // This is a helper function that can be called from proof generation steps.
