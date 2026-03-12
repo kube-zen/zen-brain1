@@ -11,8 +11,8 @@ import (
 func TestOfficePipeline_ProcessWorkItem(t *testing.T) {
 	ctx := context.Background()
 
-	// Create pipeline
-	pipeline, err := NewOfficePipeline()
+	// Create pipeline with nil config (uses stubs)
+	pipeline, err := NewOfficePipeline(nil)
 	if err != nil {
 		t.Fatalf("Failed to create pipeline: %v", err)
 	}
