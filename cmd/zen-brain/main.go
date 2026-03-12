@@ -1154,7 +1154,7 @@ func ledgerClientOrNil() ledger.ZenLedgerClient {
 	}
 	if dsn == "" {
 		// No ledger configured - check if stub allowed
-		strictMode := os.Getenv("ZEN_BRAIN_STRICT_RUNTIME") != "" || os.Getenv("ZEN_RUNTIME_PROFILE") == "prod"
+		strictMode := runtime.IsStrictProfile()
 		allowStubLedger := os.Getenv("ZEN_BRAIN_OFFICE_ALLOW_STUB_LEDGER") == "1"
 		
 		if strictMode {

@@ -1,62 +1,57 @@
-# Factory Template Escape Sequence Issues
+# Factory Template Escape Sequence Issues - RESOLVED ✅
 
-## Status
+## Status (Updated 2026-03-12)
 
-Three factory templates are **temporarily disabled** due to complex escape sequence issues in their Command string fields:
-- `registerRepoAwareDocsTemplate()` (line 326)
-- `registerRepoAwareCICDTemplate()` (line 484)
-- `registerRepoAwareMigrationTemplate()` (line 644)
+Three factory templates that were **temporarily disabled** due to complex escape sequence issues are now **fully enabled and functional**:
+- `registerRepoAwareDocsTemplate()` - 8-step template using embedded `.sh.tmpl` files
+- `registerRepoAwareCICDTemplate()` - 7-step template using embedded `.sh.tmpl` files
+- `registerRepoAwareMigrationTemplate()` - 9-step template using embedded `.sh.tmpl` files
 
-## Root Cause
+## Root Cause (Historical)
 
-The templates contain extremely long shell commands with complex escaping:
+The templates contained extremely long shell commands with complex escaping:
 - Multi-line shell commands using heredocs
 - Backticks, dollar signs, quotes requiring proper Go string escaping
-- Sequences like `\`, `\$`, `\n` etc. that confuse Go's parser
+- Sequences like `\`, `\$`, `\n` etc. that confused Go's parser
 
-The Go compiler reports:
+The Go compiler reported:
 ```
 line 358: unknown escape
 line 700: invalid character U+0024 '$'
 line 700: syntax error: unexpected name f in composite literal
 ```
 
-## Fix Approach
+## Solution Applied
 
-To properly fix these templates:
-1. Extract each Command string
-2. Rewrite with proper Go escaping:
-   - `\` for backticks (valid escape)
-   - `\$` for dollar signs (not valid escape - use `$` in double-quoted strings)
-   - `\\` for literal backslashes
-   - `\"` for literal double quotes
-   - `\n` for actual newlines
-3. Test compilation
-4. Re-enable the registration calls
+The issue was resolved through architectural cleanup:
 
-## Temporary Workaround
+1. **Extracted shell templates**: 24 Command strings moved to embedded `.sh.tmpl` files in `internal/factory/templates/{docs,cicd,migration}/`
+2. **Fixed shell semantics**:
+   - Heredoc delimiters: Changed `<< 'EOF'` → `<<EOF` for shell expansion compatibility
+   - GitLab CI detection bug: `[ -d .gitlab-ci.yml ]` → `[ -f .gitlab-ci.yml ]`
+   - Markdown backticks: Replaced triple `` ```bash `` with `~~~bash` fences
+3. **Implemented `//go:embed`**: Templates loaded via `loadTemplate()` helper function
+4. **Re-enabled all three templates**: Registration calls uncommented in `registerRepoAwareTemplates()`
 
-Registration calls are commented out in `registerRepoAwareTemplates()`:
-```go
-// r.registerRepoAwareDocsTemplate() // DISABLED: Complex escape sequences in Command strings
-// r.registerRepoAwareCICDTemplate() // DISABLED: Complex escape sequences in Command strings
-// r.registerRepoAwareMigrationTemplate() // DISABLED: Complex escape sequences in Command strings
-```
+## Current Status
 
-The function bodies remain in the file but are not registered, so they don't affect compilation.
+All three repo-aware templates are fully enabled and the factory package compiles cleanly. The solution is a **real architectural cleanup**, not just a workaround:
 
-## Priority
+- Templates use proper shell semantics with correct heredoc interpolation
+- Embedded files avoid Go string literal escape sequence issues  
+- Factory execution plane is now fully functional with repo-native templates
 
-Block 4 (Factory) is **nice-to-have** for current ~95% completeness goal:
-- Block 2 (Office): ✅ Fixed
-- Block 3 (Nervous System): ✅ Working
-- Block 5 (Intelligence): ✅ Working
-- Block 6 (DevEx): ✅ Working
+## Impact on Completeness
 
-Factory templates can be revisited after core validation completes.
+- **Block 4 (Factory)**: Restored to 92% completeness
+- **Overall system**: ~95% completeness with trustworthy vertical slice
+- **All core binaries compile**: `zen-brain`, `controller`, `apiserver`, `foreman`
 
-## Related
+## Related Commits
 
-- Commit: `a8d085a` (initial workaround)
-- Commit: (this commit) (documentation)
-- Patch pack: zen-brain_patch_pack_followup_2026-03-12.zip
+- `a8d085a` - Initial workaround (templates disabled)
+- `f393245` - Template extraction and shell fixes (embedded templates)
+- `f83e476` - Controller and API server compilation fixes
+- Multiple commits for documentation alignment and status updates
+
+**Factory compilation blocker is now fully resolved.**

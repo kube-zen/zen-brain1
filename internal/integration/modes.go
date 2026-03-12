@@ -4,6 +4,7 @@ import (
 	"os"
 
 	"github.com/kube-zen/zen-brain1/internal/config"
+	"github.com/kube-zen/zen-brain1/internal/runtime"
 )
 
 // ComponentMode represents the operating mode of an Office pipeline component.
@@ -30,7 +31,7 @@ type ComponentStatus struct {
 func GetOfficeComponentStatus(cfg *config.Config) []ComponentStatus {
 	var statuses []ComponentStatus
 
-	strictMode := os.Getenv("ZEN_BRAIN_STRICT_RUNTIME") != "" || os.Getenv("ZEN_RUNTIME_PROFILE") == "prod"
+	strictMode := runtime.IsStrictProfile()
 
 	// Knowledge Base
 	kbStatus := ComponentStatus{Name: "knowledge_base"}
