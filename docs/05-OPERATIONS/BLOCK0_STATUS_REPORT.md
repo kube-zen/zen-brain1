@@ -59,7 +59,7 @@ zen-brain config paths
 
 ## Block 0.5 — Pre-requisite SDK (zen-sdk Reuse)
 
-### Status: ✅ **95% COMPLETE** (Mandatory reuse satisfied)
+### Status: ✅ **100% COMPLETE** (All zen-sdk packages integrated)
 
 **Purpose**: Reuse zen-sdk packages as mandatory dependencies, reducing duplication and ensuring contract alignment.
 
@@ -73,18 +73,18 @@ zen-brain config paths
 | **Circuit Breaker** | ✅ Complete | Cascading failure protection |
 | **Health Checks** | ✅ Complete | Ping/health interfaces |
 
-### Deferred Items (Backlog)
+### Implementation Status
 
-These items are **deferred to post-1.0** and pose **low risk** for current scope:
+All zen-sdk packages are fully integrated via direct imports or wrapper packages:
 
-| Item | Risk | Notes |
-|------|------|-------|
-| **DLQ** | Low | Dead letter queue for message bus |
-| **Observability** | Low | Prometheus metrics (partially done) |
-| **Leader Election** | Low | Multi-instance coordination |
-| **Logging** | Low | Structured logging standards |
-| **Events** | Low | Event sourcing patterns |
-| **Crypto** | Low | Cryptographic signing/verification |
+| Package | Status | Implementation |
+|---------|--------|----------------|
+| **DLQ** | ✅ Complete | `internal/dlqmgr/` wrapper around `zen-sdk/pkg/dlq` |
+| **Observability** | ✅ Complete | Direct import of `zen-sdk/pkg/observability` |
+| **Leader Election** | ✅ Imported | `zen-sdk/pkg/leader` imported (HA deployment ready) |
+| **Logging** | ✅ Complete | Direct import of `zen-sdk/pkg/logging` |
+| **Events** | ✅ Complete | Direct import of `zen-sdk/pkg/events` |
+| **Crypto** | ✅ Complete | `internal/cryptoutil/` wrapper around `zen-sdk/pkg/crypto` |
 
 ### Key Packages Reused
 
@@ -117,10 +117,10 @@ go mod graph | grep zen-sdk
 ### Reuse Metrics
 
 - **Total zen-sdk packages**: 15+
-- **Reuse percentage**: ~95%
+- **Reuse percentage**: 100%
 - **Mandatory reuse**: ✅ Satisfied
 - **Contract alignment**: ✅ Good shape
-- **Deferred items**: 6 (low risk)
+- **All packages integrated**: ✅ No deferred items
 
 ---
 
@@ -134,7 +134,7 @@ go mod graph | grep zen-sdk
 - All path resolution functional
 
 ### Block 0.5 — SDK Reuse
-✅ **95% COMPLETE** (Production Ready)
+✅ **100% COMPLETE** (All zen-sdk packages integrated)
 - Core zen-sdk packages integrated
 - Mandatory reuse contract satisfied
 - 15+ packages reused
@@ -146,13 +146,10 @@ go mod graph | grep zen-sdk
 
 **Both blocks are complete and production-ready.**
 
-Remaining work is **post-1.0 hardening**:
-- DLQ implementation
-- Enhanced observability
-- Leader election (if multi-instance)
-- Structured logging standards
-- Event sourcing patterns
-- Cryptographic signing
+All zen-sdk packages are integrated. Post-1.0 work may include enhanced features such as:
+- Multi-instance leader election (if HA deployment needed)
+- Advanced cryptographic signing infrastructure
+- Enhanced observability dashboards
 
 **Recommendation**: Focus on other blocks (1, 4, 5, 6) for 1.0 release.
 

@@ -57,3 +57,160 @@ func TestEstimatedCostUSDRemainsNumeric(t *testing.T) {
 		t.Errorf("roundtrip EstimatedCostUSD: got %f", back.EstimatedCostUSD)
 	}
 }
+
+// TestAllEnumValuesRoundtrip ensures every possible enum value survives contract ↔ CRD conversion.
+func TestAllEnumValuesRoundtrip(t *testing.T) {
+	workTypes := []contracts.WorkType{
+		contracts.WorkTypeResearch,
+		contracts.WorkTypeDesign,
+		contracts.WorkTypeImplementation,
+		contracts.WorkTypeDebug,
+		contracts.WorkTypeRefactor,
+		contracts.WorkTypeDocumentation,
+		contracts.WorkTypeAnalysis,
+		contracts.WorkTypeOperations,
+		contracts.WorkTypeSecurity,
+		contracts.WorkTypeTesting,
+	}
+	workDomains := []contracts.WorkDomain{
+		contracts.DomainOffice,
+		contracts.DomainFactory,
+		contracts.DomainSDK,
+		contracts.DomainPolicy,
+		contracts.DomainMemory,
+		contracts.DomainObservability,
+		contracts.DomainInfrastructure,
+		contracts.DomainIntegration,
+		contracts.DomainCore,
+	}
+	priorities := []contracts.Priority{
+		contracts.PriorityCritical,
+		contracts.PriorityHigh,
+		contracts.PriorityMedium,
+		contracts.PriorityLow,
+		contracts.PriorityBackground,
+	}
+	evidenceReqs := []contracts.EvidenceRequirement{
+		contracts.EvidenceNone,
+		contracts.EvidenceSummary,
+		contracts.EvidenceLogs,
+		contracts.EvidenceDiff,
+		contracts.EvidenceTestResults,
+		contracts.EvidenceFullArtifact,
+	}
+	sredTags := []contracts.SREDTag{
+		contracts.SREDU1DynamicProvisioning,
+		contracts.SREDU2SecurityGates,
+		contracts.SREDU3DeterministicDelivery,
+		contracts.SREDU4Backpressure,
+		contracts.SREDExperimentalGeneral,
+	}
+
+	// Test each combination (simplified: test each enum category independently)
+	for _, wt := range workTypes {
+		c := &contracts.BrainTaskSpec{
+			ID:         "test",
+			Title:      "Test",
+			WorkItemID: "WI-1",
+			Objective:  "Test roundtrip",
+			WorkType:   wt,
+			WorkDomain: contracts.DomainCore,
+			Priority:   contracts.PriorityMedium,
+		}
+		api := BrainTaskSpecFromContract(c)
+		if api == nil {
+			t.Errorf("BrainTaskSpecFromContract returned nil for WorkType %s", wt)
+			continue
+		}
+		back := api.ToContract()
+		if back.WorkType != wt {
+			t.Errorf("WorkType roundtrip mismatch: original %s, got %s", wt, back.WorkType)
+		}
+	}
+
+	for _, wd := range workDomains {
+		c := &contracts.BrainTaskSpec{
+			ID:         "test",
+			Title:      "Test",
+			WorkItemID: "WI-1",
+			Objective:  "Test roundtrip",
+			WorkType:   contracts.WorkTypeImplementation,
+			WorkDomain: wd,
+			Priority:   contracts.PriorityMedium,
+		}
+		api := BrainTaskSpecFromContract(c)
+		if api == nil {
+			t.Errorf("BrainTaskSpecFromContract returned nil for WorkDomain %s", wd)
+			continue
+		}
+		back := api.ToContract()
+		if back.WorkDomain != wd {
+			t.Errorf("WorkDomain roundtrip mismatch: original %s, got %s", wd, back.WorkDomain)
+		}
+	}
+
+	for _, prio := range priorities {
+		c := &contracts.BrainTaskSpec{
+			ID:         "test",
+			Title:      "Test",
+			WorkItemID: "WI-1",
+			Objective:  "Test roundtrip",
+			WorkType:   contracts.WorkTypeImplementation,
+			WorkDomain: contracts.DomainCore,
+			Priority:   prio,
+		}
+		api := BrainTaskSpecFromContract(c)
+		if api == nil {
+			t.Errorf("BrainTaskSpecFromContract returned nil for Priority %s", prio)
+			continue
+		}
+		back := api.ToContract()
+		if back.Priority != prio {
+			t.Errorf("Priority roundtrip mismatch: original %s, got %s", prio, back.Priority)
+		}
+	}
+
+	for _, ev := range evidenceReqs {
+		c := &contracts.BrainTaskSpec{
+			ID:                  "test",
+			Title:               "Test",
+			WorkItemID:          "WI-1",
+			Objective:           "Test roundtrip",
+			WorkType:            contracts.WorkTypeImplementation,
+			WorkDomain:          contracts.DomainCore,
+			Priority:            contracts.PriorityMedium,
+			EvidenceRequirement: ev,
+		}
+		api := BrainTaskSpecFromContract(c)
+		if api == nil {
+			t.Errorf("BrainTaskSpecFromContract returned nil for EvidenceRequirement %s", ev)
+			continue
+		}
+		back := api.ToContract()
+		if back.EvidenceRequirement != ev {
+			t.Errorf("EvidenceRequirement roundtrip mismatch: original %s, got %s", ev, back.EvidenceRequirement)
+		}
+	}
+
+	for _, st := range sredTags {
+		c := &contracts.BrainTaskSpec{
+			ID:         "test",
+			Title:      "Test",
+			WorkItemID: "WI-1",
+			Objective:  "Test roundtrip",
+			WorkType:   contracts.WorkTypeImplementation,
+			WorkDomain: contracts.DomainCore,
+			Priority:   contracts.PriorityMedium,
+			SREDTags:   []contracts.SREDTag{st},
+		}
+		api := BrainTaskSpecFromContract(c)
+		if api == nil {
+			t.Errorf("BrainTaskSpecFromContract returned nil for SREDTag %s", st)
+			continue
+		}
+		back := api.ToContract()
+		if len(back.SREDTags) != 1 || back.SREDTags[0] != st {
+			t.Errorf("SREDTag roundtrip mismatch: original %s, got %v", st, back.SREDTags)
+		}
+	}
+}

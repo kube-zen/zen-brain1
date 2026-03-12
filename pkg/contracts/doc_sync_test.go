@@ -56,3 +56,110 @@ func TestDataModelDocMentionsKeyConcepts(t *testing.T) {
 		t.Error("DATA_MODEL.md should list WorkDomain values (e.g. core)")
 	}
 }
+
+// TestDataModelDocContainsAllConstants ensures DATA_MODEL.md documents all canonical constants.
+// This is a more exact check than substring matching; it verifies each enum value appears.
+func TestDataModelDocContainsAllConstants(t *testing.T) {
+	// Find module root
+	dir, err := os.Getwd()
+	if err != nil {
+		t.Skipf("Getwd: %v", err)
+	}
+	for i := 0; i < 6; i++ {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			break
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			t.Skip("go.mod not found")
+			return
+		}
+		dir = parent
+	}
+	path := filepath.Join(dir, "docs", "02-CONTRACTS", "DATA_MODEL.md")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Skipf("DATA_MODEL.md not found: %v", err)
+	}
+	content := strings.ToLower(string(data)) // case-insensitive check
+	
+	// All WorkType constants
+	workTypeValues := []string{
+		string(WorkTypeResearch),
+		string(WorkTypeDesign),
+		string(WorkTypeImplementation),
+		string(WorkTypeDebug),
+		string(WorkTypeRefactor),
+		string(WorkTypeDocumentation),
+		string(WorkTypeAnalysis),
+		string(WorkTypeOperations),
+		string(WorkTypeSecurity),
+		string(WorkTypeTesting),
+	}
+	for _, val := range workTypeValues {
+		if !strings.Contains(content, strings.ToLower(val)) {
+			t.Errorf("DATA_MODEL.md missing WorkType value: %s", val)
+		}
+	}
+	
+	// All WorkDomain constants
+	workDomainValues := []string{
+		string(DomainOffice),
+		string(DomainFactory),
+		string(DomainSDK),
+		string(DomainPolicy),
+		string(DomainMemory),
+		string(DomainObservability),
+		string(DomainInfrastructure),
+		string(DomainIntegration),
+		string(DomainCore),
+	}
+	for _, val := range workDomainValues {
+		if !strings.Contains(content, strings.ToLower(val)) {
+			t.Errorf("DATA_MODEL.md missing WorkDomain value: %s", val)
+		}
+	}
+	
+	// All Priority constants
+	priorityValues := []string{
+		string(PriorityCritical),
+		string(PriorityHigh),
+		string(PriorityMedium),
+		string(PriorityLow),
+		string(PriorityBackground),
+	}
+	for _, val := range priorityValues {
+		if !strings.Contains(content, strings.ToLower(val)) {
+			t.Errorf("DATA_MODEL.md missing Priority value: %s", val)
+		}
+	}
+	
+	// All EvidenceRequirement constants
+	evidenceValues := []string{
+		string(EvidenceNone),
+		string(EvidenceSummary),
+		string(EvidenceLogs),
+		string(EvidenceDiff),
+		string(EvidenceTestResults),
+		string(EvidenceFullArtifact),
+	}
+	for _, val := range evidenceValues {
+		if !strings.Contains(content, strings.ToLower(val)) {
+			t.Errorf("DATA_MODEL.md missing EvidenceRequirement value: %s", val)
+		}
+	}
+	
+	// All SREDTag constants
+	sredValues := []string{
+		string(SREDU1DynamicProvisioning),
+		string(SREDU2SecurityGates),
+		string(SREDU3DeterministicDelivery),
+		string(SREDU4Backpressure),
+		string(SREDExperimentalGeneral),
+	}
+	for _, val := range sredValues {
+		if !strings.Contains(content, strings.ToLower(val)) {
+			t.Errorf("DATA_MODEL.md missing SREDTag value: %s", val)
+		}
+	}
+}
