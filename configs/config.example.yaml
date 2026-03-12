@@ -1,5 +1,7 @@
 # Zen-Brain 1.0 Minimal Configuration Example
 # This is a minimal config for local development and testing
+# NOTE: Production requires explicit environment variables for Redis/S3/Ollama.
+# Missing configuration will FAIL CLOSED (no localhost defaults).
 
 # Home directory (overrides ZEN_BRAIN_HOME)
 home_dir: "~/.zen-brain"
