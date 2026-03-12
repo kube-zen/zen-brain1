@@ -32,8 +32,8 @@
 | 0 - Foundation | ✅ Complete | 100% | Tooling, config, deploy structure; repo hygiene and governance clean |
 | 0.5 - zen-sdk reuse | ✅ Complete | 100% | All zen-sdk packages imported and wired; wrappers documented |
 | 1 - Neuro-Anatomy | ✅ Complete | 100% | Contracts, docs, CRDs, taxonomy synced; tests passing |
-| 2 - Office | ⚠️ In Progress | 98% | Jira, analyzer, webhooks; config/code drift fixed, stubs explicit |
-| 3 - Nervous System | ✅ Complete | 93% | Runtime, circuit breakers; fail-closed posture improved |
+| 2 - Office | ✅ Complete | 98% | Jira, analyzer, webhooks; config/code drift fixed, stubs explicit, component status reporting |
+| 3 - Nervous System | ✅ Complete | 93% | Runtime, circuit breakers; fail‑closed posture improved, canonical runtime consistency |
 | 4 - Factory | ✅ Ready | 95% | Static analysis, multi-language; migration templates cleaned up |
 | 5 - Intelligence | ✅ Complete | 92% | Enhanced failure analysis, predictive modeling; QMD docs alignment needed |
 | 6 - Developer Experience | ✅ Complete | 94% | Deployment validated; fresh build/test/deploy proof needed |
