@@ -1,0 +1,8 @@
+if [ -f .zen-repo-files-changed ] && [ -s .zen-repo-files-changed ]; then git add . && git commit -m "cicd: Add CI/CD for work item {{.work_item_id}}
+
+- Template: cicd:real
+- Work Item: {{.work_item_id}}
+- Title: {{.title}}
+- Files changed: $(wc -l < .zen-repo-files-changed)
+
+Proof-of-work: $(if [ -f PROOF_OF_WORK.md ]; then cat PROOF_OF_WORK.md | head -c 20; else echo 'none'; fi)" && COMMIT_SHA=$(git rev-parse HEAD) && echo "$COMMIT_SHA" > .zen-commit-sha && echo "Committed: $COMMIT_SHA"; else echo 'No changes to commit'; fi

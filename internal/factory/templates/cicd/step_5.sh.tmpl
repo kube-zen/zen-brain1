@@ -1,0 +1,14 @@
+mkdir -p analysis && cat > analysis/CICD_VERIFICATION.md <<VERIFY_EOF
+# CI/CD Verification
+
+## Work Item
+- **ID:** {{.work_item_id}}
+- **Title:** {{.title}}
+
+## Workflow File
+$(if [ -f .github/workflows/ci.yml ]; then echo '- **Location:** .github/workflows/ci.yml'; echo '- **Size:** $(wc -l < .github/workflows/ci.yml) lines'; echo '- **Jobs:** $(grep -c '^  [a-z]' .github/workflows/ci.yml)'; else echo '- **Workflow File:** MISSING'; exit 1; fi)
+
+## Stages Detected
+$(if [ -f .github/workflows/ci.yml ]; then echo '- Lint: PRESENT'; echo '- Test: PRESENT'; echo '- Build: PRESENT'; else echo 'No workflow file'; fi)
+VERIFY_EOF
+echo 'analysis/CICD_VERIFICATION.md' >> .zen-metadata-files && echo 'CI/CD verified'

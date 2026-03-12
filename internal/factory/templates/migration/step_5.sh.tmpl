@@ -1,0 +1,16 @@
+if [ -f .zen-target-info ]; then . .zen-target-info; fi && ROLLBACK_FILE="${MIGRATION_FILE%.up.sql}.down.sql" && cat > "$ROLLBACK_FILE" <<ROLLBACK_EOF
+-- Rollback: {{.title}}
+-- Work Item: {{.work_item_id}}
+-- Created: $(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+-- FAIL-CLOSED TEMPLATE: replace the guarded block below with concrete rollback SQL before applying.
+BEGIN;
+
+DO $$
+BEGIN
+  RAISE EXCEPTION 'zen-brain generated rollback template for {{.work_item_id}} must be customized before execution';
+END $$;
+
+COMMIT;
+ROLLBACK_EOF
+echo "$ROLLBACK_FILE" >> .zen-repo-files-changed && echo "Created: $ROLLBACK_FILE"

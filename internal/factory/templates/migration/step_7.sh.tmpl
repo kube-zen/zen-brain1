@@ -1,0 +1,51 @@
+mkdir -p docs && if [ -f .zen-project-info ]; then . .zen-project-info; fi && cat > docs/MIGRATIONS.md <<MIGR_DOC_EOF
+# Database Migrations
+
+> **Work Item:** {{.work_item_id}}
+> **Framework:** $MIGRATION_TYPE
+
+## Overview
+
+This project uses **$MIGRATION_TYPE** for database migrations.
+
+## Running Migrations
+
+### Apply Migrations
+
+~~~bash
+# Apply all pending migrations
+zen-brain migrate up
+
+# Apply specific migration
+zen-brain migrate up 1
+~~~
+
+### Rollback Migrations
+
+~~~bash
+# Rollback last migration
+zen-brain migrate down
+
+# Rollback specific migration
+zen-brain migrate down 1
+~~~
+
+### Check Status
+
+~~~bash
+# Show current version
+zen-brain migrate version
+~~~
+
+## Migration Files
+
+$(if [ -d migrations ]; then echo '### Applied Migrations'; ls -1t migrations/*.up.sql 2>/dev/null | head -20 | while read f; do NAME=$(basename "$f" .up.sql); echo "- [$NAME](../migrations/$NAME.up.sql) - Created: $(stat -c %y "migrations/$f.up.sql" 2>/dev/null || stat -f %Sm "migrations/$f.up.sql" 2>/dev/null)"; done 2>/dev/null; else echo 'No migrations created yet.'; fi)
+
+## Creating New Migrations
+
+1. Create migration files in `migrations/` directory
+2. Use timestamp naming convention: `YYYYMMDDHHMMSS_description.up.sql`
+3. Create corresponding rollback: `YYYYMMDDHHMMSS_description.down.sql`
+
+MIGR_DOC_EOF
+echo 'docs/MIGRATIONS.md' >> .zen-repo-files-changed && echo 'Created: docs/MIGRATIONS.md'

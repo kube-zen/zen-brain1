@@ -1,0 +1,7 @@
+if [ -f .zen-target-info ]; then . .zen-target-info; fi && if [ ! -f docs/index.md ]; then mkdir -p docs && cat > docs/index.md <<INDEX_EOF
+# Documentation Index
+
+## $(date +%Y-%m-%d)
+
+INDEX_EOF
+fi && if ! grep -q '{{.title}}' docs/index.md 2>/dev/null; then echo '' >> docs/index.md && echo "## $(date +%Y-%m-%d)" >> docs/index.md && echo "- [{{.title}}]($TARGET_PATH)" >> docs/index.md && echo 'Updated index'; else echo 'Already indexed'; fi
