@@ -258,29 +258,31 @@ func runVerticalSlice() {
 	} else if v := os.Getenv("CLUSTER_ID"); v != "" {
 		clusterID = v
 	}
+	// FAIL CLOSED: Do not fall back to mock mode silently
+	// If --mock was not explicitly set, require real Jira connectivity
 	if jiraMode == "" && !useMock {
 		jiraConnector, err := jira.NewFromEnv("jira", clusterID)
 		if err != nil {
-			fmt.Printf("  ! Jira connector initialization failed: %v\n", err)
-			fmt.Println("  ! Falling back to mock mode")
-			useMock = true
-			jiraMode = "mock"
-		} else {
-			if err := officeManager.Register("jira", jiraConnector); err != nil {
-				log.Printf("  ! Register Jira: %v", err)
-			} else if err := officeManager.RegisterForCluster(clusterID, "jira"); err != nil {
-				log.Printf("  ! Register Jira for cluster: %v", err)
-			} else {
-				jiraMode = "env"
-			}
+			// FAIL CLOSED: Error instead of falling back to mock
+			log.Fatalf("  ✗ Jira connector initialization failed: %v\n  Use --mock flag for testing without Jira", err)
 		}
+		if err := officeManager.Register("jira", jiraConnector); err != nil {
+			log.Fatalf("  ✗ Register Jira failed: %v\n  Use --mock flag for testing without Jira", err)
+		}
+		if err := officeManager.RegisterForCluster(clusterID, "jira"); err != nil {
+			log.Fatalf("  ✗ Register Jira for cluster failed: %v\n  Use --mock flag for testing without Jira", err)
+		}
+		jiraMode = "env"
 	}
 	if jiraMode == "config" {
 		fmt.Println("  ✓ Jira enabled from config")
 	} else if jiraMode == "env" {
-		fmt.Println("  ✓ Jira enabled from env fallback")
+		fmt.Println("  ✓ Jira enabled from env")
+	} else if useMock {
+		fmt.Println("  ✓ Jira mock mode (explicit --mock flag)")
 	} else {
-		fmt.Println("  ✓ Jira unavailable, mock mode used")
+		// No Jira configured and not in mock mode - this is an error state
+		log.Fatalf("  ✗ No Jira configuration found\n  Use --mock flag for testing without Jira")
 	}
 	fmt.Println("  ✓ Office Manager initialized")
 
@@ -342,18 +344,22 @@ func runVerticalSlice() {
 			}
 		}
 	}
+	// FAIL CLOSED: ZenContext is optional, but we don't silently fall back to mock
+	// If ZenContext is required, set ZEN_BRAIN_REQUIRE_ZENCONTEXT=1 or cfg.ZenContext.Required=true
 	if zenContext == nil {
 		zenContext, err = createRealZenContext()
 		if err != nil {
-			log.Printf("Warning: failed to create real ZenContext: %v", err)
-			log.Printf("Falling back to mock ZenContext")
-			zenContext = newMockZenContext()
-		} else {
+			// ZenContext not available - this is OK for operations that don't need it
+			// Block 3 report will show ZenContext=disabled
+			log.Printf("  ZenContext not available: %v (continuing without context tiering)", err)
+			zenContext = nil // Explicit nil, not mock
+		} else if zenContext != nil {
 			fmt.Println("  ✓ ZenContext initialized (Redis + MinIO)")
 		}
 	}
 	if ledgerClient == nil {
-		ledgerClient = ledgerClientOrStub()
+		ledgerClient = ledgerClientOrNil()
+		// Ledger is optional for vertical-slice; Block 5 intelligence will degrade gracefully
 	}
 	if msgBus == nil && os.Getenv("ZEN_BRAIN_MESSAGE_BUS") == "redis" {
 		redisURL := os.Getenv("REDIS_URL")
@@ -1137,15 +1143,22 @@ func (m *mockLedgerClient) RecordPlannedModelSelection(ctx context.Context, sess
 	return nil
 }
 
-// ledgerClientOrStub returns a ZenLedgerClient: CockroachDB when ZEN_LEDGER_DSN or LEDGER_DATABASE_URL is set, else stub.
-func ledgerClientOrStub() ledger.ZenLedgerClient {
+// ledgerClientOrNil returns a ZenLedgerClient if configured, or nil if not.
+// FAIL CLOSED: Never silently use a mock. Callers must handle nil ledger.
+func ledgerClientOrNil() ledger.ZenLedgerClient {
 	dsn := os.Getenv("ZEN_LEDGER_DSN")
 	if dsn == "" {
 		dsn = os.Getenv("LEDGER_DATABASE_URL")
 	}
+	if dsn == "" {
+		// No ledger configured - return nil, caller must handle
+		return nil
+	}
 	cl, err := internalLedger.NewCockroachLedger(dsn)
 	if err != nil || cl == nil {
-		return &mockLedgerClient{}
+		// Ledger configured but failed - log and return nil (fail-closed)
+		log.Printf("Warning: Ledger configured but init failed: %v", err)
+		return nil
 	}
 	return cl
 }

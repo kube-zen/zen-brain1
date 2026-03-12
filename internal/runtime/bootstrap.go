@@ -83,8 +83,9 @@ func configToZenContextConfig(c *config.ZenContextConfig) *internalcontext.ZenCo
 	// FAIL CLOSED: Do not default to localhost:6379
 	// Redis must be explicitly configured via TIER1_REDIS_ADDR or config file
 	if out.Tier1Redis.Addr == "" {
-		log.Printf("[Bootstrap] Tier1 Redis not configured (set TIER1_REDIS_ADDR to enable)")
-		// Leave Addr empty - ZenContext will use stub/mode=stub when addr is empty
+		log.Printf("[Bootstrap] FAIL CLOSED: Tier1 Redis not configured - ZenContext disabled (set TIER1_REDIS_ADDR to enable)")
+		// Return nil config to indicate disabled, not stub
+		return nil
 	}
 	// Tier2 QMD
 	out.Tier2QMD = &internalcontext.QMDConfig{
@@ -193,15 +194,18 @@ func Bootstrap(ctx context.Context, cfg *config.Config) (*Runtime, error) {
 	}
 	ledgerClient, errLedger := internalLedger.NewCockroachLedger(dsn)
 	if errLedger != nil || ledgerClient == nil {
-		report.Ledger = CapabilityStatus{Name: "ledger", Mode: ModeStub, Healthy: true, Required: reqLedger, Message: "using stub ledger"}
-		ledgerClient = nil
+		// FAIL CLOSED: Never silently use stub ledger
 		if reqLedger {
 			msg := "ledger required but no DSN (set ZEN_LEDGER_DSN or LEDGER_DATABASE_URL) or init failed"
 			if errLedger != nil {
 				msg = fmt.Sprintf("ledger required but init failed: %v", errLedger)
 			}
+			report.Ledger = CapabilityStatus{Name: "ledger", Mode: ModeStub, Healthy: false, Required: true, Message: msg}
 			return &Runtime{ZenContext: zenContext, Report: report}, fmt.Errorf("%s", msg)
 		}
+		// In non-strict mode, ledger is disabled (not stub)
+		report.Ledger = CapabilityStatus{Name: "ledger", Mode: ModeDisabled, Healthy: false, Required: false, Message: "no ledger DSN configured"}
+		ledgerClient = nil
 	} else {
 		report.Ledger = CapabilityStatus{Name: "ledger", Mode: ModeReal, Healthy: true, Required: reqLedger}
 		if errPing := internalLedger.Ping(ctx, ledgerClient); errPing != nil {
