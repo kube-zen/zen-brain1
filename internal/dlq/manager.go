@@ -104,7 +104,7 @@ func AddFailedEvent(
 }
 
 // ListFailedEvents lists failed events from the DLQ.
-func ListFailedEvents(filter *dlq.Filter) []dlq.Event {
+func ListFailedEvents(filter *dlq.Filter) []*dlq.FailedEvent {
 	if manager == nil {
 		return nil
 	}
@@ -112,17 +112,17 @@ func ListFailedEvents(filter *dlq.Filter) []dlq.Event {
 }
 
 // GetFailedEvent gets a single failed event by ID.
-func GetFailedEvent(id string) (dlq.Event, bool) {
+func GetFailedEvent(id string) (*dlq.FailedEvent, bool) {
 	if manager == nil {
-		return dlq.Event{}, false
+		return nil, false
 	}
 	return manager.GetFailedEvent(id)
 }
 
 // ReplayFailedEvent replays a failed event (removes from DLQ).
-func ReplayFailedEvent(id string) (dlq.Event, bool) {
+func ReplayFailedEvent(id string) (*dlq.FailedEvent, bool) {
 	if manager == nil {
-		return dlq.Event{}, false
+		return nil, false
 	}
 	event, exists := manager.ReplayFailedEvent(id)
 	if exists {
