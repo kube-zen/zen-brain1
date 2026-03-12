@@ -1,0 +1,15 @@
+if [ -f .zen-target-info ]; then . .zen-target-info; fi && mkdir -p analysis && cat > analysis/DOCS_ANALYSIS.md <<VERIF_EOF
+# Documentation Verification
+
+## Work Item
+- **ID:** {{.work_item_id}}
+- **Title:** {{.title}}
+
+## File Existence
+$(if [ -f "$TARGET_PATH" ]; then echo '- **Documentation file:** EXISTS'; echo "  - Path: $TARGET_PATH"; echo "  - Size: $(wc -c < "$TARGET_PATH") bytes"; else echo '- **Documentation file:** MISSING'; exit 1; fi)
+
+## Content Validation
+$(if grep -q '# {{.title}}' "$TARGET_PATH" 2>/dev/null; then echo '- **Title:** PRESENT'; else echo '- **Title:** MISSING'; fi)
+$(if grep -q '{{.objective}}' "$TARGET_PATH" 2>/dev/null; then echo '- **Objective:** PRESENT'; else echo '- **Objective:** MISSING'; fi)
+VERIF_EOF
+echo 'analysis/DOCS_ANALYSIS.md' >> .zen-metadata-files && echo 'Documentation verified'

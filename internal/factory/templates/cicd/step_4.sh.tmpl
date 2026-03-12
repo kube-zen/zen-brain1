@@ -1,0 +1,64 @@
+mkdir -p docs && if [ -f .zen-project-info ]; then . .zen-project-info; fi && cat > docs/DEPLOYMENT.md <<DEPLOY_EOF
+# Deployment
+
+> **Work Item:** {{.work_item_id}}
+> **CI Platform:** $CI_PLATFORM
+
+## CI/CD Pipeline
+
+The project uses **$CI_PLATFORM** for continuous integration and deployment.
+
+### Workflows
+
+- **ci.yml**: Main CI workflow with lint, test, and build stages
+
+### Deployment Strategy
+
+#### Blue-Green Deployment
+- Two production environments: **blue** and **green**
+- Zero-downtime deployments with automatic traffic shifting
+- Easy rollback: switch back to previous environment on failure
+
+
+#### Canary Deployment
+- Gradual traffic rollout: 5% → 25% → 50% → 100%
+- Monitor key metrics: error rate, latency, throughput
+- Automatic rollback on metrics degradation
+
+#### Rolling Deployment
+- Incremental instance replacement
+- Maintain availability during updates
+- Health check validation before traffic routing
+
+#### Environment-Specific Strategy
+$(if [ -f .env.production ]; then echo '- **Production**: Blue-green with 50% canary phase'; elif [ -f .env.staging ]; then echo '- **Staging**: Rolling deployment with full validation'; else echo '- **Development**: Direct deployment with basic health checks'; fi)
+
+### Environment Variables
+
+### Required Environment Variables
+| Variable | Description | Example Value | Required |
+|----------|-------------|----------------|-----------|
+| `CI_PLATFORM` | CI/CD platform name (github, gitlab, jenkins) | `github` | Yes |
+| `REGISTRY_URL` | Container registry URL | `ghcr.io/kube-zen` | Yes |
+| `CLUSTER_NAME` | Target Kubernetes cluster | `production-cluster` | Yes |
+
+### Optional Environment Variables
+| Variable | Description | Example Value | Required |
+|----------|-------------|----------------|-----------|
+| `NAMESPACE` | Kubernetes namespace | `default` | No |
+| `HELM_VALUES` | Path to Helm values file | `./helm/values-prod.yaml` | No |
+| `SLACK_WEBHOOK` | Slack notifications URL | `https://hooks.slack.com/...` | No |
+| `PROMETHEUS_URL` | Prometheus push gateway | `http://prometheus:9091` | No |
+
+### Environment Files
+- Development: `.env.development`
+- Staging: `.env.staging`
+- Production: `.env.production`
+
+### Security Notes
+- Store sensitive values in secret management (Vault, Kubernetes Secrets)
+- Never commit `.env.production` files
+- Rotate credentials periodically
+
+DEPLOY_EOF
+echo 'docs/DEPLOYMENT.md' >> .zen-repo-files-changed && echo 'Created: docs/DEPLOYMENT.md'

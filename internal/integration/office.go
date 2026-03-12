@@ -42,10 +42,10 @@ type OfficePipeline struct {
 // - If Message Bus config is available (enabled + redis_url), uses real Redis message bus
 // - FAILS CLOSED when in strict mode OR when component is marked as Required:
 //   - Strict mode: ZEN_BRAIN_STRICT_RUNTIME env var set OR ZEN_RUNTIME_PROFILE=prod
-//   - Required flag: ledger.required, message_bus.required set to true
+//   - Required flag: kb.required, ledger.required, message_bus.required set to true
 // - Falls back to stubs ONLY when the operator explicitly opts in:
-//   - ZEN_BRAIN_OFFICE_ALLOW_STUB_KB=1
-//   - ZEN_BRAIN_OFFICE_ALLOW_STUB_LEDGER=1
+//   - ZEN_BRAIN_OFFICE_ALLOW_STUB_KB=1 (requires kb.required=false)
+//   - ZEN_BRAIN_OFFICE_ALLOW_STUB_LEDGER=1 (requires ledger.required=false)
 //
 // This ensures degraded operation is NOT tolerated by default.
 func NewOfficePipeline(cfg *config.Config) (*OfficePipeline, error) {
@@ -80,7 +80,13 @@ func NewOfficePipeline(cfg *config.Config) (*OfficePipeline, error) {
 	allowStubKB := os.Getenv("ZEN_BRAIN_OFFICE_ALLOW_STUB_KB") == "1"
 	allowStubLedger := os.Getenv("ZEN_BRAIN_OFFICE_ALLOW_STUB_LEDGER") == "1"
 
-	if cfg != nil && cfg.KB.DocsRepo != "" && cfg.QMD.BinaryPath != "" {
+	// Determine if KB is required (config may be nil)
+	kbRequired := cfg != nil && cfg.KB.Required
+
+	// Real KB possible if config has docs_repo and qmd binary path
+	realKBPossible := cfg != nil && cfg.KB.DocsRepo != "" && cfg.QMD.BinaryPath != ""
+
+	if realKBPossible {
 		// Use real qmd-backed KB
 		log.Printf("  - Knowledge Base (qmd-backed: repo=%s)", cfg.KB.DocsRepo)
 
@@ -110,6 +116,10 @@ func NewOfficePipeline(cfg *config.Config) (*OfficePipeline, error) {
 		}
 		log.Println("    ✓ qmd-backed KB initialized")
 	} else {
+		// KB not configured or missing required fields
+		if kbRequired {
+			return nil, fmt.Errorf("KB is required but not configured (set kb.docs_repo and qmd.binary_path)")
+		}
 		if strictMode {
 			return nil, fmt.Errorf("KB not configured in strict runtime (set kb.docs_repo and qmd.binary_path)")
 		}
@@ -140,7 +150,10 @@ func NewOfficePipeline(cfg *config.Config) (*OfficePipeline, error) {
 
 	// 5. Ledger (real or stub)
 	var ledgerClient ledger.ZenLedgerClient
-	if cfg != nil && cfg.Ledger.Enabled {
+	ledgerRequired := cfg != nil && cfg.Ledger.Required
+	ledgerEnabled := cfg != nil && cfg.Ledger.Enabled
+
+	if ledgerEnabled {
 		// Build CockroachDB DSN from config
 		dsn := ""
 		if cfg.Ledger.Host != "" && cfg.Ledger.Port != 0 {
@@ -172,6 +185,10 @@ func NewOfficePipeline(cfg *config.Config) (*OfficePipeline, error) {
 		}
 		log.Println("    ✓ CockroachDB ledger initialized")
 	} else {
+		// Ledger not enabled
+		if ledgerRequired {
+			return nil, fmt.Errorf("Ledger is required but not enabled (set ledger.enabled=true)")
+		}
 		if strictMode {
 			return nil, fmt.Errorf("Ledger not enabled in strict runtime (set ledger.enabled=true)")
 		}

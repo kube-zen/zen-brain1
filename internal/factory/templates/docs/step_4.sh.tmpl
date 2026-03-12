@@ -1,0 +1,122 @@
+if [ -f .zen-project-info ]; then . .zen-project-info; fi && if [ -f .zen-target-info ]; then . .zen-target-info; fi && cat > "$TARGET_PATH" <<DOCS_EOF
+# {{.title}}\
+
+> **Work Item:** {{.work_item_id}}\
+> **Created:** $(date -u +%Y-%m-%dT%H:%M:%SZ)\
+
+## Overview\
+
+{{.objective}}\
+
+## Project Context\
+
+$(if [ "$PROJECT_TYPE" = 'go' ]; then echo 'This documentation applies to the Go module **$MODULE_NAME**.'; elif [ "$PROJECT_TYPE" = 'node' ]; then echo 'This documentation applies to the Node.js package.'; else echo 'This documentation applies to this project.'; fi)\
+
+## Getting Started\
+
+### Prerequisites\
+$(if [ "$PROJECT_TYPE" = 'go' ]; then echo '- Go 1.21+ installed'; echo '- GOPATH/bin in your PATH'; elif [ "$PROJECT_TYPE" = 'node' ]; then echo '- Node.js 18+ installed'; echo '- npm or yarn package manager'; else echo '- Appropriate development environment for this project type'; fi)\
+
+### Installation\
+$(if [ "$PROJECT_TYPE" = 'go' ]; then echo '\`bash\
+go get /./...\
+\`''; elif [ "$PROJECT_TYPE" = 'node' ]; then echo '\`bash\
+npm install\
+\`''; else echo 'Follow standard installation procedures for this project type.'; fi)\
+
+### Quick Start\
+1. Clone to repository: \`git clone <repo-url>\`\
+2. Navigate to project directory\
+3. $(if [ "$PROJECT_TYPE" = 'go' ]; then echo 'Run \`go run main.go\`'; elif [ "$PROJECT_TYPE" = 'node' ]; then echo 'Run \`npm start\`'; else echo 'Run to main application'; fi)\
+4. Verify to service is running\
+
+
+## Usage\
+
+### Basic Usage\
+The {{.title}} provides to following capabilities:\
+
+$(echo '{{.objective}}' | sed 's/\. /\
+- /g' | sed 's/^/- /')\
+
+### Example: Common Scenario\
+\`\`\`bash\
+# Example command demonstrating {{.title}}\
+$(if [ "$PROJECT_TYPE" = 'go' ]; then echo 'go run cmd/main.go --help'; elif [ "$PROJECT_TYPE" = 'node' ]; then echo 'node index.js --help'; else echo './script.sh --help'; fi)\
+\`\`\`\
+
+### Advanced Usage\
+For production deployment, consider these patterns:\
+
+1. **Environment Configuration**: Set environment variables for customization\
+2. **Logging**: Enable structured logging for observability\
+3. **Monitoring**: Integrate with monitoring tools (Prometheus, Grafana)\
+4. **Scaling**: Configure horizontal scaling based on load\
+
+
+## Configuration\
+
+### Environment Variables\
+$(if [ "$PROJECT_TYPE" = 'go' ]; then echo '| Variable | Description | Default |\
+|----------|-------------|---------|\
+| \`PORT\` | HTTP server port | \`8080\` |\
+| \`LOG_LEVEL\` | Logging level (debug, info, warn, error) | \`info\` |\
+| \`DATABASE_URL\` | Database connection string | \`postgres://localhost:5432/db\` |'; elif [ "$PROJECT_TYPE" = 'node' ]; then echo '| Variable | Description | Default |\
+|----------|-------------|---------|\
+| \`PORT\` | HTTP server port | \`3000\` |\
+| \`NODE_ENV\` | Node environment (development, production) | \`development\` |\
+| \`DATABASE_URL\` | Database connection string | \`postgres://localhost:5432/db\` |'; else echo '| Variable | Description | Default |\
+|----------|-------------|---------|\
+| \`APP_ENV\` | Application environment | \`development\` |\
+| \`APP_PORT\` | Application port | \`8080\` |\
+| \`LOG_LEVEL\` | Logging level | \`info\` |'; fi)\
+
+### Configuration Files\
+$(if [ "$PROJECT_TYPE" = 'go' ]; then echo 'Configuration can be provided via:\
+- Environment variables\
+- \`config.yaml\` file\
+- Command-line flags'; elif [ "$PROJECT_TYPE" = 'node' ]; then echo 'Configuration can be provided via:\
+- Environment variables\
+- \`.env\` file\
+- \`config.json\` file'; else echo 'Configuration can be provided via environment variables or configuration files.'; fi)\
+
+## Troubleshooting\
+
+### Common Issues\
+
+#### Issue: Service fails to start\
+**Solution**: Check port availability and required environment variables.\
+
+#### Issue: Database connection errors\
+**Solution**: Verify database credentials and network connectivity.\
+
+#### Issue: Performance degradation\
+**Solution**: Monitor resource usage and adjust scaling configuration.\
+
+### Debugging\
+Enable debug logging by setting \`LOG_LEVEL=debug\` and review application logs.\
+
+### Getting Help\
+- Check application logs for error messages\
+- Review system resource utilization\
+- Consult project documentation and README\
+
+## See Also\
+
+### Related Documentation\
+$(if [ "$PROJECT_TYPE" = 'go' ]; then echo '- [Go Documentation](https://golang.org/doc/)\
+- [Project README](../README.md)\
+- [API Reference](../docs/API.md)'; elif [ "$PROJECT_TYPE" = 'node' ]; then echo '- [Node.js Documentation](https://nodejs.org/docs/)\
+- [Project README](../README.md)\
+- [Package Documentation](../docs/)'; else echo '- [Project README](../README.md)\
+- [Architecture Documentation](../docs/ARCHITECTURE.md)'; fi)\
+
+### External Resources\
+- [zen-brain Documentation](https://docs.zen-brain.ai)\
+- [Best Practices Guide](../docs/BEST_PRACTICES.md)\
+
+---\
+
+*Documented as part of work item {{.work_item_id}}*\
+DOCS_EOF\
+echo "$TARGET_PATH" >> .zen-repo-files-changed && echo "Created: $TARGET_PATH"
