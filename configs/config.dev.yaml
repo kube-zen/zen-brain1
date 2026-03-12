@@ -1,5 +1,7 @@
 # Zen-Brain 1.0 development configuration
 # This file is a template for local development.
+# WARNING: localhost defaults (redis://localhost:6379, http://localhost:9000) are for DEV ONLY.
+# In production, these will FAIL CLOSED unless explicitly configured via environment variables.
 
 # Home directory (overrides ZEN_BRAIN_HOME)
 home_dir: "~/.zen-brain"
