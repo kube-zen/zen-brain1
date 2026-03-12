@@ -1,15 +1,15 @@
 # 1.0 RELEASE CHECKLIST
 
-**Status**: ⚠️ APPROACHING PRODUCTION READINESS (~96% Complete)
+**Status**: ⚠️ APPROACHING PRODUCTION READINESS (~98% Complete)
 **Date**: 2026-03-12
 **Release Candidate**: v1.0.0-pre
 
 **Outstanding Tasks**:
-1. Fix Office compile/config drift (KB.Enabled/Required fields)
-2. Make Office stubs explicit (no ambient fallback)
-3. Finish Block 4 migration template cleanup
-4. Align status documentation
-5. Fresh Go 1.25 build/test/deploy proof
+1. ~~Fix Office compile/config drift (KB.Enabled/Required fields)~~ ✅ Done
+2. ~~Make Office stubs explicit (no ambient fallback)~~ ✅ Done
+3. ~~Finish Block 4 migration template cleanup~~ ✅ Done
+4. Align status documentation (in progress)
+5. Fresh Go 1.25 build/test/deploy proof (pending)
 
 ---
 
@@ -32,12 +32,12 @@
 | 0 - Foundation | ✅ Complete | 100% | Tooling, config, deploy structure; repo hygiene and governance clean |
 | 0.5 - zen-sdk reuse | ✅ Complete | 100% | All zen-sdk packages imported and wired; wrappers documented |
 | 1 - Neuro-Anatomy | ✅ Complete | 100% | Contracts, docs, CRDs, taxonomy synced; tests passing |
-| 2 - Office | ⚠️ In Progress | 92% | Jira, analyzer, webhooks; config/code drift fix needed |
+| 2 - Office | ⚠️ In Progress | 98% | Jira, analyzer, webhooks; config/code drift fixed, stubs explicit |
 | 3 - Nervous System | ✅ Complete | 93% | Runtime, circuit breakers; fail-closed posture improved |
-| 4 - Factory | ✅ Ready | 92% | Static analysis, multi-language; migration template cleanup needed |
+| 4 - Factory | ✅ Ready | 95% | Static analysis, multi-language; migration templates cleaned up |
 | 5 - Intelligence | ✅ Complete | 92% | Enhanced failure analysis, predictive modeling; QMD docs alignment needed |
 | 6 - Developer Experience | ✅ Complete | 94% | Deployment validated; fresh build/test/deploy proof needed |
-| **Overall** | **⚠️ APPROACHING** | **~96%** | **Blocks 0, 0.5, 1 done-done; Office and Factory work remaining** |
+| **Overall** | **⚠️ APPROACHING** | **~98%** | **Blocks 0, 0.5, 1 done-done; Office and Factory work minimal** |
 
 ---
 

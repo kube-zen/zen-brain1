@@ -16,11 +16,29 @@ logging:
 kb:
   docs_repo: "../zen-docs"
   search_limit: 10
+  # required: false  # If true, missing docs_repo or qmd binary will fail closed
 
 # QMD settings (knowledge retrieval)
 qmd:
   binary_path: "qmd"
   refresh_interval: 3600  # 1 hour in seconds
+
+# Ledger settings (optional - for token/cost accounting)
+# ledger:
+#   enabled: false
+#   required: false
+#   host: "localhost"
+#   port: 26257
+#   database: "defaultdb"
+#   user: "root"
+#   ssl_mode: "disable"
+
+# Message Bus settings (optional - for event streaming)
+# message_bus:
+#   enabled: false
+#   required: false
+#   redis_url: "redis://localhost:6379"
+#   stream: "zen-brain.events"
 
 # Jira connector (optional - for real Jira integration)
 jira:
