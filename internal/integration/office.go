@@ -80,6 +80,10 @@ func NewOfficePipeline(cfg *config.Config) (*OfficePipeline, error) {
 	strictMode := os.Getenv("ZEN_BRAIN_STRICT_RUNTIME") != "" || os.Getenv("ZEN_RUNTIME_PROFILE") == "prod"
 
 	if cfg != nil && cfg.KB.DocsRepo != "" && cfg.QMD.BinaryPath != "" {
+		// FAIL CLOSED: KB requires explicit enabled flag
+		if !cfg.KB.Enabled {
+			return nil, fmt.Errorf("KB configured (docs_repo=%s, qmd_binary=%s) but not enabled (set kb.enabled=true)", cfg.KB.DocsRepo, cfg.QMD.BinaryPath)
+		}
 		// Use real qmd-backed KB
 		log.Printf("  - Knowledge Base (qmd-backed: repo=%s)", cfg.KB.DocsRepo)
 
@@ -94,11 +98,7 @@ func NewOfficePipeline(cfg *config.Config) (*OfficePipeline, error) {
 		qmdClient, err := qmd.NewClient(qmdConfig)
 		if err != nil {
 			// FAIL CLOSED: no fallback to stub KB
-			if strictMode {
-				return nil, fmt.Errorf("KB initialization failed in strict mode: %w (cannot fallback to stub KB)", err)
-			}
-			log.Printf("    ! qmd client creation failed: %v (strict mode: %t) - FAILING CLOSED, cannot use stub KB", err, strictMode)
-			return nil, fmt.Errorf("KB initialization failed: %w (cannot fallback to stub KB in strict mode)", err)
+			return nil, fmt.Errorf("KB initialization failed: %w (cannot fallback to stub KB)", err)
 		}
 
 		kbStoreConfig := &qmd.KBStoreConfig{
@@ -109,15 +109,16 @@ func NewOfficePipeline(cfg *config.Config) (*OfficePipeline, error) {
 		kbStore, err = qmd.NewKBStore(kbStoreConfig)
 		if err != nil {
 			// FAIL CLOSED: no fallback to stub KB
-			if strictMode {
-				return nil, fmt.Errorf("KB store initialization failed in strict mode: %w (cannot fallback to stub KB)", err)
-			}
-			log.Printf("    ! KB store creation failed: %v (strict mode: %t) - FAILING CLOSED, cannot use stub KB", err, strictMode)
-			return nil, fmt.Errorf("KB store initialization failed: %w (cannot fallback to stub KB in strict mode)", err)
+			return nil, fmt.Errorf("KB store initialization failed: %w (cannot fallback to stub KB)", err)
 		}
 		log.Println("    ✓ qmd-backed KB initialized")
 	} else {
-		// Use stub KB when config not provided
+		// KB not configured
+		if cfg != nil && cfg.KB.Required {
+			// FAIL CLOSED: KB required but not configured
+			return nil, fmt.Errorf("KB required but not configured (set kb.docs_repo and qmd.binary_path)")
+		}
+		// Use stub KB (only when not required)
 		log.Println("  - Knowledge Base (stub - configure kb.docs_repo and qmd.binary_path for real KB)")
 		kbStore = kbinternal.NewStubStore()
 	}
@@ -163,34 +164,23 @@ func NewOfficePipeline(cfg *config.Config) (*OfficePipeline, error) {
 			log.Printf("  - Ledger (CockroachDB: %s:%d/%s)", cfg.Ledger.Host, cfg.Ledger.Port, dbName)
 		} else {
 			// FAIL CLOSED: config says enabled but missing connection details
-			if cfg.Ledger.Required || strictMode {
-				return nil, fmt.Errorf("ledger config enabled but missing host/port (strict mode or ledger required: %t, %t)", strictMode, cfg.Ledger.Required)
-			}
-			log.Printf("  ! Ledger config enabled but missing host/port (strict mode: %t, ledger required: %t) - FAILING CLOSED", strictMode, cfg.Ledger.Required)
-			return nil, fmt.Errorf("ledger enabled but missing connection details (cannot fallback to stub in strict mode or when ledger is required)")
+			return nil, fmt.Errorf("ledger enabled but missing host/port (set ledger.host and ledger.port)")
 		}
 
 		var err error
 		ledgerClient, err = ledgerinternal.NewCockroachLedger(dsn)
 		if err != nil {
 			// FAIL CLOSED: no fallback to stub ledger
-			if cfg.Ledger.Required || strictMode {
-				return nil, fmt.Errorf("ledger required but CockroachDB connection failed: %w (strict mode or ledger required, cannot fallback to stub)", err)
-			}
-			log.Printf("    ! CockroachDB connection failed: %v (strict mode: %t, ledger required: %t) - FAILING CLOSED, cannot use stub ledger", err, strictMode, cfg.Ledger.Required)
-			return nil, fmt.Errorf("ledger initialization failed: %w (cannot fallback to stub ledger in strict mode or when ledger is required)", err)
+			return nil, fmt.Errorf("ledger initialization failed: %w (cannot fallback to stub ledger)", err)
 		}
 		log.Println("    ✓ CockroachDB ledger initialized")
 	} else {
-		// FAIL CLOSED: ledger not enabled but is required
+		// Ledger not enabled
 		if cfg != nil && cfg.Ledger.Required {
-			if strictMode {
-				return nil, fmt.Errorf("ledger required but not enabled (strict mode: cannot use stub ledger)")
-			}
-			log.Printf("  ! Ledger required but not enabled (strict mode: %t) - FAILING CLOSED", strictMode)
-			return nil, fmt.Errorf("ledger required but not enabled (cannot fallback to stub ledger in strict mode)")
+			// FAIL CLOSED: ledger required but not enabled
+			return nil, fmt.Errorf("Ledger required but not enabled (set ledger.enabled=true)")
 		}
-		// Use stub only when explicitly allowed (not required, not strict)
+		// Use stub ledger (only when not required)
 		log.Println("  - Ledger (stub - set ledger.enabled=true for real ledger)")
 		ledgerClient = ledgerinternal.NewStubLedgerClient()
 	}
@@ -201,8 +191,8 @@ func NewOfficePipeline(cfg *config.Config) (*OfficePipeline, error) {
 	if cfg != nil && cfg.MessageBus.Enabled {
 		redisURL := cfg.MessageBus.RedisURL
 		if redisURL == "" {
-			redisURL = "redis://localhost:6379"
-			log.Printf("    ! Using default Redis URL: %s (set message_bus.redis_url to override)", redisURL)
+			// FAIL CLOSED: no default Redis URL
+			return nil, fmt.Errorf("Message Bus enabled but redis_url not configured (set message_bus.redis_url)")
 		}
 		redisConfig := &redis.Config{
 			RedisURL:     redisURL,
@@ -214,22 +204,15 @@ func NewOfficePipeline(cfg *config.Config) (*OfficePipeline, error) {
 		bus, err := redis.New(redisConfig)
 		if err != nil {
 			// FAIL CLOSED: no fallback to missing message bus
-			if cfg.MessageBus.Required || strictMode {
-				return nil, fmt.Errorf("message bus required but Redis initialization failed: %w (strict mode or message bus required, cannot continue)", err)
-			}
-			log.Printf("    ! Redis message bus initialization failed: %v (strict mode: %t, message bus required: %t) - FAILING CLOSED", err, strictMode, cfg.MessageBus.Required)
-			return nil, fmt.Errorf("message bus initialization failed: %w (cannot continue without message bus in strict mode or when message bus is required)", err)
+			return nil, fmt.Errorf("message bus initialization failed: %w (cannot continue)", err)
 		}
 		msgBus = bus
 		log.Println("    ✓ Redis message bus initialized")
 	} else {
-		// FAIL CLOSED: message bus not enabled but is required
+		// Message bus not enabled
 		if cfg != nil && cfg.MessageBus.Required {
-			if strictMode {
-				return nil, fmt.Errorf("message bus required but not enabled (strict mode: cannot continue)")
-			}
-			log.Printf("  ! Message bus required but not enabled (strict mode: %t) - FAILING CLOSED", strictMode)
-			return nil, fmt.Errorf("message bus required but not enabled (cannot continue in strict mode)")
+			// FAIL CLOSED: message bus required but not enabled
+			return nil, fmt.Errorf("Message Bus required but not enabled (set message_bus.enabled=true)")
 		}
 		log.Println("    (Message bus disabled)")
 	}
