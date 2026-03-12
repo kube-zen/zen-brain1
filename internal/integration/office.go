@@ -8,15 +8,19 @@ import (
 	"time"
 
 	"github.com/kube-zen/zen-brain1/internal/analyzer"
+	"github.com/kube-zen/zen-brain1/internal/config"
 	"github.com/kube-zen/zen-brain1/internal/gatekeeper"
-	"github.com/kube-zen/zen-brain1/internal/kb"
-	"github.com/kube-zen/zen-brain1/internal/ledger"
+	kbinternal "github.com/kube-zen/zen-brain1/internal/kb"
+	ledgerinternal "github.com/kube-zen/zen-brain1/internal/ledger"
 	llmgateway "github.com/kube-zen/zen-brain1/internal/llm"
 	"github.com/kube-zen/zen-brain1/internal/messagebus/redis"
 	"github.com/kube-zen/zen-brain1/internal/office"
 	"github.com/kube-zen/zen-brain1/internal/planner"
+	"github.com/kube-zen/zen-brain1/internal/qmd"
 	"github.com/kube-zen/zen-brain1/internal/session"
-	"github.com/kube-zen/zen-brain1/pkg/messagebus"
+	"github.com/kube-zen/zen-brain1/pkg/kb"
+	"github.com/kube-zen/zen-brain1/pkg/ledger"
+	pkgmessagebus "github.com/kube-zen/zen-brain1/pkg/messagebus"
 )
 
 // OfficePipeline holds all components of the Office lane.
@@ -26,21 +30,19 @@ type OfficePipeline struct {
 	SessionManager session.Manager
 	Planner        planner.Planner
 	Gatekeeper     gatekeeper.Gatekeeper
-	MessageBus     messagebus.MessageBus // Optional Redis message bus
+	MessageBus     pkgmessagebus.MessageBus // Optional Redis message bus
 }
 
-// NewOfficePipeline creates a new Office pipeline with stub dependencies.
-// This is suitable for development and testing before full ledger and KB are available.
-// 
-// FAIL CLOSED: In production mode (ZEN_RUNTIME_PROFILE=prod), this function will fail
-// if real implementations are not available. Use only in dev/test environments.
-func NewOfficePipeline() (*OfficePipeline, error) {
-	// FAIL CLOSED: Prevent production use of stub pipeline
-	if os.Getenv("ZEN_RUNTIME_PROFILE") == "prod" || os.Getenv("ZEN_BRAIN_STRICT_RUNTIME") != "" {
-		return nil, fmt.Errorf("NewOfficePipeline with stubs not allowed in production mode (ZEN_RUNTIME_PROFILE=prod or ZEN_BRAIN_STRICT_RUNTIME set)")
-	}
-
-	log.Println("Initializing Office pipeline (DEV MODE - using stubs)...")
+// NewOfficePipeline creates a new Office pipeline with real implementations when available.
+// It respects the config to use real KB/ledger implementations instead of stubs.
+//
+// Behavior:
+// - If KB config is available (qmd + docs_repo), uses real qmd-backed KB
+// - If Ledger config is available (enabled + host), uses real CockroachDB ledger
+// - Falls back to stubs only when implementations are not available and not required
+// - Fails hard when Required=true but real implementation is unavailable (FAIL CLOSED)
+func NewOfficePipeline(cfg *config.Config) (*OfficePipeline, error) {
+	log.Println("Initializing Office pipeline...")
 
 	// 1. LLM Gateway
 	log.Println("  - LLM Gateway")
@@ -65,10 +67,51 @@ func NewOfficePipeline() (*OfficePipeline, error) {
 		return nil, fmt.Errorf("failed to create LLM Gateway: %w", err)
 	}
 
-	// 2. Knowledge Base (stub - DEV MODE ONLY)
-	// FAIL CLOSED: Real production pipelines must use qmd-backed KB
-	log.Println("  - Knowledge Base (stub - DEV MODE ONLY)")
-	kbStore := kb.NewStubStore()
+	// 2. Knowledge Base (real or stub)
+	var kbStore kb.Store
+	strictMode := os.Getenv("ZEN_BRAIN_STRICT_RUNTIME") != "" || os.Getenv("ZEN_RUNTIME_PROFILE") == "prod"
+
+	if cfg != nil && cfg.KB.DocsRepo != "" && cfg.QMD.BinaryPath != "" {
+		// Use real qmd-backed KB
+		log.Printf("  - Knowledge Base (qmd-backed: repo=%s)", cfg.KB.DocsRepo)
+
+		qmdConfig := &qmd.Config{
+			QMDPath:   cfg.QMD.BinaryPath,
+			Timeout:   30 * time.Second,
+			Verbose:   false,
+			SkipAvailabilityCheck: true, // Skip check on init, fail gracefully on use
+			FallbackToMock:          false, // FAIL CLOSED: no mock fallback
+		}
+
+		qmdClient, err := qmd.NewClient(qmdConfig)
+		if err != nil {
+			if strictMode {
+				return nil, fmt.Errorf("KB required in strict mode but qmd client creation failed: %w", err)
+			}
+			log.Printf("    ! qmd client creation failed: %v (falling back to stub KB)", err)
+			kbStore = kbinternal.NewStubStore()
+		} else {
+			kbStoreConfig := &qmd.KBStoreConfig{
+				QMDClient: qmdClient,
+				RepoPath:  cfg.KB.DocsRepo,
+				Verbose:   false,
+			}
+			kbStore, err = qmd.NewKBStore(kbStoreConfig)
+			if err != nil {
+				if strictMode {
+					return nil, fmt.Errorf("KB required in strict mode but KB store creation failed: %w", err)
+				}
+				log.Printf("    ! KB store creation failed: %v (falling back to stub KB)", err)
+				kbStore = kbinternal.NewStubStore()
+			} else {
+				log.Println("    ✓ qmd-backed KB initialized")
+			}
+		}
+	} else {
+		// Fall back to stub KB
+		log.Println("  - Knowledge Base (stub - configure kb.docs_repo and qmd.binary_path for real KB)")
+		kbStore = kbinternal.NewStubStore()
+	}
 
 	// 3. Intent Analyzer
 	log.Println("  - Intent Analyzer")
@@ -88,35 +131,80 @@ func NewOfficePipeline() (*OfficePipeline, error) {
 		return nil, fmt.Errorf("failed to create Session Manager: %w", err)
 	}
 
-	// 5. Ledger (stub)
-	log.Println("  - Ledger (stub)")
-	ledgerClient := ledger.NewStubLedgerClient()
+	// 5. Ledger (real or stub)
+	var ledgerClient ledger.ZenLedgerClient
+	if cfg != nil && cfg.Ledger.Enabled {
+		// Build CockroachDB DSN from config
+		dsn := ""
+		if cfg.Ledger.Host != "" && cfg.Ledger.Port != 0 {
+			sslMode := cfg.Ledger.SSLMode
+			if sslMode == "" {
+				sslMode = "disable"
+			}
+			user := cfg.Ledger.User
+			if user == "" {
+				user = "root"
+			}
+			dbName := cfg.Ledger.Database
+			if dbName == "" {
+				dbName = "defaultdb"
+			}
+			dsn = fmt.Sprintf("postgres://%s@%s:%d/%s?sslmode=%s",
+				user, cfg.Ledger.Host, cfg.Ledger.Port, dbName, sslMode)
+			log.Printf("  - Ledger (CockroachDB: %s:%d/%s)", cfg.Ledger.Host, cfg.Ledger.Port, dbName)
+		} else {
+			log.Println("  - Ledger (config enabled but missing host/port - using stub)")
+		}
+
+		if dsn != "" {
+			var err error
+			ledgerClient, err = ledgerinternal.NewCockroachLedger(dsn)
+			if err != nil {
+				if cfg.Ledger.Required || strictMode {
+					return nil, fmt.Errorf("Ledger required in strict mode but CockroachDB connection failed: %w", err)
+				}
+				log.Printf("    ! CockroachDB connection failed: %v (falling back to stub ledger)", err)
+				ledgerClient = ledgerinternal.NewStubLedgerClient()
+			} else {
+				log.Println("    ✓ CockroachDB ledger initialized")
+			}
+		} else {
+			ledgerClient = ledgerinternal.NewStubLedgerClient()
+		}
+	} else {
+		// Fall back to stub ledger
+		log.Println("  - Ledger (stub - set ledger.enabled=true for real ledger)")
+		ledgerClient = ledgerinternal.NewStubLedgerClient()
+	}
 
 	// 6. Message Bus (Redis)
 	log.Println("  - Message Bus (Redis)")
-	redisURL := os.Getenv("ZEN_BRAIN_REDIS_URL")
-	if redisURL == "" {
-		redisURL = "redis://localhost:6379"
-		log.Printf("    ! Using default Redis URL: %s (set ZEN_BRAIN_REDIS_URL to override)", redisURL)
-	}
-	var msgBus messagebus.MessageBus
-	redisConfig := &redis.Config{
-		RedisURL:     redisURL,
-		MaxPending:   1000,
-		ConsumerName: "",
-		BlockTimeout: 5 * time.Second,
-		ClaimTimeout: 30 * time.Second,
-	}
-	if os.Getenv("ZEN_BRAIN_REDIS_DISABLED") == "" {
+	var msgBus pkgmessagebus.MessageBus
+	if cfg != nil && cfg.MessageBus.Enabled {
+		redisURL := cfg.MessageBus.RedisURL
+		if redisURL == "" {
+			redisURL = "redis://localhost:6379"
+			log.Printf("    ! Using default Redis URL: %s (set message_bus.redis_url to override)", redisURL)
+		}
+		redisConfig := &redis.Config{
+			RedisURL:     redisURL,
+			MaxPending:   1000,
+			ConsumerName: "",
+			BlockTimeout: 5 * time.Second,
+			ClaimTimeout: 30 * time.Second,
+		}
 		bus, err := redis.New(redisConfig)
 		if err != nil {
+			if cfg.MessageBus.Required || strictMode {
+				return nil, fmt.Errorf("Message bus required in strict mode but Redis initialization failed: %w", err)
+			}
 			log.Printf("    ! Redis message bus initialization failed: %v (continuing without message bus)", err)
 		} else {
 			msgBus = bus
 			log.Println("    ✓ Redis message bus initialized")
 		}
 	} else {
-		log.Println("    (Redis disabled by environment variable)")
+		log.Println("    (Message bus disabled)")
 	}
 
 	// 7. Office Manager
