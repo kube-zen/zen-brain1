@@ -42,8 +42,7 @@ type OfficePipeline struct {
 // - If Message Bus config is available (enabled + redis_url), uses real Redis message bus
 // - FAILS CLOSED when in strict mode OR when component is marked as Required:
 //   - Strict mode: ZEN_BRAIN_STRICT_RUNTIME env var set OR ZEN_RUNTIME_PROFILE=prod
-//   - Required flag: ledger.required, message_bus.required set to true
-//   - KB has no Required flag, so it only checks strict mode
+//   - Required flag: kb.required, ledger.required, message_bus.required set to true
 // - Falls back to stubs ONLY when:
 //   - NOT in strict mode AND component is NOT marked as Required AND initialization fails
 //   - Component is explicitly disabled (enabled=false, not required)
@@ -51,6 +50,12 @@ type OfficePipeline struct {
 // This ensures degraded operation is NOT tolerated when real infra is required.
 func NewOfficePipeline(cfg *config.Config) (*OfficePipeline, error) {
 	log.Println("Initializing Office pipeline...")
+
+	// Helper to check if stub fallback is explicitly allowed
+	stubsAllowed := func() bool {
+		val := os.Getenv("ZEN_BRAIN_ALLOW_STUBS")
+		return val == "1" || val == "true" || val == "yes"
+	}
 
 	// 1. LLM Gateway
 	log.Println("  - LLM Gateway")
@@ -77,7 +82,6 @@ func NewOfficePipeline(cfg *config.Config) (*OfficePipeline, error) {
 
 	// 2. Knowledge Base (real or stub)
 	var kbStore kb.Store
-	strictMode := os.Getenv("ZEN_BRAIN_STRICT_RUNTIME") != "" || os.Getenv("ZEN_RUNTIME_PROFILE") == "prod"
 
 	if cfg != nil && cfg.KB.DocsRepo != "" && cfg.QMD.BinaryPath != "" {
 		// FAIL CLOSED: KB requires explicit enabled flag
@@ -118,7 +122,11 @@ func NewOfficePipeline(cfg *config.Config) (*OfficePipeline, error) {
 			// FAIL CLOSED: KB required but not configured
 			return nil, fmt.Errorf("KB required but not configured (set kb.docs_repo and qmd.binary_path)")
 		}
-		// Use stub KB (only when not required)
+		// Check if stub fallback is explicitly allowed
+		if !stubsAllowed() {
+			return nil, fmt.Errorf("KB not configured and stub fallback not allowed (set kb.docs_repo and qmd.binary_path for real KB, or set ZEN_BRAIN_ALLOW_STUBS=1 for stub)")
+		}
+		// Use stub KB (explicit opt-in via ZEN_BRAIN_ALLOW_STUBS)
 		log.Println("  - Knowledge Base (stub - configure kb.docs_repo and qmd.binary_path for real KB)")
 		kbStore = kbinternal.NewStubStore()
 	}
@@ -180,7 +188,11 @@ func NewOfficePipeline(cfg *config.Config) (*OfficePipeline, error) {
 			// FAIL CLOSED: ledger required but not enabled
 			return nil, fmt.Errorf("Ledger required but not enabled (set ledger.enabled=true)")
 		}
-		// Use stub ledger (only when not required)
+		// Check if stub fallback is explicitly allowed
+		if !stubsAllowed() {
+			return nil, fmt.Errorf("Ledger not enabled and stub fallback not allowed (set ledger.enabled=true for real ledger, or set ZEN_BRAIN_ALLOW_STUBS=1 for stub)")
+		}
+		// Use stub ledger (explicit opt-in via ZEN_BRAIN_ALLOW_STUBS)
 		log.Println("  - Ledger (stub - set ledger.enabled=true for real ledger)")
 		ledgerClient = ledgerinternal.NewStubLedgerClient()
 	}

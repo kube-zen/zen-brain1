@@ -4,17 +4,17 @@
 
 ## Executive status (single narrative)
 
-Zen-Brain is **1.0 production-ready at 99% completeness**. All critical blocks validated, comprehensive test coverage (76+ tests), deployment proven, enhanced intelligence mining with predictive failure analysis.
+Zen-Brain is **approaching 1.0 production readiness at ~95% overall completeness** with a trustworthy internal-use vertical slice at ~92%. Critical blocks validated, comprehensive test coverage (76+ tests), deployment proven, enhanced intelligence mining with predictive failure analysis.
 
 | Dimension | Score | Notes |
 |-----------|-------|--------|
-| **Architecture completeness** | 99% | Blocks 0–6 complete; contracts, CRDs, session/context plumbing solid; deployment plane live-proven; enhanced intelligence mining with predictive analysis. |
-| **Operational / deployment completeness** | 98% | Full sandbox path proven: redeploy exits 0, Helmfile converges, foreman/apiserver/ollama-0 Ready, preload succeeds, OLLAMA_BASE_URL on apiserver, health probes passing. Real inference validated. |
-| **Blended overall completeness** | 99% | Production-ready for 1.0 release; remaining 1% reserved for post-1.0 enhancements (real-time streaming, advanced ML). |
+| **Architecture completeness** | 95% | Blocks 0–6 largely complete; contracts, CRDs, session/context plumbing solid; deployment plane live-proven; enhanced intelligence mining with predictive analysis. Remaining gaps: Office config/code drift, explicit stub opt-in, Block 4 migration template debt. |
+| **Operational / deployment completeness** | 94% | Full sandbox path proven: redeploy exits 0, Helmfile converges, foreman/apiserver/ollama-0 Ready, preload succeeds, OLLAMA_BASE_URL on apiserver, health probes passing. Real inference validated. |
+| **Blended overall completeness** | 95% | Production-ready for internal use; remaining 5% includes Office hardening, template cleanup, and doc alignment. |
 
 **Single source of truth for status:** This matrix, [PROGRESS.md](PROGRESS.md), [RECOMMENDED_NEXT_STEPS.md](RECOMMENDED_NEXT_STEPS.md), and [DEPLOYMENT_VALIDATION.md](../04-DEVELOPMENT/DEPLOYMENT_VALIDATION.md). README Development Status reflects this narrative.
 
-**Remaining gaps (99% → 100%):** (1) Real-time failure streaming (post-1.0); (2) Advanced ML model integration (post-1.0); (3) VPA path validation (optional). See [RECOMMENDED_NEXT_STEPS.md](RECOMMENDED_NEXT_STEPS.md) for full list.
+**Remaining gaps (95% → 100%):** (1) Office compile/config drift fix; (2) Explicit stub opt-in (no ambient fallback); (3) Block 4 migration template cleanup; (4) Status/doc alignment; (5) Fresh Go 1.25 build/test/deploy proof. See [RECOMMENDED_NEXT_STEPS.md](RECOMMENDED_NEXT_STEPS.md) for full list.
 
 **Definitions:**
 - **Real:** Production code path; no mandatory fallback to mock/simulated behavior.
@@ -30,8 +30,8 @@ Zen-Brain is **1.0 production-ready at 99% completeness**. All critical blocks v
 |-----------|--------|-------|-----------|
 | **Office / Jira** | Real | Fetch, update, search, AddAttachment, Search (JQL), Watch (webhook server + HMAC). Config/bootstrap unified (config + env); vertical-slice posts proof comment + attachments + status; `zen-brain office doctor/search/fetch/watch` CLI. Block 2 analysis: durable history store (`ZEN_BRAIN_HOME/analysis`), auditable (AnalyzedAt, AnalyzedBy, AnalyzerVersion, WorkItemSnapshot), GetAnalysisHistory/UpdateAnalysis when store configured. | `internal/office/jira/connector.go`, `internal/analyzer/store.go`, `internal/integration/office_bootstrap.go`, `cmd/zen-brain/office.go`, `README.md` |
 | **Session manager** | Real | Create, get, resume, evidence; SQLite/memory; ZenContext write; structured execution checkpoint (UpdateExecutionCheckpoint, GetExecutionCheckpoint, GetExecutionCheckpointSummary) for ReMe/resume. | `internal/session/manager.go`, `internal/session/checkpoint.go`, `sqlite_store.go` |
-| **ZenContext (Tier 1/2/3)** | Real | Redis, QMD store, S3; composite; ReConstruct. Mock: QMD falls back to mock when CLI absent. | `internal/context/composite.go`, `tier1/`, `tier2/`, `tier3/`, `internal/qmd/` |
-| **QMD / KB** | Partial | Real when `qmd` CLI present; FallbackToMock when not. Block 5.1: Populate() + KB_QMD_STRATEGY.md, golden-query tests. | `internal/qmd/adapter.go`, `kb_store.go`, `populate.go` |
+| **ZenContext (Tier 1/2/3)** | Real | Redis, QMD store, S3; composite; ReConstruct. **FAIL CLOSED**: QMD requires explicit FallbackToMock=true to use mock when CLI absent. | `internal/context/composite.go`, `tier1/`, `tier2/`, `tier3/`, `internal/qmd/` |
+| **QMD / KB** | Partial | Real when `qmd` CLI present; **FAIL CLOSED by default** (FallbackToMock=false). Block 5.1: Populate() + KB_QMD_STRATEGY.md, golden-query tests. | `internal/qmd/adapter.go`, `kb_store.go`, `populate.go` |
 | **Nervous System (Block 3)** | Real | Canonical bootstrap (`internal/runtime.Bootstrap`), config-driven ZenContext/Ledger/MessageBus; `RuntimeReport` marks real/stub/degraded/disabled; `zen-brain runtime doctor/report/ping`; session lifecycle writes to journal + message bus when configured; /readyz reflects required capabilities. **Fail-closed in prod:** Set `ZEN_RUNTIME_PROFILE=prod` or `ZEN_BRAIN_STRICT_RUNTIME=1` to require all capabilities (no QMD mock or ledger stub). Otherwise QMD/Ledger can degrade per PROGRESS.md. | `internal/runtime/`, `internal/config` (MessageBusConfig), `internal/session/events.go`, `internal/apiserver/runtime_checker.go`, `cmd/zen-brain/runtime.go` |
 | **Message bus** | Real | Redis when `ZEN_BRAIN_MESSAGE_BUS=redis`; optional. | `internal/messagebus/redis/` |
 | **ZenJournal** | Real | receiptlog-backed event store; query API; ReMe reconstruction uses it. | `pkg/journal`, `internal/journal/receiptlog` |
