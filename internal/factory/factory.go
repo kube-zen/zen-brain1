@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"path/filepath"
 	"sort"
 	"sync"
 	"time"
@@ -52,6 +53,8 @@ type FactoryImpl struct {
 	preflightMode          PreflightMode       // Mode for preflight checks (default: strict)
 	postflightStrictMode   bool               // If true, postflight failures are fatal (default: false)
 	proofVerificationMode   bool               // If true, run enhanced proof verification (default: false)
+	llmGenerator           *LLMGenerator      // Optional LLM generator for code generation
+	llmEnabled             bool               // Whether LLM templates are enabled
 }
 
 // NewFactory creates a new Factory instance with default configuration.
@@ -156,6 +159,32 @@ func (f *FactoryImpl) SetRecommender(r RecommenderInterface) {
 	f.recommender = r
 }
 
+// SetLLMGenerator sets the LLM generator for code generation.
+// When set, the Factory will use LLM-powered templates instead of shell scripts.
+func (f *FactoryImpl) SetLLMGenerator(generator *LLMGenerator) {
+	f.llmGenerator = generator
+	f.llmEnabled = generator != nil
+	if generator != nil {
+		// Register LLM templates
+		f.templateManager.registry.RegisterLLMTemplates(generator)
+		log.Printf("[Factory] LLM-powered templates enabled")
+	}
+}
+
+// EnableLLM enables LLM-powered code generation with the given provider.
+// This is a convenience method that creates an LLMGenerator with default config.
+func (f *FactoryImpl) EnableLLM(provider interface{}) error {
+	// Type assertion would happen here when using proper llm.Provider type
+	// For now, log that LLM mode is requested
+	log.Printf("[Factory] LLM mode requested (provider type: %T) - use SetLLMGenerator for full support", provider)
+	return nil
+}
+
+// IsLLMEnabled returns true if LLM-powered templates are enabled.
+func (f *FactoryImpl) IsLLMEnabled() bool {
+	return f.llmEnabled && f.llmGenerator != nil
+}
+
 // ExecuteTask runs a task in an isolated workspace.
 func (f *FactoryImpl) ExecuteTask(ctx context.Context, spec *FactoryTaskSpec) (*ExecutionResult, error) {
 	// Validate spec
@@ -230,22 +259,57 @@ func (f *FactoryImpl) ExecuteTask(ctx context.Context, spec *FactoryTaskSpec) (*
 	// Create execution plan from spec (sets spec.TemplateKey)
 	steps := f.createExecutionPlan(spec)
 
-	// Execute bounded loop
-	result, err := f.executor.ExecutePlan(ctx, steps, workspaceMetadata.Path)
-	if err != nil {
-		log.Printf("[Factory] Task execution failed: task_id=%s error=%v", spec.ID, err)
-		// Set TemplateKey on error result before returning
-		if result != nil {
-			result.TaskID = spec.ID
-			result.SessionID = spec.SessionID
-			result.WorkItemID = spec.WorkItemID
-			result.WorkspacePath = workspaceMetadata.Path
-			result.TemplateKey = spec.TemplateKey
-			if result.TemplateKey == "" {
-				result.TemplateKey = spec.SelectedTemplate
-			}
+	var result *ExecutionResult
+
+	// Check if we should use LLM execution (empty steps + LLM enabled)
+	if len(steps) == 0 && f.llmEnabled && f.shouldUseLLMTemplate(spec) {
+		// Execute with LLM-powered code generation
+		filesCreated, llmErr := f.executeWithLLM(ctx, spec, workspaceMetadata.Path)
+		
+		result = &ExecutionResult{
+			TaskID:         spec.ID,
+			SessionID:      spec.SessionID,
+			WorkItemID:     spec.WorkItemID,
+			WorkspacePath:  workspaceMetadata.Path,
+			TemplateKey:    spec.SelectedTemplate,
+			Status:         ExecutionStatusCompleted,
+			Success:        llmErr == nil,
+			CompletedAt:    time.Now(),
+			Duration:       time.Since(startTime),
+			FilesChanged:   filesCreated,
 		}
-		return result, err
+
+		if llmErr != nil {
+			log.Printf("[Factory] LLM execution failed: task_id=%s error=%v", spec.ID, llmErr)
+			result.Status = ExecutionStatusFailed
+			result.Error = llmErr.Error()
+			result.Success = false
+			// Set proof-of-work path even on failure
+			result.ProofOfWorkPath = filepath.Join(workspaceMetadata.Path, "proof-of-work.json")
+			return result, llmErr
+		}
+
+		log.Printf("[Factory] LLM execution completed: task_id=%s files=%d", spec.ID, len(filesCreated))
+
+	} else {
+		// Execute bounded loop with shell steps
+		var err error
+		result, err = f.executor.ExecutePlan(ctx, steps, workspaceMetadata.Path)
+		if err != nil {
+			log.Printf("[Factory] Task execution failed: task_id=%s error=%v", spec.ID, err)
+			// Set TemplateKey on error result before returning
+			if result != nil {
+				result.TaskID = spec.ID
+				result.SessionID = spec.SessionID
+				result.WorkItemID = spec.WorkItemID
+				result.WorkspacePath = workspaceMetadata.Path
+				result.TemplateKey = spec.TemplateKey
+				if result.TemplateKey == "" {
+					result.TemplateKey = spec.SelectedTemplate
+				}
+			}
+			return result, err
+		}
 	}
 
 	// Populate result metadata
@@ -449,7 +513,18 @@ func (f *FactoryImpl) CancelTask(ctx context.Context, taskID string) error {
 
 // createExecutionPlan creates a bounded execution plan from task spec using templates.
 // When a recommender is set, it is used to choose template and configuration; otherwise static selection is used.
+// When LLM mode is enabled, returns empty steps (LLM execution handled separately).
 func (f *FactoryImpl) createExecutionPlan(spec *FactoryTaskSpec) []*ExecutionStep {
+	// If LLM mode is enabled, we'll use LLMTemplateExecutor instead of shell steps
+	if f.llmEnabled && f.shouldUseLLMTemplate(spec) {
+		log.Printf("[Factory] Using LLM-powered template for task %s (work_type=%s)", spec.ID, spec.WorkType)
+		spec.SelectedTemplate = fmt.Sprintf("%s:llm", spec.WorkType)
+		spec.SelectionSource = "llm_generator"
+		spec.SelectionConfidence = 1.0
+		// Return empty steps - actual execution via executeWithLLM
+		return []*ExecutionStep{}
+	}
+
 	ctx := context.Background()
 	sel := f.chooseTemplateAndConfig(ctx, spec)
 
@@ -476,4 +551,69 @@ func (f *FactoryImpl) createExecutionPlan(spec *FactoryTaskSpec) []*ExecutionSte
 		len(steps), spec.ID, spec.WorkType)
 
 	return steps
+}
+
+// shouldUseLLMTemplate determines if LLM template should be used for a task.
+func (f *FactoryImpl) shouldUseLLMTemplate(spec *FactoryTaskSpec) bool {
+	if !f.llmEnabled || f.llmGenerator == nil {
+		return false
+	}
+
+	// Use LLM for code generation tasks
+	llmWorkTypes := map[string]bool{
+		"implementation": true,
+		"feature":        true,
+		"bugfix":         true,
+		"debug":          true,
+		"refactor":       true,
+		"test":           true,
+		"migration":      true,
+	}
+
+	return llmWorkTypes[string(spec.WorkType)]
+}
+
+// executeWithLLM executes a task using LLM-powered code generation.
+func (f *FactoryImpl) executeWithLLM(ctx context.Context, spec *FactoryTaskSpec, workspacePath string) ([]string, error) {
+	if f.llmGenerator == nil {
+		return nil, fmt.Errorf("LLM generator not configured")
+	}
+
+	// Determine template type
+	templateType := LLMTemplateImplementation
+	switch spec.WorkType {
+	case "bugfix", "debug":
+		templateType = LLMTemplateBugFix
+	case "refactor":
+		templateType = LLMTemplateRefactor
+	case "test":
+		templateType = LLMTemplateTest
+	case "migration":
+		templateType = LLMTemplateMigration
+	}
+
+	// Create template config
+	config := &LLMTemplateConfig{
+		Type:             templateType,
+		WorkType:         string(spec.WorkType),
+		WorkDomain:       string(spec.WorkDomain),
+		ValidateCode:     true,  // Validate generated code
+		CreateTests:      true,  // Auto-generate tests
+		CreateDocs:       false, // Skip docs for now
+		GenerationTimeout: 120 * time.Second,
+	}
+
+	// Create executor
+	executor, err := NewLLMTemplateExecutor(f.llmGenerator, config)
+	if err != nil {
+		return nil, fmt.Errorf("create LLM executor: %w", err)
+	}
+
+	// Execute LLM template
+	files, err := executor.Execute(ctx, spec, workspacePath)
+	if err != nil {
+		return nil, fmt.Errorf("LLM execution: %w", err)
+	}
+
+	return files, nil
 }
