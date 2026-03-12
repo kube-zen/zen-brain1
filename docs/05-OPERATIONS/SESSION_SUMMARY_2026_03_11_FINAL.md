@@ -1,5 +1,8 @@
 # Session Summary - 2026-03-11 (Final)
 
+**⚠️ HISTORICAL SNAPSHOT** - This document captures the state as of 2026-03-11.  
+For current status, see README.md and RELEASE_CHECKLIST.md.
+
 **Duration**: ~3 hours  
 **Focus**: Block 0, 0.5, 1, 2, 3, 4 hardening and enhancement  
 **Commits**: 8 commits pushed to main
