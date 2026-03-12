@@ -17,6 +17,7 @@ import (
 	"github.com/kube-zen/zen-brain1/internal/office"
 	"github.com/kube-zen/zen-brain1/internal/planner"
 	"github.com/kube-zen/zen-brain1/internal/qmd"
+	"github.com/kube-zen/zen-brain1/internal/runtime"
 	"github.com/kube-zen/zen-brain1/internal/session"
 	"github.com/kube-zen/zen-brain1/pkg/kb"
 	"github.com/kube-zen/zen-brain1/pkg/ledger"
@@ -76,7 +77,7 @@ func NewOfficePipeline(cfg *config.Config) (*OfficePipeline, error) {
 
 	// 2. Knowledge Base (real or explicit stub)
 	var kbStore kb.Store
-	strictMode := os.Getenv("ZEN_BRAIN_STRICT_RUNTIME") != "" || os.Getenv("ZEN_RUNTIME_PROFILE") == "prod"
+	strictMode := runtime.IsStrictProfile()
 	allowStubKB := os.Getenv("ZEN_BRAIN_OFFICE_ALLOW_STUB_KB") == "1"
 	allowStubLedger := os.Getenv("ZEN_BRAIN_OFFICE_ALLOW_STUB_LEDGER") == "1"
 
