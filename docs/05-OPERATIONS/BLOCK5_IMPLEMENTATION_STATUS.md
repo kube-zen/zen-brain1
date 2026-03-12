@@ -137,7 +137,30 @@ Factory package (`internal/factory/repo_aware_templates.go`) had compilation err
 
 - ✅ All code-level strict mode fixes applied
 - ✅ Office bootstrap fails closed for all components
+- ✅ Factory compilation blocker resolved (embedded templates)
+- ✅ Vertical slice validation passes end-to-end
 - ⚠️ Documentation templates have TODOs (by design, not a bug)
+
+## Validation Results (2026-03-12)
+
+**Core System Validation** (`zen-brain vertical-slice --mock`):
+- ✅ Factory package compiles with all three repo-aware templates enabled
+- ✅ Core zen-brain binary builds successfully
+- ✅ Office doctor shows stub KB/ledger status correctly
+- ✅ Planner initializes with stub ledger when allowed
+- ✅ Factory executes 7-step execution plan (debug template)
+- ✅ Proof-of-work generated and session completed
+- ✅ Intelligence mining runs after execution
+
+**Component Status:**
+- Office: Stub KB and ledger enabled via environment variables
+- Factory: All templates functional (docs/CI/migration use embedded shell templates)
+- Intelligence: Pattern mining operational
+- Runtime: ZenContext optional, fail-closed posture maintained
+
+**Remaining Issues:**
+- Controller and API server have unrelated compilation errors (type mismatches)
+- These do not affect core vertical slice functionality
 
 ## Commits
 
@@ -145,5 +168,9 @@ Factory package (`internal/factory/repo_aware_templates.go`) had compilation err
 2. `ce82d34` - Remove dev-mode fallback and hardcoded paths (main.go)
 3. `0e5a3a1` - Documentation of fixes (BLOCK5_FIXES_SUMMARY.md)
 4. `54ad9f8` - Office bootstrap strict mode enforcement (office.go)
+5. `f393245` - Factory template extraction and shell fixes (repo_aware_templates.go)
+6. `8285cab` - Status document updates (completeness restored to 95%)
+7. `151cbca` - Office component status reporting (modes.go, office.go)
+8. `342e3e8` - Stub ledger support for vertical-slice (main.go)
 
 All commits pushed to `origin/main`.
