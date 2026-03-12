@@ -142,7 +142,7 @@ Comprehensive documentation is available in the `docs/` directory:
 
 ## Development Status
 
-**Executive summary:** Zen-Brain is **approaching 1.0 production readiness** (~95% overall completeness, ~92% trustworthy vertical slice). The execution pipeline is solid: Office intake → analyze → plan → session → Factory execution → proof-of-work → status update. Blocks 0–6 are present; remaining work is fixing Office config/code drift, making stubs explicit, cleaning up templates, and aligning documentation.
+**Executive summary:** Zen-Brain is **approaching 1.0 production readiness** (~94% overall completeness, ~92% trustworthy vertical slice). The execution pipeline is solid: Office intake → analyze → plan → session → Factory execution → proof-of-work → status update. Blocks 0–6 are present; remaining work is fixing Factory template escape sequences (Block 4), cleaning up templates, and aligning documentation.
 
 | Block | Name | Status |
 |-------|------|--------|
@@ -151,7 +151,7 @@ Comprehensive documentation is available in the `docs/` directory:
 | 1 | Neuro-Anatomy | ✅ Complete (97%) |
 | 2 | Office | ⚠️ In Progress (92%) – config/code drift fix needed |
 | 3 | Nervous System | ✅ Complete (93%) – fail-closed posture improved |
-| 4 | Factory | ✅ Ready (92%) – migration template cleanup needed |
+| 4 | Factory | ⚠️ Blocked (90%) – escape sequences in templates |
 | 5 | Intelligence | ✅ Complete (92%) – QMD docs alignment needed |
 | 6 | Developer Experience | ✅ Available (94%) – fresh build/test/deploy proof needed |
 

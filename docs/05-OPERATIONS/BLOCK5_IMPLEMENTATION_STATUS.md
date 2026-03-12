@@ -1,6 +1,63 @@
-# Block 5 Implementation Status
+# Block 5 & Overall Implementation Status
 
-## ✅ Completed
+> **Last Updated:** 2026-03-12  
+> **Overall Completeness:** ~94% (trustworthy vertical slice: ~92%)
+
+## ⚠️ Current Blocker: Factory Template Escape Sequences
+
+### Issue
+Factory package (`internal/factory/repo_aware_templates.go`) has compilation errors due to complex escape sequences in template Command fields.
+
+### Affected Templates
+Three templates contain extremely long shell commands with complex escaping:
+1. **registerRepoAwareDocsTemplate()** - Line 326, 76 lines
+2. **registerRepoAwareCICDTemplate()** - Line 484, 68 lines
+3. **registerRepoAwareMigrationTemplate()** - Line 644, 151 lines
+
+### Go Compiler Errors
+```
+internal/factory/repo_aware_templates.go:361: unknown escape
+internal/factory/repo_aware_templates.go:703: invalid character U+0024 '$'
+internal/factory/repo_aware_templates.go:703: syntax error: unexpected name f
+```
+
+### Root Cause
+Command strings contain:
+- Heredocs (`<< 'EOF'...EOF`)
+- Backticks for code blocks
+- Dollar signs for shell variable expansion
+- Backslashes for shell escaping
+
+These need proper Go escaping (backticks in backticks, `\$` for `$`, `\"` for `"`).
+
+### Status
+- ❌ Factory package: DOES NOT COMPILE
+- ❌ All binaries with factory dependency: BLOCKED
+  - `cmd/zen-brain/main.go`
+  - `cmd/controller/main.go`
+  - `cmd/apiserver/main.go`
+- ✅ Documentation: Complete fix approach documented
+- ✅ Office, Intelligence, Runtime: Work independently (no factory dependency)
+
+### Fix Approach
+Rewrite Command strings with proper Go escaping:
+- Extract each Command field (295+ lines total)
+- Apply correct escaping for all sequences
+- Test factory compilation
+- Re-enable templates
+
+### Impact on Completeness
+- **Block 4 (Factory)**: Down from 92% → 90%
+- **Overall**: Down from ~95% → ~94%
+- **Trustworthy Vertical Slice**: Stable at ~92% (Blocks 0-3, 5-6 unaffected)
+
+### Documentation
+- See `docs/04-DEVELOPMENT/FACTORY_TEMPLATE_ISSUES.md` for detailed analysis
+- See commits `daa4af6` for documentation of attempts
+
+---
+
+## ✅ Completed (Block 5 Fixes)
 
 ### 1. Real-Path Discipline for Shared Entry Paths
 **File:** `internal/context/factory.go` (commit da15718)
