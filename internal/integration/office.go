@@ -31,8 +31,16 @@ type OfficePipeline struct {
 
 // NewOfficePipeline creates a new Office pipeline with stub dependencies.
 // This is suitable for development and testing before full ledger and KB are available.
+// 
+// FAIL CLOSED: In production mode (ZEN_RUNTIME_PROFILE=prod), this function will fail
+// if real implementations are not available. Use only in dev/test environments.
 func NewOfficePipeline() (*OfficePipeline, error) {
-	log.Println("Initializing Office pipeline...")
+	// FAIL CLOSED: Prevent production use of stub pipeline
+	if os.Getenv("ZEN_RUNTIME_PROFILE") == "prod" || os.Getenv("ZEN_BRAIN_STRICT_RUNTIME") != "" {
+		return nil, fmt.Errorf("NewOfficePipeline with stubs not allowed in production mode (ZEN_RUNTIME_PROFILE=prod or ZEN_BRAIN_STRICT_RUNTIME set)")
+	}
+
+	log.Println("Initializing Office pipeline (DEV MODE - using stubs)...")
 
 	// 1. LLM Gateway
 	log.Println("  - LLM Gateway")
@@ -57,8 +65,9 @@ func NewOfficePipeline() (*OfficePipeline, error) {
 		return nil, fmt.Errorf("failed to create LLM Gateway: %w", err)
 	}
 
-	// 2. Knowledge Base (stub)
-	log.Println("  - Knowledge Base (stub)")
+	// 2. Knowledge Base (stub - DEV MODE ONLY)
+	// FAIL CLOSED: Real production pipelines must use qmd-backed KB
+	log.Println("  - Knowledge Base (stub - DEV MODE ONLY)")
 	kbStore := kb.NewStubStore()
 
 	// 3. Intent Analyzer

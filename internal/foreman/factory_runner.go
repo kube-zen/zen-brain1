@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -39,8 +40,22 @@ type FactoryTaskRunner struct {
 
 // NewFactoryTaskRunner builds a FactoryTaskRunner from config (creates/owns FactoryImpl).
 // When UseGitWorktree is true, uses real git worktrees from SourceRepoPath; otherwise uses WorkspaceHome/workspaces.
+// 
+// FAIL CLOSED: RuntimeDir must be explicitly set (via ZEN_FOREMAN_RUNTIME_DIR or config).
+// In production (ZEN_RUNTIME_PROFILE=prod), defaults to /tmp are not allowed.
 func NewFactoryTaskRunner(cfg FactoryTaskRunnerConfig) (*FactoryTaskRunner, error) {
+	// FAIL CLOSED: Require explicit RuntimeDir in production
 	if cfg.RuntimeDir == "" {
+		// Check environment variable
+		cfg.RuntimeDir = os.Getenv("ZEN_FOREMAN_RUNTIME_DIR")
+	}
+	if cfg.RuntimeDir == "" {
+		// In production, fail without explicit config
+		if os.Getenv("ZEN_RUNTIME_PROFILE") == "prod" || os.Getenv("ZEN_BRAIN_STRICT_RUNTIME") != "" {
+			return nil, fmt.Errorf("FAIL CLOSED: RuntimeDir not set (set ZEN_FOREMAN_RUNTIME_DIR)")
+		}
+		// Dev mode only: allow /tmp with warning
+		log.Printf("[FactoryTaskRunner] WARNING: RuntimeDir not set, using /tmp (dev mode only)")
 		cfg.RuntimeDir = "/tmp/zen-brain-factory"
 	}
 	if cfg.WorkspaceHome == "" {
