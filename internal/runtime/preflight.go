@@ -63,13 +63,9 @@ func StrictPreflight(ctx context.Context, cfg *config.Config, report *RuntimeRep
 	preflightConfig := DefaultPreflightConfig()
 
 	// Determine strictness from env and config
-	if os.Getenv("ZEN_RUNTIME_PROFILE") == "prod" || os.Getenv("ZEN_BRAIN_STRICT_RUNTIME") != "" {
+	if IsStrictProfile() || os.Getenv("ZEN_BRAIN_PREFLIGHT_STRICT") == "true" {
 		preflightConfig.Strict = true
 		preflightConfig.AllowDegraded = false
-	}
-
-	if os.Getenv("ZEN_BRAIN_PREFLIGHT_STRICT") == "true" {
-		preflightConfig.Strict = true
 	}
 
 	if os.Getenv("ZEN_BRAIN_PREFLIGHT_TIMEOUT") != "" {
@@ -81,6 +77,28 @@ func StrictPreflight(ctx context.Context, cfg *config.Config, report *RuntimeRep
 	return runPreflightChecks(ctx, cfg, report, preflightConfig)
 }
 
+// convertEnhancedToLegacy converts an EnhancedPreflightReport to the legacy PreflightReport.
+func convertEnhancedToLegacy(enhanced *EnhancedPreflightReport) *PreflightReport {
+	checks := make([]PreflightCheck, len(enhanced.Checks))
+	for i, ec := range enhanced.Checks {
+		checks[i] = PreflightCheck{
+			Name:     ec.Name,
+			Healthy:  ec.Healthy,
+			Duration: ec.Duration,
+			Error:    "", // Enhanced check does not expose error separately
+			Required: ec.Required,
+			Skipped:  false,
+		}
+	}
+	return &PreflightReport{
+		Strict:    enhanced.StrictMode,
+		AllPassed: enhanced.AllPassed,
+		Timestamp: enhanced.Timestamp,
+		Checks:    checks,
+		Summary:   enhanced.Summary,
+	}
+}
+
 // runPreflightChecks executes all preflight checks deterministically.
 func runPreflightChecks(ctx context.Context, cfg *config.Config, report *RuntimeReport, pc *PreflightConfig) (*PreflightReport, error) {
 	start := time.Now()
@@ -90,17 +108,22 @@ func runPreflightChecks(ctx context.Context, cfg *config.Config, report *Runtime
 		Checks:    []PreflightCheck{},
 	}
 
+	// Determine required capabilities from config and environment
+	req := GetRequirements(cfg)
+
 	// 1. ZenContext (critical)
-	check := runPreflightCheck(ctx, "zen_context", report.ZenContext, pc.Timeout, pc.Strict)
+	zenContextRequired := req.ZenContext
+	check := runPreflightCheck(ctx, "zen_context", report.ZenContext, pc.Timeout, zenContextRequired)
 	preflightReport.Checks = append(preflightReport.Checks, check)
 
-	// 2. Tier1 Hot (critical - Redis)
-	check = runPreflightCheck(ctx, "tier1_hot", report.Tier1Hot, pc.Timeout, pc.Strict)
+	// 2. Tier1 Hot (critical - Redis) - required if ZenContext required
+	tier1Required := req.ZenContext
+	check = runPreflightCheck(ctx, "tier1_hot", report.Tier1Hot, pc.Timeout, tier1Required)
 	preflightReport.Checks = append(preflightReport.Checks, check)
 
 	// 3. Tier2 Warm (optional - QMD)
-	// In strict mode, check if QMD is configured; if so, it must be healthy
-	qmdRequired := pc.Strict && report.Tier2Warm.Mode == ModeReal
+	// QMD required if req.QMD, or if strict mode and QMD is configured (real)
+	qmdRequired := req.QMD || (pc.Strict && report.Tier2Warm.Mode == ModeReal)
 	check = runPreflightCheck(ctx, "tier2_warm", report.Tier2Warm, pc.Timeout, qmdRequired)
 	preflightReport.Checks = append(preflightReport.Checks, check)
 
@@ -115,12 +138,12 @@ func runPreflightChecks(ctx context.Context, cfg *config.Config, report *Runtime
 	preflightReport.Checks = append(preflightReport.Checks, check)
 
 	// 6. Ledger (critical in prod)
-	ledgerRequired := report.Ledger.Required || (pc.Strict && report.Ledger.Mode == ModeReal)
+	ledgerRequired := req.Ledger || (pc.Strict && report.Ledger.Mode == ModeReal)
 	check = runPreflightCheck(ctx, "ledger", report.Ledger, pc.Timeout, ledgerRequired)
 	preflightReport.Checks = append(preflightReport.Checks, check)
 
 	// 7. MessageBus (required if configured)
-	busRequired := report.MessageBus.Required || (pc.Strict && report.MessageBus.Mode == ModeReal)
+	busRequired := req.MessageBus || (pc.Strict && report.MessageBus.Mode == ModeReal)
 	check = runPreflightCheck(ctx, "message_bus", report.MessageBus, pc.Timeout, busRequired)
 	preflightReport.Checks = append(preflightReport.Checks, check)
 

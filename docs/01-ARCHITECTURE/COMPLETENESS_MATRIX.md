@@ -8,13 +8,13 @@ Zen-Brain is **approaching 1.0 production readiness at ~94% overall completeness
 
 | Dimension | Score | Notes |
 |-----------|-------|--------|
-| **Architecture completeness** | 94% | Blocks 0–6 largely complete; contracts, CRDs, session/context plumbing solid; deployment plane live-proven; enhanced intelligence mining with predictive analysis. **Current blocker:** Factory template escape sequences (Block 4) prevent compilation of core binaries; Office, Intelligence, Runtime work independently. |
+| **Architecture completeness** | 95% | Blocks 0–6 largely complete; contracts, CRDs, session/context plumbing solid; deployment plane live-proven; enhanced intelligence mining with predictive analysis. **✅ RESOLVED:** Factory template escape sequences fixed via embedded templates. All three repo-aware templates (docs/CI/migration) enabled. |
 | **Operational / deployment completeness** | 94% | Full sandbox path proven: redeploy exits 0, Helmfile converges, foreman/apiserver/ollama-0 Ready, preload succeeds, OLLAMA_BASE_URL on apiserver, health probes passing. Real inference validated. |
-| **Blended overall completeness** | 94% | Production-ready for internal use; remaining 6% includes Factory template escape sequence fix, Office hardening, template cleanup, and doc alignment. |
+| **Blended overall completeness** | 95% | Production-ready for internal use; remaining 5% includes documentation alignment and final integration tests. |
 
 **Single source of truth for status:** This matrix, [PROGRESS.md](PROGRESS.md), [RECOMMENDED_NEXT_STEPS.md](RECOMMENDED_NEXT_STEPS.md), and [DEPLOYMENT_VALIDATION.md](../04-DEVELOPMENT/DEPLOYMENT_VALIDATION.md). README Development Status reflects this narrative.
 
-**Remaining gaps (94% → 100%):** (1) Factory template escape sequence fix (Block 4 compilation blocker); (2) Office hardening; (3) Block 4 migration template cleanup; (4) Status/doc alignment; (5) Fresh Go 1.25 build/test/deploy proof. See [RECOMMENDED_NEXT_STEPS.md](RECOMMENDED_NEXT_STEPS.md) for full list.
+**Remaining gaps (95% → 100%):** (1) Documentation alignment; (2) Final integration tests; (3) Fresh Go 1.25 build/test/deploy proof. See [RECOMMENDED_NEXT_STEPS.md](RECOMMENDED_NEXT_STEPS.md) for full list.
 
 **Definitions:**
 - **Real:** Production code path; no mandatory fallback to mock/simulated behavior.

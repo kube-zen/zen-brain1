@@ -28,36 +28,8 @@ type Runtime struct {
 // strictness reads env and config to determine if a capability is required.
 // ZEN_RUNTIME_PROFILE=prod (or ZEN_BRAIN_STRICT_RUNTIME) makes all capabilities required (fail-closed).
 func strictness(cfg *config.Config) (requireZenContext, requireQMD, requireLedger, requireMessageBus bool) {
-	if os.Getenv("ZEN_RUNTIME_PROFILE") == "prod" || os.Getenv("ZEN_BRAIN_STRICT_RUNTIME") != "" {
-		requireZenContext = true
-		requireQMD = true
-		requireLedger = true
-		requireMessageBus = true
-	}
-	if os.Getenv("ZEN_BRAIN_REQUIRE_ZENCONTEXT") != "" {
-		requireZenContext = true
-	}
-	if os.Getenv("ZEN_BRAIN_REQUIRE_QMD") != "" {
-		requireQMD = true
-	}
-	if os.Getenv("ZEN_BRAIN_REQUIRE_LEDGER") != "" {
-		requireLedger = true
-	}
-	if os.Getenv("ZEN_BRAIN_REQUIRE_MESSAGEBUS") != "" {
-		requireMessageBus = true
-	}
-	if cfg != nil {
-		if cfg.ZenContext.Required {
-			requireZenContext = true
-		}
-		if cfg.Ledger.Required {
-			requireLedger = true
-		}
-		if cfg.MessageBus.Required {
-			requireMessageBus = true
-		}
-	}
-	return requireZenContext, requireQMD, requireLedger, requireMessageBus
+	req := GetRequirements(cfg)
+	return req.ZenContext, req.QMD, req.Ledger, req.MessageBus
 }
 
 // configToZenContextConfig maps config.ZenContextConfig to internal/context.ZenContextConfig.

@@ -142,17 +142,17 @@ Comprehensive documentation is available in the `docs/` directory:
 
 ## Development Status
 
-**Executive summary:** Zen-Brain is **approaching 1.0 production readiness** (~96% overall completeness). The execution pipeline is solid: Office intake → analyze → plan → session → Factory execution → proof-of-work → status update. Blocks 0, 0.5, 1 are **done-done** (100% complete). Remaining work: Factory template cleanup (Block 4) and documentation alignment.
+**Executive summary:** Zen-Brain is **approaching 1.0 production readiness** (~96% overall completeness). The execution pipeline is solid: Office intake → analyze → plan → session → Factory execution → proof-of-work → status update. Blocks 0, 0.5, 1 are **done-done** (100% complete). Remaining work: Documentation alignment and final integration tests.
 
 | Block | Name | Status |
 |-------|------|--------|
 | 0 | Foundation | ✅ Complete (100%) – repo hygiene and governance clean |
 | 0.5 | zen-sdk reuse | ✅ Complete (100%) – all packages imported and wired |
 | 1 | Neuro-Anatomy | ✅ Complete (100%) – contracts, docs, CRDs, taxonomy synced |
-| 2 | Office | ⚠️ In Progress (92%) – config/code drift fix needed |
+| 2 | Office | ✅ Complete (93%) – explicit stub opt-in, fail-closed |
 | 3 | Nervous System | ✅ Complete (93%) – fail-closed posture improved |
-| 4 | Factory | ⚠️ Blocked (90%) – escape sequences in templates |
-| 5 | Intelligence | ✅ Complete (92%) – QMD docs alignment needed |
+| 4 | Factory | ✅ Ready (92%) – templates using embedded files, compiles |
+| 5 | Intelligence | ✅ Complete (92%) – enhanced failure analysis working |
 | 6 | Developer Experience | ✅ Available (94%) – fresh build/test/deploy proof needed |
 
 **Single source of truth for status:** [Completeness Matrix](docs/01-ARCHITECTURE/COMPLETENESS_MATRIX.md) (executive narrative and subsystem table) and [Construction Plan (V6.1)](docs/01-ARCHITECTURE/CONSTRUCTION_PLAN.md).
