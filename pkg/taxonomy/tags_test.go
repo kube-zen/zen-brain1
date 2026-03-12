@@ -54,3 +54,52 @@ func TestWorkTagsWithTaxonomy(t *testing.T) {
 		t.Error("ValidateWorkTags(duplicate in category) should error")
 	}
 }
+
+// TestAllPredefinedTagsAreValid ensures every tag defined in taxonomy package validates in its category.
+func TestAllPredefinedTagsAreValid(t *testing.T) {
+	// HumanOrgTags
+	for _, tag := range HumanOrgTags {
+		if !ValidateTag(HumanOrg, tag) {
+			t.Errorf("HumanOrg tag %q should be valid in HumanOrg category", tag)
+		}
+		if GetCategory(tag) != HumanOrg {
+			t.Errorf("GetCategory(%q) = %q, want human_org", tag, GetCategory(tag))
+		}
+	}
+	// RoutingTags
+	for _, tag := range RoutingTags {
+		if !ValidateTag(Routing, tag) {
+			t.Errorf("Routing tag %q should be valid in Routing category", tag)
+		}
+		if GetCategory(tag) != Routing {
+			t.Errorf("GetCategory(%q) = %q, want routing", tag, GetCategory(tag))
+		}
+	}
+	// PolicyTags
+	for _, tag := range PolicyTags {
+		if !ValidateTag(Policy, tag) {
+			t.Errorf("Policy tag %q should be valid in Policy category", tag)
+		}
+		if GetCategory(tag) != Policy {
+			t.Errorf("GetCategory(%q) = %q, want policy", tag, GetCategory(tag))
+		}
+	}
+	// AnalyticsTags
+	for _, tag := range AnalyticsTags {
+		if !ValidateTag(Analytics, tag) {
+			t.Errorf("Analytics tag %q should be valid in Analytics category", tag)
+		}
+		if GetCategory(tag) != Analytics {
+			t.Errorf("GetCategory(%q) = %q, want analytics", tag, GetCategory(tag))
+		}
+	}
+	// SREDTags
+	for _, tag := range SREDTags {
+		if !ValidateTag(SRED, string(tag)) {
+			t.Errorf("SRED tag %q should be valid in SRED category", tag)
+		}
+		if GetCategory(string(tag)) != SRED {
+			t.Errorf("GetCategory(%q) = %q, want sred", tag, GetCategory(string(tag)))
+		}
+	}
+}
