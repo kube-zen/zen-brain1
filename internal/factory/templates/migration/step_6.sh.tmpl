@@ -1,0 +1,67 @@
+mkdir -p internal/migrate && cat > internal/migrate/migrate.go << 'MIGR_GO_EOF'
+package migrate
+
+import (
+	"database/sql"
+	"embed"
+	"fmt"
+	"io/fs"
+	"sort"
+	"time"
+
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
+)
+
+//go:embed migrations/*.sql
+var migrationFS embed.FS
+
+// Migrator handles database migrations
+
+type Migrator struct {
+	m *migrate.Migrate
+}
+
+// NewMigrator creates a new migrator
+func NewMigrator(db *sql.DB) (*Migrator, error) {
+	driver, err := postgres.WithInstance(db, &postgres.Config{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create driver: %w", err)
+	}
+
+	m, err := migrate.NewWithDatabaseInstance(
+		"file://migrations",
+		"postgres",
+		driver,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create migrator: %w", err)
+	}
+
+	return &Migrator{m: m}, nil
+}
+
+// Up applies all pending migrations
+func (m *Migrator) Up() error {
+	if err := m.m.Up(); err != nil && err != migrate.ErrNoChange {
+		return fmt.Errorf("failed to apply migrations: %w", err)
+	}
+	return nil
+}
+
+// Down rolls back the last migration
+func (m *Migrator) Down() error {
+	if err := m.m.Steps(-1); err != nil {
+		return fmt.Errorf("failed to rollback migration: %w", err)
+	}
+	return nil
+}
+
+// Version returns the current migration version
+func (m *Migrator) Version() (uint, bool, error) {
+	return m.m.Version()
+}
+
+MIGR_GO_EOF
+echo 'internal/migrate/migrate.go' >> .zen-repo-files-changed && echo 'Created: internal/migrate/migrate.go'

@@ -1,0 +1,17 @@
+cat > PROOF_OF_WORK.md <<PROOF_EOF
+# Proof of Work: CI/CD
+
+## Work Item
+- **ID:** {{.work_item_id}}
+- **Title:** {{.title}}
+
+## Real Repository Files Changed
+$(if [ -f .zen-repo-files-changed ]; then while read -r file; do echo "- $file"; done < .zen-repo-files-changed; else echo 'No repo files changed'; fi)
+
+## Metadata Files Created
+$(if [ -f .zen-metadata-files ]; then while read -r file; do echo "- $file"; done < .zen-metadata-files; else echo 'No metadata files'; fi)
+
+## Git Status
+$(git status --short 2>/dev/null | head -20)
+PROOF_EOF
+rm -f .zen-project-info .zen-metadata-files .zen-repo-files-changed && echo 'Proof generated'
