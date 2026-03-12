@@ -1153,7 +1153,20 @@ func ledgerClientOrNil() ledger.ZenLedgerClient {
 		dsn = os.Getenv("LEDGER_DATABASE_URL")
 	}
 	if dsn == "" {
-		// No ledger configured - return nil, caller must handle
+		// No ledger configured - check if stub allowed
+		strictMode := os.Getenv("ZEN_BRAIN_STRICT_RUNTIME") != "" || os.Getenv("ZEN_RUNTIME_PROFILE") == "prod"
+		allowStubLedger := os.Getenv("ZEN_BRAIN_OFFICE_ALLOW_STUB_LEDGER") == "1"
+		
+		if strictMode {
+			// In strict mode, we cannot use stub; return nil (fail-closed)
+			return nil
+		}
+		if allowStubLedger {
+			// Explicit stub opt-in via environment variable
+			log.Printf("Ledger stub enabled via ZEN_BRAIN_OFFICE_ALLOW_STUB_LEDGER=1")
+			return internalLedger.NewStubLedgerClient()
+		}
+		// No ledger configured and stub not allowed
 		return nil
 	}
 	cl, err := internalLedger.NewCockroachLedger(dsn)
