@@ -27,17 +27,17 @@ func Doctor(ctx context.Context, cfg *config.Config, report *RuntimeReport) {
 	fmt.Println("Block 3 Runtime Doctor")
 	fmt.Println("----------------------")
 	fmt.Printf("Profile:          %s\n", profile)
-	fmt.Printf("Strict mode:      %v\n", profile == "prod" || os.Getenv("ZEN_BRAIN_STRICT_RUNTIME") != "")
+	fmt.Printf("Strict mode:      %v\n", IsStrictProfile())
 	fmt.Printf("Config source:    %s\n", configSource)
 	fmt.Println()
 	fmt.Println("CAPABILITIES:")
-	printCapability("ZenContext", report.ZenContext, profile)
-	printCapability("Tier1 (Hot)", report.Tier1Hot, profile)
-	printCapability("Tier2 (Warm)", report.Tier2Warm, profile)
-	printCapability("Tier3 (Cold)", report.Tier3Cold, profile)
-	printCapability("Journal", report.Journal, profile)
-	printCapability("Ledger", report.Ledger, profile)
-	printCapability("MessageBus", report.MessageBus, profile)
+	printCapability("ZenContext", report.ZenContext)
+	printCapability("Tier1 (Hot)", report.Tier1Hot)
+	printCapability("Tier2 (Warm)", report.Tier2Warm)
+	printCapability("Tier3 (Cold)", report.Tier3Cold)
+	printCapability("Journal", report.Journal)
+	printCapability("Ledger", report.Ledger)
+	printCapability("MessageBus", report.MessageBus)
 	fmt.Println()
 
 	// Show enhanced preflight results (if available)
@@ -120,11 +120,11 @@ func Doctor(ctx context.Context, cfg *config.Config, report *RuntimeReport) {
 		fmt.Printf("STATUS: %s\n", strings.ToUpper(overall))
 	}
 	fmt.Println()
-	fmt.Println("Strict flags:     ZEN_RUNTIME_PROFILE=prod | ZEN_BRAIN_STRICT_RUNTIME | ZEN_BRAIN_REQUIRE_* (env)")
+	fmt.Println("Strict flags:     ZEN_RUNTIME_PROFILE=prod|staging | ZEN_BRAIN_STRICT_RUNTIME | ZEN_BRAIN_REQUIRE_* (env)")
 }
 
 // printCapability prints a capability with mode and health status
-func printCapability(name string, cap CapabilityStatus, profile string) {
+func printCapability(name string, cap CapabilityStatus) {
 	status := "✓"
 	if !cap.Healthy {
 		status = "✗"
@@ -137,9 +137,9 @@ func printCapability(name string, cap CapabilityStatus, profile string) {
 	if modeDetail == "" {
 		modeDetail = "unknown"
 	}
-	// In prod, highlight if using non-real modes
-	if profile == "prod" && (cap.Mode == ModeStub || cap.Mode == ModeDegraded) {
-		modeDetail = "⚠️ " + modeDetail + " (not allowed in prod)"
+	// In strict mode (prod/staging), highlight if using non-real modes
+	if IsStrictProfile() && (cap.Mode == ModeStub || cap.Mode == ModeDegraded) {
+		modeDetail = "⚠️ " + modeDetail + " (not allowed in strict mode)"
 	}
 	fmt.Printf("  %-15s %s mode=%-10s healthy=%v%s\n", name+":", status, modeDetail, cap.Healthy, required)
 	if cap.Message != "" {
