@@ -59,11 +59,11 @@ type RedisConfig struct {
 }
 
 // DefaultRedisConfig returns the default Redis configuration.
-// Note: Addr is a fallback; production should use URL with full connection string.
+// FAIL CLOSED: No Addr or URL default; production must set one explicitly.
 func DefaultRedisConfig() *RedisConfig {
 	return &RedisConfig{
 		URL:                "",
-		Addr:               "localhost:6379",
+		Addr:               "", // FAIL CLOSED: no default localhost
 		Password:           "",
 		DB:                 0,
 		PoolSize:           10,
@@ -94,7 +94,7 @@ func NewGoRedisClient(config *RedisConfig) (RedisClient, error) {
 	var redisURL string
 	if config.URL != "" {
 		redisURL = config.URL
-	} else {
+	} else if config.Addr != "" {
 		// Build URL from individual fields
 		scheme := "redis"
 		if config.TLSEnabled {
@@ -109,6 +109,9 @@ func NewGoRedisClient(config *RedisConfig) (RedisClient, error) {
 			db = fmt.Sprintf("/%d", config.DB)
 		}
 		redisURL = fmt.Sprintf("%s://%s%s%s", scheme, auth, config.Addr, db)
+	} else {
+		// FAIL CLOSED: Neither URL nor Addr is set
+		return nil, errors.New("Redis URL or Addr not set (cannot use default localhost:6379)")
 	}
 
 	opts, err := redis.ParseURL(redisURL)

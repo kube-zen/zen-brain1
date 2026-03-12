@@ -51,8 +51,8 @@ func main() {
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "Address for metrics.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", "0.0.0.0:8081", "Address for health probes.")
 	flag.IntVar(&numWorkers, "workers", 2, "Number of worker goroutines for task execution (Block 4.3).")
-	flag.StringVar(&runtimeDir, "factory-runtime-dir", envStr("ZEN_FOREMAN_RUNTIME_DIR", "/tmp/zen-brain-factory"), "Runtime dir for Factory workspaces and proof-of-work.")
-	flag.StringVar(&workspaceHome, "factory-workspace-home", envStr("ZEN_FOREMAN_WORKSPACE_HOME", "/tmp/zen-brain-factory"), "Workspace home for Factory (workspaces created under <home>/workspaces).")
+	flag.StringVar(&runtimeDir, "factory-runtime-dir", envStr("ZEN_FOREMAN_RUNTIME_DIR", ""), "Runtime dir for Factory workspaces and proof-of-work (FAIL CLOSED: no default).")
+	flag.StringVar(&workspaceHome, "factory-workspace-home", envStr("ZEN_FOREMAN_WORKSPACE_HOME", ""), "Workspace home for Factory (workspaces created under <home>/workspaces) (FAIL CLOSED: no default).")
 	flag.BoolVar(&preferRealTemplates, "factory-prefer-real-templates", envBool("ZEN_FOREMAN_PREFER_REAL_TEMPLATES", true), "Prefer real templates when workDomain is empty (implementation, docs, debug, refactor, review).")
 	flag.BoolVar(&useGitWorktree, "factory-use-git-worktree", envBool("ZEN_FOREMAN_USE_GIT_WORKTREE", false), "Use real git worktrees from source repo (Block 4 real execution lane).")
 	flag.StringVar(&sourceRepoPath, "factory-source-repo", envStr("ZEN_FOREMAN_SOURCE_REPO", ""), "Path to git repo (required if factory-use-git-worktree).")
@@ -66,6 +66,14 @@ func main() {
 	guardianMode := flag.String("guardian", envStr("ZEN_FOREMAN_GUARDIAN", "log"), "Guardian mode: log (audit log, allow all), circuit-breaker (log + per-session rate limit).")
 	guardianCircuitMax := flag.Int("guardian-circuit-max-per-session-per-min", envInt("ZEN_FOREMAN_GUARDIAN_CIRCUIT_MAX_PER_SESSION_PER_MIN", 0), "Max tasks per session per minute when guardian=circuit-breaker; 0 = no limit.")
 	flag.Parse()
+
+	// FAIL CLOSED: Validate required flags/env vars
+	if runtimeDir == "" {
+		log.Fatalf("ZEN_FOREMAN_RUNTIME_DIR or --factory-runtime-dir not set (cannot use default /tmp/zen-brain-factory)")
+	}
+	if workspaceHome == "" {
+		log.Fatalf("ZEN_FOREMAN_WORKSPACE_HOME or --factory-workspace-home not set (cannot use default /tmp/zen-brain-factory)")
+	}
 
 	// Set up controller-runtime logger using klog
 	ctrl.SetLogger(klog.NewKlogr())
