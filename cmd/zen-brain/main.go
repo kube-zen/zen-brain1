@@ -1165,10 +1165,17 @@ func ledgerClientOrNil() ledger.ZenLedgerClient {
 
 // createRealZenContext creates a production ZenContext with Redis + MinIO
 func createRealZenContext() (zenctx.ZenContext, error) {
-	// Use local Docker containers (from docker-compose.zencontext.yml)
+	// Get home directory with real-path discipline
+	homeDir := filepath.Join(os.Getenv("HOME"), ".zen", "zen-brain1")
+
+	// Read Redis config from environment (or use defaults)
+	redisAddr := os.Getenv("REDIS_URL")
+	if redisAddr == "" {
+		redisAddr = "localhost:6379"
+	}
 	redisConfig := &tier1.RedisConfig{
-		Addr:         "localhost:6379",
-		Password:     "",
+		Addr:         redisAddr,
+		Password:     os.Getenv("REDIS_PASSWORD"),
 		DB:           0,
 		PoolSize:     10,
 		MinIdleConns: 5,
@@ -1177,13 +1184,26 @@ func createRealZenContext() (zenctx.ZenContext, error) {
 		WriteTimeout: 3 * time.Second,
 	}
 
+	// Read S3 config from environment (or use defaults)
+	s3Endpoint := os.Getenv("S3_ENDPOINT")
+	if s3Endpoint == "" {
+		s3Endpoint = "http://localhost:9000"
+	}
+	s3AccessKey := os.Getenv("S3_ACCESS_KEY_ID")
+	if s3AccessKey == "" {
+		s3AccessKey = "minioadmin"
+	}
+	s3SecretKey := os.Getenv("S3_SECRET_ACCESS_KEY")
+	if s3SecretKey == "" {
+		s3SecretKey = "minioadmin"
+	}
 	s3Config := &tier3.S3Config{
-		Bucket:            "zen-brain-context",
-		Region:            "us-east-1",
-		Endpoint:          "http://localhost:9000",
-		AccessKeyID:       "minioadmin",
-		SecretAccessKey:   "minioadmin",
-		SessionToken:      "",
+		Bucket:            os.Getenv("S3_BUCKET"),
+		Region:            os.Getenv("S3_REGION"),
+		Endpoint:          s3Endpoint,
+		AccessKeyID:       s3AccessKey,
+		SecretAccessKey:   s3SecretKey,
+		SessionToken:      os.Getenv("S3_SESSION_TOKEN"),
 		UsePathStyle:      true,
 		DisableSSL:        true,
 		ForceRenameBucket: false,
@@ -1197,13 +1217,13 @@ func createRealZenContext() (zenctx.ZenContext, error) {
 	zenCtxConfig := &internalcontext.ZenContextConfig{
 		Tier1Redis: redisConfig,
 		Tier2QMD: &internalcontext.QMDConfig{
-			RepoPath:      "./zen-docs",
+			RepoPath:      filepath.Join(homeDir, "zen-docs"),
 			QMDBinaryPath: "",
 			Verbose:       false,
 		},
 		Tier3S3: s3Config,
 		Journal: &internalcontext.JournalConfig{
-			JournalPath:      "./journal",
+			JournalPath:      filepath.Join(homeDir, "journal"),
 			EnableQueryIndex: true,
 		},
 		ClusterID: "default",
@@ -1302,30 +1322,15 @@ func getZenContext() zenctx.ZenContext {
 		EnableHealthCh: false, // No background checks for utility function
 	})
 
+	// FAIL CLOSED: No dev-mode fallback to mock - fail-closed on errors
 	if err != nil {
-		// In dev mode, allow fallback
-		if profile == "dev" {
-			zc, _ := createRealZenContext()
-			if zc != nil {
-				return zc
-			}
-			return newMockZenContext()
-		}
-		// In strict mode, return nil (caller should handle)
+		// FAIL CLOSED: Do not silently fall back to mock in dev mode
+		// Caller should handle nil explicitly; use --mock flag for testing
 		return nil
 	}
 
 	if strictRT != nil && strictRT.Runtime() != nil {
 		return strictRT.Runtime().ZenContext
-	}
-
-	// Fallback for dev mode
-	if profile == "dev" {
-		zc, _ := createRealZenContext()
-		if zc != nil {
-			return zc
-		}
-		return newMockZenContext()
 	}
 
 	return nil
