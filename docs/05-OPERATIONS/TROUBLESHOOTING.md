@@ -2,7 +2,12 @@
 
 **Last Updated:** 2026-03-11
 
-This guide covers common issues and solutions for zen-brain deployments.
+## Ollama Runtime Policy
+
+- **Dev/sandbox default:** Host Docker Ollama (outside Kubernetes), accessed via `host.k3d.internal:11434`
+- **Kubernetes Ollama:** Optional, legacy, experimental — not the default path
+- **Reasoning:** In-cluster Ollama has shown performance issues; host Docker Ollama provides better GPU passthrough and isolation
+- **For details:** See `deploy/README.md` (Ollama deployment model section)
 
 ---
 

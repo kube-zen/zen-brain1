@@ -5,9 +5,13 @@ image:
   tag: dev
   pullPolicy: IfNotPresent
 
-# When Ollama is enabled (deploy.use_ollama), set to http://ollama:11434 so gateway uses real Ollama
+# Ollama deployment model:
+# - Dev/sandbox default: Host Docker Ollama (http://host.k3d.internal:11434)
+# - In-cluster Ollama (http://ollama:11434): Optional, legacy, experimental
+# - See deploy/README.md for Ollama deployment model policy
 ollama:
-  baseUrl: ""       # e.g. http://ollama:11434
+  baseUrl: ""       # Default for dev/sandbox: http://host.k3d.internal:11434
+                      # In-cluster: http://ollama:11434 (optional/legacy/experimental)
   timeoutSeconds: 1200 # local-worker/Ollama HTTP timeout; sandbox (CPU-only) can need 10–20min for first reply
   keepAlive: "30m"    # OLLAMA_KEEP_ALIVE: how long to keep model resident after preload/verify ("30m", "-1" = indefinite)
 
