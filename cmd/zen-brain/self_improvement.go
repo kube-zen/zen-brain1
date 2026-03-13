@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/kube-zen/zen-brain1/internal/config"
 	"github.com/kube-zen/zen-brain1/internal/integration"
 	"github.com/kube-zen/zen-brain1/internal/office"
+	"github.com/kube-zen/zen-brain1/pkg/contracts"
 )
 
 func runSelfImprovementCommand() {
@@ -39,13 +41,23 @@ func runSelfImprovementCommand() {
 		ActionPolicy: policy,
 	}
 
-	// Run one iteration of the loop
+	// Track metrics for morning report
+	metrics := &NightShiftMetrics{
+		StartTime: time.Now(),
+	}
+
+	// Run one iteration of loop
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
 	defer cancel()
 
-	if err := worker.RunIteration(ctx); err != nil {
-		log.Fatalf("Self-improvement iteration failed: %v", err)
+	if err := worker.RunIteration(ctx, metrics); err != nil {
+		log.Printf("Self-improvement iteration failed: %v", err)
 	}
+
+	// Generate morning report
+	fmt.Println()
+	fmt.Println("=== Morning Report ===")
+	generateMorningReport(metrics)
 
 	fmt.Println()
 	fmt.Println("=== Self-Improvement Complete ===")
@@ -60,14 +72,17 @@ type SelfImprovementWorker struct {
 	ActionPolicy *office.ActionPolicy
 }
 
-// RunIteration executes one iteration of the self-improvement loop
-func (w *SelfImprovementWorker) RunIteration(ctx context.Context) error {
+// RunIteration executes one iteration of self-improvement loop
+func (w *SelfImprovementWorker) RunIteration(ctx context.Context, metrics *NightShiftMetrics) error {
 	// Step 1: Discover eligible tasks
 	fmt.Println("[1/7] Discovering eligible self-improvement tasks...")
 	tasks, err := w.discoverTasks(ctx)
 	if err != nil {
+		metrics.TasksDiscovered = 0
 		return fmt.Errorf("failed to discover tasks: %w", err)
 	}
+
+	metrics.TasksDiscovered = len(tasks)
 
 	if len(tasks) == 0 {
 		fmt.Println("  No eligible tasks found")
@@ -88,6 +103,7 @@ func (w *SelfImprovementWorker) RunIteration(ctx context.Context) error {
 		return nil
 	}
 
+	metrics.TasksClaimed++
 	fmt.Printf("  Claimed: %s (worker: %s)\n", task.ID, w.WorkerID)
 
 	// Step 3: Analyze/classify task
@@ -106,6 +122,8 @@ func (w *SelfImprovementWorker) RunIteration(ctx context.Context) error {
 	fmt.Println("[4/7] Checking action policy...")
 	if !w.ActionPolicy.CanExecute(action) {
 		fmt.Printf("  Action not allowed: %s (requires approval)\n", action.ID)
+		metrics.TasksEscalated++
+		metrics.EscalatedTasks = append(metrics.EscalatedTasks, task)
 		return w.escalateTask(ctx, task, action)
 	}
 
@@ -131,48 +149,96 @@ func (w *SelfImprovementWorker) RunIteration(ctx context.Context) error {
 	}
 
 	fmt.Printf("  Task completed: %s\n", task.ID)
+	metrics.TasksProcessed++
+	metrics.ProcessedTasks = append(metrics.ProcessedTasks, task)
 	return nil
 }
 
-// discoverTasks finds eligible self-improvement tasks
+// discoverTasks finds eligible self-improvement tasks from Jira
 func (w *SelfImprovementWorker) discoverTasks(ctx context.Context) ([]*SelfImprovementTask, error) {
-	// For now, return hardcoded safe tasks
-	// TODO: Query Jira with label "self-improvement" or similar
-	return []*SelfImprovementTask{
-		{
-			ID:          "SI-001",
-			Title:       "Improve runtime doctor output clarity",
-			Description:  "Make runtime doctor output more human-readable and actionable",
-			Priority:    "medium",
-			Type:        "improvement",
-			ActionClass:  "A", // Always allowed
-			RiskLevel:   "none",
-		},
-		{
-			ID:          "SI-002",
-			Title:       "Format proof-of-work artifacts consistently",
-			Description:  "Ensure all proof artifacts follow the same schema and structure",
-			Priority:    "low",
-			Type:        "improvement",
-			ActionClass:  "B", // Safe write-back
-			RiskLevel:   "low",
-		},
-		{
-			ID:          "SI-003",
-			Title:       "Hunt for TODO/FIXME comments in core paths",
-			Description:  "Find and classify TODO/FIXME comments in internal/ and pkg/ directories",
-			Priority:    "medium",
-			Type:        "hunting",
-			ActionClass:  "A", // Always allowed
-			RiskLevel:   "none",
-		},
-	}, nil
+	// Jira discovery query for safe Night Shift work
+	// Filter: zen-brain1 backlog, small, non-critical, self-contained, unblocked, not claimed
+	jql := `project = ZB AND labels = "zen-brain-nightshift" AND status NOT IN ("Done", "Closed", "Blocked") AND priority IN ("Low", "Medium") ORDER BY created ASC`
+
+	// Search Jira
+	items, err := w.OfficeMgr.Search(ctx, "default", jql)
+	if err != nil {
+		return nil, fmt.Errorf("failed to search Jira for nightshift tasks: %w", err)
+	}
+
+	// Convert to self-improvement tasks
+	var tasks []*SelfImprovementTask
+	for _, item := range items {
+		// Check if already claimed (by checking for worker-claim label in tags)
+		claimed := false
+		for _, tag := range item.Tags.Policy {
+			if tag == "worker-claimed" {
+				claimed = true
+				break
+			}
+		}
+		if claimed {
+			continue // Skip claimed tasks
+		}
+
+		// Determine action class based on task content
+		actionClass := "A"
+		riskLevel := "none"
+
+		// Class C tasks (approval required) - SKIP these
+		title := strings.ToLower(item.Title)
+		body := strings.ToLower(item.Body)
+
+		if strings.Contains(title, "deploy") ||
+			strings.Contains(title, "merge") ||
+			strings.Contains(title, "secret") ||
+			strings.Contains(title, "infra") ||
+			strings.Contains(body, "kubernetes") ||
+			strings.Contains(body, "cloud") {
+			actionClass = "C"
+			riskLevel = "medium"
+			continue // Skip Class C tasks for now
+		}
+
+		// Class B tasks (safe write-back)
+		if strings.Contains(title, "format") ||
+			strings.Contains(title, "report") ||
+			strings.Contains(title, "comment") ||
+			strings.Contains(body, "jira") {
+			actionClass = "B"
+			riskLevel = "low"
+		}
+
+		// Map priority
+		priority := "medium"
+		if item.Priority == contracts.PriorityLow {
+			priority = "low"
+		} else if item.Priority == contracts.PriorityMedium {
+			priority = "medium"
+		}
+
+		tasks = append(tasks, &SelfImprovementTask{
+			ID:          item.ID,
+			Title:       item.Title,
+			Description:  item.Body, // WorkItem has Body, not Description
+			Priority:    priority,
+			Type:         "nightshift",
+			ActionClass:  actionClass,
+			RiskLevel:    riskLevel,
+		})
+	}
+
+	if len(tasks) == 0 {
+		fmt.Println("  No eligible tasks found matching nightshift criteria")
+		fmt.Println("  Expected JQL:", jql)
+		fmt.Println("  Note: Create Zen-Brain tickets with label 'zen-brain-nightshift'")
+	}
+
+	return tasks, nil
 }
 
 // claimTask claims one task with lease ownership
 func (w *SelfImprovementWorker) claimTask(ctx context.Context, tasks []*SelfImprovementTask) (*SelfImprovementTask, error) {
-	// Simple round-robin for now
-	// TODO: Implement proper claim/lease with Jira label or field update
 	if len(tasks) == 0 {
 		return nil, nil
 	}
@@ -183,10 +249,13 @@ func (w *SelfImprovementWorker) claimTask(ctx context.Context, tasks []*SelfImpr
 	task.ClaimedAt = time.Now()
 	task.LeaseExpires = time.Now().Add(30 * time.Minute) // 30-minute lease
 
+	// TODO: Add Jira label "worker-claimed" when Jira write-back is implemented
+	// For now, tracking is in-memory only
+
 	return task, nil
 }
 
-// classifyTask analyzes the task and creates an action with classification
+// classifyTask analyzes task and creates an action with classification
 func (w *SelfImprovementWorker) classifyTask(ctx context.Context, task *SelfImprovementTask) (*office.Action, error) {
 	// Map task to action class
 	actionClass := office.ActionClassAlwaysAllowed
@@ -212,7 +281,7 @@ func (w *SelfImprovementWorker) classifyTask(ctx context.Context, task *SelfImpr
 	return action, nil
 }
 
-// executeAction executes only allowed actions for the task
+// executeAction executes only allowed actions for task
 func (w *SelfImprovementWorker) executeAction(ctx context.Context, task *SelfImprovementTask, action *office.Action) (*ActionResult, error) {
 	result := &ActionResult{
 		ActionID:  action.ID,
@@ -244,9 +313,9 @@ func (w *SelfImprovementWorker) executeAction(ctx context.Context, task *SelfImp
 	return result, nil
 }
 
-// generateReport creates proof/report for the task execution
+// generateReport creates proof/report for task execution
 func (w *SelfImprovementWorker) generateReport(ctx context.Context, task *SelfImprovementTask, action *office.Action, result *ActionResult) error {
-	// TODO: Upload proof artifact to Jira
+	// TODO: Upload proof artifact to Jira when write-back is implemented
 	// TODO: Post comment to Jira with worker identity and action class
 	log.Printf("[Report] Generated proof for task %s by worker %s (action class: %s)",
 		task.ID, w.WorkerID, action.Class)
@@ -261,13 +330,46 @@ func (w *SelfImprovementWorker) escalateTask(ctx context.Context, task *SelfImpr
 	return nil
 }
 
-// completeTask marks the task as complete and releases ownership
+// completeTask marks task as complete and releases ownership
 func (w *SelfImprovementWorker) completeTask(ctx context.Context, task *SelfImprovementTask, action *office.Action, result *ActionResult) error {
 	// TODO: Update Jira status or label
 	// TODO: Post final comment with worker identity and action class
 	log.Printf("[Complete] Task %s completed by worker %s (duration: %v)",
 		task.ID, w.WorkerID, result.Duration)
 	return nil
+}
+
+// generateMorningReport creates a concise morning summary
+func generateMorningReport(metrics *NightShiftMetrics) {
+	duration := time.Since(metrics.StartTime)
+
+	fmt.Println("Worker: zb-self-improvement-1")
+	fmt.Println("Duration:", duration.Round(time.Second))
+	fmt.Println()
+	fmt.Printf("Tasks Discovered: %d\n", metrics.TasksDiscovered)
+	fmt.Printf("Tasks Claimed:   %d\n", metrics.TasksClaimed)
+	fmt.Printf("Tasks Processed: %d\n", metrics.TasksProcessed)
+	fmt.Printf("Tasks Escalated: %d\n", metrics.TasksEscalated)
+	fmt.Println()
+
+	if metrics.TasksProcessed > 0 {
+		fmt.Println("Successfully processed:")
+		for _, task := range metrics.ProcessedTasks {
+			fmt.Printf("  - %s (%s)\n", task.ID, task.Title)
+		}
+	}
+
+	if metrics.TasksEscalated > 0 {
+		fmt.Println("Escalated for approval:")
+		for _, task := range metrics.EscalatedTasks {
+			fmt.Printf("  - %s (Class C)\n", task.ID)
+		}
+	}
+
+	if metrics.TasksDiscovered == 0 {
+		fmt.Println("No eligible tasks found.")
+		fmt.Println("Recommendation: Create Zen-Brain tickets with label 'zen-brain-nightshift'")
+	}
 }
 
 // SelfImprovementTask represents a self-improvement task
@@ -284,7 +386,18 @@ type SelfImprovementTask struct {
 	LeaseExpires time.Time
 }
 
-// ActionResult represents the result of executing an action
+// NightShiftMetrics tracks night shift performance
+type NightShiftMetrics struct {
+	StartTime       time.Time
+	TasksDiscovered int
+	TasksClaimed   int
+	TasksProcessed  int
+	TasksEscalated int
+	ProcessedTasks  []*SelfImprovementTask
+	EscalatedTasks  []*SelfImprovementTask
+}
+
+// ActionResult represents result of executing an action
 type ActionResult struct {
 	ActionID    string
 	WorkerID    string
