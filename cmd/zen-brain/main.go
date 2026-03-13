@@ -75,6 +75,9 @@ func main() {
 	case "self-improvement":
 		runSelfImprovementCommand()
 
+	case "compliance":
+		runComplianceCommand()
+
 	case "version":
 		printVersion()
 
@@ -97,6 +100,7 @@ func printUsage() {
 	fmt.Println("  factory        Block 4 factory: execute, status, proof, workspaces, cleanup")
 	fmt.Println("  runtime        Runtime doctor, report, ping (Block 3 capabilities)")
 	fmt.Println("  self-improvement Self-improvement loop: discover, claim, classify, execute safe tasks")
+	fmt.Println("  compliance      Governance/Compliance: reporter, gap-hunter (SR&ED/IRAP/ISO/SOC)")
 	fmt.Println("  version        Print version information")
 	fmt.Println()
 	fmt.Println("For vertical-slice command:")
@@ -120,6 +124,10 @@ func printUsage() {
 	fmt.Println("For self-improvement command:")
 	fmt.Println("  zen-brain self-improvement           Run safe self-improvement loop (one iteration)")
 	fmt.Println("                                         Processes: Class A (read/recommend), Class B (safe write-back)")
+	fmt.Println()
+	fmt.Println("For compliance command:")
+	fmt.Println("  zen-brain compliance reporter         Generate SR&ED/IRAP/ISO/SOC evidence reports")
+	fmt.Println("  zen-brain compliance gap-hunter     Detect compliance gaps and remediation items")
 }
 
 func printVersion() {
