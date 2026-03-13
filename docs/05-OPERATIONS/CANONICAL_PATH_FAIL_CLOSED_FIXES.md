@@ -1,5 +1,8 @@
 # Canonical Path Fail-Closed Fixes
 
+> **⚠️ HISTORICAL SNAPSHOT** - This document captures status as of 2026-03-11.  
+> For current status, see README.md and [Completeness Matrix](../01-ARCHITECTURE/COMPLETENESS_MATRIX.md).
+
 **Date**: 2026-03-11
 **Commit**: (pending)
 **Scope**: Remove mock/stub fallback from canonical execution paths

@@ -1,5 +1,8 @@
 # Session Summary - 2026-03-11
 
+> **⚠️ HISTORICAL SNAPSHOT** - This document captures status as of 2026-03-11.  
+> For current status, see README.md and [Completeness Matrix](../01-ARCHITECTURE/COMPLETENESS_MATRIX.md).
+
 **Duration**: ~2 hours  
 **Focus**: Block 2, 3, 4 hardening and enhancement  
 **Commits**: 3 commits pushed to main

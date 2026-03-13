@@ -1,5 +1,8 @@
 # Block 3 — Nervous System Hardening Report
 
+> **⚠️ HISTORICAL SNAPSHOT** - This document captures status as of 2026-03-10.  
+> For current status, see README.md and [Completeness Matrix](../01-ARCHITECTURE/COMPLETENESS_MATRIX.md).
+
 **Date**: 2026-03-10
 **Session**: Block 3 Hardening (94% → 98%)
 **Focus**: Fail-closed behavior, deterministic preflight, runtime guarantees, readiness semantics

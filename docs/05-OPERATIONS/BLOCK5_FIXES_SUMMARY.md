@@ -1,5 +1,8 @@
 # Block 5 Office Bootstrap - Fixes Applied
 
+> **📝 HISTORICAL NOTE** - This document captures fixes applied as of 2026-03-12.  
+> For current status, see README.md and [Completeness Matrix](../01-ARCHITECTURE/COMPLETENESS_MATRIX.md).
+
 ## Issues Fixed
 
 ### 1. Real-Path Discipline for Shared Entry Paths ✅
