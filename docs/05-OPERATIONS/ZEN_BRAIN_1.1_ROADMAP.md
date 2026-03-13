@@ -44,6 +44,12 @@ Zen-Brain 1.0 is now good enough to be used in a controlled way. Zen-Brain 1.1 s
    - Use 0.8b MoE for specialist lanes first
    - Postpone broader training until evaluation and routing are solid
 
+6. **Governance / Compliance Lane** (NEW)
+   - Compliance Reporter: Generate SR&ED/IRAP/ISO/SOC evidence reports
+   - Compliance Gap Hunter: Detect missing controls, weak evidence, documentation gaps
+   - Read-only, summarization-heavy, artifact/report producing
+   - Safe night-shift workers with useful morning outputs
+
 ### Tier 2 — High ROI Next
 
 - Real KB/qmd
@@ -159,6 +165,8 @@ Do not make every worker do everything. Your future factory should prefer narrow
 10. **Execution Worker**: executes pre-approved safe tasks
 11. **Approval Coordinator**: manages approval workflow
 12. **Auditor**: reviews action logs and compliance
+13. **Compliance Reporter**: generates SR&ED/IRAP/ISO/SOC evidence reports
+14. **Compliance Gap Hunter**: detects missing controls, weak evidence, documentation gaps
 
 This is much more efficient than one agent trying to reason and execute across all task types.
 
@@ -201,7 +209,30 @@ Not top-level planner yet.
 
 ## 30 Concrete Night-Shift Tasks
 
-### Code Quality / Risk Hunting
+### Compliance / Funding (NEW - 15 tasks)
+
+**Evidence Production (5 tasks):**
+1. Generate weekly SR&ED readiness summary
+2. Generate IRAP-ready milestone evidence
+3. Map controls to SOC 2 categories
+4. Map controls to ISO 27001 domains
+5. Generate R&D activity log summary
+
+**Gap Detection (10 tasks):**
+6. Detect missing control evidence
+7. Detect evidence freshness issues
+8. Detect undocumented operational practices
+9. Detect missing change-management artifacts
+10. Detect missing incident/problem-management evidence
+11. Detect weak design/experiment/proof artifacts
+12. Detect stale control evidence
+13. Detect missing control ownership
+14. Detect undocumented operational practices
+15. Detect missing change/incident documentation
+
+### Code Quality / Risk Hunting (existing tasks)
+
+**Runtime / Ops Quality**
 
 1. Stub hunting
 2. Mock fallback hunting
