@@ -107,8 +107,25 @@ ledger:         ✓ mode=stub enabled=true
                   └─ explicit stub opt-in via ZEN_BRAIN_OFFICE_ALLOW_STUB_LEDGER=1
 message_bus:    ✗ mode=disabled enabled=false
                     └─ Message Bus disabled
-Cluster mapping: (none)
-Jira: not configured
+Cluster mapping: default -> jira
+Jira base URL: https://zen-mesh.atlassian.net
+Project key: ZB
+Webhook: enabled=true, path=/webhook, port=8080
+Credentials: present=true
+Connector: real (https://zen-mesh.atlassian.net)
+API reachability: ok
+```
+
+### Jira Configuration (Stored Outside Repo)
+```bash
+# Location: ~/zen/.zen-brain1-config/jira.yaml
+# NOT committed to repository (security)
+email: zen@zen-mesh.io
+token: ATATT3... (user-level API token)
+project_key: ZB
+
+# Token type: MUST be ATATT3... (user-level)
+# NOT ATCTT3... (workspace-level - does not work with Basic Auth)
 ```
 
 ---
@@ -184,12 +201,18 @@ curl http://127.0.1.6:8080/readyz
 - **Host Docker Ollama:** v0.17.6 (Running outside Kubernetes)
 - **Stub Knowledge Base:** Explicit opt-in via ZEN_BRAIN_OFFICE_ALLOW_STUB_KB=1
 - **Stub Ledger:** Explicit opt-in via ZEN_BRAIN_OFFICE_ALLOW_STUB_LEDGER=1
+- **Jira:** Configured with ATATT3... token (authentication works, JSON parsing issue)
+
+### Known Issues
+- **Jira API v3 ADF:** Go struct expects `description` as string, but API returns ADF object
+  - Blocks: office fetch, office search, office create, office update
+  - Fix: Update Go struct to handle `map[string]interface{}` or proper ADF struct
+  - Workaround: Use Jira API v2 (might return description as string)
 
 ### Disabled (by design)
 - **In-Cluster Ollama:** use_ollama: false
 - **Redis:** No TIER1_REDIS_ADDR set
 - **S3/MinIO:** No S3 endpoint configured
-- **Jira:** Not configured
 - **CockroachDB:** No ZEN_LEDGER_DSN set
 - **Message Bus:** Disabled in config
 
