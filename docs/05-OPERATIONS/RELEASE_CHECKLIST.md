@@ -4,6 +4,18 @@
 **Date**: 2026-03-12
 **Release Candidate**: v1.0.0-pre
 
+## Ollama Runtime Policy
+
+- **Dev/sandbox default:** Host Docker Ollama (outside Kubernetes)
+  - Preferred base URL: `host.k3d.internal:11434` or configured host Docker endpoint
+  - Better GPU passthrough and isolation
+- **Kubernetes Ollama:** Optional, legacy, experimental
+  - Not recommended for first bring-up or standard dev/sandbox
+  - Earlier attempts showed poor performance versus host Docker Ollama
+- **For details:** See `deploy/README.md` (Ollama deployment model section)
+
+---
+
 **Outstanding Tasks**:
 1. ~~Fix Office compile/config drift (KB.Enabled/Required fields)~~ ✅ Done
 2. ~~Make Office stubs explicit (no ambient fallback)~~ ✅ Done
