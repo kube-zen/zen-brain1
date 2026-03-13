@@ -142,18 +142,18 @@ Comprehensive documentation is available in the `docs/` directory:
 
 ## Development Status
 
-**Executive summary:** Zen-Brain is **production ready** (~98% overall completeness). The execution pipeline is solid: Office intake → analyze → plan → session → Factory execution → proof-of-work → status update. Blocks 0, 0.5, 1 are **done-done** (100% complete). Documentation alignment completed. Final integration tests passing. Remaining polish: Factory documentation placeholders (intentional), real-path validation for Intelligence.
+**Executive summary:** Zen-Brain is **approaching production readiness** (~95% overall completeness). The execution pipeline is solid: Office intake → analyze → plan → session → Factory execution → proof-of-work → status update. Blocks 0, 0.5, 1 are **solid** (95%+). Documentation alignment largely complete. Integration tests passing. Remaining work: fresh Go 1.25 build/test/deploy proof, strengthen anti-drift tests, polish Factory documentation.
 
 | Block | Name | Status |
 |-------|------|--------|
-| 0 | Foundation | ✅ Complete (100%) – repo hygiene and governance clean |
-| 0.5 | zen-sdk reuse | ✅ Complete (100%) – all packages imported and wired |
-| 1 | Neuro-Anatomy | ✅ Complete (100%) – contracts, docs, CRDs, taxonomy synced |
+| 0 | Foundation | ✅ Complete (95%) – repo hygiene and governance clean |
+| 0.5 | zen-sdk reuse | ✅ Complete (95%) – all packages imported and wired |
+| 1 | Neuro-Anatomy | ✅ Complete (95%) – contracts, docs, CRDs, taxonomy synced; anti-drift tests need strengthening |
 | 2 | Office | ✅ Complete (98%) – explicit stub opt‑in, fail‑closed, component status reporting |
 | 3 | Nervous System | ✅ Complete (93%) – canonical runtime consistency, fail‑closed posture |
 | 4 | Factory | ✅ Ready (95%) – templates using embedded files, compiles |
 | 5 | Intelligence | ✅ Complete (92%) – enhanced failure analysis working |
-| 6 | Developer Experience | ✅ Available (94%) – fresh build/test/deploy proof validated |
+| 6 | Developer Experience | ⚠️ In Progress (92%) – deployment validated; fresh Go 1.25 build/test/deploy proof planned |
 
 **Note:** Factory documentation placeholders are intentional. Real-path validation guide available: [REAL_PATH_VALIDATION.md](docs/04-DEVELOPMENT/REAL_PATH_VALIDATION.md).
 
