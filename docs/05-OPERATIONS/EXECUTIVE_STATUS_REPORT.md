@@ -1,5 +1,8 @@
 # Zen-Brain1 Executive Status Report
 
+> **⚠️ HISTORICAL SNAPSHOT** - This document captures status as of earlier development phase.  
+> For current status, see README.md and [Completeness Matrix](../01-ARCHITECTURE/COMPLETENESS_MATRIX.md).
+
 ## Block 0 - Foundation (98%) ✅ **IMPROVED**
 
 **Status**: Strong repo structure, charts, commands, docs, layout
