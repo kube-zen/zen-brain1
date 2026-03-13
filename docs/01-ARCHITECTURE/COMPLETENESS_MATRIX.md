@@ -4,15 +4,15 @@
 
 ## Executive status (single narrative)
 
-Zen-Brain is **production ready at ~98% overall completeness** with a trustworthy internal-use vertical slice. Critical blocks validated, comprehensive test coverage, deployment proven, enhanced intelligence mining with predictive failure analysis.
+Zen-Brain is **approaching production readiness at ~95% overall completeness** with a trustworthy internal-use vertical slice. Critical blocks validated, comprehensive test coverage, deployment proven, enhanced intelligence mining with predictive failure analysis.
 
 | Dimension | Score | Notes |
 |-----------|-------|--------|
 | **Architecture completeness** | 95% | Blocks 0–6 largely complete; contracts, CRDs, session/context plumbing solid; deployment plane live-proven; enhanced intelligence mining with predictive analysis. **✅ RESOLVED:** Factory template escape sequences fixed via embedded templates. All three repo-aware templates (docs/CI/migration) enabled. |
 | **Operational / deployment completeness** | 94% | Full sandbox path proven: redeploy exits 0, Helmfile converges, foreman/apiserver/ollama-0 Ready, preload succeeds, OLLAMA_BASE_URL on apiserver, health probes passing. Real inference validated. |
-| **Blended overall completeness** | 98% | Production-ready for internal use; documentation alignment completed; final integration tests passing; fresh Go 1.25 build/test/deploy proof validated. Remaining polish: Factory documentation placeholders (intentional), real-path validation for Intelligence (Ollama, QMD, evidence mining). |
+| **Blended overall completeness** | 95% | Approaching production readiness; documentation alignment largely complete; integration tests passing; fresh Go 1.25 build/test/deploy proof planned. Remaining work: strengthen anti-drift tests, polish Factory documentation, complete real-path validation proof. |
 
-**Single source of truth for status:** This matrix, [PROGRESS.md](PROGRESS.md), [RECOMMENDED_NEXT_STEPS.md](RECOMMENDED_NEXT_STEPS.md), and [DEPLOYMENT_VALIDATION.md](../04-DEVELOPMENT/DEPLOYMENT_VALIDATION.md). README Development Status reflects this narrative. **Historical snapshots** in `docs/05-OPERATIONS/` are marked with ⚠️ banners.
+**Single source of truth for status:** This matrix, [PROGRESS.md](PROGRESS.md), [RECOMMENDED_NEXT_STEPS.md](RECOMMENDED_NEXT_STEPS.md), and [DEPLOYMENT_VALIDATION.md](../04-DEVELOPMENT/DEPLOYMENT_VALIDATION.md). README Development Status reflects this narrative. **Historical snapshots** in `docs/05-OPERATIONS/` are marked with ⚠️ banners. **Overall completeness adjusted to ~95% to reflect current proof state.**
 
 **Remaining polish:** Factory documentation placeholders (intentional). Real-path validation documented; operational proof pending. See [REAL_PATH_VALIDATION.md](../04-DEVELOPMENT/REAL_PATH_VALIDATION.md) for canonical workflow.
 

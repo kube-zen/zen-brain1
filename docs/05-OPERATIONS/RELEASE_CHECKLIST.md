@@ -1,6 +1,6 @@
 # 1.0 RELEASE CHECKLIST
 
-**Status**: ⚠️ APPROACHING PRODUCTION READINESS (~98% Complete)
+**Status**: ⚠️ APPROACHING PRODUCTION READINESS (~95% Complete)
 **Date**: 2026-03-12
 **Release Candidate**: v1.0.0-pre
 
@@ -9,7 +9,7 @@
 2. ~~Make Office stubs explicit (no ambient fallback)~~ ✅ Done
 3. ~~Finish Block 4 migration template cleanup~~ ✅ Done
 4. ~~Align status documentation~~ ✅ Done
-5. ~~Fresh Go 1.25 build/test/deploy proof~~ ✅ Validated
+5. Fresh Go 1.25 build/test/deploy proof (planned; see [REAL_PATH_VALIDATION.md](../04-DEVELOPMENT/REAL_PATH_VALIDATION.md))
 
 ---
 
@@ -29,15 +29,15 @@
 ### **System Completeness**
 | Block | Status | Completeness | Notes |
 |-------|--------|--------------|-------|
-| 0 - Foundation | ✅ Complete | 100% | Tooling, config, deploy structure; repo hygiene and governance clean |
-| 0.5 - zen-sdk reuse | ✅ Complete | 100% | All zen-sdk packages imported and wired; wrappers documented |
-| 1 - Neuro-Anatomy | ✅ Complete | 100% | Contracts, docs, CRDs, taxonomy synced; tests passing |
-| 2 - Office | ✅ Complete | 94% | Jira, analyzer, webhooks; config/code drift fixed, stubs explicit, component status reporting; real-vs-stub policy explicit |
+| 0 - Foundation | ✅ Complete | 95% | Tooling, config, deploy structure; repo hygiene and governance clean |
+| 0.5 - zen-sdk reuse | ✅ Complete | 95% | All zen-sdk packages imported and wired; wrappers documented |
+| 1 - Neuro-Anatomy | ✅ Complete | 95% | Contracts, docs, CRDs, taxonomy synced; tests passing; anti-drift checks need strengthening |
+| 2 - Office | ✅ Complete | 98% | Jira, analyzer, webhooks; config/code drift fixed, stubs explicit, component status reporting |
 | 3 - Nervous System | ✅ Complete | 93% | Runtime, circuit breakers; fail‑closed posture improved, canonical runtime consistency |
 | 4 - Factory | ✅ Ready | 95% | Static analysis, multi-language; embedded templates enabled; documentation placeholders intentional |
 | 5 - Intelligence | ✅ Complete | 92% | Enhanced failure analysis, predictive modeling; real-path validation documented |
-| 6 - Developer Experience | ✅ Complete | 94% | Deployment validated; fresh Go 1.25 build/test/deploy proof validated |
-| **Overall** | **⚠️ APPROACHING** | **~98%** | **Blocks 0, 0.5, 1 done-done; Office and Factory work minimal** |
+| 6 - Developer Experience | ⚠️ In Progress | 92% | Deployment validated; fresh Go 1.25 build/test/deploy proof planned |
+| **Overall** | **⚠️ APPROACHING** | **~95%** | **Blocks 0, 0.5, 1 solid (95%+); Office and Factory work minimal** |
 
 ---
 
