@@ -11,23 +11,31 @@ import (
 	"testing"
 )
 
-func TestDataModelDocMentionsKeyConcepts(t *testing.T) {
-	// Find module root (directory containing go.mod)
+// getModuleRoot finds the repository root by looking for go.mod.
+func getModuleRoot() (string, error) {
 	dir, err := os.Getwd()
 	if err != nil {
-		t.Skipf("Getwd: %v", err)
-		return
+		return "", err
 	}
 	for i := 0; i < 6; i++ {
 		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
-			break
+			return dir, nil
 		}
 		parent := filepath.Dir(dir)
 		if parent == dir {
-			t.Skip("go.mod not found")
-			return
+			break
 		}
 		dir = parent
+	}
+	return "", os.ErrNotExist
+}
+
+func TestDataModelDocMentionsKeyConcepts(t *testing.T) {
+	// Find module root (directory containing go.mod)
+	dir, err := getModuleRoot()
+	if err != nil {
+		t.Skipf("getModuleRoot: %v", err)
+		return
 	}
 	path := filepath.Join(dir, "docs", "02-CONTRACTS", "DATA_MODEL.md")
 	data, err := os.ReadFile(path)
@@ -63,20 +71,10 @@ func TestDataModelDocMentionsKeyConcepts(t *testing.T) {
 // This is a more exact check than substring matching; it verifies each enum value appears.
 func TestDataModelDocContainsAllConstants(t *testing.T) {
 	// Find module root
-	dir, err := os.Getwd()
+	dir, err := getModuleRoot()
 	if err != nil {
-		t.Skipf("Getwd: %v", err)
-	}
-	for i := 0; i < 6; i++ {
-		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
-			break
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			t.Skip("go.mod not found")
-			return
-		}
-		dir = parent
+		t.Skipf("getModuleRoot: %v", err)
+		return
 	}
 	path := filepath.Join(dir, "docs", "02-CONTRACTS", "DATA_MODEL.md")
 	data, err := os.ReadFile(path)
@@ -188,6 +186,11 @@ func TestNoTODOInContracts(t *testing.T) {
 
 // TestExecutionModeEnumDocumented ensures ExecutionMode is documented in DATA_MODEL.md.
 func TestExecutionModeEnumDocumented(t *testing.T) {
+	dir, err := getModuleRoot()
+	if err != nil {
+		t.Skipf("getModuleRoot: %v", err)
+		return
+	}
 	dataModelPath := filepath.Join(dir, "docs", "02-CONTRACTS", "DATA_MODEL.md")
 	data, err := os.ReadFile(dataModelPath)
 	if err != nil {
@@ -220,6 +223,11 @@ func TestExecutionModeEnumDocumented(t *testing.T) {
 
 // TestWorkStatusEnumDocumented ensures WorkStatus is documented in DATA_MODEL.md.
 func TestWorkStatusEnumDocumented(t *testing.T) {
+	dir, err := getModuleRoot()
+	if err != nil {
+		t.Skipf("getModuleRoot: %v", err)
+		return
+	}
 	dataModelPath := filepath.Join(dir, "docs", "02-CONTRACTS", "DATA_MODEL.md")
 	data, err := os.ReadFile(dataModelPath)
 	if err != nil {
@@ -260,6 +268,11 @@ func TestWorkStatusEnumDocumented(t *testing.T) {
 
 // TestApprovalStateEnumDocumented ensures ApprovalState is documented in DATA_MODEL.md.
 func TestApprovalStateEnumDocumented(t *testing.T) {
+	dir, err := getModuleRoot()
+	if err != nil {
+		t.Skipf("getModuleRoot: %v", err)
+		return
+	}
 	dataModelPath := filepath.Join(dir, "docs", "02-CONTRACTS", "DATA_MODEL.md")
 	data, err := os.ReadFile(dataModelPath)
 	if err != nil {
@@ -291,6 +304,11 @@ func TestApprovalStateEnumDocumented(t *testing.T) {
 
 // TestWorkTagsStructDocumented ensures WorkTags struct is documented in DATA_MODEL.md.
 func TestWorkTagsStructDocumented(t *testing.T) {
+	dir, err := getModuleRoot()
+	if err != nil {
+		t.Skipf("getModuleRoot: %v", err)
+		return
+	}
 	dataModelPath := filepath.Join(dir, "docs", "02-CONTRACTS", "DATA_MODEL.md")
 	data, err := os.ReadFile(dataModelPath)
 	if err != nil {
@@ -299,8 +317,8 @@ func TestWorkTagsStructDocumented(t *testing.T) {
 	}
 	content := strings.ToLower(string(data))
 
-	// WorkTags struct fields should be documented
-	fields := []string{"humancorg", "routing", "policy", "analytics", "sred"}
+	// WorkTags struct fields should be documented (check JSON field names as documented)
+	fields := []string{"human_org", "routing", "policy", "analytics", "sred"}
 	for _, field := range fields {
 		if !strings.Contains(content, field) {
 			t.Errorf("DATA_MODEL.md should document WorkTags field: %s", field)
@@ -315,8 +333,13 @@ func TestWorkTagsStructDocumented(t *testing.T) {
 
 // TestNoDuplicateEnumValues ensures contracts.go does not define duplicate enum values.
 func TestNoDuplicateEnumValues(t *testing.T) {
+	dir, err := getModuleRoot()
+	if err != nil {
+		t.Skipf("getModuleRoot: %v", err)
+		return
+	}
 	// Find contracts.go
-	contractsPath := filepath.Join(dir, "..", "..", "pkg", "contracts", "contracts.go")
+	contractsPath := filepath.Join(dir, "pkg", "contracts", "contracts.go")
 	data, err := os.ReadFile(contractsPath)
 	if err != nil {
 		t.Skipf("cannot read contracts.go: %v", err)
