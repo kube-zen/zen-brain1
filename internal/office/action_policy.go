@@ -28,7 +28,7 @@ const (
 	ActionClassApprovalRequired
 )
 
-// String returns the string representation of the action class.
+// String returns a string representation of an action class.
 func (ac ActionClass) String() string {
 	switch ac {
 	case ActionClassAlwaysAllowed:
@@ -44,7 +44,7 @@ func (ac ActionClass) String() string {
 
 // Action represents a proposed action with metadata for policy enforcement.
 type Action struct {
-	ID          string      `json:"id"`
+	ID           string      `json:"id"`
 	Type         string      `json:"type"`        // "jira_comment", "jira_attachment", "repo_write", "deploy", etc.
 	Class        ActionClass `json:"class"`
 	Description  string      `json:"description"`
@@ -57,7 +57,7 @@ type Action struct {
 // Approval represents approval metadata for gated actions.
 type Approval struct {
 	Required   bool   `json:"required"`
-	ApprovedBy  string `json:"approved_by,omitempty"`
+	ApprovedBy string `json:"approved_by,omitempty"`
 	ApprovedAt string `json:"approved_at,omitempty"`
 	SignOff    string `json:"sign_off,omitempty"`
 }
@@ -119,21 +119,28 @@ func (ap *ActionPolicy) CanExecute(action *Action) bool {
 
 	case ActionClassApprovalRequired:
 		// Class C: Check if approval exists
-		if action.Approval != nil && action.Approval.Required {
-			if action.Approval.ApprovedBy != "" {
-				ap.logger.Printf("[Class C] Action approved by %s: %s", action.Approval.ApprovedBy, action.Type)
-				return true
-			} else {
-				ap.logger.Printf("[Class C] Action queued for approval: %s (no sign-off)", action.Type)
-				return false
-			}
+		if action.Approval != nil {
+			// No approval metadata - allow execution
+			return true
 		}
-		// Fallback: allow if no approval required
-		return true
+		if !action.Approval.Required {
+			// Approval not required - allow execution
+			return true
+		}
+		if action.Approval.ApprovedBy != "" {
+			// Explicitly approved
+			ap.logger.Printf("[Class C] Action approved by %s: %s", action.Approval.ApprovedBy, action.Type)
+			return true
+		} else {
+			// Queued for approval
+			ap.logger.Printf("[Class C] Action queued for approval: %s (no sign-off)", action.Type)
+			return false
+		}
 
 	default:
 		return false
 	}
+}
 
 // RequireApproval returns true if the action requires approval.
 func (ap *ActionPolicy) RequireApproval(action *Action) bool {
@@ -176,7 +183,7 @@ func (ap *ActionPolicy) ValidateAction(action *Action) error {
 
 // LogAction logs an action execution.
 func (ap *ActionPolicy) LogAction(action *Action, ctx context.Context) error {
-	// Validate action
+	// Validate Action
 	if err := ap.ValidateAction(action); err != nil {
 		ap.logger.Printf("[ERROR] Invalid action: %v", err)
 		return err
