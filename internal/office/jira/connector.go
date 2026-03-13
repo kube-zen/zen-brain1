@@ -787,7 +787,7 @@ func (j *JiraOffice) convertToWorkItem(issue *JiraIssue, customFields map[string
 		ID:                  issue.Key,
 		Title:               issue.Fields.Summary,
 		Summary:             issue.Fields.Summary,
-		Body:                issue.Fields.Description,
+		Body:                issue.Fields.Description.PlainText(),
 		CreatedAt:           issue.Fields.Created.Time,
 		UpdatedAt:           issue.Fields.Updated.Time,
 		Status:              canonicalStatus,
