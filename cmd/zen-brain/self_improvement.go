@@ -7,8 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kube-zen/zen-brain1/internal/config"
-	"github.com/kube-zen/zen-brain1/internal/integration"
 	"github.com/kube-zen/zen-brain1/internal/office"
 	"github.com/kube-zen/zen-brain1/pkg/contracts"
 )
@@ -21,14 +19,8 @@ func runSelfImprovementCommand() {
 	// Initialize action policy
 	policy := office.NewActionPolicy(log.Default())
 
-	// Load config
-	cfg, _ := config.LoadConfig("")
-	if cfg == nil {
-		cfg = config.DefaultConfig()
-	}
-
-	// Initialize office manager
-	mgr, err := integration.InitOfficeManagerFromConfig(cfg)
+	// Initialize office manager (same fallback pattern as office.go)
+	mgr, err := getOfficeManager()
 	if err != nil {
 		log.Fatalf("Failed to initialize office manager: %v", err)
 	}
