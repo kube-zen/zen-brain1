@@ -72,6 +72,9 @@ func main() {
 	case "runtime":
 		runRuntime()
 
+	case "self-improvement":
+		runSelfImprovementCommand()
+
 	case "version":
 		printVersion()
 
@@ -93,6 +96,7 @@ func printUsage() {
 	fmt.Println("  analyze        Block 2 analyzer: work-item, history, latest, compare")
 	fmt.Println("  factory        Block 4 factory: execute, status, proof, workspaces, cleanup")
 	fmt.Println("  runtime        Runtime doctor, report, ping (Block 3 capabilities)")
+	fmt.Println("  self-improvement Self-improvement loop: discover, claim, classify, execute safe tasks")
 	fmt.Println("  version        Print version information")
 	fmt.Println()
 	fmt.Println("For vertical-slice command:")
@@ -112,6 +116,10 @@ func printUsage() {
 	fmt.Println("  zen-brain office search <query>      Search work items (JQL or plain text)")
 	fmt.Println("  zen-brain office fetch <jira-key>    Fetch one item by Jira key")
 	fmt.Println("  zen-brain office watch               Start webhook listener and stream events")
+	fmt.Println()
+	fmt.Println("For self-improvement command:")
+	fmt.Println("  zen-brain self-improvement           Run safe self-improvement loop (one iteration)")
+	fmt.Println("                                         Processes: Class A (read/recommend), Class B (safe write-back)")
 }
 
 func printVersion() {
