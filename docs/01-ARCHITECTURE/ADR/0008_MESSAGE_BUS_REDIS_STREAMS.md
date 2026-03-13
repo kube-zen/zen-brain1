@@ -73,7 +73,7 @@ The `MessageBus` implementation will integrate `zen-sdk/pkg/dedup` at the produc
 
 ### Configuration
 
-- `REDIS_URL` environment variable (default: `redis://localhost:6379`)
+- `REDIS_URL` environment variable (**required**, no default - fails closed if not set when message bus enabled)
 - `MESSAGEBUS_DEDUP_WINDOW_SECONDS` per source (default: 60 seconds)
 - `MESSAGEBUS_MAX_PENDING` per consumer group (default: 1000)
 

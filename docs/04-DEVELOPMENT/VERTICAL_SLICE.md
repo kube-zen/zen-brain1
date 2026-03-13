@@ -178,9 +178,9 @@ ledger:
 
 # ZenContext settings (three-tier memory)
 zen_context:
-  # Tier 1: Hot storage (Redis)
+  # Tier 1: Hot storage (Redis) - REQUIRED for ZenContext when enabled
   tier1_redis:
-    addr: "localhost:6379"
+    addr: "localhost:6379"  # Example: Must be set explicitly, no default
     password: ""
     db: 0
     pool_size: 10
