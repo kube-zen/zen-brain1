@@ -61,6 +61,9 @@ func (c *CockroachLedger) Ping(ctx context.Context) error {
 
 // Record implements TokenRecorder.Record.
 func (c *CockroachLedger) Record(ctx context.Context, record ledger.TokenRecord) error {
+	if c == nil || c.db == nil {
+		return nil // Safe no-op for nil/uninitialized ledger
+	}
 	evidenceClass := ""
 	if record.EvidenceClass != "" {
 		evidenceClass = string(record.EvidenceClass)
@@ -83,6 +86,9 @@ func (c *CockroachLedger) Record(ctx context.Context, record ledger.TokenRecord)
 
 // RecordBatch implements TokenRecorder.RecordBatch.
 func (c *CockroachLedger) RecordBatch(ctx context.Context, records []ledger.TokenRecord) error {
+	if c == nil || c.db == nil {
+		return nil // Safe no-op for nil/uninitialized ledger
+	}
 	for _, r := range records {
 		if err := c.Record(ctx, r); err != nil {
 			return err
@@ -93,6 +99,9 @@ func (c *CockroachLedger) RecordBatch(ctx context.Context, records []ledger.Toke
 
 // GetModelEfficiency implements ZenLedgerClient.GetModelEfficiency.
 func (c *CockroachLedger) GetModelEfficiency(ctx context.Context, projectID string, taskType string) ([]ledger.ModelEfficiency, error) {
+	if c == nil || c.db == nil {
+		return []ledger.ModelEfficiency{}, nil // Return empty slice for nil/uninitialized ledger
+	}
 	query := `
 		SELECT model_id,
 			COALESCE(AVG(cost_usd),0), COALESCE(SUM(tokens_input+tokens_output),0)::INT8,
@@ -122,6 +131,21 @@ func (c *CockroachLedger) GetModelEfficiency(ctx context.Context, projectID stri
 
 // GetCostBudgetStatus implements ZenLedgerClient.GetCostBudgetStatus.
 func (c *CockroachLedger) GetCostBudgetStatus(ctx context.Context, projectID string) (*ledger.BudgetStatus, error) {
+	if c == nil || c.db == nil {
+		now := time.Now()
+		periodStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+		periodEnd := periodStart.AddDate(0, 1, 0)
+		// Return default budget status for nil/uninitialized ledger
+		return &ledger.BudgetStatus{
+			ProjectID:      projectID,
+			PeriodStart:    periodStart,
+			PeriodEnd:      periodEnd,
+			SpentUSD:       0.0,
+			BudgetLimitUSD: 1000.0,
+			RemainingUSD:   1000.0,
+			PercentUsed:    0.0,
+		}, nil
+	}
 	now := time.Now()
 	periodStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
 	periodEnd := periodStart.AddDate(0, 1, 0)
@@ -155,6 +179,9 @@ func (c *CockroachLedger) GetCostBudgetStatus(ctx context.Context, projectID str
 
 // RecordPlannedModelSelection implements ZenLedgerClient.RecordPlannedModelSelection.
 func (c *CockroachLedger) RecordPlannedModelSelection(ctx context.Context, sessionID, taskID, modelID, reason string) error {
+	if c == nil || c.db == nil {
+		return nil // Safe no-op for nil/uninitialized ledger
+	}
 	_, err := c.db.ExecContext(ctx, `INSERT INTO planned_model_selections (session_id, task_id, model_id, reason) VALUES ($1,$2,$3,$4)`,
 		sessionID, taskID, modelID, reason)
 	if err != nil {
