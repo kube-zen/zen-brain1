@@ -64,6 +64,9 @@ tmp/
 .env.local
 .env.*.local
 
+# Jira credentials (ZenLock bridge file for host runtime)
+.zen-brain/jira-credentials.env
+
 # Log files
 *.log
 logs/
