@@ -12,7 +12,7 @@ Zen-Brain is **production ready at ~98% overall completeness** with a trustworth
 | **Operational / deployment completeness** | 94% | Full sandbox path proven: redeploy exits 0, Helmfile converges, foreman/apiserver/ollama-0 Ready, preload succeeds, OLLAMA_BASE_URL on apiserver, health probes passing. Real inference validated. |
 | **Blended overall completeness** | 98% | Production-ready for internal use; documentation alignment completed; final integration tests passing; fresh Go 1.25 build/test/deploy proof validated. Remaining polish: Factory documentation placeholders (intentional), real-path validation for Intelligence (Ollama, QMD, evidence mining). |
 
-**Single source of truth for status:** This matrix, [PROGRESS.md](PROGRESS.md), [RECOMMENDED_NEXT_STEPS.md](RECOMMENDED_NEXT_STEPS.md), and [DEPLOYMENT_VALIDATION.md](../04-DEVELOPMENT/DEPLOYMENT_VALIDATION.md). README Development Status reflects this narrative.
+**Single source of truth for status:** This matrix, [PROGRESS.md](PROGRESS.md), [RECOMMENDED_NEXT_STEPS.md](RECOMMENDED_NEXT_STEPS.md), and [DEPLOYMENT_VALIDATION.md](../04-DEVELOPMENT/DEPLOYMENT_VALIDATION.md). README Development Status reflects this narrative. **Historical snapshots** in `docs/05-OPERATIONS/` are marked with ⚠️ banners.
 
 **Remaining polish:** Factory documentation placeholders (intentional). Real-path validation documented; operational proof pending. See [REAL_PATH_VALIDATION.md](../04-DEVELOPMENT/REAL_PATH_VALIDATION.md) for canonical workflow.
 
