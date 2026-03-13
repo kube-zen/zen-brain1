@@ -1,5 +1,8 @@
 # Session Summary - 2026-03-11 20:30 EDT
 
+> **⚠️ HISTORICAL SNAPSHOT** - This document captures status as of 2026-03-11.  
+> For current status, see README.md and [Completeness Matrix](../01-ARCHITECTURE/COMPLETENESS_MATRIX.md).
+
 ## Work Completed
 
 ### Phase 2: LLM-Powered Code Generation ✅

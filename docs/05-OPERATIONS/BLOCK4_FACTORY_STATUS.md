@@ -1,5 +1,8 @@
 # Block 4 - Factory Hardening Summary
 
+> **⚠️ HISTORICAL SNAPSHOT** - This document captures status as of 2026-03-11.  
+> For current status, see README.md and [Completeness Matrix](../01-ARCHITECTURE/COMPLETENESS_MATRIX.md).
+
 ## Current Status: 92% → 95% (Target)
 
 ---

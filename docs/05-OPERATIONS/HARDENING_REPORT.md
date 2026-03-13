@@ -1,5 +1,8 @@
 # Support-Only Hardening Report (B001/B002/B004)
 
+> **⚠️ HISTORICAL SNAPSHOT** - This document captures status as of 2026-03-10.  
+> For current status, see README.md and [Completeness Matrix](../01-ARCHITECTURE/COMPLETENESS_MATRIX.md).
+
 **Date:** 2026-03-10
 **Scope:** B001 (stub/hardcode), B002 (metrics/observability), B004 (test coverage)
 **Status:** In Progress

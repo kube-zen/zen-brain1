@@ -1,5 +1,8 @@
 # Block 5 - Intelligence Status Report
 
+> **⚠️ HISTORICAL SNAPSHOT** - This document captures status as of 2026-03-11.  
+> For current status, see README.md and [Completeness Matrix](../01-ARCHITECTURE/COMPLETENESS_MATRIX.md).
+
 **Date:** 2026-03-11
 **Status:** 86% → Target 90%+
 **Assessor:** User Assessment

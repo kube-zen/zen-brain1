@@ -1,5 +1,8 @@
 # Block 1 — Neuro-Anatomy Hardening Report
 
+> **⚠️ HISTORICAL SNAPSHOT** - This document captures status as of 2026-03-10.  
+> For current status, see README.md and [Completeness Matrix](../01-ARCHITECTURE/COMPLETENESS_MATRIX.md).
+
 **Date**: 2026-03-10
 **Session**: Block 1 Hardening (95% → 98%)
 **Focus**: Implicit defaults removal, edge-case state transitions, persistence boundaries
