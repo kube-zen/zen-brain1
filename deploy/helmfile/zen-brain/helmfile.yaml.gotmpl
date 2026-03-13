@@ -2,6 +2,12 @@
 # Run: helmfile -e <env> -f deploy/helmfile/zen-brain/helmfile.yaml.gotmpl sync
 # Values: config/clusters.yaml → scripts/zen.py → .artifacts/state/<env>/*-values.yaml
 # Do not use manual kubectl apply or kubectl exec ollama pull in the standard path.
+#
+# IMPORTANT: Ollama deployment model for Zen-Brain 1.0 dev/sandbox
+# - The zen-brain-ollama release below is DISABLED by default in sandbox/dev
+# - Default path: Host Docker Ollama (outside Kubernetes), accessed via host.k3d.internal:11434
+# - In-cluster Ollama: Optional, legacy, experimental — not the default path
+# - See config/clusters.yaml for sandbox use_ollama=false and host_ollama_base_url settings
 ---
 helmDefaults:
   createNamespace: false

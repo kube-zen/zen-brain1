@@ -1,5 +1,11 @@
 # Zen-Brain deployment (Helmfile)
 
+**IMPORTANT: Ollama deployment model for Zen-Brain 1.0 dev/sandbox**
+
+- **Default path:** Host Docker Ollama (outside Kubernetes), accessed via `host.k3d.internal:11434`
+- **In-cluster Ollama:** Optional, legacy, experimental — not the default path
+- **Reasoning:** In-cluster Ollama has shown performance issues; host Docker Ollama provides better GPU passthrough and isolation
+
 **Canonical path:** Helm/Helmfile. No manual `kubectl apply`, `kubectl exec ... ollama pull`, or post-sync patch in the standard flow. The full deployment plane (`deploy/`, `charts/`) is in the repo and included in git archive.
 
 - **Env contract:** `config/clusters.yaml` (includes `k3d.k8s_image` for Kubernetes version, e.g. 1.35.x)

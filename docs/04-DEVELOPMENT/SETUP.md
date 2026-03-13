@@ -102,7 +102,7 @@ This installs:
 - **CockroachDB** (single‑node, insecure) – for ZenLedger and KB metadata.
 - **Redis** – for ZenContext Tier 1.
 - **MinIO** (S3‑compatible) – for object storage (Tier 3, journal backups).
-- **Ollama** – for local LLM models (glm‑4.7, nomic‑embed‑text).
+- **Ollama** – Optional in-cluster path. **Default for dev/sandbox:** Host Docker Ollama (outside Kubernetes), accessed via `host.k3d.internal:11434`. See `deploy/README.md` for details.
 
 ### Verify Cluster
 
@@ -280,7 +280,15 @@ Enable Go modules, Kubernetes plugin.
 
 ### Ollama Model Not Loading
 
-Canonical path: set `deploy.ollama.models` in `config/clusters.yaml` and run `make dev-up` (Helm preload Job pulls them). For emergency manual pull (StatefulSet in zen-brain):
+**For dev/sandbox:** Default is host Docker Ollama (outside Kubernetes), accessed via `host.k3d.internal:11434`. Start/verify Ollama with Docker and pull models manually:
+
+```bash
+docker run -d --gpus all -p 11434:11434 ollama/ollama
+docker exec <ollama-container-id> ollama pull glm-4.7
+docker exec <ollama-container-id> ollama pull nomic-embed-text
+```
+
+**Optional in-cluster path:** If you explicitly enable in-cluster Ollama (not default for dev/sandbox), set `deploy.ollama.models` in `config/clusters.yaml` and run `make dev-up` (Helm preload Job pulls them). For emergency manual pull (StatefulSet in zen-brain):
 
 ```bash
 kubectl exec -it ollama-0 -n zen-brain -- ollama pull glm-4.7
