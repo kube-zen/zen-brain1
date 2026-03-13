@@ -173,3 +173,109 @@ func TestGetOfficeComponentStatus_MessageBusDisabled(t *testing.T) {
 		t.Errorf("MessageBus: expected required=false, got true")
 	}
 }
+
+// TestOfficeComponentStatusMessageClarity ensures component status messages
+// are clear and actionable for operators.
+func TestOfficeComponentStatusMessageClarity(t *testing.T) {
+	tests := []struct {
+		name     string
+		setupEnv func()
+		cleanup  func()
+		config   *config.Config
+		check    func(*testing.T, []ComponentStatus)
+	}{
+		{
+			name: "KB not configured shows guidance",
+			setupEnv: func() {
+				os.Setenv("ZEN_RUNTIME_PROFILE", "dev")
+			},
+			cleanup: func() {
+				os.Unsetenv("ZEN_RUNTIME_PROFILE")
+			},
+			config: &config.Config{
+				KB: config.KBConfig{
+					DocsRepo: "", // explicitly empty to test guidance
+				},
+				QMD: config.QMDConfig{
+					BinaryPath: "", // explicitly empty
+				},
+			},
+			check: func(t *testing.T, statuses []ComponentStatus) {
+				var kbStatus ComponentStatus
+				for _, s := range statuses {
+					if s.Name == "knowledge_base" {
+						kbStatus = s
+						break
+					}
+				}
+
+				if kbStatus.Message == "" {
+					t.Error("KB status message should not be empty")
+				}
+
+				// Message should contain actionable guidance
+				if !containsString(kbStatus.Message, "kb.docs_repo") && !containsString(kbStatus.Message, "ZEN_BRAIN_OFFICE_ALLOW_STUB_KB") {
+					t.Errorf("KB message should contain actionable guidance: %s", kbStatus.Message)
+				}
+			},
+		},
+		{
+			name: "Stub KB opt-in message explicit",
+			setupEnv: func() {
+				os.Setenv("ZEN_RUNTIME_PROFILE", "dev")
+				os.Setenv("ZEN_BRAIN_OFFICE_ALLOW_STUB_KB", "1")
+			},
+			cleanup: func() {
+				os.Unsetenv("ZEN_RUNTIME_PROFILE")
+				os.Unsetenv("ZEN_BRAIN_OFFICE_ALLOW_STUB_KB")
+			},
+			config: &config.Config{
+				KB: config.KBConfig{
+					DocsRepo: "", // empty to force stub when opt-in is set
+				},
+				QMD: config.QMDConfig{
+					BinaryPath: "", // empty
+				},
+			},
+			check: func(t *testing.T, statuses []ComponentStatus) {
+				var kbStatus ComponentStatus
+				for _, s := range statuses {
+					if s.Name == "knowledge_base" {
+						kbStatus = s
+						break
+					}
+				}
+
+				if kbStatus.Mode != ModeStub {
+					t.Errorf("KB should be in stub mode, got %s", kbStatus.Mode)
+				}
+
+				// Message should mention explicit opt-in
+				if !containsString(kbStatus.Message, "ZEN_BRAIN_OFFICE_ALLOW_STUB_KB") {
+					t.Errorf("Stub KB message should mention opt-in env var: %s", kbStatus.Message)
+				}
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			tc.setupEnv()
+			defer tc.cleanup()
+
+			statuses := GetOfficeComponentStatus(tc.config)
+
+			tc.check(t, statuses)
+		})
+	}
+}
+
+// containsString is a helper to check if a string contains a substring
+func containsString(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}
