@@ -4,7 +4,7 @@
 
 ## Executive status (single narrative)
 
-Zen-Brain is **production ready at 100% overall completeness** with a trustworthy internal-use vertical slice. Critical blocks validated, comprehensive test coverage, deployment proven, enhanced intelligence mining with predictive failure analysis.
+Zen-Brain is **production ready at ~98% overall completeness** with a trustworthy internal-use vertical slice. Critical blocks validated, comprehensive test coverage, deployment proven, enhanced intelligence mining with predictive failure analysis.
 
 | Dimension | Score | Notes |
 |-----------|-------|--------|
