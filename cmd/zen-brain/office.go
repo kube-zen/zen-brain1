@@ -135,6 +135,13 @@ func runOfficeDoctor() {
 	credsPresent := jiraConn.Config().APIToken != "" && jiraConn.Config().Email != ""
 	fmt.Printf("Credentials: present=%v\n", credsPresent)
 
+	// Determine connector type (real vs mock)
+	connectorType := "mock"
+	if jiraConn.Config().BaseURL != "" && (strings.HasPrefix(jiraConn.Config().BaseURL, "http://") || strings.HasPrefix(jiraConn.Config().BaseURL, "https://")) {
+		connectorType = "real"
+	}
+	fmt.Printf("Connector: %s (%s)\n", connectorType, jiraConn.Config().BaseURL)
+
 	if err := jiraConn.ValidateConfig(); err != nil {
 		fmt.Printf("ValidateConfig: %v\n", err)
 		return
