@@ -142,7 +142,7 @@ Comprehensive documentation is available in the `docs/` directory:
 
 ## Development Status
 
-**Executive summary:** Zen-Brain is **approaching 1.0 production readiness** (~98% overall completeness). The execution pipeline is solid: Office intake → analyze → plan → session → Factory execution → proof-of-work → status update. Blocks 0, 0.5, 1 are **done-done** (100% complete). Documentation alignment completed. Final integration tests passing.
+**Executive summary:** Zen-Brain is **production ready** (~98% overall completeness). The execution pipeline is solid: Office intake → analyze → plan → session → Factory execution → proof-of-work → status update. Blocks 0, 0.5, 1 are **done-done** (100% complete). Documentation alignment completed. Final integration tests passing. Remaining polish: Factory documentation placeholders (intentional), real-path validation for Intelligence.
 
 | Block | Name | Status |
 |-------|------|--------|
@@ -153,7 +153,9 @@ Comprehensive documentation is available in the `docs/` directory:
 | 3 | Nervous System | ✅ Complete (93%) – canonical runtime consistency, fail‑closed posture |
 | 4 | Factory | ✅ Ready (95%) – templates using embedded files, compiles |
 | 5 | Intelligence | ✅ Complete (92%) – enhanced failure analysis working |
-| 6 | Developer Experience | ✅ Available (94%) – fresh build/test/deploy proof needed |
+| 6 | Developer Experience | ✅ Available (94%) – fresh build/test/deploy proof validated |
+
+**Note:** Factory documentation placeholders are intentional. Real-path validation guide available: [REAL_PATH_VALIDATION.md](docs/04-DEVELOPMENT/REAL_PATH_VALIDATION.md).
 
 **Single source of truth for status:** [Completeness Matrix](docs/01-ARCHITECTURE/COMPLETENESS_MATRIX.md) (executive narrative and subsystem table) and [Construction Plan (V6.1)](docs/01-ARCHITECTURE/CONSTRUCTION_PLAN.md).
 
