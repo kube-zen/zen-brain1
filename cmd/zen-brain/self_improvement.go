@@ -38,12 +38,37 @@ func runSelfImprovementCommand() {
 		StartTime: time.Now(),
 	}
 
-	// Run one iteration of loop
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+	// Track processed tasks to avoid duplicates
+	processedTasks := make(map[string]bool)
+
+	// Run continuous loop for 45-60 minutes (Phase 1)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Minute)
 	defer cancel()
 
-	if err := worker.RunIteration(ctx, metrics); err != nil {
-		log.Printf("Self-improvement iteration failed: %v", err)
+	fmt.Println("[Self-Improvement] Starting continuous loop (60-minute timeout)...")
+
+	// Loop until timeout or no more tasks
+	iterationCount := 0
+	for {
+		iterationCount++
+		fmt.Printf("[Self-Improvement] Iteration %d started...\n", iterationCount)
+
+		if err := worker.RunIteration(ctx, metrics, processedTasks); err != nil {
+			log.Printf("Self-improvement iteration failed: %v", err)
+			break
+		}
+
+		// Check if context is cancelled (timeout)
+		select {
+		case <-ctx.Done():
+			fmt.Println("[Self-Improvement] Timeout reached, stopping loop...")
+			break
+		default:
+			// Continue to next iteration
+		}
+
+		// Small delay between iterations to avoid rapid-fire processing
+		time.Sleep(5 * time.Second)
 	}
 
 	// Generate morning report
@@ -65,10 +90,10 @@ type SelfImprovementWorker struct {
 }
 
 // RunIteration executes one iteration of self-improvement loop
-func (w *SelfImprovementWorker) RunIteration(ctx context.Context, metrics *NightShiftMetrics) error {
+func (w *SelfImprovementWorker) RunIteration(ctx context.Context, metrics *NightShiftMetrics, processedTasks map[string]bool) error {
 	// Step 1: Discover eligible tasks
 	fmt.Println("[1/7] Discovering eligible self-improvement tasks...")
-	tasks, err := w.discoverTasks(ctx)
+	tasks, err := w.discoverTasks(ctx, processedTasks)
 	if err != nil {
 		metrics.TasksDiscovered = 0
 		return fmt.Errorf("failed to discover tasks: %w", err)
@@ -143,11 +168,15 @@ func (w *SelfImprovementWorker) RunIteration(ctx context.Context, metrics *Night
 	fmt.Printf("  Task completed: %s\n", task.ID)
 	metrics.TasksProcessed++
 	metrics.ProcessedTasks = append(metrics.ProcessedTasks, task)
+
+	// Mark task as processed to avoid re-processing in next iteration
+	processedTasks[task.ID] = true
+
 	return nil
 }
 
 // discoverTasks finds eligible self-improvement tasks from Jira
-func (w *SelfImprovementWorker) discoverTasks(ctx context.Context) ([]*SelfImprovementTask, error) {
+func (w *SelfImprovementWorker) discoverTasks(ctx context.Context, processedTasks map[string]bool) ([]*SelfImprovementTask, error) {
 	// Jira discovery query for safe Night Shift work
 	// Filter: zen-brain1 backlog, small, non-critical, self-contained, unblocked, not claimed
 	jql := `project = ZB AND labels = "zen-brain-nightshift" AND status NOT IN ("Done", "Closed", "Blocked") AND priority IN ("Low", "Medium") ORDER BY created ASC`
@@ -171,6 +200,11 @@ func (w *SelfImprovementWorker) discoverTasks(ctx context.Context) ([]*SelfImpro
 		}
 		if claimed {
 			continue // Skip claimed tasks
+		}
+
+		// Skip if already processed
+		if processedTasks[item.ID] {
+			continue
 		}
 
 		// Determine action class based on task content
