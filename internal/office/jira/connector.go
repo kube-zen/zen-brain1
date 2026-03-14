@@ -270,6 +270,119 @@ func (j *JiraOffice) extractCustomFields(fields map[string]interface{}) map[stri
 	return custom
 }
 
+// IsTaskClaimed checks if a task has an active claim comment.
+// Returns true if a recent claim comment exists with an unexpired lease.
+func (j *JiraOffice) IsTaskClaimed(ctx context.Context, clusterID, workItemID string) (bool, error) {
+	jiraKey := extractJiraKey(workItemID)
+
+	// Get comments for this issue
+	path := fmt.Sprintf("/rest/api/3/issue/%s/comment?expand=body", url.PathEscape(jiraKey))
+	resp, err := j.jiraRequest(ctx, "GET", path, nil)
+	if err != nil {
+		return false, fmt.Errorf("failed to get comments: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return false, fmt.Errorf("failed to get comments (status %d): %s", resp.StatusCode, string(body))
+	}
+
+	var comments map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&comments); err != nil {
+		return false, fmt.Errorf("failed to decode comments response: %w", err)
+	}
+
+	commentsData, ok := comments["comments"].([]interface{})
+	if !ok {
+		return false, nil // No comments, not claimed
+	}
+
+	now := time.Now()
+
+	// Look for claim comments with unexpired leases
+	for _, commentData := range commentsData {
+		comment, ok := commentData.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		bodyData, ok := comment["body"].(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		contentData, ok := bodyData["content"].([]interface{})
+		if !ok {
+			continue
+		}
+
+		if len(contentData) == 0 {
+			continue
+		}
+
+		firstPara, ok := contentData[0].(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		paraContent, ok := firstPara["content"].([]interface{})
+		if !ok {
+			continue
+		}
+
+		if len(paraContent) == 0 {
+			continue
+		}
+
+		textData, ok := paraContent[0].(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		text, ok := textData["text"].(string)
+		if !ok {
+			continue
+		}
+
+		// Check if this is a claim comment
+		if !strings.Contains(text, "Claim Information") {
+			continue
+		}
+
+		// Extract lease expiry time from comment
+		leaseLine := "Lease Expires:"
+		leaseIdx := strings.Index(text, leaseLine)
+		if leaseIdx == -1 {
+			continue
+		}
+
+		leaseStart := leaseIdx + len(leaseLine) + 1 // Skip "Lease Expires: "
+		if leaseStart >= len(text) {
+			continue
+		}
+
+		// Find end of timestamp (up to newline)
+		leaseEnd := strings.Index(text[leaseStart:], "\n")
+		if leaseEnd == -1 {
+			continue
+		}
+
+		leaseTimeStr := strings.TrimSpace(text[leaseStart : leaseStart+leaseEnd])
+		leaseTime, err := time.Parse(time.RFC3339, leaseTimeStr)
+		if err != nil {
+			continue // Invalid timestamp, skip
+		}
+
+		// Check if lease is still valid
+		if now.Before(leaseTime) {
+			return true, nil // Task is claimed with valid lease
+		}
+	}
+
+	return false, nil // No active claim found
+}
+
 // Fetch retrieves a work item by ID.
 func (j *JiraOffice) Fetch(ctx context.Context, clusterID, workItemID string) (*contracts.WorkItem, error) {
 	jiraKey := extractJiraKey(workItemID)
@@ -470,6 +583,67 @@ func (j *JiraOffice) AddComment(ctx context.Context, clusterID, workItemID strin
 	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("failed to add comment (status %d): %s", resp.StatusCode, string(body))
+	}
+
+	return nil
+}
+
+// AddClaimComment adds a durable claim comment to a work item with worker metadata.
+// This provides a persistent claim record that survives restarts and prevents duplicate claims.
+func (j *JiraOffice) AddClaimComment(ctx context.Context, clusterID, workItemID string, workerID string, leaseExpires time.Time) error {
+	jiraKey := extractJiraKey(workItemID)
+
+	// Format claim comment with structured metadata
+	claimTime := time.Now().Format(time.RFC3339)
+	leaseTime := leaseExpires.Format(time.RFC3339)
+
+	body := fmt.Sprintf(`**Claim Information**
+
+This task has been claimed by a worker.
+
+- **Worker ID:** %s
+- **Claimed At:** %s
+- **Lease Expires:** %s
+- **Lease Duration:** 30 minutes
+
+If the lease expires and the task is not completed, another worker may claim it.
+`,
+		workerID, claimTime, leaseTime)
+
+	// Prepare Jira comment payload (Atlassian Document Format)
+	payload := map[string]interface{}{
+		"body": map[string]interface{}{
+			"type":    "doc",
+			"version": 1,
+			"content": []interface{}{
+				map[string]interface{}{
+					"type": "paragraph",
+					"content": []interface{}{
+						map[string]interface{}{
+							"type": "text",
+							"text": body,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal claim comment payload: %w", err)
+	}
+
+	path := fmt.Sprintf("/rest/api/3/issue/%s/comment", url.PathEscape(jiraKey))
+	resp, err := j.jiraRequest(ctx, "POST", path, bytes.NewReader(data))
+	if err != nil {
+		return fmt.Errorf("failed to add claim comment: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("failed to add claim comment (status %d): %s", resp.StatusCode, string(body))
 	}
 
 	return nil
