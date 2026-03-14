@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/kube-zen/zen-brain1/internal/office"
+	"github.com/kube-zen/zen-brain1/internal/office/jira"
 	"github.com/kube-zen/zen-brain1/pkg/contracts"
 )
 
@@ -190,13 +191,23 @@ func (w *SelfImprovementWorker) discoverTasks(ctx context.Context, processedTask
 	// Convert to self-improvement tasks
 	var tasks []*SelfImprovementTask
 	for _, item := range items {
-		// Check if already claimed (by checking for worker-claim label in tags)
-		claimed := false
-		for _, tag := range item.Tags.Policy {
-			if tag == "worker-claimed" {
-				claimed = true
-				break
-			}
+		// Check if already claimed using durable claim comments
+		connector, err := w.OfficeMgr.GetConnectorForCluster("default")
+		if err != nil {
+			log.Printf("Warning: failed to get connector for claim check: %v", err)
+			continue
+		}
+
+		jiraConnector, ok := connector.(*jira.JiraOffice)
+		if !ok {
+			log.Printf("Warning: connector is not a Jira office")
+			continue
+		}
+
+		claimed, err := jiraConnector.IsTaskClaimed(ctx, "default", item.ID)
+		if err != nil {
+			log.Printf("Warning: failed to check claim status for %s: %v", item.ID, err)
+			continue
 		}
 		if claimed {
 			continue // Skip claimed tasks
@@ -263,7 +274,7 @@ func (w *SelfImprovementWorker) discoverTasks(ctx context.Context, processedTask
 	return tasks, nil
 }
 
-// claimTask claims one task with lease ownership
+// claimTask claims one task with durable lease via Jira comment
 func (w *SelfImprovementWorker) claimTask(ctx context.Context, tasks []*SelfImprovementTask) (*SelfImprovementTask, error) {
 	if len(tasks) == 0 {
 		return nil, nil
@@ -273,10 +284,23 @@ func (w *SelfImprovementWorker) claimTask(ctx context.Context, tasks []*SelfImpr
 	task := tasks[0]
 	task.WorkerID = w.WorkerID
 	task.ClaimedAt = time.Now()
-	task.LeaseExpires = time.Now().Add(30 * time.Minute) // 30-minute lease
+	leaseExpires := time.Now().Add(30 * time.Minute)
+	task.LeaseExpires = leaseExpires
 
-	// TODO: Add Jira label "worker-claimed" when Jira write-back is implemented
-	// For now, tracking is in-memory only
+	// Add durable claim comment to Jira
+	connector, err := w.OfficeMgr.GetConnectorForCluster("default")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get connector: %w", err)
+	}
+
+	jiraConnector, ok := connector.(*jira.JiraOffice)
+	if !ok {
+		return nil, fmt.Errorf("connector is not a Jira office")
+	}
+
+	if err := jiraConnector.AddClaimComment(ctx, "default", task.ID, w.WorkerID, leaseExpires); err != nil {
+		return nil, fmt.Errorf("failed to add claim comment: %w", err)
+	}
 
 	return task, nil
 }
