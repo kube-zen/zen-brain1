@@ -1,0 +1,169 @@
+// Package apiserver provides REST and WebSocket handlers for TUI and other clients.
+// All business logic (help, commands, status, reports) lives in handlers/server, not here.
+package apiserver
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"time"
+
+	"github.com/kube-zen/zen-brain1/internal/command"
+	"github.com/kube-zen/zen-brain1/internal/planner"
+	"github.com/kube-zen/zen-brain1/internal/session"
+	"github.com/kube-zen/zen-brain1/internal/websocket"
+)
+
+// ChatRequest represents a request to zen-brain chat API
+type ChatRequest struct {
+	Input      string                 `json:"input"`                // Raw user input or command
+	SessionID  string                 `json:"session_id,omitempty"`  // Optional session ID
+	WorkingDir string                 `json:"working_dir,omitempty"`  // Optional working directory
+	ClientID   string                 `json:"client_id,omitempty"`   // Client identity for session attachment
+	ClientType string                 `json:"client_type,omitempty"` // tui, slack, http, websocket
+	Options    map[string]interface{}  `json:"options,omitempty"`    // Additional options
+}
+
+// ChatResponse represents a response from chat API
+type ChatResponse struct {
+	SessionID   string                 `json:"session_id"`
+	Response    string                 `json:"response"`      // Plain text response (for simple clients)
+	Output      string                 `json:"output"`        // Structured output (for advanced clients)
+	Data        interface{}            `json:"data"`          // Arbitrary data for rendering
+	Metadata    map[string]interface{} `json:"metadata,omitempty"`
+	Error       string                 `json:"error,omitempty"`
+	Timestamp   string                 `json:"timestamp"`
+}
+
+// ChatHandler returns an http.Handler that processes chat/commands (server owns all logic).
+// TUI sends raw input, server parses and executes using real Session Manager and Planner.
+func ChatHandler(sessionMgr session.Manager, plannerAgent *planner.Planner, wsHub *websocket.Hub) http.Handler {
+	// Create server-side command parser with real components
+	cmdParser := command.NewParser(sessionMgr, plannerAgent)
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		var req ChatRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "invalid request body", http.StatusBadRequest)
+			return
+		}
+
+		// Parse raw input into command (SERVER-SIDE)
+		cmd := cmdParser.Parse(req.Input)
+
+		// Execute command (SERVER-SIDE) with real components
+		result, err := cmdParser.Execute(r.Context(), cmd)
+		if err != nil {
+			// Return error response
+			resp := ChatResponse{
+				SessionID: req.SessionID,
+				Response:  fmt.Sprintf("Error: %v", err),
+				Error:     err.Error(),
+				Timestamp:  time.Now().Format(time.RFC3339),
+				Metadata: map[string]interface{}{
+					"command":     cmd.Name,
+					"client_type": req.ClientType,
+				},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(resp)
+			return
+		}
+
+		// Build successful response
+		resp := ChatResponse{
+			SessionID: req.SessionID,
+			Response:  result.Response,
+			Output:     result.Response,
+			Metadata: map[string]interface{}{
+				"command":     cmd.Name,
+				"status":      result.Status,
+				"client_type": req.ClientType,
+			},
+			Timestamp: time.Now().Format(time.RFC3339),
+		}
+
+		if result.Error != "" {
+			resp.Error = result.Error
+		}
+
+		// Publish to WebSocket if available
+		if wsHub != nil {
+			wsHub.PublishSessionUpdate(&websocket.SessionUpdate{
+				Type:      "command_executed",
+				SessionID: req.SessionID,
+				Timestamp: time.Now().Format(time.RFC3339),
+				Data: map[string]interface{}{
+					"command": cmd.Name,
+					"result":  result.Response,
+				},
+			})
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(resp)
+	})
+}
+
+// HelpHandler returns an http.Handler that provides help (server-generated).
+func HelpHandler() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet && r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		// For now, redirect to use /help command instead
+		help := map[string]interface{}{
+			"text": "Please use /help command in TUI for help information",
+			"commands": []string{"/help", "/status", "/sessions", "/chat", "/approve", "/reject", "/cancel", "/approvals"},
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(help)
+	})
+}
+
+// StatusHandler returns an http.Handler that provides status (server-generated).
+func StatusHandler(sessionMgr session.Manager) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		// For now, return simple status
+		// Real status is generated by command.Parser via /status command
+		status := map[string]interface{}{
+			"status": "ok",
+			"message": "Use /status command in TUI for detailed status",
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(status)
+	})
+}
+
+// WebSocketHandler returns an http.Handler for WebSocket connections.
+// Clients can connect to receive real-time updates.
+func WebSocketHandler(wsHub *websocket.Hub) http.Handler {
+	if wsHub == nil {
+		// Return 503 if hub not available
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusServiceUnavailable)
+			json.NewEncoder(w).Encode(map[string]string{
+				"error": "WebSocket hub not available",
+			})
+		})
+	}
+
+	return wsHub.Handler()
+}
