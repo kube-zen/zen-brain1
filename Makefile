@@ -1,4 +1,4 @@
-.PHONY: build test clean fmt lint help
+.PHONY: build test clean fmt lint help minimal-config smoke smoke-runtime smoke-office smoke-vertical-slice
 
 # Build variables
 BINARY_NAME := zen-brain
@@ -22,6 +22,35 @@ INTERNAL_DIRS := ./internal/...
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
+
+
+minimal-config: ## Create ~/.zen-brain/config.yaml from minimal template if missing
+	@mkdir -p $(HOME)/.zen-brain
+	@if [ -f $(HOME)/.zen-brain/config.yaml ]; then \
+		echo "Config already exists: $(HOME)/.zen-brain/config.yaml"; \
+	else \
+		cp configs/config.minimal.yaml $(HOME)/.zen-brain/config.yaml; \
+		echo "Created $(HOME)/.zen-brain/config.yaml from configs/config.minimal.yaml"; \
+	fi
+
+smoke-runtime: build ## Run runtime doctor using local/dev defaults
+	./bin/$(BINARY_NAME) runtime doctor
+
+smoke-office: build ## Run office doctor using local/dev defaults
+	./bin/$(BINARY_NAME) office doctor
+
+smoke-vertical-slice: build ## Run the mock vertical slice (no Jira required)
+	./bin/$(BINARY_NAME) vertical-slice --mock
+
+smoke: minimal-config build ## Prove the minimum usable local path
+	@echo "== runtime doctor =="
+	./bin/$(BINARY_NAME) runtime doctor
+	@echo
+	@echo "== office doctor =="
+	./bin/$(BINARY_NAME) office doctor
+	@echo
+	@echo "== mock vertical slice =="
+	./bin/$(BINARY_NAME) vertical-slice --mock
 
 build: ## Build the main binary
 	$(GOBUILD) $(LDFLAGS) -o bin/$(BINARY_NAME) $(CMD_DIR)
