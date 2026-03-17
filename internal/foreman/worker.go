@@ -70,6 +70,7 @@ func (w *Worker) Start(ctx context.Context) {
 				go w.runLoopFrom(ctx, w.queues[idx], idx)
 			}
 		} else {
+			w.queue = make(chan types.NamespacedName, 64)
 			for i := 0; i < w.NumWorkers; i++ {
 				go w.runLoop(ctx, w.queue)
 			}
