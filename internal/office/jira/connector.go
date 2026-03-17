@@ -152,10 +152,20 @@ func New(name, clusterID string, config *Config) (*JiraOffice, error) {
 
 // NewFromEnv creates a JiraOffice from environment variables.
 func NewFromEnv(name, clusterID string) (*JiraOffice, error) {
+	apiToken := os.Getenv("JIRA_API_TOKEN")
+	if apiToken == "" {
+		apiToken = os.Getenv("JIRA_TOKEN")
+	}
+
+	email := os.Getenv("JIRA_EMAIL")
+	if email == "" {
+		email = os.Getenv("JIRA_USERNAME")
+	}
+
 	config := &Config{
 		BaseURL:    os.Getenv("JIRA_URL"),
-		APIToken:   os.Getenv("JIRA_TOKEN"),
-		Email:      os.Getenv("JIRA_EMAIL"),
+		APIToken:   apiToken,
+		Email:      email,
 		ProjectKey: os.Getenv("JIRA_PROJECT_KEY"),
 	}
 
