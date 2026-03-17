@@ -61,3 +61,15 @@ internal/factory/proof_enhanced.go
 internal/analyzer/rich_output.go
 internal/analyzer/block2_improvements.go
 internal/apiserver/runtime_checker.go
+
+# Office layer domain functionality:
+# - action_policy: ActionClass and Action types for office action classification
+#   This is domain-specific to Zen-Brain's office workflow (A/B/C risk levels)
+#   Not an SDK reimplementation - defines action taxonomy for human approval gates
+internal/office/action_policy.go
+
+# Command parsing domain functionality:
+# - parser_v2: Server-side command parser for TUI and other interfaces
+#   This is domain-specific to Zen-Brain's command interface
+#   Not an SDK reimplementation - parses user input into domain commands
+internal/command/parser_v2.go

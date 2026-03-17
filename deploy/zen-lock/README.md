@@ -6,8 +6,8 @@ This directory contains Zen-Lock resources and scripts for canonical Jira creden
 
 | File | Purpose |
 |-------|---------|
-| `generate-jira-secret.sh` | Generate encrypted ZenLock resource for Jira credentials |
-| `load-jira-credentials.sh` | Canonical credential loader for host runtime |
+| `scripts/generate_jira_secret.py` | Generate encrypted ZenLock resource for Jira credentials |
+| `scripts/load_jira_credentials.py` | Canonical credential loader for host runtime |
 | `JIRA_INTEGRATION_RUNBOOK.md` | Single authoritative runbook for Jira setup |
 
 ## Quick Start
@@ -16,7 +16,7 @@ This directory contains Zen-Lock resources and scripts for canonical Jira creden
 
 ```bash
 # 1. Generate encrypted ZenLock resource
-./generate-jira-secret.sh
+python3 scripts/generate_jira_secret.py
 
 # 2. Deploy to cluster
 kubectl apply -f jira-zenlock.yaml
@@ -32,7 +32,7 @@ kubectl apply -f jira-zenlock.yaml
 #    (See JIRA_INTEGRATION_RUNBOOK.md for format)
 
 # 2. Load credentials
-source load-jira-credentials.sh
+python3 scripts/load_jira_credentials.py
 
 # 3. Validate
 ./bin/zen-brain office doctor
@@ -57,7 +57,7 @@ source load-jira-credentials.sh
 
 **Host Runtime:**
 - Credential file at `~/.zen-brain/jira-credentials.env`
-- Loaded via `load-jira-credentials.sh`
+- Loaded via `python3 scripts/load_jira_credentials.py`
 - File is gitignored (not in repo)
 - Mirrors ZenLock structure for consistency
 
@@ -91,7 +91,7 @@ To rotate Jira credentials:
 
 ```bash
 # 1. Regenerate encrypted secret
-./generate-jira-secret.sh
+python3 scripts/generate_jira_secret.py
 
 # 2. Apply updated ZenLock
 kubectl apply -f jira-zenlock.yaml
@@ -107,7 +107,7 @@ kubectl apply -f jira-zenlock.yaml
 vi ~/.zen-brain/jira-credentials.env
 
 # 2. Reload
-source load-jira-credentials.sh
+python3 scripts/load_jira_credentials.py
 
 # 3. Validate
 ./bin/zen-brain office doctor
