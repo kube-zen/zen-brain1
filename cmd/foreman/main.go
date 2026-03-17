@@ -41,6 +41,7 @@ func init() {
 }
 
 func main() {
+	log.Printf("[MAIN] Foreman binary starting")
 	var metricsAddr, probeAddr string
 	var numWorkers int
 	var runtimeDir, workspaceHome string

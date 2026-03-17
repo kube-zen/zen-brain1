@@ -22,6 +22,9 @@ apiserver:
     externalPort: 8080
   # zen-glm: when set, ZEN_GLM_API_KEY is injected from this secret (key: api-key). Secret must exist; create from runtime env only.
   zenGlmSecretName: ""
+  env:
+    - name: ZEN_RUNTIME_PROFILE
+      value: dev
   resources:
     requests:
       memory: "32Mi"
@@ -31,6 +34,9 @@ apiserver:
       cpu: "200m"
 
 foreman:
+  env:
+    - name: ZEN_RUNTIME_PROFILE
+      value: dev
   resources:
     requests:
       memory: "64Mi"

@@ -73,6 +73,10 @@ spec:
               value: "/tmp/zen-brain-factory"
             - name: ZEN_FOREMAN_WORKSPACE_HOME
               value: "/tmp/zen-brain-factory"
+            {{- range .Values.foreman.env }}
+            - name: {{ .name }}
+              value: {{ .value | quote }}
+            {{- end }}
           ports:
             - name: metrics
               containerPort: 8080
