@@ -52,17 +52,34 @@ Zen‑Brain provides intelligent task planning, execution, and evidence collecti
 
 ## Quick Start
 
+### Minimal usable path (recommended first)
+
+This is the shortest path to prove zen-brain1 is actually usable before touching Jira, Redis, S3, or Kubernetes.
+
 ```bash
 # Clone the repository
 git clone git@github.com:kube-zen/zen-brain1.git
 cd zen-brain1
 
-# Build the binary
+# Create runtime home + minimal config
+make minimal-config
+
+# Build the CLI
 make build
 
-# Run locally
-make run
+# Run the minimal smoke path
+make smoke
 ```
+
+What `make smoke` does:
+- runs `zen-brain runtime doctor`
+- runs `zen-brain office doctor`
+- runs `zen-brain vertical-slice --mock`
+
+This path intentionally uses:
+- **mock Jira** (`--mock`)
+
+### Production deployment
 
 **Image build:** The canonical image is built from the **root Dockerfile** (`docker build -t zen-brain:dev .` or `make dev-image` when using k3d).
 
