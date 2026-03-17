@@ -195,6 +195,30 @@ func main() {
 	}
 	worker.Start(ctx)
 
+	// Re-enqueue tasks stuck in Scheduled phase (pod restart recovery)
+	go func() {
+		var taskList v1alpha1.BrainTaskList
+		if err := mgr.GetClient().List(ctx, &taskList); err != nil {
+			log.Printf("Warning: failed to list BrainTasks for re-enqueue: %v", err)
+			return
+		}
+
+		requeued := 0
+		for _, task := range taskList.Items {
+			if task.Status.Phase == v1alpha1.BrainTaskPhaseScheduled {
+				if err := worker.Dispatch(ctx, &task); err != nil {
+					log.Printf("Warning: failed to re-enqueue task %s: %v", task.Name, err)
+					continue
+				}
+				requeued++
+			}
+		}
+
+		if requeued > 0 {
+			log.Printf("Foreman: re-enqueued %d scheduled tasks after startup", requeued)
+		}
+	}()
+
 	var g guardian.ZenGuardian
 	switch *guardianMode {
 	case "log":
