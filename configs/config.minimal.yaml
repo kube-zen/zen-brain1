@@ -1,0 +1,57 @@
+# Zen-Brain 1.0 minimal local config
+# Goal: make the CLI useful locally before enabling real external systems.
+# Copy to ~/.zen-brain/config.yaml or set ZEN_BRAIN_HOME.
+
+home_dir: "~/.zen-brain"
+
+logging:
+  level: "info"
+  format: "text"
+  output: "stdout"
+
+kb:
+  enabled: false
+  docs_repo: ""
+  search_limit: 10
+  required: false
+
+qmd:
+  binary_path: ""
+  refresh_interval: 3600
+
+jira:
+  enabled: false
+  base_url: ""
+  email: ""
+  api_token: "${JIRA_TOKEN}"
+  project_key: "ZEN"
+  status_mapping:
+    "To Do": "requested"
+    "In Progress": "running"
+    "Done": "completed"
+
+sred:
+  enabled: false
+  default_tags:
+    - "experimental_general"
+  evidence_requirement: "summary"
+
+ledger:
+  enabled: false
+  required: false
+
+zen_context:
+  required: false
+  cluster_id: "default"
+  verbose: false
+
+message_bus:
+  enabled: false
+  kind: "redis"
+  stream: "zen-brain.events"
+  required: false
+
+planner:
+  default_model: "glm-4.7"
+  max_cost_per_task: 10.0
+  require_approval: false
