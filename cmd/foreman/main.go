@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"time"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -197,6 +198,9 @@ func main() {
 
 	// Re-enqueue tasks stuck in Scheduled phase (pod restart recovery)
 	go func() {
+		// Wait for cache to be ready before listing tasks
+		time.Sleep(5 * time.Second)
+
 		var taskList v1alpha1.BrainTaskList
 		if err := mgr.GetClient().List(ctx, &taskList); err != nil {
 			log.Printf("Warning: failed to list BrainTasks for re-enqueue: %v", err)
