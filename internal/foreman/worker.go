@@ -56,9 +56,11 @@ func NewWorker(c client.Client, runner TaskRunner, numWorkers int) *Worker {
 // Start begins the worker pool. Call once before Dispatch. Cancels when ctx is done.
 func (w *Worker) Start(ctx context.Context) {
 	w.startOnce.Do(func() {
+		log.Printf("[Worker.Start] starting worker pool (numWorkers=%d, sessionAffinity=%v)", w.NumWorkers, w.SessionAffinity)
 		ctx, cancel := context.WithCancel(ctx)
 		w.stop = cancel
 		if w.SessionAffinity {
+			log.Printf("[Worker.Start] session-affinity mode: creating %d worker channels", w.NumWorkers)
 			w.queues = make([]chan types.NamespacedName, w.NumWorkers)
 			w.sessionToWorker = make(map[string]int)
 			w.workerLoad = make([]int, w.NumWorkers)
@@ -67,15 +69,21 @@ func (w *Worker) Start(ctx context.Context) {
 			}
 			for i := 0; i < w.NumWorkers; i++ {
 				idx := i
+				log.Printf("[Worker.Start] starting worker goroutine %d (session-affinity)", idx)
 				go w.runLoopFrom(ctx, w.queues[idx], idx)
 			}
+			log.Printf("[Worker.Start] all %d session-affinity worker goroutines started", w.NumWorkers)
 		} else {
+			log.Printf("[Worker.Start] round-robin mode: creating shared queue (capacity=64)")
 			w.queue = make(chan types.NamespacedName, 64)
 			for i := 0; i < w.NumWorkers; i++ {
+				log.Printf("[Worker.Start] starting worker goroutine %d (round-robin)", i)
 				go w.runLoop(ctx, w.queue)
 			}
+			log.Printf("[Worker.Start] all %d round-robin worker goroutines started", w.NumWorkers)
 		}
 	})
+	log.Printf("[Worker.Start] worker pool started successfully")
 }
 
 // Stop stops the worker pool (no more Dispatch accepted; in-flight tasks still complete).
@@ -87,25 +95,32 @@ func (w *Worker) Stop() {
 
 // Dispatch implements TaskDispatcher. It enqueues the task for processing by the pool.
 func (w *Worker) Dispatch(ctx context.Context, task *v1alpha1.BrainTask) error {
+	log.Printf("[Worker.Dispatch] dispatching task %s (session=%s, affinity=%v)", task.Name, task.Spec.SessionID, w.SessionAffinity)
 	nn := types.NamespacedName{Namespace: task.Namespace, Name: task.Name}
 	if w.SessionAffinity && w.queues != nil {
 		idx := w.sessionWorkerIndex(task)
 		ch := w.queues[idx]
+		log.Printf("[Worker.Dispatch] session-affinity mode, sending task %s to worker %d (channel depth=%d)", task.Name, idx, len(ch))
 		select {
 		case ch <- nn:
+			log.Printf("[Worker.Dispatch] task %s sent to worker %d channel successfully", task.Name, idx)
 			TasksDispatchedTotal.Inc()
 			w.setQueueDepth()
 			return nil
 		case <-ctx.Done():
+			log.Printf("[Worker.Dispatch] task %s dispatch cancelled (context done)", task.Name)
 			return ctx.Err()
 		}
 	}
+	log.Printf("[Worker.Dispatch] round-robin mode, sending task %s to pool (queue depth=%d)", task.Name, len(w.queue))
 	select {
 	case w.queue <- nn:
+		log.Printf("[Worker.Dispatch] task %s sent to pool queue successfully (queue depth=%d)", task.Name, len(w.queue))
 		TasksDispatchedTotal.Inc()
 		WorkerQueueDepth.Set(float64(len(w.queue)))
 		return nil
 	case <-ctx.Done():
+		log.Printf("[Worker.Dispatch] task %s dispatch cancelled (context done)", task.Name)
 		return ctx.Err()
 	}
 }
@@ -153,14 +168,18 @@ func (w *Worker) clusterID() string {
 }
 
 func (w *Worker) runLoop(ctx context.Context, ch chan types.NamespacedName) {
+	log.Printf("[Worker.runLoop] starting worker goroutine (round-robin mode)")
 	for {
 		select {
 		case <-ctx.Done():
+			log.Printf("[Worker.runLoop] worker goroutine exiting (context done)")
 			return
 		case nn, ok := <-ch:
 			if !ok {
+				log.Printf("[Worker.runLoop] worker goroutine exiting (channel closed)")
 				return
 			}
+			log.Printf("[Worker.runLoop] received task %s from channel (queue depth=%d)", nn.String(), len(ch))
 			WorkerQueueDepth.Set(float64(len(w.queue)))
 			w.processOne(ctx, nn)
 		}
@@ -168,14 +187,18 @@ func (w *Worker) runLoop(ctx context.Context, ch chan types.NamespacedName) {
 }
 
 func (w *Worker) runLoopFrom(ctx context.Context, ch chan types.NamespacedName, workerIdx int) {
+	log.Printf("[Worker.runLoopFrom] starting worker goroutine %d (session-affinity mode)", workerIdx)
 	for {
 		select {
 		case <-ctx.Done():
+			log.Printf("[Worker.runLoopFrom] worker goroutine %d exiting (context done)", workerIdx)
 			return
 		case nn, ok := <-ch:
 			if !ok {
+				log.Printf("[Worker.runLoopFrom] worker goroutine %d exiting (channel closed)", workerIdx)
 				return
 			}
+			log.Printf("[Worker.runLoopFrom] worker %d received task %s from channel (queue depth=%d)", workerIdx, nn.String(), len(ch))
 			w.setQueueDepth()
 			w.processOne(ctx, nn)
 			w.affinityMu.Lock()
@@ -188,17 +211,22 @@ func (w *Worker) runLoopFrom(ctx context.Context, ch chan types.NamespacedName, 
 }
 
 func (w *Worker) processOne(ctx context.Context, nn types.NamespacedName) {
+	log.Printf("[Worker.processOne] processing task %s", nn.String())
 	logger := ctrllog.FromContext(ctx)
 	var task v1alpha1.BrainTask
 	if err := w.Client.Get(ctx, nn, &task); err != nil {
 		if errors.IsNotFound(err) {
+			log.Printf("[Worker.processOne] task %s not found (was deleted)", nn.String())
 			return
 		}
+		log.Printf("[Worker.processOne] error getting task %s: %v", nn.String(), err)
 		logger.Error(err, "get task for execution", "task", nn.String())
 		return
 	}
+	log.Printf("[Worker.processOne] task %s current phase=%s", nn.String(), task.Status.Phase)
 	// Only run if still Scheduled (avoid double-run if reconciler retried).
 	if task.Status.Phase != v1alpha1.BrainTaskPhaseScheduled {
+		log.Printf("[Worker.processOne] task %s not in Scheduled phase (phase=%s), skipping", nn.String(), task.Status.Phase)
 		return
 	}
 
