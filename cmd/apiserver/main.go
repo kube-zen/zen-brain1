@@ -8,7 +8,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"net/http"
 	"os"
 	"os/signal"
 	"strconv"
@@ -151,10 +150,8 @@ func main() {
 		}
 	}
 
-	var rt *runtime.Runtime
 	var report *runtime.RuntimeReport
 	if strictRT != nil {
-		rt = strictRT.Runtime()
 		report = strictRT.Report()
 	}
 	if report != nil {
@@ -182,7 +179,7 @@ func main() {
 
 	srv.Handle("/api/v1/sessions", apiserver.SessionsHandler(nil))
 	srv.Handle("/api/v1/sessions/", apiserver.SessionDetailHandler(nil))
-	srv.Handle("/api/v1/health", apiserver.RuntimeReportHandler(rt.Report))
+	// /api/v1/health registered in setupObservabilityHandlers with tracing middleware
 	srv.Handle("/api/v1/evidence", apiserver.EvidenceHandler(nil))
 
 	// LLM Gateway setup
@@ -325,19 +322,7 @@ func initObservability(ctx context.Context) error {
 
 // setupObservabilityHandlers applies OTEL tracing middleware to HTTP handlers
 func setupObservabilityHandlers(srv *apiserver.Server, report *runtime.RuntimeReport) {
-	// Wrap health and ready endpoints
-	srv.Handle("/healthz", observability.HTTPTracingMiddleware("zen-brain.apiserver", "/healthz")(
-		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			srv.HealthzHandler(w, r)
-		}),
-	))
-	srv.Handle("/readyz", observability.HTTPTracingMiddleware("zen-brain.apiserver", "/readyz")(
-		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			srv.ReadyzHandler(w, r)
-		}),
-	))
-
-	// Wrap API endpoints
+	// Wrap API endpoints (healthz/readyz already registered in Server.New())
 	if report != nil {
 		srv.Handle("/api/v1/health", observability.HTTPTracingMiddleware("zen-brain.apiserver", "/api/v1/health")(
 			apiserver.RuntimeReportHandler(report),

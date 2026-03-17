@@ -55,8 +55,9 @@ func NewWorker(c client.Client, runner TaskRunner, numWorkers int) *Worker {
 
 // Start begins the worker pool. Call once before Dispatch. Cancels when ctx is done.
 func (w *Worker) Start(ctx context.Context) {
+	log.Printf("[Worker.Start] ENTRY - before startOnce")
 	w.startOnce.Do(func() {
-		log.Printf("[Worker.Start] starting worker pool (numWorkers=%d, sessionAffinity=%v)", w.NumWorkers, w.SessionAffinity)
+		log.Printf("[Worker.Start] startOnce function executing (numWorkers=%d, sessionAffinity=%v)", w.NumWorkers, w.SessionAffinity)
 		ctx, cancel := context.WithCancel(ctx)
 		w.stop = cancel
 		if w.SessionAffinity {
@@ -239,11 +240,13 @@ func (w *Worker) processOne(ctx context.Context, nn types.NamespacedName) {
 		return
 	}
 
+	log.Printf("[Worker.processOne] task %s calling Runner.Run()", nn.String())
 	// Execute: use RunWithContext when binder is set and runner supports it (Block 5.3 agent-context binding)
 	var err error
 	var outcome *TaskRunOutcome
 	if w.ContextBinder != nil {
 		if runnerWithCtx, ok := w.Runner.(TaskRunnerWithContext); ok {
+			log.Printf("[Worker.processOne] task %s using RunWithContext (binder set, runner supports it)", nn.String())
 			var sessionCtx *zenctx.SessionContext
 			clusterID := w.clusterID()
 			sessionCtx, _ = w.ContextBinder.GetForContinuation(ctx, clusterID, task.Spec.SessionID, task.Name)
@@ -253,16 +256,21 @@ func (w *Worker) processOne(ctx context.Context, nn types.NamespacedName) {
 				_ = w.ContextBinder.WriteIntermediate(ctx, clusterID, updated)
 			}
 		} else {
+			log.Printf("[Worker.processOne] task %s using Run (binder set but runner doesn't support context)", nn.String())
 			outcome, err = w.Runner.Run(ctx, &task)
 		}
 	} else {
+		log.Printf("[Worker.processOne] task %s using Run (no binder)", nn.String())
 		outcome, err = w.Runner.Run(ctx, &task)
 	}
+	log.Printf("[Worker.processOne] task %s Runner.Run() returned (err=%v, outcome=%v)", nn.String(), err, outcome != nil)
 	if err != nil {
+		log.Printf("[Worker.processOne] task %s execution failed: %v", nn.String(), err)
 		TasksFailedTotal.Inc()
 		task.Status.Phase = v1alpha1.BrainTaskPhaseFailed
 		task.Status.Message = err.Error()
 	} else {
+		log.Printf("[Worker.processOne] task %s execution succeeded, marking Completed", nn.String())
 		TasksCompletedTotal.Inc()
 		task.Status.Phase = v1alpha1.BrainTaskPhaseCompleted
 		task.Status.Message = "Completed"
