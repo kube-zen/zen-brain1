@@ -42,8 +42,7 @@ To add access, edit `allowedSubjects` in the ZenLock resource.
 ### Step 1: Generate ZenLock Resource
 
 ```bash
-cd deploy/zen-lock
-./generate-jira-secret.sh
+python3 scripts/generate_jira_secret.py
 ```
 
 This will:
@@ -98,7 +97,7 @@ JIRA_PROJECT_KEY="ZB"
 ### Step 2: Load Credentials
 
 ```bash
-source deploy/zen-lock/load-jira-credentials.sh
+python3 scripts/load_jira_credentials.py
 ```
 
 This will:
@@ -120,8 +119,7 @@ This will:
 
 ```bash
 # 1. Regenerate encrypted secret
-cd deploy/zen-lock
-./generate-jira-secret.sh
+python3 scripts/generate_jira_secret.py
 
 # 2. Apply updated ZenLock
 kubectl apply -f deploy/zen-lock/jira-zenlock.yaml
@@ -137,7 +135,7 @@ kubectl apply -f deploy/zen-lock/jira-zenlock.yaml
 vi ~/.zen-brain/jira-credentials.env
 
 # 2. Reload
-source deploy/zen-lock/load-jira-credentials.sh
+python3 scripts/load_jira_credentials.py
 
 # 3. Validate
 ./bin/zen-brain office doctor
@@ -168,8 +166,8 @@ kubectl describe zenlock jira-credentials -n zen-brain
 
 **Fix:**
 1. Regenerate keypair: `zen-lock keygen --output ~/.zen-lock/private-key.age`
-2. Re-run: `./generate-jira-secret.sh`
-3. Re-apply: `kubectl apply -f jira-zenlock.yaml`
+2. Re-run: `python3 scripts/generate_jira_secret.py`
+3. Re-apply: `kubectl apply -f deploy/zen-lock/jira-zenlock.yaml`
 
 ### office doctor: Credentials not present
 
@@ -179,7 +177,7 @@ kubectl describe zenlock jira-credentials -n zen-brain
 
 **Host runtime:**
 - Check `~/.zen-brain/jira-credentials.env` exists
-- Run: `source deploy/zen-lock/load-jira-credentials.sh`
+- Run: `python3 scripts/load_jira_credentials.py`
 
 ### office doctor: API reachability failed
 
@@ -229,9 +227,9 @@ Never grant broad access to all service accounts.
 
 | Task | Command |
 |-------|----------|
-| Generate encrypted secret | `./deploy/zen-lock/generate-jira-secret.sh` |
+| Generate encrypted secret | `python3 scripts/generate_jira_secret.py` |
 | Deploy to cluster | `kubectl apply -f deploy/zen-lock/jira-zenlock.yaml` |
-| Load host credentials | `source deploy/zen-lock/load-jira-credentials.sh` |
+| Load host credentials | `python3 scripts/load_jira_credentials.py` |
 | Validate integration | `./bin/zen-brain office doctor` |
 | Check ZenLock status | `kubectl get zenlock jira-credentials -n zen-brain` |
 
