@@ -220,11 +220,6 @@ Examples:
 
 // executeStatus generates status report (server-side, using real components)
 func (p *Parser) executeStatus(ctx context.Context, cmd *Command) (*CommandResult, error) {
-	var detailLevel string
-	if len(cmd.Args) > 0 {
-		detailLevel = cmd.Args[0]
-	}
-
 	// Build status report using real components
 	status := "System Status: OK\n\n"
 
@@ -386,14 +381,17 @@ func (p *Parser) executeChat(ctx context.Context, cmd *Command) (*CommandResult,
 
 	// Create work item from input
 	workItem := &contracts.WorkItem{
-		ID:          fmt.Sprintf("work-%d", time.Now().Unix()),
+		ID:           fmt.Sprintf("work-%d", time.Now().Unix()),
 		Title:        input,
-		Description:   fmt.Sprintf("Chat input from TUI: %s", input),
-		SourceKey:    "tui",
-		Type:         contracts.WorkItemTypeAdHoc,
+		Summary:      fmt.Sprintf("Chat input from TUI: %s", input),
+		Body:         fmt.Sprintf("Chat input from TUI: %s", input),
+		WorkType:     contracts.WorkTypeResearch, // Default to research for chat input
 		Priority:     contracts.PriorityMedium,
 		CreatedAt:    time.Now(),
-		CreatedBy:    "tui-user",
+		UpdatedAt:    time.Now(),
+		Tags: contracts.WorkTags{
+			Routing: []string{"source:tui", "input-type:chat"},
+		},
 	}
 
 	// Process with planner
