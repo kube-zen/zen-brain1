@@ -49,6 +49,27 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		if task.Status.Phase == v1alpha1.BrainTaskPhaseCompleted || task.Status.Phase == v1alpha1.BrainTaskPhaseFailed || task.Status.Phase == v1alpha1.BrainTaskPhaseCanceled {
 			return ctrl.Result{}, nil
 		}
+		// Handle stuck "Running" tasks (worker crashed before updating status)
+		if task.Status.Phase == v1alpha1.BrainTaskPhaseRunning {
+			// Check if task is stale (> 5 minutes in Running without completion)
+			scheduledCondition := findCondition(task.Status.Conditions, "Scheduled")
+			if scheduledCondition != nil {
+				scheduledTime := scheduledCondition.LastTransitionTime.Time
+				staleDuration := time.Since(scheduledTime)
+				if staleDuration > 5*time.Minute {
+					logger.Info("Stale Running task detected, re-dispatching", "task", task.Name, "running_for", staleDuration)
+					if r.Dispatcher != nil {
+						if err := r.Dispatcher.Dispatch(ctx, &task); err != nil {
+							logger.Error(err, "re-dispatch failed for stale task", "task", task.Name)
+							return ctrl.Result{}, err
+						}
+						TasksDispatchedTotal.Inc()
+					}
+					// Re-check in 1 minute
+					return ctrl.Result{RequeueAfter: 1 * time.Minute}, nil
+				}
+			}
+		}
 	}
 
 	// Default phase to Pending if unset
@@ -147,6 +168,16 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 	}
 
 	return ctrl.Result{}, nil
+}
+
+// findCondition finds a condition by type in the conditions slice.
+func findCondition(conditions []metav1.Condition, conditionType string) *metav1.Condition {
+	for i := range conditions {
+		if conditions[i].Type == conditionType {
+			return &conditions[i]
+		}
+	}
+	return nil
 }
 
 // SetupWithManager registers the reconciler with the manager.
