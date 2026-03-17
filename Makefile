@@ -46,6 +46,14 @@ smoke: minimal-config build ## Prove the minimum usable local path
 	@echo "== runtime doctor =="
 	./bin/$(BINARY_NAME) runtime doctor
 	@echo
+
+smoke-jira: build ## Prove real Jira reachability (read-only; requires JIRA_URL, JIRA_API_TOKEN, JIRA_EMAIL, JIRA_PROJECT_KEY)
+	@echo "== checking Jira configuration =="
+	./bin/$(BINARY_NAME) office doctor
+	@echo
+	@echo "== fetching real Jira issue =="
+	./bin/$(BINARY_NAME) office fetch $(JIRA_PROJECT_KEY)-1
+
 	@echo "== office doctor =="
 	./bin/$(BINARY_NAME) office doctor
 	@echo
