@@ -16,7 +16,7 @@ import (
 	"github.com/kube-zen/zen-brain1/internal/runtime"
 	"github.com/kube-zen/zen-brain1/internal/session"
 	"github.com/kube-zen/zen-brain1/internal/websocket"
-	"github.com/kube-zen/zen-brain1/pkg/context" as zenctx
+	zenctx "github.com/kube-zen/zen-brain1/pkg/context"
 	"github.com/kube-zen/zen-brain1/pkg/contracts"
 
 	zenlog "github.com/kube-zen/zen-sdk/pkg/logging"
