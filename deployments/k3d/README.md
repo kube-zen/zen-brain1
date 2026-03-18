@@ -11,7 +11,7 @@ This directory contains Kubernetes manifests for deploying Zen‑Brain on a loca
 
 ## Canonical path (config-driven)
 
-Deployment is driven by **config/clusters.yaml** (127.0.1.x, zen-brain-registry:5001). Single entrypoint: **scripts/zen.py**.
+Deployment is driven by **config/clusters.yaml** (127.0.1.x, zen-brain-registry:5000). Single entrypoint: **scripts/zen.py**.
 
 - **Bring up sandbox (cluster + registry + manifests + image + rollout):**
 

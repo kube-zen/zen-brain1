@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Local registry lifecycle for zen-brain (zen-brain-registry:5001).
+Local registry lifecycle for zen-brain (zen-brain-registry:5000).
 Ensures the registry container exists and is running; does not remove by default.
 """
 from __future__ import annotations

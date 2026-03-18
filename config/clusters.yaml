@@ -3,7 +3,7 @@
 
 registry:
   container_name: zen-brain-registry
-  host_port: 5001
+  host_port: 5000
 
 clusters:
   sandbox:

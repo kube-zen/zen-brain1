@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Single entrypoint for zen-brain deployment lifecycle (hosts, k3d, image, env).
-Config-driven via config/clusters.yaml; uses 127.0.1.x and zen-brain-registry:5001.
+Config-driven via config/clusters.yaml; uses 127.0.1.x and zen-brain-registry:5000.
 """
 from __future__ import annotations
 
@@ -97,7 +97,7 @@ def cmd_env(args: argparse.Namespace) -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Zen-brain deployment CLI (config-driven, 127.0.1.x, zen-brain-registry:5001)",
+        description="Zen-brain deployment CLI (config-driven, 127.0.1.x, zen-brain-registry:5000)",
     )
     parser.add_argument("--config", default=_default_config(), help="Path to config/clusters.yaml")
     sub = parser.add_subparsers(dest="command", required=True)

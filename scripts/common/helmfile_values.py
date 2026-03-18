@@ -51,7 +51,7 @@ def render(env: str, config_path: str | None = None) -> None:
     with open(path, "w", encoding="utf-8") as f:
         yaml.safe_dump(deps_values, f, default_flow_style=False, sort_keys=False)
 
-    # zen-brain (core): use cluster registry ref so k3d image import matches (e.g. zen-brain-registry:5000/zen-brain)
+    # zen-brain (core): use cluster registry ref for shared registry (e.g. zen-brain-registry:5000/zen-brain)
     reg_ref = _config.get_registry_cluster_ref(config_path)
     # Priority: host_ollama_base_url (Docker on host) > k8s ollama > empty
     host_ollama_url = _config.get_deploy_host_ollama_base_url(env, config_path)
