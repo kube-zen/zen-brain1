@@ -63,20 +63,7 @@ def cmd_image(args: argparse.Namespace) -> int:
         registry.cmd_ensure(args.config)
         subprocess.run(["docker", "tag", f"zen-brain:{tag}", f"{reg_host}/zen-brain:{tag}"], check=True, timeout=10)
         subprocess.run(["docker", "push", f"{reg_host}/zen-brain:{tag}"], check=True, timeout=120)
-        block = _config.get_cluster_block(args.env, args.config)
-        k3d_block = block.get("k3d") or {}
-        cluster_name = str(k3d_block.get("cluster_name") or f"zen-brain-{args.env}").strip()
-        reg_ref = _config.get_registry_cluster_ref(args.config)
-        r = subprocess.run(
-            ["k3d", "image", "import", f"{reg_ref}/zen-brain:{tag}", "-c", cluster_name],
-            capture_output=True,
-            text=True,
-            timeout=120,
-        )
-        if r.returncode != 0:
-            print(r.stderr or r.stdout, file=sys.stderr)
-            return 1
-        print(f"Image zen-brain:{tag} loaded into cluster {cluster_name}")
+        print(f"Image zen-brain:{tag} pushed to shared registry {reg_host}")
     return 0
 
 
