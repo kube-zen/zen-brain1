@@ -75,16 +75,21 @@ def render(env: str, config_path: str | None = None) -> None:
         yaml.safe_dump(zen_values, f, default_flow_style=False, sort_keys=False)
 
     # zen-lock: use shared registry path (zen-registry:5000/kubezen/zen-lock)
-    zen_lock_values = {
-        "image": {"repository": f"zen-registry:5000/kubezen/zen-lock", "tag": "0.0.3-alpha", "pullPolicy": "IfNotPresent"},
-        "replicaCount": 1,
-        "controller": {"enabled": True, "replicaCount": 1,
-                     "resources": {"requests": {"cpu": "100m", "memory": "128Mi"},
-                                 "limits": {"cpu": "500m", "memory": "512Mi"}},
-        "webhook": {"enabled": True, "replicaCount": 1,
-                   "resources": {"requests": {"cpu": "100m", "memory": "128Mi"},
-                                 "limits": {"cpu": "500m", "memory": "512Mi"}}}
-    }
+    zen_lock_values = {}
+    zen_lock_values["image"] = {"repository": "zen-registry:5000/kubezen/zen-lock", "tag": "0.0.3-alpha", "pullPolicy": "IfNotPresent"}
+    zen_lock_values["replicaCount"] = 1
+    zen_lock_values["controller"] = {}
+    zen_lock_values["controller"]["enabled"] = True
+    zen_lock_values["controller"]["replicaCount"] = 1
+    zen_lock_values["controller"]["resources"] = {}
+    zen_lock_values["controller"]["resources"]["requests"] = {"cpu": "100m", "memory": "128Mi"}
+    zen_lock_values["controller"]["resources"]["limits"] = {"cpu": "500m", "memory": "512Mi"}
+    zen_lock_values["webhook"] = {}
+    zen_lock_values["webhook"]["enabled"] = True
+    zen_lock_values["webhook"]["replicaCount"] = 1
+    zen_lock_values["webhook"]["resources"] = {}
+    zen_lock_values["webhook"]["resources"]["requests"] = {"cpu": "100m", "memory": "128Mi"}
+    zen_lock_values["webhook"]["resources"]["limits"] = {"cpu": "500m", "memory": "512Mi"}
     zen_lock_path = os.path.join(state_dir, "zen-lock-values.yaml")
     with open(zen_lock_path, "w", encoding="utf-8") as f:
         yaml.safe_dump(zen_lock_values, f, default_flow_style=False, sort_keys=False)
