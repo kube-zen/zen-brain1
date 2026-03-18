@@ -151,6 +151,7 @@ func New(name, clusterID string, config *Config) (*JiraOffice, error) {
 }
 
 // NewFromEnv creates a JiraOffice from environment variables.
+// Note: This method is for compatibility only. Use canonical sources (credentials_dir, credentials_file) via config.
 func NewFromEnv(name, clusterID string) (*JiraOffice, error) {
 	apiToken := os.Getenv("JIRA_API_TOKEN")
 	if apiToken == "" {

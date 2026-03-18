@@ -2,11 +2,13 @@
 package config
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"time"
 
+	"github.com/kube-zen/zen-brain1/internal/secrets"
 	"gopkg.in/yaml.v2"
 )
 
@@ -33,11 +35,11 @@ type Config struct {
 
 // MessageBusConfig holds Block 3 message bus configuration.
 type MessageBusConfig struct {
-	Enabled   bool   `yaml:"enabled"`
-	Kind      string `yaml:"kind"`        // "redis"
-	RedisURL  string `yaml:"redis_url"`
-	Stream    string `yaml:"stream"`
-	Required  bool   `yaml:"required"`
+	Enabled  bool   `yaml:"enabled"`
+	Kind     string `yaml:"kind"` // "redis"
+	RedisURL string `yaml:"redis_url"`
+	Stream   string `yaml:"stream"`
+	Required bool   `yaml:"required"`
 }
 
 // LoggingConfig holds logging configuration.
@@ -63,21 +65,27 @@ type QMDConfig struct {
 
 // JiraConfig holds Jira connector configuration.
 type JiraConfig struct {
-	Enabled   bool              `yaml:"enabled"`
-	BaseURL   string            `yaml:"base_url"`
-	Project   string            `yaml:"project"`    // Legacy; prefer ProjectKey
-	ProjectKey string           `yaml:"project_key"`
-	Username  string            `yaml:"-"`          // From env var
-	APIToken  string            `yaml:"-"`          // From env var
-	Email     string            `yaml:"email"`
-	WebhookURL    string        `yaml:"webhook_url"`
-	WebhookSecret string        `yaml:"webhook_secret"`
-	WebhookPort   int           `yaml:"webhook_port"`
-	WebhookPath   string        `yaml:"webhook_path"`
+	Enabled            bool              `yaml:"enabled"`
+	BaseURL            string            `yaml:"base_url"`
+	Project            string            `yaml:"project"` // Legacy; prefer ProjectKey
+	ProjectKey         string            `yaml:"project_key"`
+	Username           string            `yaml:"-"` // From env var
+	APIToken           string            `yaml:"-"` // From env var
+	Email              string            `yaml:"email"`
+	WebhookURL         string            `yaml:"webhook_url"`
+	WebhookSecret      string            `yaml:"webhook_secret"`
+	WebhookPort        int               `yaml:"webhook_port"`
+	WebhookPath        string            `yaml:"webhook_path"`
 	StatusMapping      map[string]string `yaml:"status_mapping"`
 	WorkTypeMapping    map[string]string `yaml:"worktype_mapping"`
 	PriorityMapping    map[string]string `yaml:"priority_mapping"`
 	CustomFieldMapping map[string]string `yaml:"custom_field_mapping"`
+
+	// Canonical secret source fields
+	CredentialsFile   string `yaml:"credentials_file"`   // Path to host credential file (default: ~/.zen-brain/secrets/jira.yaml)
+	CredentialsDir    string `yaml:"credentials_dir"`    // Path to ZenLock mounted dir (default: /zen-lock/secrets)
+	AllowEnvFallback  bool   `yaml:"allow_env_fallback"` // Allow env vars as fallback (default: false)
+	CredentialsSource string `yaml:"-"`                  // Populated after resolution
 }
 
 // ConfluenceConfig holds Confluence integration configuration.
@@ -198,6 +206,9 @@ func LoadConfig(path string) (*Config, error) {
 	// Load sensitive values from environment variables
 	config.loadFromEnv()
 
+	// Load Jira credentials from canonical sources
+	config.loadJiraCredentials()
+
 	// Set defaults
 	config.setDefaults()
 
@@ -272,6 +283,64 @@ func (c *Config) loadFromEnv() {
 	if c.ZenContext.ClusterID == "" {
 		c.ZenContext.ClusterID = os.Getenv("CLUSTER_ID")
 	}
+
+	// Check for explicit env fallback override
+	if os.Getenv("ZEN_BRAIN_ALLOW_ENV_SECRETS") == "1" {
+		c.Jira.AllowEnvFallback = true
+	}
+}
+
+// loadJiraCredentials resolves Jira credentials from canonical sources.
+// Resolution order: credentials_dir → credentials_file → env fallback (if allowed).
+// Populates BaseURL, Email, APIToken, ProjectKey, and CredentialsSource.
+func (c *Config) loadJiraCredentials() {
+	ctx := context.Background()
+
+	// Check if env fallback is explicitly enabled via env var
+	allowEnvFallback := c.Jira.AllowEnvFallback || os.Getenv("ZEN_BRAIN_ALLOW_ENV_SECRETS") == "1"
+
+	// Set defaults for credential paths
+	if c.Jira.CredentialsFile == "" {
+		c.Jira.CredentialsFile = filepath.Join(HomeDir(), "secrets", "jira.yaml")
+	}
+	if c.Jira.CredentialsDir == "" {
+		c.Jira.CredentialsDir = "/zen-lock/secrets"
+	}
+
+	// Resolve credentials from canonical sources
+	opts := secrets.JiraResolveOptions{
+		DirPath:          c.Jira.CredentialsDir,
+		FilePath:         c.Jira.CredentialsFile,
+		AllowEnvFallback: allowEnvFallback,
+	}
+
+	material, err := secrets.ResolveJira(ctx, opts)
+	if err != nil {
+		// Log warning but don't fail config load
+		// Credentials may not be configured yet
+		c.Jira.CredentialsSource = "error: " + err.Error()
+		return
+	}
+
+	if material != nil {
+		// Only populate fields from material if they're empty
+		// This preserves values from config compatibility (Project -> ProjectKey)
+		if c.Jira.BaseURL == "" {
+			c.Jira.BaseURL = material.BaseURL
+		}
+		if c.Jira.Email == "" {
+			c.Jira.Email = material.Email
+		}
+		if c.Jira.APIToken == "" {
+			c.Jira.APIToken = material.APIToken
+		}
+		// Only set ProjectKey if it's empty AND material has a value
+		// This preserves config compatibility for Project -> ProjectKey
+		if c.Jira.ProjectKey == "" && material.ProjectKey != "" {
+			c.Jira.ProjectKey = material.ProjectKey
+		}
+		c.Jira.CredentialsSource = material.Source
+	}
 }
 
 // setDefaults sets default values for missing configuration.
@@ -298,6 +367,15 @@ func (c *Config) setDefaults() {
 	if c.MessageBus.Stream == "" {
 		c.MessageBus.Stream = "zen-brain.events"
 	}
+
+	// Set default credential paths
+	if c.Jira.CredentialsFile == "" {
+		c.Jira.CredentialsFile = filepath.Join(HomeDir(), "secrets", "jira.yaml")
+	}
+	if c.Jira.CredentialsDir == "" {
+		c.Jira.CredentialsDir = "/zen-lock/secrets"
+	}
+	// AllowEnvFallback defaults to false (already set by struct tag)
 }
 
 // DefaultConfig returns a default configuration.
@@ -327,9 +405,9 @@ func DefaultConfig() *Config {
 			Verbose:   false,
 		},
 		MessageBus: MessageBusConfig{
-			Enabled:  false,
-			Kind:     "redis",
-			Stream:   "zen-brain.events",
+			Enabled: false,
+			Kind:    "redis",
+			Stream:  "zen-brain.events",
 		},
 		Planner: PlannerConfig{
 			DefaultModel:    "glm-4.7",

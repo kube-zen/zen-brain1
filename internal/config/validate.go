@@ -10,18 +10,18 @@ import (
 type ValidationLevel string
 
 const (
-	ValidationLevelStrict    ValidationLevel = "strict"    // Prod: no hardcoded defaults
-	ValidationLevelStandard  ValidationLevel = "standard"  // Staging: minimal defaults
-	ValidationLevelRelaxed   ValidationLevel = "relaxed"   // Dev: allow defaults
+	ValidationLevelStrict   ValidationLevel = "strict"   // Prod: no hardcoded defaults
+	ValidationLevelStandard ValidationLevel = "standard" // Staging: minimal defaults
+	ValidationLevelRelaxed  ValidationLevel = "relaxed"  // Dev: allow defaults
 )
 
 // ValidationMode represents what to validate.
 type ValidationMode string
 
 const (
-	ValidateModeNone      ValidationMode = "none"       // No validation
-	ValidateModeCritical  ValidationMode = "critical"   // Only critical services
-	ValidateModeAll       ValidationMode = "all"        // All services
+	ValidateModeNone     ValidationMode = "none"     // No validation
+	ValidateModeCritical ValidationMode = "critical" // Only critical services
+	ValidateModeAll      ValidationMode = "all"      // All services
 )
 
 // ConfigValidator validates configuration with different strictness levels.
@@ -32,11 +32,11 @@ type ConfigValidator struct {
 
 // ValidationResult contains validation results.
 type ValidationResult struct {
-	Valid       bool                  `json:"valid"`
-	Level       ValidationLevel       `json:"level"`
-	Errors      []ValidationError     `json:"errors"`
-	Warnings    []ValidationWarning   `json:"warnings"`
-	Suggestions []string              `json:"suggestions"`
+	Valid       bool                `json:"valid"`
+	Level       ValidationLevel     `json:"level"`
+	Errors      []ValidationError   `json:"errors"`
+	Warnings    []ValidationWarning `json:"warnings"`
+	Suggestions []string            `json:"suggestions"`
 }
 
 // ValidationError represents a validation error.
@@ -217,12 +217,15 @@ func (v *ConfigValidator) validateServices(cfg *Config, result *ValidationResult
 
 // validateJira validates Jira configuration.
 func (v *ConfigValidator) validateJira(cfg *Config, result *ValidationResult) {
+	if !cfg.Jira.Enabled {
+		return
+	}
+
 	// Base URL required if enabled
 	if cfg.Jira.BaseURL == "" {
-		result.Errors = append(result.Errors, ValidationError{
-			Field:    "jira.base_url",
-			Message:  "jira.base_url required when jira.enabled=true",
-			Severity: "high",
+		result.Warnings = append(result.Warnings, ValidationWarning{
+			Field:   "jira.baseURL",
+			Message: "jira credentials not found in canonical sources (credentials_dir, credentials_file, env)",
 		})
 	} else if v.containsHardcodedLocalhost(cfg.Jira.BaseURL) && v.level == ValidationLevelStrict {
 		result.Warnings = append(result.Warnings, ValidationWarning{
@@ -234,30 +237,46 @@ func (v *ConfigValidator) validateJira(cfg *Config, result *ValidationResult) {
 	// Project key
 	if cfg.Jira.ProjectKey == "" && cfg.Jira.Project == "" {
 		if v.level != ValidationLevelRelaxed {
-			result.Errors = append(result.Errors, ValidationError{
-				Field:    "jira.project_key",
-				Message:  "jira.project_key or jira.project required",
-				Severity: "medium",
+			result.Warnings = append(result.Warnings, ValidationWarning{
+				Field:   "jira.project_key",
+				Message: "jira.project_key or jira.project required",
 			})
 		}
 	}
 
-	// Credentials
-	if cfg.Jira.Email == "" {
-		// Check env vars
-		if os.Getenv("JIRA_EMAIL") == "" && os.Getenv("JIRA_USERNAME") == "" {
+	// Credentials source validation
+	if cfg.Jira.CredentialsSource == "none" || cfg.Jira.CredentialsSource == "" {
+		result.Warnings = append(result.Warnings, ValidationWarning{
+			Field:   "jira.credentials",
+			Message: "no credentials found in credentials_dir, credentials_file, or env (env fallback disabled)",
+		})
+	}
+
+	// Warn if env fallback is enabled
+	if cfg.Jira.AllowEnvFallback {
+		result.Warnings = append(result.Warnings, ValidationWarning{
+			Field:   "jira.allow_env_fallback",
+			Message: "env fallback is enabled - consider using canonical sources (credentials_dir or credentials_file)",
+		})
+	}
+
+	// Validate credential paths exist
+	if cfg.Jira.CredentialsFile != "" {
+		if _, err := os.Stat(cfg.Jira.CredentialsFile); os.IsNotExist(err) {
+			// File doesn't exist, but that's OK if credentials_dir or env are used
 			result.Warnings = append(result.Warnings, ValidationWarning{
-				Field:   "jira.email",
-				Message: "JIRA_EMAIL or JIRA_USERNAME env var not set",
+				Field:   "jira.credentials_file",
+				Message: "credentials_file does not exist (may be OK if using credentials_dir or env)",
 			})
 		}
 	}
 
-	if cfg.Jira.APIToken == "" {
-		if os.Getenv("JIRA_API_TOKEN") == "" && os.Getenv("JIRA_TOKEN") == "" {
+	if cfg.Jira.CredentialsDir != "" {
+		if _, err := os.Stat(cfg.Jira.CredentialsDir); os.IsNotExist(err) {
+			// Dir doesn't exist, but that's OK if credentials_file or env are used
 			result.Warnings = append(result.Warnings, ValidationWarning{
-				Field:   "jira.api_token",
-				Message: "JIRA_API_TOKEN or JIRA_TOKEN env var not set",
+				Field:   "jira.credentials_dir",
+				Message: "credentials_dir does not exist (may be OK if using credentials_file or env)",
 			})
 		}
 	}

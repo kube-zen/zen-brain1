@@ -23,8 +23,12 @@ jira:
   enabled: false
   base_url: ""
   email: ""
-  api_token: "${JIRA_TOKEN}"
+  api_token: ""
   project_key: "ZEN"
+  # Canonical secret sources
+  credentials_dir: "/zen-lock/secrets"  # ZenLock mounted directory
+  credentials_file: "~/.zen-brain/secrets/jira.yaml"  # Host credential file
+  allow_env_fallback: false  # Env vars only allowed if explicitly enabled or ZEN_BRAIN_ALLOW_ENV_SECRETS=1
   status_mapping:
     "To Do": "requested"
     "In Progress": "running"

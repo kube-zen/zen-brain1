@@ -1,4 +1,4 @@
-.PHONY: build test clean fmt lint help minimal-config smoke smoke-runtime smoke-office smoke-vertical-slice
+.PHONY: build test clean fmt lint help minimal-config smoke smoke-runtime smoke-office smoke-vertical-slice jira-install smoke-jira-zenlock
 
 # Build variables
 BINARY_NAME := zen-brain
@@ -59,6 +59,22 @@ smoke-jira: build ## Prove real Jira reachability (read-only; requires JIRA_URL,
 	@echo
 	@echo "== mock vertical slice =="
 	./bin/$(BINARY_NAME) vertical-slice --mock
+
+jira-install: ## Install Jira credentials from input file (requires FILE=/absolute/path/to/jira-input.yaml)
+	@if [ -z "$(FILE)" ]; then \
+		echo "ERROR: FILE= argument required"; \
+		echo "Usage: make jira-install FILE=/absolute/path/to/jira-input.yaml"; \
+		exit 1; \
+	fi
+	@echo "=== Installing Jira credentials ==="
+	@echo "Input file: $(FILE)"
+	python3 scripts/install_jira_credentials.py --input="$(FILE)"
+
+smoke-jira-zenlock: build ## Validate Jira ZenLock integration (real canonical path; may fail until Phase B credentials installed)
+	@echo "=== Jira ZenLock smoke test ==="
+	./bin/$(BINARY_NAME) office doctor
+	@echo
+	./bin/$(BINARY_NAME) office smoke-real
 
 build: ## Build the main binary
 	$(GOBUILD) $(LDFLAGS) -o bin/$(BINARY_NAME) $(CMD_DIR)
