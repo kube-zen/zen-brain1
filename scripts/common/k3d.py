@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 k3d lifecycle for zen-brain: ensure (create) and destroy.
-Reads config/clusters.yaml; uses 127.0.1.x and zen-brain-registry:5001.
+Reads config/clusters.yaml; uses 127.0.1.x and zen-brain-registry:5000.
 """
 from __future__ import annotations
 
