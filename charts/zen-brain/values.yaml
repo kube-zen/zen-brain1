@@ -1,7 +1,7 @@
 # Zen-Brain core. Values driven by config/clusters.yaml (generated) + deploy/values/<env>/zen-brain.yaml
 
 image:
-  repository: zen-brain-registry:5000/zen-brain
+  repository: zen-registry:5000/zen-brain
   tag: dev
   pullPolicy: IfNotPresent
 

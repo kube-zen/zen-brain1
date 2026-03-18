@@ -2,7 +2,8 @@
 # Single canonical source for deployment lifecycle (scripts/zen.py).
 
 registry:
-  container_name: zen-brain-registry
+  # Use shared registry (zen-registry) to match zen-platform model
+  container_name: zen-registry
   host_port: 5000
 
 clusters:
