@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 k3d lifecycle for zen-brain: ensure (create) and destroy.
-Reads config/clusters.yaml; uses 127.0.1.x and zen-brain-registry:5000.
+Reads config/clusters.yaml; uses 127.0.1.x and zen-registry:5000.
+Matches zen-platform's registry model (P305: disable default endpoint, mount registries.yaml).
 """
 from __future__ import annotations
 
@@ -61,9 +62,33 @@ def _cluster_reachable(context_name: str) -> bool:
     return False
 
 
+def _validate_node_registry_config(
+    cluster_name: str, _context_name: str, repo_root: str
+) -> tuple[bool, str]:
+    """Validate that server node has zen-registry:5000 with http in /etc/rancher/k3s/registries.yaml.
+    Returns (True, '') if valid; (False, reason) if invalid or unreadable."""
+    server_container = f"k3d-{cluster_name}-server-0"
+    r = subprocess.run(
+        ["docker", "exec", server_container, "cat", "/etc/rancher/k3s/registries.yaml"],
+        capture_output=True,
+        text=True,
+        timeout=10,
+        cwd=repo_root,
+    )
+    if r.returncode != 0:
+        return False, f"Could not read registries.yaml from node: {r.stderr or r.stdout or 'unknown'}"
+    content = (r.stdout or "").strip()
+    if "zen-registry:5000" not in content:
+        return False, "registries.yaml does not contain zen-registry:5000 mirror/config"
+    if "http://zen-registry:5000" not in content:
+        return False, "registries.yaml does not contain http://zen-registry:5000 (HTTPS↔HTTP mismatch likely)"
+    return True, ""
+
+
 def _get_k3d_config(env: str, config_path: str | None) -> dict:
     block = _config.get_cluster_block(env, config_path)
     k3d_block = block.get("k3d") or {}
+    deploy = block.get("deploy") or {}
     context_name = (block.get("context_name") or f"k3d-zen-brain-{env}").strip()
     cluster_name = str(k3d_block.get("cluster_name") or f"zen-brain-{env}").strip()
     servers = int(k3d_block.get("servers") or 1)
@@ -83,6 +108,8 @@ def _get_k3d_config(env: str, config_path: str | None) -> dict:
     if not api_port or not http_port or not https_port:
         raise ValueError(f"clusters.{env}.k3d: api_port and lb_ports.http/https required")
     k8s_image = _config.get_k3d_k8s_image(env, config_path)
+    # Registry host alias support (P305: use zen-registry, not zen-brain-registry)
+    registry_use_host_alias = deploy.get("registry_use_host_alias", True)
     return {
         "cluster_name": cluster_name,
         "context_name": context_name,
@@ -95,6 +122,7 @@ def _get_k3d_config(env: str, config_path: str | None) -> dict:
         "disable": disable,
         "env_ip": (block.get("env_ip") or "").strip(),
         "k8s_image": k8s_image,
+        "registry_use_host_alias": bool(registry_use_host_alias),
     }
 
 
@@ -111,7 +139,6 @@ def _ensure_prereqs() -> None:
 def _create_cluster(cfg: dict, config_path: str | None, repo_root: str) -> None:
     cluster_name = cfg["cluster_name"]
     context_name = cfg["context_name"]
-    reg_container = _config.get_registry_container_name(config_path)
 
     def parse_port(p: str) -> tuple[str, str]:
         parts = (p or "").split(":")
@@ -138,25 +165,51 @@ def _create_cluster(cfg: dict, config_path: str | None, repo_root: str) -> None:
         args += ["--port", f"{apiserver_spec}:{apiserver_svc}@loadbalancer"]
     for d in cfg["disable"]:
         args += ["--k3s-arg", f"--disable={d}@server:*"]
-    # Use external registry only after create: connect to k3d network (below).
-    # --registry-use requires a k3d-managed registry; our registry is standalone.
+    # P305: Host alias for zen-registry (resolves zen-registry to docker bridge gateway)
+    if cfg.get("registry_use_host_alias", True):
+        r = subprocess.run(
+            ["docker", "network", "inspect", "bridge", "--format", "{{range .IPAM.Config}}{{.Gateway}}{{end}}"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        gateway = (r.stdout or "").strip() or "172.17.0.1"
+        args += ["--host-alias", f"{gateway}:zen-registry"]
+    # P305: Mount config/registries.yaml into the node
+    registries = os.path.join(repo_root, "config", "registries.yaml")
+    if os.path.isfile(registries):
+        args += ["--volume", f"{os.path.abspath(registries)}:/etc/rancher/k3s/registries.yaml"]
+    # P305: Disable containerd's default HTTPS endpoint for zen-registry (use mirror HTTP only)
+    args += [
+        "--k3s-arg", "--disable-default-registry-endpoint@server:*",
+        "--k3s-arg", "--disable-default-registry-endpoint@agent:*",
+    ]
     if cfg["servers"] == 1:
         args += ["--k3s-arg", "--cluster-init@server:*"]
-    args += ["--wait", "--timeout", "120s"]
+    args += ["--runtime-ulimit", "nofile=1048576:1048576", "--wait", "--timeout", "180s"]
 
     _log("Creating k3d cluster...")
-    r = subprocess.run(args, capture_output=True, text=True, timeout=140, cwd=repo_root)
+    r = subprocess.run(args, capture_output=True, text=True, timeout=200, cwd=repo_root)
     if r.returncode != 0:
         _err(r.stderr or r.stdout or "k3d create failed")
         sys.exit(1)
 
+    # P305: Connect zen-registry to k3d network with alias (shared registry)
     network = f"k3d-{cluster_name}"
-    subprocess.run(
-        ["docker", "network", "connect", "--alias", reg_container, network, reg_container],
+    r = subprocess.run(
+        ["docker", "ps", "-q", "-f", "name=zen-registry"],
         capture_output=True,
-        timeout=10,
+        text=True,
+        timeout=5,
     )
+    if r.returncode == 0 and r.stdout.strip():
+        subprocess.run(
+            ["docker", "network", "connect", "--alias", "zen-registry", network, "zen-registry"],
+            capture_output=True,
+            timeout=10,
+        )
 
+    # Rename context if needed
     k3d_context = f"k3d-{cluster_name}"
     if context_name != k3d_context:
         subprocess.run(
@@ -204,7 +257,17 @@ def cmd_ensure(env: str, config_path: str | None, force_recreate: bool) -> int:
             subprocess.run(["k3d", "cluster", "delete", cluster_name], capture_output=True, timeout=60)
             time.sleep(2)
         elif _cluster_reachable(context_name):
-            _log("Cluster already available and reachable.")
+            # P305: Validate node-side registry config
+            valid, reason = _validate_node_registry_config(cluster_name, context_name, repo_root)
+            if not valid:
+                _err("Cluster is reachable but node registry config is invalid or stale: " + reason)
+                _err(
+                    "Remediation: Recreate cluster via `python3 scripts/zen env redeploy --env "
+                    + env
+                    + " --force-recreate`, or repair /etc/rancher/k3s/registries.yaml on nodes."
+                )
+                return 1
+            _log("Cluster already available and reachable (registry config validated).")
             subprocess.run(["kubectl", "config", "use-context", context_name], check=False, capture_output=True)
             return 0
         else:

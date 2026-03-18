@@ -97,8 +97,10 @@ def get_registry_host_ref(config_path: str | None = None) -> str:
 
 
 def get_registry_cluster_ref(config_path: str | None = None) -> str:
-    """Registry ref as seen from inside cluster (container_name:port). Container listens on 5000. Shared registry on :5000."""
-    return f"{get_registry_container_name(config_path)}:5000"
+    """Registry ref as seen from inside cluster. Uses zen-registry:5000 (shared with zen-platform)."""
+    # IMPORTANT: Use zen-registry:5000 (not zen-brain-registry:5000) to match zen-platform
+    # and allow containerd mirror config to work correctly.
+    return "zen-registry:5000"
 
 
 def get_hosts_manage(env: str, config_path: str | None = None) -> bool:
