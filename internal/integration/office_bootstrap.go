@@ -11,6 +11,7 @@ import (
 
 // BuildJiraConfig builds jira.Config from application config.
 // If cfg.Jira.ProjectKey is empty and cfg.Jira.Project is set, Project is used as ProjectKey.
+// Credentials should already be resolved from canonical sources in config.loadJiraCredentials().
 func BuildJiraConfig(cfg *config.Config) *jira.Config {
 	if cfg == nil || !cfg.Jira.Enabled {
 		return nil
