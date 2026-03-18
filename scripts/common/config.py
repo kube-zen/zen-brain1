@@ -88,7 +88,7 @@ def get_registry_host_port(config_path: str | None = None) -> int:
     reg = root.get("registry")
     if isinstance(reg, dict) and reg.get("host_port") is not None:
         return int(reg["host_port"])
-    return 5001
+    return 5000
 
 
 def get_registry_host_ref(config_path: str | None = None) -> str:
