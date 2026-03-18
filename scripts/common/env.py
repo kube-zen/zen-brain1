@@ -31,7 +31,7 @@ def _err(msg: str) -> None:
     print(msg, file=sys.stderr, flush=True)
 
 
-def _run(cmd: list[str], check: bool = True, capture: bool = False, timeout: int = 120, cwd: str | None = None) -> subprocess.CompletedProcess:
+def _run(cmd: list, check: bool = True, capture: bool = False, timeout: int = 120, cwd: str | None = None, shell: bool = False) -> subprocess.CompletedProcess:
     return subprocess.run(
         cmd,
         check=check,
@@ -39,6 +39,7 @@ def _run(cmd: list[str], check: bool = True, capture: bool = False, timeout: int
         text=True,
         timeout=timeout,
         cwd=cwd or _repo_root(),
+        shell=shell,
     )
 
 
@@ -51,12 +52,28 @@ def _cluster_exists(cluster_name: str) -> bool:
 
 
 def _ensure_namespaces(context_name: str) -> None:
-    """Ensure zen-brain and zen-context namespaces exist (for createNamespace: false)."""
-    for ns in ("zen-brain", "zen-context"):
-        r = _kubectl(["get", "namespace", ns], context_name, capture=True, timeout=10)
+    """Ensure zen-brain, zen-context, and zen-lock-system namespaces exist (for createNamespace: false)."""
+    for ns in ("zen-brain", "zen-context", "zen-lock-system"):
+        r = subprocess.run(
+            ["kubectl", "--context", context_name, "get", "namespace", ns],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False
+        )
         if r.returncode != 0:
-            _kubectl(["create", "namespace", ns], context_name, timeout=10)
+            create = subprocess.run(
+                ["kubectl", "--context", context_name, "create", "namespace", ns],
+                capture_output=True,
+                text=True,
+                timeout=10,
+                check=False
+            )
+            if create.returncode != 0:
+                _err(create.stderr or f"Failed to create namespace {ns}")
+                raise RuntimeError(f"Failed to create namespace {ns}")
             _log(f"Created namespace {ns}")
+
 
 
 def _ensure_zen_glm_secret(context_name: str, config_path: str | None, env: str) -> None:
@@ -100,30 +117,30 @@ def _ensure_zen_lock_secret(context_name: str, config_path: str | None) -> None:
         return
     secret_name = "zen-lock-master-key"
     namespace = "zen-lock-system"
+    
+    check = subprocess.run(
+        ["kubectl", "--context", context_name, "get", "secret", secret_name, "-n", namespace],
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=False
+    )
+    if check.returncode == 0:
+        _log(f"Zen-lock secret '{secret_name}' already exists")
+        return
+    
     create = subprocess.run(
         ["kubectl", "--context", context_name, "create", "secret", "generic", secret_name,
-         "-n", namespace, "--from-file=key.txt=" + private_key_path,
-         "--dry-run=client", "-o", "yaml"],
+         "-n", namespace, "--from-literal=key.txt=" + private_key_path],
         capture_output=True,
         text=True,
         timeout=15,
-        cwd=_repo_root(),
+        check=False
     )
     if create.returncode != 0:
         _err(create.stderr or f"Zen-lock secret creation failed")
         raise RuntimeError("zen-lock secret creation failed")
-    apply = subprocess.run(
-        ["kubectl", "--context", context_name, "apply", "-f", "-"],
-        input=create.stdout,
-        capture_output=True,
-        text=True,
-        timeout=15,
-        cwd=_repo_root(),
-    )
-    if apply.returncode != 0:
-        _err(apply.stderr or "kubectl apply secret failed")
-        raise RuntimeError("zen-lock secret apply failed")
-    _log(f"Zen-lock secret '{secret_name}' created/updated from {private_key_path}")
+    _log(f"Zen-lock secret '{secret_name}' created from {private_key_path}")
 
 
 def _run_helmfile(env: str, config_path: str | None, context_name: str, skip_ollama: bool = False) -> None:
