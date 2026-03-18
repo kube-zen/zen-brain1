@@ -5,37 +5,42 @@ This directory contains Zen-Lock resources and scripts for canonical Jira creden
 ## Files
 
 | File | Purpose |
-|-------|---------|
-| `scripts/generate_jira_secret.py` | Generate encrypted ZenLock resource for Jira credentials |
-| `scripts/load_jira_credentials.py` | Canonical credential loader for host runtime |
+|------|---------|
+| `jira-credentials.zenlock.yaml` | Encrypted ZenLock resource for Jira credentials (generated) |
+| `install_jira_credentials.py` | Non-interactive installer for Jira credentials |
 | `JIRA_INTEGRATION_RUNBOOK.md` | Single authoritative runbook for Jira setup |
 
 ## Quick Start
 
-### Kubernetes Runtime
+### Kubernetes Runtime (In-Cluster)
 
 ```bash
-# 1. Generate encrypted ZenLock resource
-python3 scripts/generate_jira_secret.py
+# 1. Install Jira credentials
+make jira-install FILE=/absolute/path/to/jira-input.yaml
 
-# 2. Deploy to cluster
-kubectl apply -f jira-zenlock.yaml
+# 2. Deploy ZenLock resource to cluster
+kubectl apply -f deploy/zen-lock/jira-credentials.zenlock.yaml
 
-# 3. Validate
+# 3. Enable foreman Zen-Lock injection (optional)
+# Set foreman.jiraZenLock.enabled=true in Helm values
+# OR uncomment annotations in deployments/k3d/foreman.yaml
+
+# 4. Validate
 ./bin/zen-brain office doctor
 ```
 
-### Host Runtime
+### Host Runtime (Local)
 
 ```bash
-# 1. Create credential file at ~/.zen-brain/jira-credentials.env
-#    (See JIRA_INTEGRATION_RUNBOOK.md for format)
+# 1. Create credential input file
+# (See JIRA_INTEGRATION_RUNBOOK.md for format)
 
-# 2. Load credentials
-python3 scripts/load_jira_credentials.py
+# 2. Install credentials
+make jira-install FILE=/absolute/path/to/jira-input.yaml
 
 # 3. Validate
 ./bin/zen-brain office doctor
+./bin/zen-brain office smoke-real
 ```
 
 ## Architecture
@@ -49,65 +54,69 @@ python3 scripts/load_jira_credentials.py
 
 ### Runtime Delivery
 
-**Kubernetes:**
+**Kubernetes (In-Cluster)**
 - ZenLock controller decrypts at Pod admission
 - Creates ephemeral Kubernetes Secret
-- Env vars injected into Pod
+- Mounts to `/zen-lock/secrets` in Pod
 - Restricted to specific ServiceAccounts via AllowedSubjects
+- **Consumer:** foreman (optional, opt-in via values/manifests)
 
-**Host Runtime:**
-- Credential file at `~/.zen-brain/jira-credentials.env`
-- Loaded via `python3 scripts/load_jira_credentials.py`
+**Host Runtime (Local)**
+- Credential file at `~/.zen-brain/secrets/jira.yaml`
+- Loaded via canonical credential resolver in `internal/config`
 - File is gitignored (not in repo)
 - Mirrors ZenLock structure for consistency
 
 ### Access Control
 
 Allowed ServiceAccounts:
-- `zb-nightshift-sa` - Night-shift worker
-- `zb-reporter-sa` - Reporter worker
-- `zb-planner-sa` - Planner worker
+- `foreman` - Foreman controller (zen-brain namespace)
 
-Only these SAs can access Jira credentials. See `JIRA_INTEGRATION_RUNBOOK.md` for how to add more.
+Only these SAs can access Jira credentials. See `jira-credentials.zenlock.yaml` for current allowedSubjects.
+
+## Credential Paths
+
+### Local Host Path
+```
+~/.zen-brain/secrets/jira.yaml
+```
+- Format: stringData with JIRA_URL, JIRA_EMAIL, JIRA_API_TOKEN, JIRA_PROJECT_KEY
+- Mode: 0600
+- Source: host-file
+
+### In-Cluster Path
+```
+Mount path: /zen-lock/secrets
+Consumer: foreman pod (opt-in via foreman.jiraZenLock.enabled=true)
+Secret manifest: deploy/zen-lock/jira-credentials.zenlock.yaml
+```
+- Format: encrypted YAML (ZenLock CRD)
+- Source: zenlock-dir
 
 ## Validation
 
 Always validate after setup:
 
 ```bash
-# Check ZenLock status (Kubernetes only)
-kubectl get zenlock jira-credentials -n zen-brain
-
-# Validate Jira integration
+# Local validation
 ./bin/zen-brain office doctor
-./bin/zen-brain office fetch ZB-XXX
+./bin/zen-brain office smoke-real
+
+# In-cluster validation (once deployed)
+kubectl get zenlock jira-credentials -n zen-brain
+./bin/zen-brain office doctor
 ```
 
 ## Rotation
 
 To rotate Jira credentials:
 
-### Kubernetes Runtime
-
 ```bash
 # 1. Regenerate encrypted secret
-python3 scripts/generate_jira_secret.py
+make jira-install FILE=/absolute/path/to/jira-input.yaml
 
 # 2. Apply updated ZenLock
-kubectl apply -f jira-zenlock.yaml
-
-# 3. Validate
-./bin/zen-brain office doctor
-```
-
-### Host Runtime
-
-```bash
-# 1. Edit credential file
-vi ~/.zen-brain/jira-credentials.env
-
-# 2. Reload
-python3 scripts/load_jira_credentials.py
+kubectl apply -f deploy/zen-lock/jira-credentials.zenlock.yaml
 
 # 3. Validate
 ./bin/zen-brain office doctor
@@ -119,6 +128,7 @@ python3 scripts/load_jira_credentials.py
 - **Ephemeral:** Secrets exist only in Pod memory
 - **RBAC-Bound:** Access restricted to specific ServiceAccounts
 - **GitOps-Safe:** Encrypted manifests can be committed
+- **Optional In-Cluster:** Foreman injection is opt-in, disabled by default
 
 ## Troubleshooting
 
