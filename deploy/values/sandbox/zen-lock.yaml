@@ -4,6 +4,7 @@ controller:
     mode: builtin
 
 webhook:
+  enabled: true
   replicaCount: 1
   certManager:
     enabled: false
