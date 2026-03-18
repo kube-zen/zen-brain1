@@ -1,0 +1,35 @@
+# Zen-Lock values for sandbox environment
+# Uses shared registry :5000 and dev-safe settings
+
+replicaCount: 1
+
+image:
+  repository: zen-registry:5000/kubezen/zen-lock
+  pullPolicy: IfNotPresent
+  tag: 0.0.3-alpha
+
+# Controller configuration
+controller:
+  enabled: true
+  replicaCount: 1
+  serviceAccount:
+    create: true
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# Webhook configuration
+webhook:
+  enabled: true
+  replicaCount: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi

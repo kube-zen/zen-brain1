@@ -56,6 +56,7 @@ def render(env: str, config_path: str | None = None) -> None:
     # Priority: host_ollama_base_url (Docker on host) > k8s ollama > empty
     host_ollama_url = _config.get_deploy_host_ollama_base_url(env, config_path)
     ollama_base_url = host_ollama_url or ("" if use_zen_glm else ("http://ollama:11434" if use_ollama else ""))
+    apiserver_port = _config.get_deploy_apiserver_external_port(env, config_path)
     apiserver_extra = {
         "service": {"type": "LoadBalancer", "externalPort": apiserver_port},
         "env": [{"name": "ZEN_RUNTIME_PROFILE", "value": "dev"}]
@@ -65,14 +66,28 @@ def render(env: str, config_path: str | None = None) -> None:
     foreman_extra = {"env": [{"name": "ZEN_RUNTIME_PROFILE", "value": "dev"}]}
     zen_values = {
         "image": {"repository": f"{reg_ref}/zen-brain", "tag": tag, "pullPolicy": "IfNotPresent"},
-        # Sandbox CPU: one chat can exceed 30min on slow host; use 3600 so one proof succeeds (port-forward required; LB closes at 600s)
-    "ollama": {"baseUrl": ollama_base_url, "timeoutSeconds": 3600},
+        "ollama": {"baseUrl": ollama_base_url, "timeoutSeconds": 3600},
         "apiserver": apiserver_extra,
         "foreman": foreman_extra,
     }
     path = os.path.join(state_dir, "zen-brain-values.yaml")
     with open(path, "w", encoding="utf-8") as f:
         yaml.safe_dump(zen_values, f, default_flow_style=False, sort_keys=False)
+
+    # zen-lock: use shared registry path (zen-registry:5000/kubezen/zen-lock)
+    zen_lock_values = {
+        "image": {"repository": f"zen-registry:5000/kubezen/zen-lock", "tag": "0.0.3-alpha", "pullPolicy": "IfNotPresent"},
+        "replicaCount": 1,
+        "controller": {"enabled": True, "replicaCount": 1,
+                     "resources": {"requests": {"cpu": "100m", "memory": "128Mi"},
+                                 "limits": {"cpu": "500m", "memory": "512Mi"}},
+        "webhook": {"enabled": True, "replicaCount": 1,
+                   "resources": {"requests": {"cpu": "100m", "memory": "128Mi"},
+                                 "limits": {"cpu": "500m", "memory": "512Mi"}}}
+    }
+    zen_lock_path = os.path.join(state_dir, "zen-lock-values.yaml")
+    with open(zen_lock_path, "w", encoding="utf-8") as f:
+        yaml.safe_dump(zen_lock_values, f, default_flow_style=False, sort_keys=False)
 
     # zen-brain-ollama: full contract (StatefulSet, VPA Initial, keepAlive, etc.)
     ollama_values = {
