@@ -34,10 +34,10 @@ Deployment is driven by **config/clusters.yaml** (127.0.1.x, zen-brain-registry:
   ```
 
 - **Build and load image only (cluster already up):**
-
-  ```bash
+- ```bash
   make dev-image
   ```
+- **Note:** Use shared registry :5000 instead of k3d image import. The canonical deployment path uses registry container pull.
   or:
   ```bash
   python3 scripts/zen.py image build --env sandbox
