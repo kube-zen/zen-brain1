@@ -138,7 +138,7 @@ db-reset: db-down db-up ## Reset database (stop, remove, start)
 	@echo "Database reset complete"
 
 ## k3d cluster development (Block 6)
-## Canonical path: config/clusters.yaml + scripts/zen.py (127.0.1.x, zen-brain-registry:5001).
+## Canonical path: config/clusters.yaml + scripts/zen.py (127.0.1.x, zen-brain-registry:5000).
 ## Override env: make dev-up ZEN_DEV_ENV=staging
 
 ZEN_DEV_ENV ?= sandbox

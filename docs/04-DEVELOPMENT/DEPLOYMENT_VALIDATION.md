@@ -49,10 +49,10 @@ If this passes cleanly, the canonical path is validated and Block 6 / overall co
 ### Fixes applied during validation
 
 1. **k3d + external registry** – Cluster create was failing with “container not managed by k3d”. Stopped passing `--registry-use` for the standalone registry; cluster is created and the registry container is attached to the k3d network after create.
-2. **k3d image import** – Image is now tagged on the host as `zen-brain-registry:5000/zen-brain:dev` before `k3d image import` so the cluster can load it.
+ 2. **Shared registry** – Image is pushed to shared registry `zen-brain-registry:5000` and cluster pulls from registry (no k3d image import needed).
 3. **Helmfile** – Dropped cross-namespace `needs` (order-only: crds → dependencies → ollama → core). Set `helmDefaults.createNamespace: false` and ensured namespaces are created by the redeploy script before sync. Removed `templates/namespace.yaml` from zen-brain and zen-brain-dependencies charts to avoid Helm namespace ownership conflicts.
 4. **zen-brain-crds** – Chart type changed from `library` to `application` so Helm can install it.
-5. **Redeploy script** – Helmfile is run with `--kube-context <context_name>` so sync targets the correct cluster. Namespaces `zen-brain` and `zen-context` are created if missing before sync. Core image repository in generated values uses cluster registry ref (`zen-brain-registry:5000/zen-brain`) so deployments pull the same image that was imported.
+ 5. **Redeploy script** – Helmfile is run with `--kube-context <context_name>` so sync targets the correct cluster. Namespaces `zen-brain` and `zen-context` are created if missing before sync. Core image repository in generated values uses cluster registry ref (`zen-brain-registry:5000/zen-brain`) so deployments pull from shared registry.
 
 ### Checklist results
 

@@ -117,23 +117,15 @@ def _build_and_load_image(env: str, config_path: str | None, build: bool) -> Non
     root = _repo_root()
     tag = _config.get_zen_brain_tag(env, config_path)
     reg_host = _config.get_registry_host_ref(config_path)
-    reg_ref = _config.get_registry_cluster_ref(config_path)
     image_local = f"zen-brain:{tag}"
     image_reg = f"{reg_host}/zen-brain:{tag}"
     if build:
         _log("Building zen-brain image...")
         _run(["docker", "build", "-t", image_local, "."], timeout=600, cwd=root)
-    _log("Tagging and pushing to local registry...")
+    _log("Tagging and pushing to shared registry...")
     _run(["docker", "tag", image_local, image_reg], timeout=10)
     _run(["docker", "push", image_reg], timeout=120)
-    # Tag for k3d image import (host must have image under cluster ref name)
-    _run(["docker", "tag", image_local, f"{reg_ref}/zen-brain:{tag}"], timeout=10)
-    block = _config.get_cluster_block(env, config_path)
-    context_name = (block.get("context_name") or f"k3d-zen-brain-{env}").strip()
-    k3d_block = block.get("k3d") or {}
-    cluster_name = str(k3d_block.get("cluster_name") or f"zen-brain-{env}").strip()
-    _log("Importing image into k3d cluster...")
-    _run(["k3d", "image", "import", f"{reg_ref}/zen-brain:{tag}", "-c", cluster_name], timeout=120)
+    _log(f"Image zen-brain:{tag} pushed to shared registry {reg_host}")
 
 
 def _wait_rollout(context_name: str) -> None:

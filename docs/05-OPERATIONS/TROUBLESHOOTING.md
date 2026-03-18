@@ -23,19 +23,22 @@ apiserver-xxx               0/1     ImagePullBackOff   0          5m
 foreman-xxx                 0/1     ErrImagePull       0          5m
 ```
 
-**Root Cause:** k3d cluster cannot pull images from localhost:5000 registry automatically.
+**Root Cause:** Cluster cannot pull images from shared registry. Check that registry is running and image was pushed.
 
 **Solution:**
 ```bash
-# Import the image into the k3d cluster
-k3d image import localhost:5000/zen-brain:dev -c sandbox
+# Check registry is running
+docker ps | grep zen-brain-registry
 
-# Delete old pods to force restart
+# If not running, start registry and rebuild/load image
+python3 scripts/zen.py image build --env sandbox
+
+# Delete old pods to force restart with new image
 kubectl delete pods -n zen-brain -l app=apiserver --context k3d-sandbox
 kubectl delete pods -n zen-brain -l app=foreman --context k3d-sandbox
 ```
 
-**Prevention:** The `zen.py env redeploy` script automatically imports images. Always use the canonical path:
+**Prevention:** The `zen.py env redeploy` script automatically pushes to shared registry. Always use the canonical path:
 ```bash
 python3 scripts/zen.py env redeploy --env sandbox
 ```
@@ -206,7 +209,7 @@ helmfile -e sandbox -f deploy/helmfile/zen-brain/helmfile.yaml.gotmpl template
 
 | Issue | Check Command | Fix |
 |-------|---------------|-----|
-| ImagePullBackOff | `k3d image import` | Import image to cluster |
+| ImagePullBackOff | `docker ps \| grep zen-brain-registry` | `python3 scripts/zen.py image build --env sandbox` |
 | Ollama down | `docker ps \| grep ollama` | `docker start ollama` |
 | Hosts missing | `zen.py hosts verify` | `zen.py hosts apply` |
 | Cluster gone | `k3d cluster list` | `zen.py env redeploy` |
