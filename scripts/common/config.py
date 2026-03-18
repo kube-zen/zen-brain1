@@ -92,12 +92,12 @@ def get_registry_host_port(config_path: str | None = None) -> int:
 
 
 def get_registry_host_ref(config_path: str | None = None) -> str:
-    """Host reference for push (localhost:<port>)."""
-    return f"localhost:{get_registry_host_port(config_path)}"
+    """Host reference for push (localhost:<port>). Shared registry on :5000."""
+    return "localhost:5000"
 
 
 def get_registry_cluster_ref(config_path: str | None = None) -> str:
-    """Registry ref as seen from inside cluster (container_name:port). Container listens on 5000."""
+    """Registry ref as seen from inside cluster (container_name:port). Container listens on 5000. Shared registry on :5000."""
     return f"{get_registry_container_name(config_path)}:5000"
 
 
