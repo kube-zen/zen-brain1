@@ -92,11 +92,46 @@ def _ensure_zen_glm_secret(context_name: str, config_path: str | None, env: str)
     _log("zen-glm-api-key secret created/updated (from ZEN_GLM_API_KEY)")
 
 
+def _ensure_zen_lock_secret(context_name: str, config_path: str | None) -> None:
+    """Ensure zen-lock master key secret exists (from ~/.zen-lock/private-key.age)."""
+    private_key_path = os.path.expanduser("~/.zen-lock/private-key.age")
+    if not os.path.exists(private_key_path):
+        _log(f"Zen-lock private key not found at {private_key_path}, skipping secret creation")
+        return
+    secret_name = "zen-lock-master-key"
+    namespace = "zen-lock-system"
+    create = subprocess.run(
+        ["kubectl", "--context", context_name, "create", "secret", "generic", secret_name,
+         "-n", namespace, "--from-file=key.txt=" + private_key_path,
+         "--dry-run=client", "-o", "yaml"],
+        capture_output=True,
+        text=True,
+        timeout=15,
+        cwd=_repo_root(),
+    )
+    if create.returncode != 0:
+        _err(create.stderr or f"Zen-lock secret creation failed")
+        raise RuntimeError("zen-lock secret creation failed")
+    apply = subprocess.run(
+        ["kubectl", "--context", context_name, "apply", "-f", "-"],
+        input=create.stdout,
+        capture_output=True,
+        text=True,
+        timeout=15,
+        cwd=_repo_root(),
+    )
+    if apply.returncode != 0:
+        _err(apply.stderr or "kubectl apply secret failed")
+        raise RuntimeError("zen-lock secret apply failed")
+    _log(f"Zen-lock secret '{secret_name}' created/updated from {private_key_path}")
+
+
 def _run_helmfile(env: str, config_path: str | None, context_name: str, skip_ollama: bool = False) -> None:
     """Canonical deployment: render values from clusters.yaml then helmfile sync."""
     import helmfile_values  # noqa: E402
     root = _repo_root()
     _ensure_namespaces(context_name)
+    _ensure_zen_lock_secret(context_name, config_path)
     _ensure_zen_glm_secret(context_name, config_path, env)
     _log("Rendering Helm values from config/clusters.yaml...")
     helmfile_values.render(env, config_path)
