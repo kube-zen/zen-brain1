@@ -1,0 +1,14 @@
+# Local registry configuration (containerd) — registry is OUTSIDE k3d
+# Registry runs as a standalone container (zen-registry); we attach it to the k3d network
+# so the cluster can pull images. Keeping it external allows nuke/destroy of k3d without
+# losing the registry.
+# IMPORTANT: Use zen-registry:5000 (not zen-brain-registry:5000) to share registry with zen-platform.
+mirrors:
+  "zen-registry:5000":
+    endpoint:
+      - http://zen-registry:5000
+configs:
+  "zen-registry:5000":
+    tls:
+      insecure_skip_verify: true
+    auth: {}
