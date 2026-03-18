@@ -91,13 +91,13 @@ spec:
           livenessProbe:
             httpGet:
               path: /healthz
-              port: 8080
+              port: 8081
             initialDelaySeconds: 10
             periodSeconds: 10
           readinessProbe:
             httpGet:
-              path: /k8s/readyz
-              port: 8080
+              path: /readyz
+              port: 8081
             initialDelaySeconds: 5
             periodSeconds: 5
 ---
