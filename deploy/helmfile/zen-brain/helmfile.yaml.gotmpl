@@ -1,48 +1,51 @@
-# Zen-Brain Helmfile. Canonical deployment path.
-# Run: helmfile -e <env> -f deploy/helmfile/zen-brain/helmfile.yaml.gotmpl sync
-# Values: config/clusters.yaml → scripts/zen.py → .artifacts/state/<env>/*-values.yaml
-# Do not use manual kubectl apply or kubectl exec ollama pull in the standard path.
-#
-# IMPORTANT: Ollama deployment model for Zen-Brain 1.0 dev/sandbox
-# - The zen-brain-ollama release below is DISABLED by default in sandbox/dev
-# - Default path: Host Docker Ollama (outside Kubernetes), accessed via host.k3d.internal:11434
-# - In-cluster Ollama: Optional, legacy, experimental — not the default path
-# - See config/clusters.yaml for sandbox use_ollama=false and host_ollama_base_url settings
----
+repositories:
+  - name: kube-zen
+    url: https://kube-zen.github.io/helm-charts
+
 helmDefaults:
   createNamespace: false
+
 environments:
   sandbox:
+    kubeContext: k3d-zen-brain-sandbox
   staging:
+    kubeContext: k3d-zen-brain-staging
   uat:
+    kubeContext: k3d-zen-brain-uat
+
 ---
-# Order matters: crds → zen-lock → dependencies → ollama → core (needs omitted to avoid cross-namespace resolution).
-  repositories:
-    - name: kube-zen
-      url: https://kube-zen.github.io/helm-charts
-  releases:
-    - name: zen-lock
-      chart: kube-zen/zen-lock
-      version: 0.0.3-alpha
-      namespace: zen-lock-system
-      timeout: 300
-      atomic: true
-      values:
-        - ../../values/{{ .Environment.Name }}/zen-lock.yaml
-      set:
-        - image.repository = {{ env "ZEN_LOCK_IMAGE_REPO" | default "zen-registry:5000/kubezen/zen-lock" }}
-        - image.tag = {{ env "ZEN_LOCK_TAG" | default "0.0.3-alpha" }}
-        - privateKey.secretName = zen-lock-master-key
-        - privateKey.secretKey = key.txt
-        - controller.replicaCount = 1
-        - webhook.replicaCount = 1
-    - name: zen-brain-crds
+# Releases (order: zen-lock first, then zen-brain releases)
+releases:
+  - name: zen-brain-crds
     chart: ../../../charts/zen-brain-crds
     namespace: zen-brain
     force: false
     labels:
       component: crds
-    # CRDs only; no values
+
+  - name: zen-lock
+    labels:
+      component: zen-lock
+    namespace: zen-lock-system
+    chart: kube-zen/zen-lock
+    version: "0.0.3-alpha"
+    timeout: 300
+    atomic: true
+    values:
+      - ../../values/{{ .Environment.Name }}/zen-lock.yaml
+    set:
+      - name: image.repository
+        value: {{ env "ZEN_LOCK_IMAGE_REPO" | default "zen-registry:5000/kubezen/zen-lock" }}
+      - name: image.tag
+        value: {{ env "ZEN_LOCK_TAG" | default "0.0.3-alpha" }}
+      - name: privateKey.secretName
+        value: zen-lock-master-key
+      - name: privateKey.secretKey
+        value: key.txt
+      - name: controller.replicaCount
+        value: 1
+      - name: webhook.replicaCount
+        value: 1
 
   - name: zen-brain-dependencies
     chart: ../../../charts/zen-brain-dependencies
