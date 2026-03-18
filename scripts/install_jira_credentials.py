@@ -77,23 +77,23 @@ def _check_zen_lock_keys() -> None:
     _print_success("zen-lock keys found")
 
 
-def _ensure_public_key() -> Path:
-    """Derive public key from private key if needed."""
-    public_key = Path.home() / ".zen-lock" / "public-key.age"
-    if not public_key.exists():
-        _print_error("Deriving public key from private key...")
-        try:
-            subprocess.run(
-                ["zen-lock", "pubkey", "--input", str(Path.home() / ".zen-lock" / "private-key.age")],
-                check=True,
-                capture_output=True,
-                stdout=open(str(public_key), 'w')
-            )
-            _print_success(f"Public key derived: {public_key}")
-        except subprocess.CalledProcessError as e:
-            _print_error(f"Failed to derive public key: {e}")
-            sys.exit(1)
-    return public_key
+def _get_public_key() -> str:
+    """Get public key from zen-lock private key."""
+    private_key = Path.home() / ".zen-lock" / "private-key.age"
+
+    try:
+        result = subprocess.run(
+            ["zen-lock", "pubkey", "--input", str(private_key)],
+            check=True,
+            capture_output=True,
+            text=True
+        )
+        public_key = result.stdout.strip()
+        _print_success("Public key derived")
+        return public_key
+    except subprocess.CalledProcessError as e:
+        _print_error(f"Failed to derive public key: {e}")
+        sys.exit(1)
 
 
 def _write_runtime_credentials(creds: dict, runtime_file: Path) -> None:
@@ -120,13 +120,17 @@ def _write_runtime_credentials(creds: dict, runtime_file: Path) -> None:
         sys.exit(1)
 
 
-def _encrypt_credentials(creds: dict, public_key: Path, output_manifest: Path) -> None:
+def _encrypt_credentials(creds: dict, public_key: str, output_manifest: Path) -> None:
     """Encrypt credentials using zen-lock and write manifest."""
-    # Create temporary YAML for encryption
+    # Create temporary YAML for encryption with metadata
     with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as temp_yaml:
         temp_yaml_path = Path(temp_yaml.name)
 
-    yaml_content = f"""stringData:
+    # zen-lock encrypt requires metadata section in addition to stringData
+    yaml_content = f"""metadata:
+  name: jira-credentials
+  namespace: zen-brain
+stringData:
   JIRA_URL: "{creds.get('JIRA_URL', '')}"
   JIRA_EMAIL: "{creds.get('JIRA_EMAIL', '')}"
   JIRA_API_TOKEN: "{creds.get('JIRA_API_TOKEN', '')}"
@@ -139,12 +143,15 @@ def _encrypt_credentials(creds: dict, public_key: Path, output_manifest: Path) -
 
         _print_success(f"Temporary credentials created: {temp_yaml_path}")
 
+        # Ensure output directory exists
+        output_manifest.parent.mkdir(parents=True, exist_ok=True)
+
         # Encrypt with zen-lock
         _print_success("Encrypting credentials with zen-lock...")
         subprocess.run(
             [
                 "zen-lock", "encrypt",
-                "--pubkey", public_key.read_text().strip(),
+                "--pubkey", public_key,
                 "--input", str(temp_yaml_path),
                 "--output", str(output_manifest)
             ],
@@ -159,41 +166,6 @@ def _encrypt_credentials(creds: dict, public_key: Path, output_manifest: Path) -
         # Clean up temp file
         if temp_yaml_path.exists():
             temp_yaml_path.unlink()
-
-
-def _create_zenlock_crd(output_file: Path, encrypted_file: Path) -> None:
-    """Create ZenLock CRD manifest."""
-    # Get repo root
-    repo_root = Path(__file__).parent.parent.parent
-
-    # Create ZenLock manifest
-    zenlock_content = """apiVersion: security.kube-zen.io/v1alpha1
-kind: ZenLock
-metadata:
-  name: jira-credentials
-  namespace: zen-brain
-spec:
-  algorithm: age
-  allowedSubjects:
-    - kind: ServiceAccount
-      name: foreman
-      namespace: zen-brain
-"""
-
-    # Read encrypted data
-    encrypted_content = encrypted_file.read_text()
-    if "encryptedData:" in encrypted_content:
-        # Extract encrypted data section
-        lines = encrypted_content.split("\n")
-        start_idx = next((i for i, line in enumerate(lines) if line.strip() == "encryptedData:"), None)
-        if start_idx is not None:
-            encrypted_data_section = "\n".join(lines[start_idx:])
-            zenlock_content += "  encryptedData:"
-            zenlock_content += encrypted_data_section[len("encryptedData:"):]
-
-    # Write to repo
-    output_file.write_text(zenlock_content)
-    _print_success(f"ZenLock CRD manifest: {output_file}")
 
 
 def main() -> int:
@@ -222,25 +194,44 @@ def main() -> int:
     # Step 2: Check zen-lock keys
     _check_zen_lock_keys()
 
-    # Step 3: Ensure public key
-    public_key = _ensure_public_key()
+    # Step 3: Get public key
+    public_key = _get_public_key()
 
     # Step 4: Write runtime credentials
     runtime_file = Path.home() / ".zen-brain" / "secrets" / "jira.yaml"
     _write_runtime_credentials(creds, runtime_file)
 
     # Step 5: Encrypt credentials
-    repo_root = Path(__file__).parent.parent.parent
+    # __file__ is in scripts/, so parent.parent is the repo root
+    repo_root = Path(__file__).parent.parent
     encrypted_file = repo_root / "deploy" / "zen-lock" / "jira-credentials.zenlock.yaml"
     _encrypt_credentials(creds, public_key, encrypted_file)
 
-    # Step 6: Create ZenLock CRD manifest
-    zenlock_manifest = repo_root / "deploy" / "zen-lock" / "jira-zenlock.yaml"
-    _create_zenlock_crd(zenlock_manifest, encrypted_file)
+    # Step 6: Add allowedSubjects to manifest
+    # zen-lock encrypt creates the manifest with encryptedData, but we need to add allowedSubjects
+    try:
+        import yaml
+        with open(encrypted_file, 'r') as f:
+            manifest = yaml.safe_load(f)
 
-    # Clean up encrypted file (only needed for CRD generation)
-    if encrypted_file.exists():
-        encrypted_file.unlink()
+        # Add allowedSubjects if not present
+        if 'spec' in manifest and 'allowedSubjects' not in manifest['spec']:
+            manifest['spec']['allowedSubjects'] = [
+                {
+                    'kind': 'ServiceAccount',
+                    'name': 'foreman',
+                    'namespace': 'zen-brain'
+                }
+            ]
+
+            # Write back the updated manifest
+            with open(encrypted_file, 'w') as f:
+                yaml.dump(manifest, f, default_flow_style=False, sort_keys=False)
+
+            _print_success(f"Allowed subjects added: foreman/zen-brain")
+    except Exception as e:
+        _print_error(f"Failed to add allowedSubjects: {e}")
+        # Don't exit, as the encryption succeeded
 
     print()
     print("=== Installation Complete ===")
@@ -249,10 +240,10 @@ def main() -> int:
     print(f"  {runtime_file}")
     print()
     print("ZenLock CRD manifest:")
-    print(f"  {zenlock_manifest}")
+    print(f"  {encrypted_file}")
     print()
     print("To deploy to cluster:")
-    print(f"  kubectl apply -f {zenlock_manifest}")
+    print(f"  kubectl apply -f {encrypted_file}")
     print()
     print("To validate:")
     print("  ./bin/zen-brain office smoke-real")
