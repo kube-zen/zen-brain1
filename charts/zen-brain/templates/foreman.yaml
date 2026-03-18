@@ -61,7 +61,7 @@ spec:
       serviceAccountName: foreman
       containers:
         - name: foreman
-          image: "{{ .Values.image.repository }}/{{ .Values.image.tag }}"
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command: ["/app/foreman"]
           args:
