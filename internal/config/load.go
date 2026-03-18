@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/kube-zen/zen-brain1/internal/secrets"
@@ -302,9 +303,26 @@ func (c *Config) loadJiraCredentials() {
 	// Set defaults for credential paths
 	if c.Jira.CredentialsFile == "" {
 		c.Jira.CredentialsFile = filepath.Join(HomeDir(), "secrets", "jira.yaml")
+	} else {
+		// Expand tilde in credentials_file path
+		if strings.HasPrefix(c.Jira.CredentialsFile, "~/") {
+			// Get user home directory and expand tilde
+			homeDir, err := os.UserHomeDir()
+			if err == nil {
+				c.Jira.CredentialsFile = filepath.Join(homeDir, strings.TrimPrefix(c.Jira.CredentialsFile, "~/"))
+			}
+		}
 	}
 	if c.Jira.CredentialsDir == "" {
 		c.Jira.CredentialsDir = "/zen-lock/secrets"
+	}
+
+	// Debug output
+	if os.Getenv("DEBUG_JIRA_CREDS") == "1" {
+		fmt.Fprintf(os.Stderr, "DEBUG Jira config:\n")
+		fmt.Fprintf(os.Stderr, "  CredentialsFile: %s\n", c.Jira.CredentialsFile)
+		fmt.Fprintf(os.Stderr, "  CredentialsDir: %s\n", c.Jira.CredentialsDir)
+		fmt.Fprintf(os.Stderr, "  AllowEnvFallback: %v\n", allowEnvFallback)
 	}
 
 	// Resolve credentials from canonical sources
@@ -319,10 +337,21 @@ func (c *Config) loadJiraCredentials() {
 		// Log warning but don't fail config load
 		// Credentials may not be configured yet
 		c.Jira.CredentialsSource = "error: " + err.Error()
+		if os.Getenv("DEBUG_JIRA_CREDS") == "1" {
+			fmt.Fprintf(os.Stderr, "DEBUG ResolveJira error: %v\n", err)
+		}
 		return
 	}
 
-	if material != nil {
+	if os.Getenv("DEBUG_JIRA_CREDS") == "1" {
+		fmt.Fprintf(os.Stderr, "DEBUG Material:\n")
+		fmt.Fprintf(os.Stderr, "  Source: %s\n", material.Source)
+		fmt.Fprintf(os.Stderr, "  BaseURL: %s\n", material.BaseURL)
+		fmt.Fprintf(os.Stderr, "  Email: %s\n", material.Email)
+		fmt.Fprintf(os.Stderr, "  ProjectKey: %s\n", material.ProjectKey)
+	}
+
+	if material != nil && material.Source != "none" {
 		// Only populate fields from material if they're empty
 		// This preserves values from config compatibility (Project -> ProjectKey)
 		if c.Jira.BaseURL == "" {
@@ -340,6 +369,14 @@ func (c *Config) loadJiraCredentials() {
 			c.Jira.ProjectKey = material.ProjectKey
 		}
 		c.Jira.CredentialsSource = material.Source
+
+		if os.Getenv("DEBUG_JIRA_CREDS") == "1" {
+			fmt.Fprintf(os.Stderr, "DEBUG After population:\n")
+			fmt.Fprintf(os.Stderr, "  BaseURL: %s\n", c.Jira.BaseURL)
+			fmt.Fprintf(os.Stderr, "  Email: %s\n", c.Jira.Email)
+			fmt.Fprintf(os.Stderr, "  APIToken (present): %v\n", c.Jira.APIToken != "")
+			fmt.Fprintf(os.Stderr, "  ProjectKey: %s\n", c.Jira.ProjectKey)
+		}
 	}
 }
 
