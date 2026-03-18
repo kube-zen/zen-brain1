@@ -23,7 +23,43 @@
 - `helm` and `helmfile` on PATH
 - k3d cluster (created with image from `config/clusters.yaml` → `k3d.k8s_image`, default `rancher/k3s:v1.35.2-k3s1`)
 
+## Zen-Lock Integration (Block 6)
+
+**Status:** ✅ Integrated into canonical deployment path
+
+**Deployment Model:** Zen-Lock is deployed via Helmfile as a first release before zen-brain-core, ensuring secrets are available for injection.
+
+**Secret Management:**
+- Master key secret: `zen-lock-master-key` in zen-lock-system namespace
+- Sourced from: `~/.zen-lock/private-key.age`
+- Auto-applied by: `python3 scripts/zen.py env redeploy --env sandbox`
+- Shared registry path: `zen-registry:5000/kubezen/zen-lock:0.0.3-alpha`
+
+**Manifests:**
+- ✅ No broken vendored manifests used
+- ✅ Uses canonical Helm chart: `kube-zen/zen-lock@0.0.3-alpha`
+- ✅ Release order: crds → zen-lock → dependencies → ollama → core
+
+**Values File:**
+- Generated: `deploy/values/sandbox/zen-lock.yaml`
+- Configured for shared registry :5000
+- Dev-safe settings: 1 replica each for controller and webhook
+
+**Usage:**
+```bash
+# Full redeploy with Zen-Lock
+python3 scripts/zen.py env redeploy --env sandbox
+
+# Check Zen-Lock status
+kubectl -n zen-lock-system get pods
+kubectl -n zen-lock-system get secret zen-lock-master-key
+```
+
+**Note:** For in-cluster Jira credential injection, enable `foreman.jiraZenLock.enabled` in chart values.
+
 ## Ollama (Block 5)
+
+...
 
 - **One shared Ollama per cluster:** StatefulSet, one replica, PVC for model cache.
 - **VPA:** Optional; default `updateMode: Initial` (rightsizing on pod create/restart; VPA does not yet support in-place resize in 1.35). Requires **Metrics Server** and **VPA** installed in the cluster (install separately; not shipped in-chart).

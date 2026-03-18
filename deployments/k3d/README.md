@@ -49,7 +49,32 @@ Deployment is driven by **config/clusters.yaml** (127.0.1.x, zen-brain-registry:
   python3 scripts/zen.py env status --env sandbox
   ```
 
-Environments: `sandbox` (127.0.1.6), `staging` (127.0.1.2), `uat` (127.0.1.3). Apiserver is exposed at `http://<env_ip>:8080/healthz` after redeploy.
+  Environments: `sandbox` (127.0.1.6), `staging` (127.0.1.2), `uat` (127.0.1.3). Apiserver is exposed at `http://<env_ip>:8080/healthz` after redeploy.
+ 
+## Zen-Lock Integration
+
+**Status:** ✅ Integrated into canonical deployment path
+
+Zen-Lock is now deployed via Helmfile before zen-brain-core, ensuring secret injection capabilities are available.
+
+**Secret Management:**
+- Master key secret: `zen-lock-master-key` in zen-lock-system namespace
+- Sourced from: `~/.zen-lock/private-key.age`
+- Auto-applied during redeploy
+- Shared registry path: `zen-registry:5000/kubezen/zen-lock:0.0.3-alpha`
+
+**Manifests:**
+- ✅ No manual kubectl apply of zen-lock manifests required
+- ✅ Uses canonical Helm chart: `kube-zen/zen-lock@0.0.3-alpha`
+- ✅ Release order: crds → zen-lock → dependencies → ollama → core
+
+**Check Zen-Lock:**
+```bash
+kubectl -n zen-lock-system get pods
+kubectl -n zen-lock-system get secret zen-lock-master-key
+```
+
+**Note:** Jira credentials are deployed via `deploy/zen-lock/jira-credentials.zenlock.yaml` (encrypted ZenLock resource). Enable foreman Jira Zen-Lock injection in values to use them.
 
 ## Quick Start (manual)
 
