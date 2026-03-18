@@ -37,6 +37,11 @@ foreman:
   env:
     - name: ZEN_RUNTIME_PROFILE
       value: dev
+  # Optional: Zen-Lock Jira credentials injection
+  jiraZenLock:
+    enabled: false
+    secretName: "jira-credentials"
+    mountPath: "/zen-lock/secrets"
   resources:
     requests:
       memory: "64Mi"
