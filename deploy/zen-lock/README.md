@@ -1,5 +1,10 @@
 # Zen-Lock Integration for Zen-Brain
 
+> ⚠️ **SECURITY WARNING**: Never commit real Jira API tokens to git.
+> All credentials must be managed through ZenLock CRDs with encrypted data.
+> See task ZB-012 for security hardening details.
+> Pre-commit hooks are installed to prevent accidental token exposure.
+
 This directory contains Zen-Lock resources and scripts for canonical Jira credential management.
 
 ## Files
