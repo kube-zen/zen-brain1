@@ -76,10 +76,10 @@ def _export_credentials(creds: dict) -> None:
 
 def _print_example_credentials() -> None:
     """Print example credentials file content."""
-    print('JIRA_URL="https://zen-mesh.atlassian.net"')
-    print('JIRA_EMAIL="zen@zen-mesh.io"')
-    print('JIRA_TOKEN="REDACTED_TOKEN_0E2E83FF"')
-    print('JIRA_PROJECT_KEY="ZB"')
+    print('JIRA_URL="https://your-company.atlassian.net"')
+    print('JIRA_EMAIL="your-email@company.com"')
+    print('JIRA_TOKEN="<generate-token-at-id.atlassian.com/manage-profile/security/api-tokens>"')
+    print('JIRA_PROJECT_KEY="YOUR_PROJECT_KEY"')
 
 
 def _print_kubernetes_instructions() -> None:
