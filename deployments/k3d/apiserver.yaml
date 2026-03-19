@@ -22,7 +22,7 @@ spec:
     spec:
       containers:
         - name: apiserver
-          image: zen-brain:dev
+          image: zen-registry:5000/zen-brain:dev
           imagePullPolicy: IfNotPresent
           command: ["/app/apiserver"]
           env:

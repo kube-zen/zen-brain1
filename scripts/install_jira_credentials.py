@@ -43,7 +43,7 @@ def _read_yaml_file(file_path: str) -> dict:
 
 def _validate_jira_credentials(data: dict) -> dict:
     """Validate Jira credentials and return cleaned data."""
-    required_fields = ["JIRA_URL", "JIRA_EMAIL", "JIRA_API_TOKEN"]
+    required_fields = ["JIRA_URL", "JIRA_EMAIL", "JIRA_API_TOKEN", "JIRA_PROJECT_KEY"]
 
     # Try stringData format first (ZenLock-style)
     if "stringData" in data:
@@ -63,7 +63,22 @@ def _validate_jira_credentials(data: dict) -> dict:
             _print_error(f"Field {field} is empty")
             sys.exit(1)
 
-    return creds
+    # CRITICAL FIX: Normalize credential values to remove KEY= prefix if present
+    # This prevents malformed secret key parsing in zen-lock
+    normalized_creds = {}
+    for key, value in creds.items():
+        if isinstance(value, str):
+            # Strip KEY= prefix if value starts with it (e.g., "JIRA_URL=https://...")
+            if "=" in value:
+                normalized_value = value.split("=", 1)[1]
+                _print_success(f"Normalized {key}: stripped KEY= prefix")
+                normalized_creds[key] = normalized_value
+            else:
+                normalized_creds[key] = value
+        else:
+            normalized_creds[key] = value
+
+    return normalized_creds
 
 
 def _check_zen_lock_keys() -> None:

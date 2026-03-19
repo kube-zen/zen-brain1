@@ -9,15 +9,16 @@ echo ""
 
 # Step 1: Verify Jira integration
 echo "[1/4] Verifying Jira integration..."
+export JIRA_URL=https://zen-mesh.atlassian.net
+export JIRA_EMAIL=zen@zen-mesh.io
+export JIRA_PROJECT_KEY=ZB
+export JIRA_TOKEN=$(grep "^token:" ~/.zen-brain1-config/jira.yaml | awk '{print $2}' | tr -d '"')
 ./bin/zen-brain office doctor | head -20
 echo "✅ Jira integration verified"
 echo ""
 
 # Step 2: Check for nightshift tickets
 echo "[2/4] Checking for nightshift tickets..."
-export JIRA_URL=https://zen-mesh.atlassian.net
-export JIRA_EMAIL=zen@zen-mesh.io
-export JIRA_TOKEN=$(grep "^token:" ~/.zen-brain1-config/jira.yaml | awk '{print $2}' | tr -d '"')
 ./bin/zen-brain office search 'project = ZB AND labels = "zen-brain-nightshift"'
 
 TICKET_COUNT=$(./bin/zen-brain office search 'project = ZB AND labels = "zen-brain-nightshift"' | grep "Found" | awk '{print $2}')
