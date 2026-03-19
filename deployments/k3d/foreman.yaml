@@ -60,10 +60,10 @@ spec:
       labels:
         app.kubernetes.io/name: foreman
         app.kubernetes.io/part-of: zen-brain
-      # Optional: Uncomment to enable Zen-Lock Jira credentials injection
-      # annotations:
-      #   zen-lock/inject: "jira-credentials"
-      #   zen-lock/mount-path: "/zen-lock/secrets"
+      # Zen-Lock Jira credentials injection (ZB-017: intended path active)
+      annotations:
+        zen-lock/inject: "jira-credentials"
+        zen-lock/mount-path: "/zen-lock/secrets"
     spec:
       serviceAccountName: foreman
       containers:
@@ -107,6 +107,27 @@ spec:
               port: 8081
             initialDelaySeconds: 5
             periodSeconds: 5
+          volumeMounts:
+            - name: config
+              mountPath: /home/zenuser/.zen-brain
+      volumes:
+        - name: config
+          configMap:
+            name: foreman-config
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: foreman-config
+  namespace: zen-brain
+  labels:
+    app.kubernetes.io/name: foreman
+    app.kubernetes.io/part-of: zen-brain
+data:
+  config.yaml: |
+    jira:
+      enabled: true
+      allow_env_fallback: false
 ---
 apiVersion: v1
 kind: Service

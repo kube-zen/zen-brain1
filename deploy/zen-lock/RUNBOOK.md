@@ -291,3 +291,65 @@ Local pre-commit hooks are supplemental. The primary guardrails are:
 1. CI secret scanning
 2. .gitignore patterns
 3. Encrypted manifests only
+
+## ZB-017: Intended Path Migration (2026-03-19)
+
+### Status: COMPLETE
+
+The webhook bypass workaround has been removed. Zen-brain now runs on the intended Zen-Lock path.
+
+### Key Changes
+
+1. **Helm Chart RBAC Fixed**: Webhook ClusterRole now has `get, list, watch` verbs for zenlocks
+2. **ZenLock Re-encrypted**: Jira credentials encrypted with matching public key
+3. **Foreman Config**: ConfigMap mounted at `/home/zenuser/.zen-brain/config.yaml` enables Jira
+4. **Intended Path Active**: Webhook creates secrets, pods receive mounts
+
+### Credential Strategy (Verified)
+
+- **Public Key**: `age18c8nfva9zhjjvhqkln60cxly5c0y5k08vyw9rh22hgt3rq6pn5aspu6nnv` (from `ZENBRAINPUBLICKEYNEVERDELETETHISSHIT.age`)
+- **Private Key**: Stored in `zen-lock-master-key` secret in `zen-lock-system` namespace
+- **ZenLock**: Encrypted with above public key, stored in `zen-brain` namespace
+
+### Verification
+
+\`\`\`bash
+# ZenLock status
+kubectl get zenlock -n zen-brain jira-credentials -o yaml | grep -A5 'status:'
+
+# Expected output:
+#   phase: Ready
+#   Decryptable: True
+
+# Foreman credentials source
+kubectl exec -n zen-brain deploy/foreman -- /app/zen-brain office doctor | grep "Credentials source"
+
+# Expected output:
+#   Credentials source: zenlock-dir:/zen-lock/secrets
+
+# Full smoke test
+kubectl exec -n zen-brain deploy/foreman -- /app/zen-brain office smoke-real
+\`\`\`
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `~/zen/helm-charts/charts/zen-lock/templates/rbac.yaml` | Already had correct RBAC |
+| `zen-lock-master-key` secret | Updated with correct private key |
+| `jira-credentials` ZenLock | Re-encrypted with matching public key |
+| `foreman-config` ConfigMap | Created to enable Jira |
+| `foreman` Deployment | Added config volume mount |
+
+### Helm Upgrade Path
+
+\`\`\`bash
+cd ~/zen/helm-charts
+helm upgrade zen-lock charts/zen-lock -n zen-lock-system --reuse-values
+\`\`\`
+
+### Known Issues (Resolved)
+
+- ~~RBAC drift~~: Fixed - Helm chart already had correct RBAC, deployed ClusterRole was manually patched then Helm upgrade synced it
+- ~~AGE key mismatch~~: Fixed - ZenLock re-encrypted with matching public key
+- ~~Placeholder master key~~: Fixed - Updated with actual private key
