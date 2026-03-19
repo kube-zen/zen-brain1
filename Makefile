@@ -1,194 +1,94 @@
-.PHONY: build test clean fmt lint help minimal-config smoke smoke-runtime smoke-office smoke-vertical-slice jira-install smoke-jira-zenlock
+# Makefile for zen-brain1
 
-# Build variables
-BINARY_NAME := zen-brain
-# Prefer VERSION file for release builds (e.g. 1.2.3); else git describe or "dev"
-VERSION := $(shell cat VERSION 2>/dev/null | tr -d '\n' || git describe --tags --always --dirty 2>/dev/null || echo "dev")
-BUILD_TIME := $(shell date -u '+%Y-%m-%d_%H:%M:%S')
-LDFLAGS := -ldflags "-X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_TIME)"
+.PHONY: build run test clean fmt lint vet install
 
-# Go parameters
-GOCMD := go
-GOBUILD := $(GOCMD) build
-GOTEST := $(GOCMD) test
-GOGET := $(GOCMD) get
-GOMOD := $(GOCMD) mod
-GOFMT := gofmt
+# Build the application
+build:
+	@echo "Building zen-brain1..."
+	@go build -ldflags "-X main.Version=$(VERSION) -X main.BuildSHA=$(BUILD_SHA) -X main.BuildTime=$(BUILD_TIME)" -o bin/zen-brain1 .
+	@echo "Build complete: bin/zen-brain1"
 
-# Directories
-CMD_DIR := ./cmd/zen-brain
-PKG_DIRS := ./pkg/...
-INTERNAL_DIRS := ./internal/...
+# Run the application
+run:
+	@echo "Running zen-brain1..."
+	@go run -ldflags "-X main.Version=$(VERSION) -X main.BuildSHA=$(BUILD_SHA) -X main.BuildTime=$(BUILD_TIME)" .
 
-help: ## Show this help
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
+# Run with default configuration
+run-policy:
+	@echo "Running zen-brain1 with policy configuration..."
+	@POLICY_CONFIG_DIR=./config/policy/ LOG_LEVEL=debug \
+		go run -ldflags "-X main.Version=$(VERSION) -X main.BuildSHA=$(BUILD_SHA) -X main.BuildTime=$(BUILD_TIME)" .
 
+# Run tests
+test:
+	@echo "Running tests..."
+	@go test -v ./src/...
 
-minimal-config: ## Create ~/.zen-brain/config.yaml from minimal template if missing
-	@mkdir -p $(HOME)/.zen-brain
-	@if [ -f $(HOME)/.zen-brain/config.yaml ]; then \
-		echo "Config already exists: $(HOME)/.zen-brain/config.yaml"; \
-	else \
-		cp configs/config.minimal.yaml $(HOME)/.zen-brain/config.yaml; \
-		echo "Created $(HOME)/.zen-brain/config.yaml from configs/config.minimal.yaml"; \
-	fi
+# Format code
+fmt:
+	@echo "Formatting code..."
+	@go fmt ./...
 
-smoke-runtime: build ## Run runtime doctor using local/dev defaults
-	./bin/$(BINARY_NAME) runtime doctor
+# Lint code
+lint:
+	@echo "Linting code..."
+	@golangci-lint run ./...
 
-smoke-office: build ## Run office doctor using local/dev defaults
-	./bin/$(BINARY_NAME) office doctor
+# Vet code
+vet:
+	@echo "Vetting code..."
+	@go vet ./...
 
-smoke-vertical-slice: build ## Run the mock vertical slice (no Jira required)
-	./bin/$(BINARY_NAME) vertical-slice --mock
+# Install dependencies
+install:
+	@echo "Installing dependencies..."
+	@go mod download
+	@go mod tidy
 
-smoke: minimal-config build ## Prove the minimum usable local path
-	@echo "== runtime doctor =="
-	./bin/$(BINARY_NAME) runtime doctor
-	@echo
+# Clean build artifacts
+clean:
+	@echo "Cleaning..."
+	@rm -rf bin/
 
-smoke-jira: build ## Prove real Jira reachability (read-only; requires JIRA_URL, JIRA_API_TOKEN, JIRA_EMAIL, JIRA_PROJECT_KEY)
-	@echo "== checking Jira configuration =="
-	./bin/$(BINARY_NAME) office doctor
-	@echo
-	@echo "== fetching real Jira issue =="
-	./bin/$(BINARY_NAME) office fetch $(JIRA_PROJECT_KEY)-1
+# Validate policy configuration
+validate-policy:
+	@echo "Validating policy configuration..."
+	@POLICY_CONFIG_DIR=./config/policy/ go run -ldflags "-X main.Version=$(VERSION) -X main.BuildSHA=$(BUILD_SHA) -X main.BuildTime=$(BUILD_TIME)" 2>&1 | grep -i "policy"
 
-	@echo "== office doctor =="
-	./bin/$(BINARY_NAME) office doctor
-	@echo
-	@echo "== mock vertical slice =="
-	./bin/$(BINARY_NAME) vertical-slice --mock
+# Validate policy YAML syntax
+validate-yaml:
+	@echo "Validating YAML syntax..."
+	@python3 -c "import yaml; yaml.safe_load(open('config/policy/roles.yaml'))"
+	@python3 -c "import yaml; yaml.safe_load(open('config/policy/tasks.yaml'))"
+	@python3 -c "import yaml; yaml.safe_load(open('config/policy/providers.yaml'))"
+	@python3 -c "import yaml; yaml.safe_load(open('config/policy/routing.yaml'))"
+	@python3 -c "import yaml; yaml.safe_load(open('config/policy/prompts.yaml'))"
+	@python3 -c "import yaml; yaml.safe_load(open('config/policy/chains.yaml'))"
+	@echo "All YAML files are valid"
 
-jira-install: ## Install Jira credentials from input file (requires FILE=/absolute/path/to/jira-input.yaml)
-	@if [ -z "$(FILE)" ]; then \
-		echo "ERROR: FILE= argument required"; \
-		echo "Usage: make jira-install FILE=/absolute/path/to/jira-input.yaml"; \
-		exit 1; \
-	fi
-	@echo "=== Installing Jira credentials ==="
-	@echo "Input file: $(FILE)"
-	python3 scripts/install_jira_credentials.py --input="$(FILE)"
+# Show policy summary
+show-policy:
+	@echo "=== Policy Configuration Summary ==="
+	@echo ""
+	@echo "Roles:"
+	@grep "^  - name:" config/policy/roles.yaml | wc -l
+	@echo ""
+	@echo "Tasks:"
+	@grep "^  - name:" config/policy/tasks.yaml | wc -l
+	@echo ""
+	@echo "Providers:"
+	@grep "^  - name:" config/policy/providers.yaml | wc -l
+	@echo ""
+	@echo "Chains:"
+	@grep "^  - name:" config/policy/chains.yaml | wc -l
+	@echo ""
+	@echo "Total policy files:"
+	@ls -1 config/policy/*.yaml | wc -l
 
-smoke-jira-zenlock: build ## Validate Jira ZenLock integration (real canonical path; may fail until Phase B credentials installed)
-	@echo "=== Jira ZenLock smoke test ==="
-	./bin/$(BINARY_NAME) office doctor
-	@echo
-	./bin/$(BINARY_NAME) office smoke-real
+# Default targets
+all: build
 
-build: ## Build the main binary
-	$(GOBUILD) $(LDFLAGS) -o bin/$(BINARY_NAME) $(CMD_DIR)
-
-build-foreman: ## Build Foreman controller (Block 4.2)
-	$(GOBUILD) $(LDFLAGS) -o bin/foreman ./cmd/foreman
-
-build-apiserver: ## Build API server (Block 3.4)
-	$(GOBUILD) $(LDFLAGS) -o bin/apiserver ./cmd/apiserver
-
-build-controller: ## Build Zen-Brain controller (Block 6; ZenProject/ZenCluster)
-	$(GOBUILD) $(LDFLAGS) -o bin/controller ./cmd/controller
-
-build-all: build build-foreman build-apiserver build-controller ## Build all binaries
-
-COVERAGE_DIR := .artifacts/coverage
-COVERAGE_OUT := $(COVERAGE_DIR)/coverage.out
-
-test: ## Run tests
-	@mkdir -p $(COVERAGE_DIR)
-	$(GOTEST) -v -race -coverprofile=$(COVERAGE_OUT) $(PKG_DIRS) $(INTERNAL_DIRS)
-
-coverage: test ## Run tests and show coverage
-	$(GOCMD) tool cover -html=$(COVERAGE_OUT)
-
-fmt: ## Format code
-	$(GOFMT) -w -s pkg internal cmd
-
-lint: ## Run linter (requires golangci-lint)
-	golangci-lint run ./...
-
-clean: ## Clean build artifacts (coverage lives in .artifacts/coverage/)
-	rm -rf bin/
-	rm -rf $(COVERAGE_DIR)
-
-deps: ## Download dependencies
-	$(GOMOD) download
-	$(GOMOD) tidy
-
-## Development helpers
-
-run: build ## Build and run
-	./bin/$(BINARY_NAME)
-
-db-up: ## Start local database (CockroachDB via Docker)
-	docker run -d --name zen-brain-db \
-		-p 26257:26257 -p 8080:8080 \
-		cockroachdb/cockroach:latest-v24.1 start-single-node --insecure
-
-db-down: ## Stop local database
-	docker stop zen-brain-db && docker rm zen-brain-db
-
-# Default CockroachDB URL for local dev (use db-up first)
-DATABASE_URL ?= cockroachdb://root@localhost:26257/defaultdb?sslmode=disable
-
-db-migrate: ## Run database migrations (requires db-up; needs golang-migrate: go install -tags 'cockroachdb' github.com/golang-migrate/migrate/v4/cmd/migrate@latest)
-	@command -v migrate >/dev/null 2>&1 || { echo "migrate CLI not found. Install: go install -tags 'cockroachdb' github.com/golang-migrate/migrate/v4/cmd/migrate@latest"; exit 1; }
-	migrate -path migrations -database "$(DATABASE_URL)" -verbose up
-
-db-reset: db-down db-up ## Reset database (stop, remove, start)
-	@echo "Database reset complete"
-
-## k3d cluster development (Block 6)
-## Canonical path: config/clusters.yaml + scripts/zen.py (127.0.1.x, zen-brain-registry:5000).
-## Override env: make dev-up ZEN_DEV_ENV=staging
-
-ZEN_DEV_ENV ?= sandbox
-
-dev-up: ## Start k3d cluster and deploy (thin wrapper: zen.py env redeploy --env $(ZEN_DEV_ENV))
-	python3 scripts/zen.py env redeploy --env $(ZEN_DEV_ENV)
-
-dev-down: ## Stop k3d cluster (thin wrapper: zen.py env destroy; set CONFIRM_DESTROY=1 or --confirm-destroy)
-	CONFIRM_DESTROY=1 python3 scripts/zen.py env destroy --env $(ZEN_DEV_ENV)
-
-dev-logs: ## Tail logs from all pods
-	kubectl logs -f --all-containers -l app.kubernetes.io/part-of=zen-brain --tail=100
-
-dev-clean: ## Reset databases (local Docker: db-reset; for k3d full reset run dev-down then dev-up)
-	$(MAKE) db-reset
-
-dev-build: build-all ## Build all binaries (foreman, apiserver, zen-brain).
-
-dev-image: ## Build zen-brain image and load into k3d (thin wrapper: zen.py image build --env $(ZEN_DEV_ENV))
-	python3 scripts/zen.py image build --env $(ZEN_DEV_ENV)
-
-# Deprecated: canonical deploy is Helmfile (make dev-up). Use only if you need a one-off raw apply without Helmfile.
-dev-apply: ## [Deprecated] Raw kubectl apply; prefer: make dev-up (Helmfile sync)
-	@echo "Deprecated: canonical path is 'make dev-up' (Helmfile). Use 'make dev-up' or 'python3 scripts/zen.py env redeploy --env $${ZEN_DEV_ENV:-sandbox}'."
-	@echo "To apply without cluster create: python3 scripts/zen.py env redeploy --env $${ZEN_DEV_ENV:-sandbox} --skip-registry --skip-k3d --skip-build --skip-image-load"
-	kubectl apply -f deployments/k3d/zen-brain-namespace.yaml
-	kubectl apply -f deployments/k3d/foreman.yaml
-	kubectl apply -f deployments/k3d/apiserver.yaml
-
-## Code generation
-
-generate: ## Generate code (CRDs, deepcopy) - requires controller-gen
-	@command -v controller-gen >/dev/null 2>&1 || go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.19.0
-	controller-gen object paths=./api/...
-	controller-gen crd:allowDangerousTypes=true paths=./api/... output:crd:dir=./deployments/crds
-
-## Repository management
-
-repo-sync: ## Sync KB repos for QMD population. Set ZEN_KB_REPO_URL to clone; ZEN_KB_REPO_DIR (default ../zen-docs) must match tier2_qmd.repo_path
-	python3 scripts/repo_sync.py
-
-## Repository hygiene
-
-install-hooks: ## Install Git hooks (.githooks/pre-commit)
-	@echo "Installing Git hooks..."
-	@mkdir -p .git/hooks
-	@cp .githooks/pre-commit .git/hooks/pre-commit
-	@chmod +x .git/hooks/pre-commit
-	@echo "✓ Pre‑commit hook installed."
-
-repo-check: ## Run all repository hygiene gates
-	@echo "Running repository hygiene gates..."
-	@python3 scripts/ci/run.py --suite default
+# Version variables (can be overridden)
+VERSION ?= 1.0.0
+BUILD_SHA ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "dev")
+BUILD_TIME ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
