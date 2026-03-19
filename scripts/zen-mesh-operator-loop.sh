@@ -12,19 +12,6 @@ export JIRA_URL=https://zen-mesh.atlassian.net
 export JIRA_EMAIL=zen@zen-mesh.io
 export JIRA_PROJECT_KEY=ZB
 
-# Source Jira config
-JIRA_TOKEN=""
-if [ -f "$HOME/.zen-brain1-config/jira.yaml" ]; then
-	JIRA_TOKEN=$(grep "^token:" "$HOME/.zen-brain1-config/jira.yaml" | awk '{print $2}')
-fi
-
-if [ -z "$JIRA_TOKEN" ]; then
-	echo "Error: JIRA token not found in ~/.zen-brain1-config/jira.yaml"
-	exit 1
-fi
-
-export JIRA_TOKEN="$JIRA_TOKEN"
-
 echo "=== Zen-Mesh Operational Loop ==="
 echo "Started: $(date -Iseconds)"
 echo "Zen-Brain: $ZEN_BRAIN_DIR/bin/zen-brain"
