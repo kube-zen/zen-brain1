@@ -68,7 +68,7 @@ spec:
       serviceAccountName: foreman
       containers:
         - name: foreman
-          image: zen-brain:dev
+          image: zen-registry:5000/zen-brain:dev
           imagePullPolicy: IfNotPresent
           command: ["/app/foreman"]
           args:

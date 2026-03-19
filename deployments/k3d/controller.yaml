@@ -62,7 +62,7 @@ spec:
       serviceAccountName: zen-brain-controller
       containers:
         - name: controller
-          image: zen-brain:dev
+          image: zen-registry:5000/zen-brain:dev
           imagePullPolicy: IfNotPresent
           command: ["/app/controller"]
           ports:
