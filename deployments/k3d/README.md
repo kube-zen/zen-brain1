@@ -61,7 +61,7 @@ Zen-Lock is now deployed via Helmfile before zen-brain-core, ensuring secret inj
 - Master key secret: `zen-lock-master-key` in zen-lock-system namespace
 - Sourced from: `~/.zen-lock/private-key.age`
 - Auto-applied during redeploy
-- Shared registry path: `zen-registry:5000/kubezen/zen-lock:0.0.3-alpha`
+- Shared registry path: `zen-registry:5000/kubezen/zen-lock:0.0.3-alpha-zb1fix2` (pinned, fixed)
 
 **Manifests:**
 - ✅ No manual kubectl apply of zen-lock manifests required
