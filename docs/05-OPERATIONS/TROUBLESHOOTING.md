@@ -34,8 +34,8 @@ docker ps | grep zen-brain-registry
 python3 scripts/zen.py image build --env sandbox
 
 # Delete old pods to force restart with new image
-kubectl delete pods -n zen-brain -l app=apiserver --context k3d-sandbox
-kubectl delete pods -n zen-brain -l app=foreman --context k3d-sandbox
+kubectl delete pods -n zen-brain -l app=apiserver --context k3d-zen-brain-sandbox
+kubectl delete pods -n zen-brain -l app=foreman --context k3d-zen-brain-sandbox
 ```
 
 **Prevention:** The `zen.py env redeploy` script automatically pushes to shared registry. Always use the canonical path:
@@ -54,13 +54,13 @@ python3 scripts/zen.py env redeploy --env sandbox
 **Diagnostic Steps:**
 ```bash
 # Check pod logs
-kubectl logs -n zen-brain -l app=apiserver --context k3d-sandbox
+kubectl logs -n zen-brain -l app=apiserver --context k3d-zen-brain-sandbox
 
 # Check events
-kubectl get events -n zen-brain --context k3d-sandbox --sort-by='.lastTimestamp'
+kubectl get events -n zen-brain --context k3d-zen-brain-sandbox --sort-by='.lastTimestamp'
 
 # Check pod description
-kubectl describe pod -n zen-brain -l app=apiserver --context k3d-sandbox
+kubectl describe pod -n zen-brain -l app=apiserver --context k3d-zen-brain-sandbox
 ```
 
 **Common Causes:**
@@ -81,13 +81,13 @@ curl: (7) Failed to connect to 127.0.1.1 port 8080: Connection refused
 **Diagnostic Steps:**
 ```bash
 # Check if apiserver is running
-kubectl get pods -n zen-brain --context k3d-sandbox
+kubectl get pods -n zen-brain --context k3d-zen-brain-sandbox
 
 # Check service endpoints
-kubectl get endpoints -n zen-brain --context k3d-sandbox
+kubectl get endpoints -n zen-brain --context k3d-zen-brain-sandbox
 
 # Port-forward to test directly
-kubectl port-forward -n zen-brain svc/apiserver 18080:8080 --context k3d-sandbox
+kubectl port-forward -n zen-brain svc/apiserver 18080:8080 --context k3d-zen-brain-sandbox
 curl http://localhost:18080/healthz
 ```
 
@@ -163,7 +163,7 @@ docker ps | grep registry
 
 **Symptoms:**
 ```
-kubectl get nodes --context k3d-sandbox
+kubectl get nodes --context k3d-zen-brain-sandbox
 The connection to the server 127.0.1.1:6443 was refused
 ```
 
