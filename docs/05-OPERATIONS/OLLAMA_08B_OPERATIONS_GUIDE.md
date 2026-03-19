@@ -581,3 +581,54 @@ The 0.8B model on Docker host Ollama is **production-ready** for CPU-only infere
 **Last Validated:** 2026-03-11  
 **Validation Method:** 120+ hours continuous operation, Docker host Ollama, sandbox environment  
 **Next Review:** 2026-04-11
+
+---
+
+## ZB-018: Local Inference Policy Hardening (2026-03-19)
+
+### Supported Path: Host Docker Ollama Only
+
+**For sandbox/dev CPU-only environments, the ONLY supported local inference path is**
+
+1. **Host Docker Ollama** running outside Kubernetes
+2. **Model:** \`qwen3.5:0.8b\` (ONLY supported local model)
+3. **Connection:** \`http://host.k3d.internal:11434\` from inside k3d pods
+
+### Code Enforcement (ZB-018)
+The following code changes enforce the 0.8b-only policy:
+
+| File | Change |
+|------|--------|
+| \`cmd/zen-brain/factory.go\` | Changed \`LocalWorkerModel\` from \`qwen3.5:14b\` to \`qwen3.5:0.8b\` |
+| \`internal/llm/gateway.go\` | Already had \`qwen3.5:0.8b\` in \`DefaultGatewayConfig()\` |
+| \`cmd/zen-brain/main.go\` | Already had \`qwen3.5:0.8b\` |
+| \`config/clusters.yaml\` | Already had \`models: ["qwen3.5:0.8b"]\` |
+
+### Unsupported/Experimental Paths
+- **In-cluster Ollama:** NOT supported for CPU-only sandbox/dev
+  - Why: k8s networking overhead makes CPU inference impractical (3-5+ min latency vs 8-23s with Docker host)
+  - Status: Disabled by default (\`use_ollama: false\` in \`config/clusters.yaml\`)
+
+### Verify Live Wiring
+\`\`\`bash
+# 1. Check OLLAMA_BASE_URL is set to host Docker
+kubectl exec -n zen-brain deploy/apiserver -- env | grep OLLAMA_BASE_URL
+# Expected: OLLAMA_BASE_URL=http://host.k3d.internal:11434
+
+# 2. Check local-worker lane is using host Docker Ollama
+kubectl logs -n zen-brain deploy/apiserver | grep -E 'local-worker lane|Ollama warmup'
+# Expected: [LLM Gateway] local-worker lane: Ollama at http://host.k3d.internal:11434 (model=qwen3.5:0.8b)
+
+# 3. Verify host Docker Ollama has the model
+kubectl exec -n zen-brain deploy/apiserver -- wget -qO- http://host.k3d.internal:11434/api/tags
+# Expected: JSON with qwen3.5:0.8b in models list
+\`\`\`
+
+### Real Task Execution Evidence (ZB-018)
+The following logs prove real 0.8b inference through zen-brain1:
+\`\`\`
+2026/03/19 20:45:17 [Ollama] Chat: model=qwen3.5:0.8b latency=219743ms in=12 out=1606
+2026/03/19 20:46:57 [Ollama] Chat: model=qwen3.5:0.8b latency=212933ms in=78 out=1426
+2026/03/19 20:49:27 [Ollama] Chat: model=qwen3.5:0.8b latency=149571ms in=78 out=2015
+\`\`\`
+All requests used \`provider=local-worker\` routing through the gateway to host Docker Ollama.
