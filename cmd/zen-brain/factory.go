@@ -496,7 +496,7 @@ func buildFactory() (*factory.FactoryImpl, error) {
 	if hasFlag("--llm") {
 		if ollamaURL := os.Getenv("OLLAMA_BASE_URL"); ollamaURL != "" {
 			gw, gwErr := llm.NewGateway(&llm.GatewayConfig{
-				LocalWorkerModel: "qwen3.5:14b",
+				LocalWorkerModel: "qwen3.5:0.8b", // ZB-018: only supported local model
 			})
 
 			if gwErr == nil {
