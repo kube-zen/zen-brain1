@@ -100,3 +100,9 @@ template_manager.patch
 # Python cache
 __pycache__/
 *.pyc
+
+# Zen-Lock credentials (NEVER COMMIT)
+DONOTASKMOREFORTHISSHIT.txt
+ZENBRAIN*NEVERDELETETHISSHIT.age
+zen-lock-private-key.age
+zen-lock-public-key.age
