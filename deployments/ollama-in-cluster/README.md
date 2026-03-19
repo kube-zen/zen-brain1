@@ -1,6 +1,15 @@
-# Ollama in-cluster (Block 5) – optional in-cluster path
+# Ollama in-cluster (Block 5) – UNSUPPORTED for CPU-only sandbox/dev
 
-**Default for Zen-Brain 1.0 dev/sandbox:** Host Docker Ollama (outside Kubernetes), accessed via `host.k3d.internal:11434`. See `deploy/README.md` for details.
+> ⚠️ **WARNING: This path is UNSUPPORTED for CPU-only sandbox/dev environments**
+>
+> In-cluster Ollama has **severe performance issues** on CPU:
+> - Latency: 3-5+ minutes per request (vs 8-23s with host Docker Ollama)
+> - Success rate: ~50% (frequent 500 errors)
+> - Root cause: k8s networking overhead + resource contention
+>
+> **Use host Docker Ollama instead:** See `deploy/README.md` for the supported path.
+
+**Default for Zen-Brain 1.0 dev/sandbox:** Host Docker Ollama (outside Kubernetes), accessed via `host.k3d.internal:11434`.
 
 **This in-cluster Ollama path is optional, legacy, and experimental** — not the default choice. In-cluster Ollama has shown performance issues; host Docker Ollama provides better GPU passthrough and isolation.
 
