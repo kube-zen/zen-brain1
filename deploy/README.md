@@ -2,9 +2,14 @@
 
 **IMPORTANT: Ollama deployment model for Zen-Brain 1.0 dev/sandbox**
 
-- **Default path:** Host Docker Ollama (outside Kubernetes), accessed via `host.k3d.internal:11434`
-- **In-cluster Ollama:** Optional, legacy, experimental — not the default path
-- **Reasoning:** In-cluster Ollama has shown performance issues; host Docker Ollama provides better GPU passthrough and isolation
+- **Supported path:** Host Docker Ollama (outside Kubernetes), accessed via `host.k3d.internal:11434`
+- **In-cluster Ollama:** UNSUPPORTED for CPU-only sandbox/dev environments
+- **Reasoning:** In-cluster Ollama has shown severe performance issues (3-5+ min latency); host Docker Ollama provides 10-15x better performance
+
+**ZB-019 (2026-03-19): Planner/Worker Split**
+- **GLM (planner):** Planning, decomposition, Jira task creation
+- **qwen3.5:0.8b (worker):** Bounded execution from Jira task description
+- **0.8B MUST NOT be used for planning** — only for execution of pre-planned tasks
 
 **ZB-018 (2026-03-19): Local Model Policy Hardening**
 - **Only supported local model:** `qwen3.5:0.8b`

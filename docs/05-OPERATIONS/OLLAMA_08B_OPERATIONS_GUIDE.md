@@ -1,12 +1,36 @@
 # Ollama 0.8B Operations Guide
 
 **Status:** ✅ **PRODUCTION-VALIDATED**  
-**Last Updated:** 2026-03-11  
+**Last Updated:** 2026-03-19 (ZB-019)  
 **Model:** `qwen3.5:0.8b` (988MB)
 
 ---
 
 ## 🎯 Executive Summary
+
+### ZB-019: Planner/Worker Split (2026-03-19)
+
+**The zen-brain1 architecture enforces a strict role separation:**
+
+| Role | Model | Responsibility |
+|------|-------|----------------|
+| **Planner** | GLM (glm-4.7) | Planning, decomposition, Jira task creation |
+| **Worker** | qwen3.5:0.8b | Bounded execution from Jira task description |
+
+**Worker Tasks (0.8B):**
+- Docs update
+- Config edit
+- Code comment / small patch
+- Runbook improvement
+- Classification / extraction / summarization
+
+**Worker MUST NOT:**
+- Perform broad reasoning
+- Make architecture choices
+- Multi-step decomposition
+- Create new Jira tasks
+
+**If task requires broad reasoning → Route back to GLM (planner)**
 
 ### Key Finding: Docker Host Ollama = 10-15x Better Performance
 
