@@ -1,0 +1,286 @@
+# tasks.yaml - Defines task classes and their execution requirements
+# Tasks are specific operations that can be assigned to roles
+
+tasks:
+  # Event Analysis Tasks
+  - name: analyze-security-event
+    class: event-analysis
+    description: "Analyze a single security event for severity, impact, and recommended actions"
+    required_role: security-analyst
+    timeout_seconds: 60
+    max_tokens: 4000
+    required_fields:
+      - event_type
+      - resource
+      - severity
+      - timestamp
+    output_schema:
+      type: object
+      properties:
+        severity_adjusted:
+          type: string
+          enum: [critical, high, medium, low]
+        impact_assessment:
+          type: string
+        recommended_actions:
+          type: array
+          items:
+            type: object
+        confidence_score:
+          type: number
+          minimum: 0.0
+          maximum: 1.0
+
+  - name: correlate-events
+    class: event-correlation
+    description: "Correlate multiple security events to identify patterns and attack campaigns"
+    required_role: security-analyst
+    timeout_seconds: 120
+    max_tokens: 8000
+    required_fields:
+      - events
+    output_schema:
+      type: object
+      properties:
+        correlation_groups:
+          type: array
+        threat_assessment:
+          type: string
+        attack_pattern:
+          type: string
+
+  - name: threat-intelligence
+    class: intelligence
+    description: "Enrich security events with external threat intelligence data"
+    required_role: security-analyst
+    timeout_seconds: 90
+    max_tokens: 6000
+    external_sources_required:
+      - cve
+      - epss
+      - kev
+    output_schema:
+      type: object
+      properties:
+        cve_ids:
+          type: array
+          items:
+            type: string
+        epss_scores:
+          type: object
+        kev_status:
+          type: string
+
+  # Code Review Tasks
+  - name: code-security-review
+    class: code-review
+    description: "Review code for security vulnerabilities and best practices"
+    required_role: code-reviewer
+    timeout_seconds: 180
+    max_tokens: 8000
+    required_fields:
+      - code
+      - language
+      - framework
+    output_schema:
+      type: object
+      properties:
+        findings:
+          type: array
+          items:
+            type: object
+        severity_distribution:
+          type: object
+        remediation_priority:
+          type: string
+
+  - name: vulnerability-scan
+    class: security-scan
+    description: "Analyze code for known vulnerabilities using CVE databases"
+    required_role: code-reviewer
+    timeout_seconds: 120
+    max_tokens: 6000
+    required_fields:
+      - code
+    output_schema:
+      type: object
+      properties:
+        cve_matches:
+          type: array
+        risk_level:
+          type: string
+          enum: [critical, high, medium, low, none]
+
+  # Documentation Tasks
+  - name: generate-security-docs
+    class: documentation
+    description: "Generate security documentation for features, APIs, or incidents"
+    required_role: documenter
+    timeout_seconds: 150
+    max_tokens: 10000
+    required_fields:
+      - topic
+      - audience
+    output_schema:
+      type: object
+      properties:
+        content:
+          type: string
+        sections:
+          type: array
+        references:
+          type: array
+
+  - name: synthesize-knowledge
+    class: knowledge
+    description: "Synthesize multiple sources into coherent knowledge base entries"
+    required_role: documenter
+    timeout_seconds: 180
+    max_tokens: 12000
+    required_fields:
+      - sources
+      - topic
+    output_schema:
+      type: object
+      properties:
+        knowledge_entry:
+          type: string
+        confidence:
+          type: number
+        sources_cited:
+          type: array
+
+  - name: create-incident-runbook
+    class: runbook
+    description: "Create step-by-step incident response runbook"
+    required_role: documenter
+    timeout_seconds: 200
+    max_tokens: 15000
+    required_fields:
+      - incident_type
+      - environment
+    output_schema:
+      type: object
+      properties:
+        runbook:
+          type: string
+        prerequisites:
+          type: array
+        verification_steps:
+          type: array
+
+  # Orchestration Tasks
+  - name: arbitrate-providers
+    class: orchestration
+    description: "Select best AI provider for a request based on strategy"
+    required_role: orchestrator
+    timeout_seconds: 30
+    max_tokens: 1000
+    required_fields:
+      - request_type
+      - priority
+    output_schema:
+      type: object
+      properties:
+        selected_provider:
+          type: string
+        strategy_applied:
+          type: string
+        fallback_chain:
+          type: array
+
+  - name: coordinate-task-execution
+    class: orchestration
+    description: "Coordinate execution of multiple AI tasks with dependencies"
+    required_role: orchestrator
+    timeout_seconds: 300
+    max_tokens: 5000
+    required_fields:
+      - tasks
+      - dependencies
+    output_schema:
+      type: object
+      properties:
+        execution_plan:
+          type: array
+        resource_allocation:
+          type: object
+        estimated_time_seconds:
+          type: number
+
+# Task class definitions for system-level configuration
+task_classes:
+  event-analysis:
+    priority: 1
+    cost_weight: 1.0
+    allowed_models:
+      - deepseek-chat
+      - gpt-4o-mini
+      - claude-3-haiku
+
+  event-correlation:
+    priority: 2
+    cost_weight: 1.5
+    allowed_models:
+      - deepseek-chat
+      - gpt-4o-mini
+
+  intelligence:
+    priority: 1
+    cost_weight: 1.2
+    allowed_models:
+      - deepseek-chat
+      - gpt-4o-mini
+
+  code-review:
+    priority: 2
+    cost_weight: 1.0
+    allowed_models:
+      - gpt-4o-mini
+      - claude-3-haiku
+      - deepseek-chat
+
+  security-scan:
+    priority: 1
+    cost_weight: 0.8
+    allowed_models:
+      - deepseek-chat
+      - gpt-4o-mini
+
+  documentation:
+    priority: 2
+    cost_weight: 1.0
+    allowed_models:
+      - deepseek-chat
+      - gpt-4o-mini
+      - claude-3-haiku
+
+  knowledge:
+    priority: 2
+    cost_weight: 1.5
+    allowed_models:
+      - deepseek-chat
+      - gpt-4o-mini
+
+  runbook:
+    priority: 3
+    cost_weight: 1.0
+    allowed_models:
+      - claude-3-haiku
+      - gpt-4o-mini
+
+  orchestration:
+    priority: 0
+    cost_weight: 0.1
+    allowed_models:
+      - gpt-4o-mini
+      - claude-3-haiku
+
+# Task scheduling and execution policies
+scheduling:
+  max_concurrent_tasks_per_role: 5
+  task_queue_size_limit: 100
+  priority_classes:
+    - p0: [event-analysis, intelligence, security-scan]
+    - p1: [event-correlation, code-review, documentation]
+    - p2: [knowledge, runbook, orchestration]
