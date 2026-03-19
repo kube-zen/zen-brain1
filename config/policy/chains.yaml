@@ -1,0 +1,323 @@
+# chains.yaml - Defines task execution chains and workflows
+# Chains specify sequences of tasks with dependencies and data flow
+
+chains:
+  # Security Event Analysis Chain
+  - name: security-event-full-analysis
+    description: "Complete analysis workflow for a security event from detection to remediation"
+    tasks:
+      - name: analyze-security-event
+        task_class: event-analysis
+        role: security-analyst
+        timeout_seconds: 60
+        max_retries: 3
+
+      - name: threat-intelligence
+        task_class: intelligence
+        role: security-analyst
+        timeout_seconds: 90
+        max_retries: 3
+        depends_on:
+          - analyze-security-event
+        input_from:
+          - analyze-security-event.cve_ids
+
+      - name: correlate-events
+        task_class: event-correlation
+        role: security-analyst
+        timeout_seconds: 120
+        max_retries: 2
+        depends_on:
+          - analyze-security-event
+        input_from:
+          - analyze-security-event.event
+        parallel_with: threat-intelligence
+
+    output_aggregation:
+      merge_outputs: true
+      output_schema:
+        type: object
+        properties:
+          event_analysis: {}
+            threat_intelligence: {}
+            correlation_results: {}
+        confidence_score:
+          type: number
+          minimum: 0.0
+          maximum: 1.0
+
+  # Code Security Review Chain
+  - name: code-security-review-full
+    description: "Complete code security review from scan to documentation"
+    tasks:
+      - name: vulnerability-scan
+        task_class: security-scan
+        role: code-reviewer
+        timeout_seconds: 120
+        max_retries: 3
+
+      - name: code-security-review
+        task_class: code-review
+        role: code-reviewer
+        timeout_seconds: 180
+        max_retries: 2
+        depends_on:
+          - vulnerability-scan
+        input_from:
+          - vulnerability-scan.cve_matches
+
+      - name: generate-security-docs
+        task_class: documentation
+        role: documenter
+        timeout_seconds: 150
+        max_retries: 2
+        depends_on:
+          - code-security-review
+        input_from:
+          - code-security-review.findings
+    output_aggregation:
+      merge_outputs: true
+      output_schema:
+        type: object
+        properties:
+          vulnerabilities_found: {}
+            code_review_findings: {}
+            remediation_documentation: {}
+        overall_risk_level:
+          type: string
+          enum: [critical, high, medium, low, none]
+
+  # Threat Investigation Chain
+  - name: threat-investigation-workflow
+    description: "Multi-step investigation of correlated security events"
+    tasks:
+      - name: correlate-events
+        task_class: event-correlation
+        role: security-analyst
+        timeout_seconds: 120
+        max_retries: 2
+
+      - name: threat-intelligence
+        task_class: intelligence
+        role: security-analyst
+        timeout_seconds: 90
+        max_retries: 3
+        parallel_with: correlate-events
+
+      - name: analyze-correlated-events
+        task_class: event-analysis
+        role: security-analyst
+        timeout_seconds: 180
+        max_retries: 2
+        depends_on:
+          - correlate-events
+          - threat-intelligence
+        input_from:
+          - correlate-events.correlation_groups
+          - threat-intelligence.cve_ids
+
+      - name: synthesize-knowledge
+        task_class: knowledge
+        role: documenter
+        timeout_seconds: 180
+        max_retries: 2
+        depends_on:
+          - analyze-correlated-events
+        input_from:
+          - analyze-correlated-events.recommended_actions
+    output_aggregation:
+      merge_outputs: true
+      output_schema:
+        type: object
+        properties:
+          attack_pattern: {}
+            threat_intelligence: {}
+            correlated_analysis: {}
+            knowledge_synthesis: {}
+        investigation_priority:
+          type: string
+          enum: [p0, p1, p2]
+
+  # Remediation Proposal Chain
+  - name: remediation-proposal-workflow
+    description: "Generate remediation proposals for high-priority threats"
+    tasks:
+      - name: threat-intelligence
+        task_class: intelligence
+        role: security-analyst
+        timeout_seconds: 90
+        max_retries: 3
+
+      - name: correlate-events
+        task_class: event-correlation
+        role: security-analyst
+        timeout_seconds: 120
+        max_retries: 2
+        parallel_with: threat-intelligence
+
+      - name: synthesize-knowledge
+        task_class: knowledge
+        role: documenter
+        timeout_seconds: 180
+        max_retries: 2
+        depends_on:
+          - threat-intelligence
+        input_from:
+          - threat-intelligence.cve_ids
+
+      - name: generate-remediation-proposal
+        task_class: knowledge
+        role: security-analyst
+        timeout_seconds: 200
+        max_retries: 2
+        depends_on:
+          - correlate-events
+          - synthesize-knowledge
+        input_from:
+          - correlate-events.correlation_groups
+          - synthesize-knowledge.knowledge_entry
+
+      - name: create-incident-runbook
+        task_class: runbook
+        role: documenter
+        timeout_seconds: 200
+        max_retries: 2
+        depends_on:
+          - generate-remediation-proposal
+        input_from:
+          - generate-remediation-proposal
+    output_aggregation:
+      merge_outputs: true
+      output_schema:
+        type: object
+        properties:
+          threat_intelligence: {}
+            correlation_results: {}
+            knowledge_synthesis: {}
+            remediation_proposal: {}
+            incident_runbook: {}
+        recommended_priority:
+          type: string
+          enum: [immediate, short-term, long-term]
+
+  # Multi-Provider Arbitration Chain
+  - name: multi-provider-consensus-chain
+    description: "Get consensus from multiple providers with fallback"
+    tasks:
+      - name: arbitrate-providers
+        task_class: orchestration
+        role: orchestrator
+        timeout_seconds: 30
+        max_retries: 3
+        # This task determines which providers to use
+
+      - name: coordinate-task-execution
+        task_class: orchestration
+        role: orchestrator
+        timeout_seconds: 300
+        max_retries: 2
+        depends_on:
+          - arbitrate-providers
+        input_from:
+          - arbitrate-providers.selected_provider
+          - arbitrate-providers.fallback_chain
+
+      # The actual task execution happens based on coordinate-task-execution output
+      # This is a meta-chain that delegates to other chains
+    output_aggregation:
+      merge_outputs: false
+      output_schema:
+        type: object
+        properties:
+          execution_plan: {}
+            selected_providers: []
+            estimated_cost_cents: number
+
+# Chain-level policies
+policies:
+  # Dependency resolution
+  dependencies:
+    # How to handle missing dependencies
+    missing_dependency_handling: "error"  # options: error, skip, default
+    # How long to wait for dependencies
+    max_wait_seconds: 300
+    # Whether to continue with partial results
+    allow_partial_completion: true
+
+  # Task execution
+  execution:
+    # Max concurrent tasks in a chain
+    max_concurrent_tasks: 5
+    # Task-level timeout
+    default_task_timeout_seconds: 120
+    # Retry policy
+    retry_policy:
+      max_retries: 3
+      initial_backoff_ms: 1000
+      max_backoff_ms: 30000
+      backoff_multiplier: 2.0
+
+  # Output aggregation
+  aggregation:
+    # How to merge task outputs
+    merge_strategy: "deep"  # options: deep, shallow, merge, last
+    # Conflict resolution
+    conflict_resolution: "highest_confidence"  # options: highest_confidence, latest, manual
+    # Required output schema validation
+    validate_schema: true
+    # Fail fast on schema validation errors
+    fail_fast_on_schema_error: true
+
+# Chain templates (reusable patterns)
+templates:
+  # Standard analysis template
+  - name: standard-analysis-chain
+    description: "Template for standard analysis workflows"
+    tasks:
+      - analyze
+      - enrich
+      - document
+
+  # Parallel analysis template
+  - name: parallel-analysis-chain
+    description: "Template for parallel task execution"
+    tasks:
+      - task_a
+        parallel_with: [task_b, task_c]
+      - aggregate
+
+  # Sequential validation template
+  - name: sequential-validation-chain
+    description: "Template for sequential validation workflows"
+    tasks:
+      - validate
+      - verify
+      - certify
+
+# Chain execution constraints
+constraints:
+  # Maximum total tokens for a chain
+  max_chain_tokens: 50000
+  # Maximum chain execution time
+  max_chain_time_seconds: 600
+  # Maximum cost for a chain
+  max_chain_cost_cents: 500
+  # Required success rate for chain to pass
+  min_success_rate: 0.8
+
+# Monitoring and observability
+observability:
+  # Log chain execution
+  log_chain_execution: true
+  log_task_start: true
+  log_task_completion: true
+  log_dependencies: true
+  # Metrics
+  metrics:
+    - chain_duration_seconds
+    - chain_cost_cents
+    - chain_success
+    - chain_failure
+    - task_count
+    - parallel_tasks
+    - dependency_wait_time_seconds

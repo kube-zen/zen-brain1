@@ -1,0 +1,213 @@
+# routing.yaml - Defines request routing and model selection policies
+# This policy overrides model selection from provider configuration
+
+routing:
+  # Default routing strategy when no specific routing rule matches
+  default_strategy: "smart"  # options: fastest, lowest_cost, highest_quality, smart
+
+  # Model selection strategy
+  model_selection:
+    # Priority: provider override > task recommendation > routing policy > provider default
+    priority_order:
+      - provider_override  # Explicitly requested provider
+      - task_recommendation  # Task's recommended model
+      - routing_policy  # This configuration
+      - provider_default  # Provider's default model
+
+    # How to handle provider/model unavailability
+    unavailability_handling: "failover"  # options: failover, error, queue
+
+    # Failover chain (used when failover strategy is selected)
+    failover_chain:
+      - deepseek
+      - openai
+      - anthropic
+
+  # Task-based routing rules
+  task_routing:
+    # Event analysis tasks - prioritize speed and cost
+    - task_class: event-analysis
+      strategy: "lowest_cost"
+      preferred_providers: [deepseek]
+      fallback_providers: [openai, anthropic]
+      model_constraints:
+        max_context_tokens: 128000
+        min_response_time_ms: 5000
+      quality_requirements:
+        min_confidence: 0.7
+        require_citations: true
+
+    # Event correlation - needs more reasoning
+    - task_class: event-correlation
+      strategy: "highest_quality"
+      preferred_providers: [deepseek, openai]
+      fallback_providers: [anthropic]
+      model_constraints:
+        max_context_tokens: 128000
+        min_response_time_ms: 10000
+      quality_requirements:
+        min_confidence: 0.8
+
+    # Intelligence gathering - can use cheaper models
+    - task_class: intelligence
+      strategy: "lowest_cost"
+      preferred_providers: [deepseek]
+      fallback_providers: [openai]
+      model_constraints:
+        max_context_tokens: 128000
+        require_streaming: false
+      quality_requirements:
+        min_confidence: 0.75
+
+    # Code review - needs accuracy over speed
+    - task_class: code-review
+      strategy: "highest_quality"
+      preferred_providers: [openai, anthropic]
+      fallback_providers: [deepseek]
+      model_constraints:
+        min_context_tokens: 8000
+        max_context_tokens: 128000
+        require_json_mode: true
+      quality_requirements:
+        min_confidence: 0.9
+        require_code_examples: true
+
+    # Security scanning - can be parallelized
+    - task_class: security-scan
+      strategy: "fastest"
+      preferred_providers: [deepseek, openai]
+      fallback_providers: [anthropic]
+      model_constraints:
+        max_batch_size: 10
+        max_concurrent_requests: 5
+      quality_requirements:
+        min_confidence: 0.85
+
+    # Documentation - use larger context models
+    - task_class: documentation
+      strategy: "smart"  # Balance quality and cost
+      preferred_providers: [deepseek, openai]
+      fallback_providers: [anthropic]
+      model_constraints:
+        min_context_tokens: 128000
+        max_response_time_ms: 15000
+      quality_requirements:
+        min_confidence: 0.8
+
+    # Knowledge synthesis - needs larger context
+    - task_class: knowledge
+      strategy: "highest_quality"
+      preferred_providers: [openai, anthropic]
+      fallback_providers: [deepseek]
+      model_constraints:
+        min_context_tokens: 128000
+        max_response_time_ms: 20000
+      quality_requirements:
+        min_confidence: 0.85
+        require_sources: true
+
+    # Orchestration tasks - use fastest available
+    - task_class: orchestration
+      strategy: "fastest"
+      preferred_providers: [openai]
+      fallback_providers: [deepseek, anthropic]
+      model_constraints:
+        max_response_time_ms: 2000
+        min_context_tokens: 4000
+      quality_requirements:
+        min_confidence: 0.75
+
+  # Provider-level routing constraints
+  provider_routing:
+    # DeepSeek constraints
+    - provider: deepseek
+      max_rpm: 60
+      max_rpd: 100000
+      cost_cents_per_1m_tokens: 0.14  # Cheapest - prioritize for large requests
+      quality_weight: 0.8  # Good quality but not best
+      timeout_seconds: 90
+
+    # OpenAI constraints
+    - provider: openai
+      max_rpm: 500
+      max_rpd: 100000
+      cost_cents_per_1m_tokens: 0.15  # Input), 0.60 (Output)
+      quality_weight: 1.0  # Best quality for code review
+      timeout_seconds: 60
+
+    # Anthropic constraints
+    - provider: anthropic
+      max_rpm: 60
+      max_rpd: 50000
+      cost_cents_per_1m_tokens: 0.25  # Expensive - use sparingly
+      quality_weight: 1.0  # Best for reasoning and nuance
+      timeout_seconds: 90
+
+  # Tenant-level routing overrides (optional)
+  tenant_overrides:
+    # Example: Tenant XYZ always uses OpenAI for code review
+    # - tenant_id: "uuid-here"
+    #   task_class: code-review
+    #   strategy: "highest_quality"
+    #   preferred_providers: [openai]
+    #   fallback_providers: []
+
+  # Model fallback rules
+  model_fallback:
+    # When a model is unavailable or fails, use fallback
+    rules:
+      - from_model: gpt-4o
+        to_model: gpt-4o-mini
+        reason: "Smaller model for speed and cost"
+
+      - from_model: claude-3-opus
+        to_model: claude-3-sonnet
+        reason: "Smaller model for speed and cost"
+
+      - from_model: claude-3-sonnet
+        to_model: claude-3-haiku
+        reason: "Smallest Claude model"
+
+      - from_model: deepseek-chat
+        to_model: deepseek-reasoner
+        reason: "Reasoning model for complex tasks"
+
+  # Arbitration strategy for multi-provider requests
+  arbitration:
+    # Strategy options:
+    # - first_success: Return first successful response (fastest)
+    # - lowest_cost: Select provider with lowest cost (cheapest)
+    # - fastest: Select provider with fastest response time
+    # - majority: Select response with majority consensus (most reliable)
+    # - weighted: Select provider based on weighted scores (customizable)
+    default_strategy: "first_success"
+
+    # Provider weights for weighted arbitration
+    weights:
+      deepseek: 0.4  # Cheap and fast
+      openai: 0.4  # Reliable and high quality
+      anthropic: 0.2  # Best for reasoning, but expensive
+
+    # Threshold for majority arbitration
+    majority_threshold: 0.66  # 66% agreement required
+
+    # Timeout for arbitration (wait for all providers or timeout)
+    arbitration_timeout_seconds: 60
+
+  # Smart routing heuristics
+  heuristics:
+    # Use cache if available and recent
+    use_cache_if_fresh: true
+    cache_freshness_seconds: 300  # 5 minutes
+
+    # Prefer provider with available rate limit
+    check_rate_limits: true
+    rate_limit_buffer: 0.9  # Don't exceed 90% of rate limit
+
+    # Consider historical success rates
+    use_historical_success: true
+    success_rate_window_hours: 24  # 24 hour window
+
+    # Consider token cost for large requests
+    consider_cost: true
+    cost_threshold_tokens: 10000  # Consider cost for requests >10K tokens
