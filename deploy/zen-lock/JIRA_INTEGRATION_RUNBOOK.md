@@ -1,6 +1,35 @@
 # Zen-Brain Jira Integration - Canonical Setup
 
-This is the single authoritative runbook for Jira credential management. No other docs needed.
+**ZB-025A ENFORCED:** This is the single authoritative runbook for Jira credential management. No other docs needed.
+
+## Executive Summary
+
+Jira credentials are managed through **ZenLock** as the ONLY source of truth in cluster mode.
+
+**FORBIDDEN PATHS (DO NOT USE):**
+- `~/.zen-brain/secrets/jira.yaml` - Legacy path, will fail in cluster mode
+- Environment variables as primary source - Disabled by default
+- Chat-pasted tokens - Never store or use
+
+**CANONICAL PATHS (USE THESE):**
+
+**Local bootstrap (operator setup):**
+- `~/zen/DONOTASKMOREFORTHISSHIT.txt` - Contains JIRA_API_TOKEN
+- `~/zen/ZENBRAINPRIVATEKEYNEVERDELETETHISSHIT.age` - AGE private key
+- `~/zen/ZENBRAINPUBLICKEYNEVERDELETETHISSHIT.age` - AGE public key
+
+**Runtime (cluster):**
+- `/zen-lock/secrets` - Mounted by ZenLock, ONLY allowed source
+
+**Setup command:**
+```bash
+deploy/zen-lock/bootstrap-jira-zenlock-from-local.sh
+```
+
+**Sanity check:**
+```bash
+scripts/check_jira_canonical_path.sh
+```
 
 ## Overview
 
@@ -26,6 +55,93 @@ Jira credentials are managed through **ZenLock** as the source of truth. Access 
 | JIRA_EMAIL | User email (e.g., `zen@zen-mesh.io`) |
 | JIRA_API_TOKEN | API token (user-level `ATATT3...`) |
 | JIRA_PROJECT_KEY | Project key (e.g., `ZB`) |
+
+## ONE-WAY SETUP FLOW (ZB-025A)
+
+### Step 1: Prepare Local Files
+
+Create these files in `~/zen/`:
+
+```bash
+# Jira API token (paste from Atlassian)
+cat > ~/zen/DONOTASKMOREFORTHISSHIT.txt << 'EOF'
+ATATT3...your-full-token-here...
+EOF
+
+# Generate AGE keypair (if not exists)
+age-keygen -o ~/zen/ZENBRAINPRIVATEKEYNEVERDELETETHISSHIT.age
+age-keygen -y ~/zen/ZENBRAINPRIVATEKEYNEVERDELETETHISSHIT.age > ~/zen/ZENBRAINPUBLICKEYNEVERDELETETHISSHIT.age
+```
+
+**NOTE:**
+- Get API token from: https://id.atlassian.com/manage-profile/security/api-tokens
+- Token format MUST be `ATATT3...` (user-level)
+- Workspace tokens (`ATCTT3...`) do NOT work
+
+### Step 2: Run Bootstrap Script
+
+```bash
+cd ~/zen/zen-brain1
+./deploy/zen-lock/bootstrap-jira-zenlock-from-local.sh
+```
+
+**This script:**
+- Reads credentials from `~/zen/DONOTASKMOREFORTHISSHIT.txt`
+- Encrypts with AGE keys
+- Creates ZenLock manifest
+- Updates Kubernetes secret
+- Restarts zen-lock-webhook and zen-lock-controller
+- Applies ZenLock to cluster
+- Updates foreman config
+- Validates installation
+
+### Step 3: Validate Setup
+
+```bash
+# Run sanity check
+scripts/check_jira_canonical_path.sh
+
+# Or validate with office doctor
+./bin/zen-brain office doctor
+./bin/zen-brain office smoke-real
+```
+
+**Expected output:**
+```
+✓ ALL CHECKS PASS
+Jira credentials are using canonical source of truth
+```
+
+## Alternative Setup Methods (NOT RECOMMENDED)
+
+### Method A: generate_jira_secret.py (Manual)
+
+This script exists but requires manual Jira token entry.
+Prefer `bootstrap-jira-zenlock-from-local.sh` instead.
+
+```bash
+# Only use if you can't use bootstrap script
+python3 scripts/generate_jira_secret.py
+kubectl apply -f deploy/zen-lock/jira-zenlock.yaml
+```
+
+### Method B: Host Runtime (Local Dev Only)
+
+For local development outside Kubernetes, you may use:
+- `~/.zen-brain/jira-credentials.env` (NOT `secrets/jira.yaml`)
+
+**WARNING:** This is for local dev ONLY. Never use in cluster mode.
+
+```bash
+cat > ~/.zen-brain/jira-credentials.env << 'EOF'
+JIRA_URL="https://zen-mesh.atlassian.net"
+JIRA_EMAIL="zen@zen-mesh.io"
+JIRA_TOKEN="ATATT3..."
+JIRA_PROJECT_KEY="ZB"
+EOF
+
+python3 scripts/load_jira_credentials.py
+```
 
 ## Service Account Access
 
@@ -152,6 +268,35 @@ python3 scripts/load_jira_credentials.py
 
 ## Troubleshooting
 
+### AI Asks for Jira Token Again
+
+**This should NEVER happen after ZB-025A enforcement.**
+
+If an AI assistant asks for Jira token, run:
+
+```bash
+# 1. Run sanity check
+scripts/check_jira_canonical_path.sh
+
+# 2. If check fails, follow output:
+#    deploy/zen-lock/bootstrap-jira-zenlock-from-local.sh
+
+# 3. Verify canonical path is being used:
+#    - Local: ~/zen/DONOTASKMOREFORTHISSHIT.txt exists
+#    - Runtime: /zen-lock/secrets is being used
+```
+
+**Why this happens:**
+- Old documentation still mentions `~/.zen-brain/secrets/jira.yaml`
+- Code/docs drift if CI gates are bypassed
+- AI reading outdated runbooks
+
+**Permanent fix:**
+ZB-025A added hard-fail in cluster mode. The code now FORBIDS:
+- `credentials_file` usage in cluster mode
+- Silent fallback to wrong paths
+- AI continuing if canonical path missing
+
 ### ZenLock Phase = Error
 
 **Check:**
@@ -242,3 +387,114 @@ After Jira is canonical, apply same pattern in order:
 4. AWS/GCP
 
 Each gets: ZenLock resource → ServiceAccount restrictions → Validation commands → Single runbook.
+
+---
+
+## ZB-025A: A/B/C Confusion Resolution
+
+### The Recurring Question
+
+AI assistants kept asking this question:
+
+> Should I copy a Jira token from repo? (A)
+> Should I use ~/.zen-brain/secrets/jira.yaml? (B)
+> Should I generate a token and run bootstrap script? (C)
+
+### The Permanent Answer
+
+**A) NO.** Do not copy a token from repo.
+- Repo should NEVER contain secrets
+- Even if found, do not use it
+- Use canonical local source instead
+
+**B) NO.** Do NOT use `~/.zen-brain/secrets/jira.yaml`.
+- This is a legacy path that caused confusion
+- It is FORBIDDEN in cluster mode
+- Code will hard-fail if you try
+
+**C) YES.** This is the ONLY correct path:
+1. Generate/revoke token in Atlassian when needed
+2. Save to `~/zen/DONOTASKMOREFORTHISSHIT.txt`
+3. Run `deploy/zen-lock/bootstrap-jira-zenlock-from-local.sh`
+4. Use `zenlock-dir:/zen-lock/secrets` at runtime
+
+### Canonical Chain
+
+```
+~/zen/DONOTASKMOREFORTHISSHIT.txt (local source)
+    ↓
+deploy/zen-lock/bootstrap-jira-zenlock-from-local.sh (bootstrap)
+    ↓
+zen-lock security.kube-zen.io/v1alpha1 (K8s resource)
+    ↓
+/zen-lock/secrets (runtime mount)
+    ↓
+zen-brain office doctor (validation)
+```
+
+### If AI Asks Anyway
+
+Run the sanity check:
+```bash
+scripts/check_jira_canonical_path.sh
+```
+
+If it passes, the AI is confused. Show it:
+- Output of sanity check
+- Link to this runbook section
+- Ask it to re-read this section
+
+If it fails, fix the issues it reports.
+
+### Enforcement in Code
+
+ZB-025A added these hard-fails:
+
+1. **Cluster mode detection** - If running in K8s, only allow `/zen-lock/secrets`
+2. **Forbidden path check** - Non-default `credentials_file` in cluster mode = ERROR
+3. **Missing ZenLock = FAIL** - If Jira enabled but ZenLock secrets missing, hard-fail with:
+   ```
+   ERROR: Jira credentials not loaded from ZenLock
+   Resolution: Run deploy/zen-lock/bootstrap-jira-zenlock-from-local.sh
+   ```
+4. **No default credentials_file** - Code no longer sets default `~/.zen-brain/secrets/jira.yaml`
+
+### Why This Matters
+
+Before ZB-025A:
+- Multiple paths in config/docs
+- "Medium priority" fallback language
+- No hard-fail for wrong path
+- AI kept asking A/B/C every 2 hours
+
+After ZB-025A:
+- ONE canonical path enforced in code
+- Clear error message if wrong path used
+- Sanity check script to validate
+- This runbook as single source of truth
+
+### Quick Reference
+
+| Task | Command |
+|-------|----------|
+| Validate canonical path | `scripts/check_jira_canonical_path.sh` |
+| Bootstrap from local files | `deploy/zen-lock/bootstrap-jira-zenlock-from-local.sh` |
+| Validate with office | `./bin/zen-brain office doctor` |
+| Check ZenLock status | `kubectl get zenlock jira-credentials -n zen-brain` |
+| Get API token | https://id.atlassian.com/manage-profile/security/api-tokens |
+
+### DO NOT
+
+❌ Copy token from repo
+❌ Use `~/.zen-brain/secrets/jira.yaml`
+❌ Paste token from chat
+❌ Use env vars as primary source
+❌ Edit config to use legacy paths
+
+### DO
+
+✅ Save to `~/zen/DONOTASKMOREFORTHISSHIT.txt`
+✅ Run `bootstrap-jira-zenlock-from-local.sh`
+✅ Use `zenlock-dir:/zen-lock/secrets` at runtime
+✅ Run `scripts/check_jira_canonical_path.sh` to validate
+✅ Refer AI to this runbook section if confused
