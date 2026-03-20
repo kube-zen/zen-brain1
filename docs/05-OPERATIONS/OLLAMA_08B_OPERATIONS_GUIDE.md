@@ -1,8 +1,20 @@
 # Ollama 0.8B Operations Guide
 
-**Status:** ✅ **PRODUCTION-VALIDATED**  
-**Last Updated:** 2026-03-19 (ZB-019)  
+**Status:** ✅ **PRODUCTION-VALIDATED**
+**Last Updated:** 2026-03-20 (ZB-023)
 **Model:** `qwen3.5:0.8b` (988MB)
+
+---
+
+## 📌 Source of Truth
+
+| Document | Purpose | Link |
+|----------|---------|-------|
+| **Canonical Policy** | Local CPU inference policy (qwen3.5:0.8b ONLY) | [SMALL_MODEL_STRATEGY.md](../03-DESIGN/SMALL_MODEL_STRATEGY.md) |
+| **Operational Guide** | This document - operational implementation details | [OLLAMA_08B_OPERATIONS_GUIDE.md](OLLAMA_08B_OPERATIONS_GUIDE.md) (current) |
+| **Warmup Runbook** | Warmup/keepalive procedures | [OLLAMA_WARMUP_RUNBOOK.md](OLLAMA_WARMUP_RUNBOOK.md) |
+| **Operator Runbook** | Troubleshooting and verification commands | [ZB_023_LOCAL_CPU_INFERENCE_RULE.md](ZB_023_LOCAL_CPU_INFERENCE_RULE.md) |
+| **Deployment Guide** | Deployment instructions | [deploy/README.md](../../deploy/README.md) |
 
 ---
 
