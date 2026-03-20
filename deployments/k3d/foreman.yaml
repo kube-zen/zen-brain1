@@ -85,7 +85,7 @@ spec:
       containers:
         - name: foreman
           image: zen-registry:5000/zen-brain:dev
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           command: ["/app/foreman"]
           args:
             - "-metrics-bind-address=:8080"
