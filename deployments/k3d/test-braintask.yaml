@@ -1,0 +1,29 @@
+apiVersion: zen.kube-zen.com/v1alpha1
+kind: BrainTask
+metadata:
+  name: test-docs-update-zb022c
+  namespace: zen-brain
+spec:
+  id: "task-test-docs-update-1"
+  workItemID: "TEST-001"
+  sessionID: "session-test-001"
+  sourceKey: "TEST-001"
+  title: "Update runtime documentation for qwen3.5:0.8b local-worker lane"
+  description: "Add documentation describing the canonical dogfood lane: Jira -> BrainTask -> Foreman -> qwen3.5:0.8b -> Jira feedback"
+  workType: documentation
+  workDomain: core
+  priority: medium
+  objective: "Document the proven runtime path for local Ollama qwen3.5:0.8b execution through Foreman"
+  acceptanceCriteria:
+    - "Document includes Jira -> BrainTask flow"
+    - "Document includes BrainTask -> Foreman execution"
+    - "Document includes qwen3.5:0.8b model path"
+    - "Document includes Jira feedback path"
+  constraints:
+    - "Use existing documentation structure"
+    - "No architectural changes"
+    - "Safe documentation update only"
+  evidenceRequirement: summary
+  timeoutSeconds: 300
+  maxRetries: 2
+  queueName: default
