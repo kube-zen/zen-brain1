@@ -51,12 +51,14 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		}
 		// Handle stuck "Running" tasks (worker crashed before updating status)
 		if task.Status.Phase == v1alpha1.BrainTaskPhaseRunning {
-			// Check if task is stale (> 5 minutes in Running without completion)
+			// ZB-024: Check if task is stale (> 50 minutes in Running without completion)
+			// IMPORTANT: Stale threshold MUST be > execution timeout (45m) to avoid racing valid long-running tasks
 			scheduledCondition := findCondition(task.Status.Conditions, "Scheduled")
 			if scheduledCondition != nil {
 				scheduledTime := scheduledCondition.LastTransitionTime.Time
 				staleDuration := time.Since(scheduledTime)
-				if staleDuration > 5*time.Minute {
+				// ZB-024: Use 50-minute stale threshold - > 45m execution timeout to avoid racing valid long-running tasks
+				if staleDuration > 50*time.Minute {
 					logger.Info("Stale Running task detected, re-dispatching", "task", task.Name, "running_for", staleDuration)
 					if r.Dispatcher != nil {
 						if err := r.Dispatcher.Dispatch(ctx, &task); err != nil {
