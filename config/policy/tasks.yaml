@@ -1,0 +1,89 @@
+# Task Policy Configuration for zen-brain1
+# Version: 1.0
+# Status: Production
+#
+# IMPORTANT: Local CPU Inference Policy (ZB-023)
+# ================================================
+# UNTIL EXPLICITLY OVERRIDDEN BY THE OPERATOR:
+# - qwen3.5:0.8b is the ONLY allowed local Ollama model
+# - Host Docker Ollama is the ONLY supported local CPU inference path
+# - In-cluster Ollama is FORBIDDEN for the active local path
+#
+# Any provider/model may serve any role if configured.
+
+tasks:
+  - name: bounded-execution
+    class: execution
+    description: "Execute a bounded task with well-defined inputs and outputs"
+    timeout_seconds: 300
+    max_retries: 3
+    priority: P1
+    output_schema:
+      type: object
+      properties:
+        success:
+          type: boolean
+        output:
+          type: string
+        error:
+          type: string
+
+  - name: complex-planning
+    class: planning
+    description: "Plan and decompose complex tasks"
+    timeout_seconds: 600
+    max_retries: 2
+    priority: P0
+    output_schema:
+      type: object
+      properties:
+        plan:
+          type: array
+          items:
+            type: string
+        jira_tickets:
+          type: array
+          items:
+            type: object
+
+  - name: chat
+    class: interaction
+    description: "Real-time chat interaction"
+    timeout_seconds: 300
+    max_retries: 1
+    priority: P2
+    output_schema:
+      type: object
+      properties:
+        response:
+          type: string
+
+  - name: code-generation
+    class: generation
+    description: "Generate code from requirements"
+    timeout_seconds: 600
+    max_retries: 2
+    priority: P0
+    output_schema:
+      type: object
+      properties:
+        code:
+          type: string
+        explanation:
+          type: string
+
+  - name: documentation
+    class: content
+    description: "Create or update documentation"
+    timeout_seconds: 300
+    max_retries: 2
+    priority: P1
+    output_schema:
+      type: object
+      properties:
+        content:
+          type: string
+        files_changed:
+          type: array
+          items:
+            type: string

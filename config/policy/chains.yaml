@@ -1,0 +1,63 @@
+# Chain Policy Configuration for zen-brain1
+# Version: 1.0
+# Status: Production
+#
+# IMPORTANT: Local CPU Inference Policy (ZB-023)
+# ================================================
+# UNTIL EXPLICITLY OVERRIDDEN BY THE OPERATOR:
+# - qwen3.5:0.8b is the ONLY allowed local Ollama model
+# - Host Docker Ollama is the ONLY supported local CPU inference path
+# - In-cluster Ollama is FORBIDDEN for the active local path
+
+chains:
+  - name: bounded-execution-chain
+    description: "Execute a bounded task with local worker"
+    tasks:
+      - name: execute
+        task_class: bounded-execution
+        role: worker
+        timeout_seconds: 300
+
+  - name: planning-and-execution-chain
+    description: "Plan and then execute a complex task"
+    tasks:
+      - name: plan
+        task_class: complex-planning
+        role: planner
+        timeout_seconds: 600
+      - name: execute
+        task_class: bounded-execution
+        role: worker
+        depends_on:
+          - plan
+        timeout_seconds: 300
+
+  - name: code-review-chain
+    description: "Review code for correctness and best practices"
+    tasks:
+      - name: review
+        task_class: review
+        role: reviewer
+        timeout_seconds: 600
+
+  - name: documentation-chain
+    description: "Create or update documentation"
+    tasks:
+      - name: write-docs
+        task_class: documentation
+        role: summarizer
+        timeout_seconds: 300
+
+  - name: debug-and-fix-chain
+    description: "Diagnose issue and propose fix"
+    tasks:
+      - name: diagnose
+        task_class: analysis
+        role: debugger
+        timeout_seconds: 600
+      - name: propose-fix
+        task_class: bounded-execution
+        role: worker
+        depends_on:
+          - diagnose
+        timeout_seconds: 300

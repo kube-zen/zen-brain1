@@ -16,6 +16,67 @@ The zen-brain policy system provides declarative, file-based configuration for:
 
 This replaces hardcoded configuration with a flexible, maintainable YAML-based system.
 
+## 🚨 CRITICAL: Local CPU Inference Policy (ZB-023)
+
+**UNTIL EXPLICITLY OVERRIDDEN BY THE OPERATOR:**
+
+### Certified Local CPU Path
+
+- ✅ **ONLY allowed local model:** `qwen3.5:0.8b`
+- ✅ **ONLY supported local inference path:** Host Docker Ollama (http://host.k3d.internal:11434)
+- ❌ **FORBIDDEN:** In-cluster Ollama for active local CPU path
+- ❌ **FORBIDDEN:** Any other local model (e.g., qwen3.5:14b, llama*, mistral*)
+
+### Provider/Model Flexibility
+
+- Any provider/model may serve any role if configured
+- The outdated "planner=GLM, worker=0.8b" split is **REMOVED**
+- `qwen3.5:0.8b` is NOT worker-only by architecture
+- GLM is NOT planner-only by architecture
+- **However:** The ONLY certified LOCAL CPU lane is `qwen3.5:0.8b` via host Docker Ollama
+
+### Enforcement (FAIL-CLOSED)
+
+Policy enforces the following:
+
+1. **Local model restriction:** `providers.yaml` sets `fail_if_other_model_requested: true`
+2. **In-cluster Ollama prohibition:** `routing.yaml` sets `forbid_in_cluster_ollama: true`
+3. **Timeout defaults:** Local CPU path defaults to 300s timeout (generous for CPU inference)
+4. **Thinking default:** Local CPU path defaults to `thinking=false` (no chain-of-thought)
+
+### How to Override (NOT RECOMMENDED)
+
+To use a different local model or in-cluster Ollama, you must:
+
+1. Get **EXPLICIT OPERATOR APPROVAL** (no casual switching)
+2. Update ALL three layers: policy, code, and documentation
+3. Add CI gate exceptions (see `scripts/ci/` gates)
+4. Document the change with a clear justification
+
+### Verification Commands
+
+```bash
+# 1. Check OLLAMA_BASE_URL points to host Docker (NOT in-cluster)
+kubectl exec -n zen-brain deploy/apiserver -- env | grep OLLAMA_BASE_URL
+# Expected: OLLAMA_BASE_URL=http://host.k3d.internal:11434
+
+# 2. Check local-worker lane is using host Docker Ollama with qwen3.5:0.8b
+kubectl logs -n zen-brain deploy/apiserver | grep -E 'local-worker lane|Ollama warmup'
+# Expected: [LLM Gateway] local-worker lane: Ollama at http://host.k3d.internal:11434 (model=qwen3.5:0.8b)
+
+# 3. Verify host Docker Ollama has the 0.8b model
+kubectl exec -n zen-brain deploy/apiserver -- wget -qO- http://host.k3d.internal:11434/api/tags
+# Expected: JSON with "qwen3.5:0.8b" in models list
+```
+
+### See Also
+
+- `docs/05-OPERATIONS/OLLAMA_08B_OPERATIONS_GUIDE.md` - Detailed operations guide
+- `deploy/README.md` - Deployment instructions with local model verification
+- `scripts/ci/` - CI gates that enforce this policy automatically
+
+---
+
 ## Policy Files
 
 | File | Purpose | Key Features |

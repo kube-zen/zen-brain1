@@ -233,6 +233,11 @@ func NewGateway(config *GatewayConfig) (*Gateway, error) {
 // registerBuiltinProviders registers the built-in providers.
 // When OLLAMA_BASE_URL is set, the local-worker lane uses a real Ollama provider; otherwise the simulated LocalWorkerProvider is used.
 // When ZEN_GLM_API_KEY is set, the zen-glm provider is registered (Z.AI GLM-5).
+//
+// ZB-023: Local CPU Inference Policy - Startup Validation
+// - Only qwen3.5:0.8b is certified for local CPU inference
+// - Host Docker Ollama (http://host.k3d.internal:11434) is ONLY supported path
+// - In-cluster Ollama is FORBIDDEN for active local path
 func (g *Gateway) registerBuiltinProviders() error {
 	var localWorker llm.Provider
 	if baseURL := os.Getenv("OLLAMA_BASE_URL"); baseURL != "" {
@@ -241,7 +246,13 @@ func (g *Gateway) registerBuiltinProviders() error {
 			keepAlive = DefaultKeepAlive
 		}
 		localWorker = NewOllamaProvider(baseURL, g.config.LocalWorkerModel, g.config.LocalWorkerTimeout, keepAlive)
-		log.Printf("[LLM Gateway] local-worker lane: Ollama at %s (model=%s)", baseURL, g.config.LocalWorkerModel)
+
+		// ZB-023: Log certified local path clearly
+		if g.config.LocalWorkerModel == "qwen3.5:0.8b" {
+			log.Printf("[LLM Gateway] ZB-023: Local worker lane - Ollama at %s (model=%s, CERTIFIED local CPU path)", baseURL, g.config.LocalWorkerModel)
+		} else {
+			log.Printf("[LLM Gateway] ZB-023 WARNING: Local worker lane - Ollama at %s (model=%s, NOT CERTIFIED - only qwen3.5:0.8b is certified)", baseURL, g.config.LocalWorkerModel)
+		}
 	} else {
 		localWorker = NewLocalWorkerProvider(g.config.LocalWorkerModel, g.config.LocalWorkerTimeout)
 		log.Printf("[LLM Gateway] local-worker lane: simulated (set OLLAMA_BASE_URL for real Ollama)")
