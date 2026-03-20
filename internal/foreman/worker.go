@@ -286,13 +286,9 @@ func (w *Worker) processOne(ctx context.Context, nn types.NamespacedName) {
 	if err != nil {
 		log.Printf("[Worker.processOne] task %s execution failed: %v", nn.String(), err)
 		TasksFailedTotal.Inc()
-		task.Status.Phase = v1alpha1.BrainTaskPhaseFailed
-		task.Status.Message = err.Error()
 	} else {
 		log.Printf("[Worker.processOne] task %s execution succeeded, marking Completed", nn.String())
 		TasksCompletedTotal.Inc()
-		task.Status.Phase = v1alpha1.BrainTaskPhaseCompleted
-		task.Status.Message = "Completed"
 	}
 	// Record task outcome in ZenLedger when configured (Block 4 completeness)
 	if w.LedgerClient != nil {
@@ -301,21 +297,25 @@ func (w *Worker) processOne(ctx context.Context, nn types.NamespacedName) {
 			sessionID = task.Namespace + "/" + task.Name
 		}
 		reason := "completed"
-		if task.Status.Phase == v1alpha1.BrainTaskPhaseFailed {
+		if err != nil {
 			reason = "failed"
 		}
 		if recordErr := w.LedgerClient.RecordPlannedModelSelection(ctx, sessionID, task.Name, "factory", reason); recordErr != nil {
 			log.Printf("[Worker] ledger RecordPlannedModelSelection: %v", recordErr)
 		}
 	}
-	task.Status.Conditions = append(task.Status.Conditions, metav1.Condition{
+	// Build Executed condition (will be appended to latestTask later)
+	executedCondition := metav1.Condition{
 		Type:               "Executed",
 		Status:             metav1.ConditionTrue,
 		Reason:             "WorkerRun",
-		Message:            task.Status.Message,
+		Message:            "Task execution completed",
 		LastTransitionTime: metav1.Now(),
 		ObservedGeneration: task.Generation,
-	})
+	}
+	if err != nil {
+		executedCondition.Message = err.Error()
+	}
 	// Persist run outcome to annotations when available (Block 4 factory execution)
 	if outcome != nil {
 		base := task.DeepCopy()
@@ -357,13 +357,19 @@ func (w *Worker) processOne(ctx context.Context, nn types.NamespacedName) {
 		return
 	}
 	
-	// Copy our status changes to the latest task version
-	latestTask.Status.Phase = task.Status.Phase
-	latestTask.Status.Message = task.Status.Message
-	latestTask.Status.Conditions = append(latestTask.Status.Conditions, task.Status.Conditions...)
+	// ZB-024B: Set final status based on execution outcome
+	// IMPORTANT: Set on latestTask, not on the old task object
+	if err != nil {
+		latestTask.Status.Phase = v1alpha1.BrainTaskPhaseFailed
+		latestTask.Status.Message = err.Error()
+	} else {
+		latestTask.Status.Phase = v1alpha1.BrainTaskPhaseCompleted
+		latestTask.Status.Message = "Completed"
+	}
+	latestTask.Status.Conditions = append(latestTask.Status.Conditions, executedCondition)
 	
 	if patchErr := w.Client.Status().Update(ctx, &latestTask); patchErr != nil {
-		log.Printf("[Worker.processOne] ERROR: failed to update task %s to Completed/Failed: %v", nn.String(), patchErr)
+		log.Printf("[Worker.processOne] ERROR: failed to update task %s to %s: %v", nn.String(), latestTask.Status.Phase, patchErr)
 		logger.Error(patchErr, "update task to Completed/Failed", "task", nn.String())
 		return
 	}
