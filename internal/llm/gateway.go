@@ -55,15 +55,15 @@ type GatewayConfig struct {
 // DefaultGatewayConfig returns the default gateway configuration.
 func DefaultGatewayConfig() *GatewayConfig {
 	return &GatewayConfig{
-		LocalWorkerModel:         "qwen3.5:0.8b", // Small local model
+		LocalWorkerModel:         "qwen3.5:0.8b", // Small local model (ZB-023: ONLY certified local model)
 		PlannerModel:             "glm-4.7",      // Cloud model for complex tasks
 		FallbackModel:            "glm-4.7",      // Fallback to cloud
 		LocalWorkerMaxCost:       0.01,           // $0.01 max for local worker
 		PlannerMinCost:           0.10,           // $0.10 min for planner (cloud costs)
-		LocalWorkerTimeout:       30,             // 30 seconds
-		PlannerTimeout:           60,             // 60 seconds
-		RequestTimeout:           120,            // 120 seconds overall
-		LocalWorkerKeepAlive:     "30m",         // keep model resident
+		LocalWorkerTimeout:       2700,            // 45 minutes - ZB-024: LONG TIMEOUT IS NORMAL FOR CPU
+		PlannerTimeout:           2700,            // 45 minutes - ZB-024: Long timeout for cloud too
+		RequestTimeout:           2700,            // 45 minutes overall - ZB-024: Unified timeout
+		LocalWorkerKeepAlive:     "45m",           // Keep model resident - ZB-024: 45 minutes
 		LocalWorkerSupportsTools: true,           // Local models support tools
 		PlannerSupportsTools:     true,           // Cloud models support tools
 		AutoEscalateComplexTasks: true,           // Auto-escalate complex tasks
