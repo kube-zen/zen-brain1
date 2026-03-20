@@ -2,7 +2,44 @@
 
 ## Status
 
-**Draft** (2026-03-08)
+**Production** (2026-03-20)
+
+## 🚨 CRITICAL POLICY (ZB-023) - CANONICAL SOURCE OF TRUTH
+
+**UNTIL EXPLICITLY OVERRIDDEN BY THE OPERATOR:**
+
+### Certified Local CPU Path
+
+- ✅ **ONLY allowed local model:** `qwen3.5:0.8b`
+- ✅ **ONLY supported local inference path:** Host Docker Ollama (http://host.k3d.internal:11434)
+- ❌ **FORBIDDEN:** In-cluster Ollama for active local CPU path
+- ❌ **FORBIDDEN:** Any other local model (e.g., qwen3.5:14b, llama*, mistral*)
+
+### Provider/Model Flexibility
+
+- Any provider/model may serve any role if configured
+- The outdated "planner=GLM, worker=0.8b" split is **REMOVED**
+- `qwen3.5:0.8b` is NOT worker-only by architecture
+- GLM is NOT planner-only by architecture
+- **However:** The ONLY certified LOCAL CPU lane is `qwen3.5:0.8b` via host Docker Ollama
+
+### Enforcement (FAIL-CLOSED)
+
+- Policy: `config/policy/providers.yaml`, `config/policy/routing.yaml`
+- Runtime: `internal/llm/ollama_provider.go`, `internal/llm/gateway.go`
+- CI: `scripts/ci/local_model_policy_gate.py` (blocks PRs that drift)
+- Documentation: This document (canonical source of truth)
+
+### Related Documentation
+
+- **Operational Guide:** [OLLAMA_08B_OPERATIONS_GUIDE.md](../05-OPERATIONS/OLLAMA_08B_OPERATIONS_GUIDE.md)
+- **Warmup Runbook:** [OLLAMA_WARMUP_RUNBOOK.md](../05-OPERATIONS/OLLAMA_WARMUP_RUNBOOK.md)
+- **Deployment:** [deploy/README.md](../../deploy/README.md)
+- **Runbook:** [ZB_023_LOCAL_CPU_INFERENCE_RULE.md](../05-OPERATIONS/ZB_023_LOCAL_CPU_INFERENCE_RULE.md)
+
+---
+
+## Context
 
 ## Context
 
@@ -21,42 +58,45 @@ Small models (Qwen 0.8B class and similar) represent a sweet spot:
 
 ## Decision
 
-**Zen-Brain 1.0 optimizes first for CPU-first local small-model operation**, with provider-agnostic design allowing future paths to larger models or paid APIs when justified.
+**Zen-Brain 1.0 optimizes for CPU-first local small-model operation**, with provider-agnostic design allowing future paths to larger models or paid APIs when justified.
 
 ### Core Principles
 
 1. **Provider-agnostic** – System works with any LLM provider (Ollama, OpenAI, Anthropic, etc.)
-2. **Small model as baseline, not hard dependency** – Qwen 0.8B is important reference, but design must support alternatives
+2. **Certified local model as baseline** – qwen3.5:0.8b is ONLY certified local model (ZB-023)
 3. **Yield per token matters** – Useful throughput > raw token cost
 4. **Calibration by task class** – Benchmark against real work, not general chat quality
-5. **Fallback/escalation path** – Route to larger models or paid APIs when small model cannot complete task
-6. **Parallelization compensates for slowness** – 24 workers × 4-6 tasks/hour > 1 large model × 100 tasks/hour at lower cost
+5. **Fallback/escalation path** – Route to larger cloud models when certified local model cannot complete task
+6. **Parallelization compensates for slowness** – 20+ workers ×4-6 tasks/hour > 1 large model ×100 tasks/hour at lower cost
 
 ### When to Use Which Model
 
 | Model Class | Use Case | Throughput (CPU 14-core) | Cost | Notes |
 |------------|----------|---------------------------|------|-------|
-| **Local small (0.8B)** | Bounded tasks: code completion, tool calling, doc updates, simple refactors | 96-144 tasks/hour | $0 | Requires warmup, calibration, role tuning |
-| **Local medium (2-4B)** | Medium tasks: multi-step planning, code generation, design | 4-6 tasks/hour | $0 | May require GPU for acceptable latency |
-| **Paid API (cloud)** | Complex/ambiguous tasks, high-stakes work, when small model fails | 60-100 tasks/hour | $2-5/hour | High reliability, low latency, higher cost |
+| **Local certified (0.8B)** | Bounded tasks: code completion, tool calling, doc updates, simple refactors, planning, review, summarization | 96-144 tasks/hour | $0 | Certified for CPU, validated with 20+ parallel workers |
+| **Cloud (GLM/OpenAI/etc.)** | Complex/ambiguous tasks, high-stakes work, when certified model fails calibration | 60-100 tasks/hour | $2-5/hour | High reliability, low latency, higher cost |
 
 **Routing rules:**
-1. Try local small first (fast, cheap, parallelizable)
-2. Escalate to local medium if small fails calibration thresholds
-3. Escalate to paid API if medium fails or task is high-stakes
+1. Try local certified model first (fast, free, parallelizable)
+2. Escalate to cloud provider if certified model fails or task is high-stakes
+3. **DO NOT** use other local models (14b, llama*, mistral*) unless EXPLICITLY overridden by operator (ZB-023)
+
+**Important:** The table above reflects **certified local model (qwen3.5:0.8b)** and cloud providers. "Local medium (2-4B)" models are **NOT CERTIFIED** for local CPU inference (ZB-023).
 
 ### CPU-First Assumptions
 
 - **Hardware:** 14-core i9 with 64GB RAM (common in internal deployments)
-- **Model:** Qwen 3.5 0.8B as reference implementation (OpenAI-compatible API)
+- **Model:** Qwen 3.5 0.8B as **ONLY certified local model** (ZB-023)
+- **Deployment:** Host Docker Ollama (http://host.k3d.internal:11434) - **ONLY supported local path**
 - **Warmup:** 30-60s cold start, 3-5s per subsequent request
 - **Latency:** 10-15 minutes for complex multi-step tasks (acceptable with parallelization)
 - **Parallelism:** 24 workers × 4-6 tasks/hour = 96-144 tasks/hour total throughput
 
 **Non-assumptions:**
 - Not committed to one provider (Ollama, vLLM, OpenAI, etc. all valid)
-- Not committed to one model family (Qwen, Llama, etc. all valid)
+- Any provider/model may serve any role if configured (outdated planner/worker split removed)
 - Not assuming GPU availability (design works on CPU-only hosts)
+- **ZB-023:** No assumption that other local models (14b, llama*, mistral*) are supported
 
 ### Calibration and Evaluation
 

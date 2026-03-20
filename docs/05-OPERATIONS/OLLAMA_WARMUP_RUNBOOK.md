@@ -1,10 +1,28 @@
 # Ollama warmup runbook (Block 5 local-worker)
 
-This runbook describes how zen-brain apiserver warms the Ollama model so the first `/api/v1/chat` request does not hit a cold load. It matches Ollama’s official preload behavior and the pattern used in zen-brain 0.1.
+## 📌 Source of Truth
+
+| Document | Purpose | Link |
+|----------|---------|-------|
+| **Canonical Policy** | Local CPU inference policy (qwen3.5:0.8b ONLY) | [SMALL_MODEL_STRATEGY.md](../03-DESIGN/SMALL_MODEL_STRATEGY.md) |
+| **Operational Guide** | Full operations guide for local Ollama | [OLLAMA_08B_OPERATIONS_GUIDE.md](OLLAMA_08B_OPERATIONS_GUIDE.md) |
+| **Warmup Runbook** | This document - warmup/keepalive procedures | [OLLAMA_WARMUP_RUNBOOK.md](OLLAMA_WARMUP_RUNBOOK.md) (current) |
+| **Operator Runbook** | Troubleshooting and verification commands | [ZB_023_LOCAL_CPU_INFERENCE_RULE.md](ZB_023_LOCAL_CPU_INFERENCE_RULE.md) |
+
+**CRITICAL POLICY (ZB-023):**
+- ONLY `qwen3.5:0.8b` is certified for local CPU inference
+- ONLY host Docker Ollama is supported (`http://host.k3d.internal:11434`)
+- In-cluster Ollama is FORBIDDEN for active local path
+
+---
+
+## Overview
+
+This runbook describes how zen-brain apiserver warms the Ollama model so the first `/api/v1/chat` request does not hit a cold load. It matches Ollama's official preload behavior and the pattern used in zen-brain 0.1.
 
 ## Pattern in brief
 
-1. **Preload** using Ollama’s official path: `POST /api/generate` with empty prompt and `keep_alive`.
+1. **Preload** using Ollama's official path: `POST /api/generate` with empty prompt and `keep_alive`.
 2. **Verify** on the real app path: one tiny `POST /api/chat` with `keep_alive` so the first user request uses the same endpoint.
 3. **Single-flight**: warmup runs once at startup in a goroutine; the first local-worker request can wait briefly on that same warmup instead of racing it.
 4. **Keep resident**: `keep_alive` (e.g. `"30m"`) keeps the model in memory so the first real request is warm.

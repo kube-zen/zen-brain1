@@ -53,6 +53,25 @@ kubectl get pods -n zen-brain | grep ollama
 
 ---
 
+## 📚 Documentation Quick Reference
+
+| Topic | Document | Purpose |
+|--------|----------|---------|
+| **Canonical Policy** | [SMALL_MODEL_STRATEGY.md](docs/03-DESIGN/SMALL_MODEL_STRATEGY.md) | Local CPU inference policy (qwen3.5:0.8b ONLY) |
+| **Operational Guide** | [OLLAMA_08B_OPERATIONS_GUIDE.md](docs/05-OPERATIONS/OLLAMA_08B_OPERATIONS_GUIDE.md) | Operations for local Ollama (host Docker) |
+| **Warmup Runbook** | [OLLAMA_WARMUP_RUNBOOK.md](docs/05-OPERATIONS/OLLAMA_WARMUP_RUNBOOK.md) | Warmup/keepalive procedures |
+| **Operator Runbook** | [ZB_023_LOCAL_CPU_INFERENCE_RULE.md](docs/05-OPERATIONS/ZB_023_LOCAL_CPU_INFERENCE_RULE.md) | Troubleshooting and verification commands |
+| **Policy System** | [config/policy/README.md](config/policy/README.md) | YAML-based policy configuration |
+
+**Documentation Hierarchy:**
+1. **SMALL_MODEL_STRATEGY.md** = Canonical policy/source of truth
+2. **OLLAMA_08B_OPERATIONS_GUIDE.md** = Operational implementation guide
+3. **OLLAMA_WARMUP_RUNBOOK.md** = Warmup/keepalive runbook only
+4. **ZB_023_LOCAL_CPU_INFERENCE_RULE.md** = Operator runbook (troubleshooting, verification)
+5. In-cluster Ollama docs/charts = **Legacy/unsupported** for active local CPU path
+
+---
+
 ## Configuration
 
 ### Policy-Based Configuration (NEW)
