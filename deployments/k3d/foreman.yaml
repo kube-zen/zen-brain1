@@ -1,6 +1,10 @@
 # Foreman controller (Block 4.2) in-cluster deployment.
 # Requires CRDs applied: kubectl apply -f deployments/crds/
 # Optional: ZenContext Redis for ReMe — deploy zencontext-in-cluster and set ZEN_CONTEXT_REDIS_URL.
+# NOTE: Image reference `zen-registry:5000` assumes k3d registry port 5000 is accessible.
+# Ensure `docker push zen-registry:5000/zen-brain:dev` is possible before deployment updates.
+# If rebuild/push is blocked, `imagePullPolicy: IfNotPresent` will fail.
+
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -10,6 +14,10 @@ metadata:
   labels:
     app.kubernetes.io/name: foreman
     app.kubernetes.io/part-of: zen-brain
+# NOTE: Image reference `zen-registry:5000` assumes k3d registry port 5000 is accessible.
+# Ensure `docker push zen-registry:5000/zen-brain:dev` is possible before deployment updates.
+# If rebuild/push is blocked, `imagePullPolicy: IfNotPresent` will fail.
+
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -25,6 +33,10 @@ metadata:
     - apiGroups: [""]
       resources: ["configmaps"]
       verbs: ["get", "list", "watch"]
+# NOTE: Image reference `zen-registry:5000` assumes k3d registry port 5000 is accessible.
+# Ensure `docker push zen-registry:5000/zen-brain:dev` is possible before deployment updates.
+# If rebuild/push is blocked, `imagePullPolicy: IfNotPresent` will fail.
+
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -41,6 +53,10 @@ metadata:
     - kind: ServiceAccount
       name: foreman
       namespace: zen-brain
+# NOTE: Image reference `zen-registry:5000` assumes k3d registry port 5000 is accessible.
+# Ensure `docker push zen-registry:5000/zen-brain:dev` is possible before deployment updates.
+# If rebuild/push is blocked, `imagePullPolicy: IfNotPresent` will fail.
+
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -114,6 +130,10 @@ spec:
         - name: config
           configMap:
             name: foreman-config
+# NOTE: Image reference `zen-registry:5000` assumes k3d registry port 5000 is accessible.
+# Ensure `docker push zen-registry:5000/zen-brain:dev` is possible before deployment updates.
+# If rebuild/push is blocked, `imagePullPolicy: IfNotPresent` will fail.
+
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -128,6 +148,10 @@ data:
     jira:
       enabled: true
       allow_env_fallback: false
+# NOTE: Image reference `zen-registry:5000` assumes k3d registry port 5000 is accessible.
+# Ensure `docker push zen-registry:5000/zen-brain:dev` is possible before deployment updates.
+# If rebuild/push is blocked, `imagePullPolicy: IfNotPresent` will fail.
+
 ---
 apiVersion: v1
 kind: Service
