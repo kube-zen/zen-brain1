@@ -349,13 +349,17 @@ func (w *Worker) processOne(ctx context.Context, nn types.NamespacedName) {
 	}
 	
 	// ZB-024B: Atomic status update with retry loop
-	// Retry up to 3 times to handle conflicts from reconciler updates
-	for attempt := 1; attempt <= maxRetries; attempt++ {
+	// Retry up to 5 times to handle conflicts from reconciler updates
+	maxCompletionRetries := 5
+	for attempt := 1; attempt <= maxCompletionRetries; attempt++ {
 		var latestTask v1alpha1.BrainTask
 		if getErr := w.Client.Get(ctx, nn, &latestTask); getErr != nil {
 			log.Printf("[Worker.processOne] ERROR: failed to re-read task %s before completion (attempt %d): %v", nn.String(), attempt, getErr)
 			logger.Error(getErr, "re-read task before completion update", "task", nn.String())
-			return
+			if attempt == maxCompletionRetries {
+				return // Give up after max retries
+			}
+			continue // Retry on Get error
 		}
 		
 		// ZB-024B: Set final status based on execution outcome
@@ -370,8 +374,8 @@ func (w *Worker) processOne(ctx context.Context, nn types.NamespacedName) {
 		latestTask.Status.Conditions = append(latestTask.Status.Conditions, executedCondition)
 		
 		if updateErr := w.Client.Status().Update(ctx, &latestTask); updateErr != nil {
-			if errors.IsConflict(updateErr) && attempt < maxRetries {
-				log.Printf("[Worker.processOne] task %s completion update conflict (attempt %d/%d), retrying...", nn.String(), attempt, maxRetries)
+			if errors.IsConflict(updateErr) && attempt < maxCompletionRetries {
+				log.Printf("[Worker.processOne] task %s completion update conflict (attempt %d/%d), retrying...", nn.String(), attempt, maxCompletionRetries)
 				continue // Retry - re-read and try again
 			}
 			log.Printf("[Worker.processOne] ERROR: failed to update task %s to %s (attempt %d): %v", nn.String(), latestTask.Status.Phase, attempt, updateErr)
