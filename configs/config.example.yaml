@@ -45,12 +45,15 @@ jira:
   enabled: false  # Set to true for real Jira
   base_url: "https://your-domain.atlassian.net"
   email: "zen-brain@automation.local"
-  api_token: ""  # Use canonical sources (credentials_dir, credentials_file, env fallback)
+  api_token: ""  # Use canonical source (credentials_dir)
   project_key: "ZEN"
-  # Canonical secret sources (preferred over env vars)
-  credentials_dir: "/zen-lock/secrets"  # ZenLock mounted directory (highest priority)
-  credentials_file: "~/.zen-brain/secrets/jira.yaml"  # Host credential file (medium priority)
-  allow_env_fallback: false  # Env vars only if explicitly enabled (lowest priority) or ZEN_BRAIN_ALLOW_ENV_SECRETS=1
+  # Canonical secret source (ONLY source in production/cluster mode)
+  credentials_dir: "/zen-lock/secrets"  # ZenLock mounted directory
+  # DEPRECATED: credentials_file is for local debugging only
+  # Do NOT use in cluster mode or production
+  # credentials_file: "~/.zen-brain/secrets/jira.yaml"
+  # Env fallback is disabled by default (security)
+  allow_env_fallback: false  # Env vars only allowed if explicitly enabled or ZEN_BRAIN_ALLOW_ENV_SECRETS=1
   # Field mappings (optional)
   field_mappings: {}  # Not yet used
   status_mapping:
