@@ -51,15 +51,15 @@ func DefaultJiraToBrainTaskConfig() *JiraToBrainTaskConfig {
 			"Test":           contracts.WorkTypeTesting,
 		},
 		WorkDomainMapping: map[string]contracts.WorkDomain{
-			"core":          contracts.WorkDomainCore,
-			"api":           contracts.WorkDomainIntegration,
-			"factory":       contracts.WorkDomainFactory,
-			"office":        contracts.WorkDomainOffice,
-			"foreman":       contracts.WorkDomainFactory,
-			"policy":        contracts.WorkDomainPolicy,
-			"observability": contracts.WorkDomainObservability,
-			"docs":          contracts.WorkDomainOffice,
-			"infrastructure": contracts.WorkDomainInfrastructure,
+			"core":          contracts.DomainCore,
+			"api":           contracts.DomainIntegration,
+			"factory":       contracts.DomainFactory,
+			"office":        contracts.DomainOffice,
+			"foreman":       contracts.DomainFactory,
+			"policy":        contracts.DomainPolicy,
+			"observability": contracts.DomainObservability,
+			"docs":          contracts.DomainOffice,
+			"infrastructure": contracts.DomainInfrastructure,
 		},
 		PriorityMapping: map[string]contracts.Priority{
 			"Highest": contracts.PriorityCritical,
@@ -98,8 +98,9 @@ func NewJiraToBrainTaskService(
 func (s *JiraToBrainTaskService) IngestIssues(ctx context.Context) (int, error) {
 	log.Printf("[IngestIssues] Fetching Jira issues with label: %s", s.config.JiraLabel)
 
-	// Fetch issues from Jira
-	issues, err := s.jiraConn.ListWorkItems(ctx, s.config.JiraLabel)
+	// Fetch issues from Jira using Search
+	query := fmt.Sprintf("labels = %s AND status != Done", s.config.JiraLabel)
+	issues, err := s.jiraConn.Search(ctx, s.jiraConn.ClusterID, query)
 	if err != nil {
 		return 0, fmt.Errorf("failed to fetch Jira issues: %w", err)
 	}
