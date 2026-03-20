@@ -347,9 +347,27 @@ func (w *Worker) processOne(ctx context.Context, nn types.NamespacedName) {
 			logger.Error(patchErr, "patch task annotations with outcome", "task", nn.String())
 		}
 	}
-	if patchErr := w.Client.Status().Update(ctx, &task); patchErr != nil {
-		logger.Error(patchErr, "update task to Completed/Failed", "task", nn.String())
+	
+	// ZB-024B: Re-read task to get latest resource version before final status update
+	// This prevents conflicts if reconciler updated the task during execution
+	var latestTask v1alpha1.BrainTask
+	if getErr := w.Client.Get(ctx, nn, &latestTask); getErr != nil {
+		log.Printf("[Worker.processOne] ERROR: failed to re-read task %s before completion: %v", nn.String(), getErr)
+		logger.Error(getErr, "re-read task before completion update", "task", nn.String())
+		return
 	}
+	
+	// Copy our status changes to the latest task version
+	latestTask.Status.Phase = task.Status.Phase
+	latestTask.Status.Message = task.Status.Message
+	latestTask.Status.Conditions = append(latestTask.Status.Conditions, task.Status.Conditions...)
+	
+	if patchErr := w.Client.Status().Update(ctx, &latestTask); patchErr != nil {
+		log.Printf("[Worker.processOne] ERROR: failed to update task %s to Completed/Failed: %v", nn.String(), patchErr)
+		logger.Error(patchErr, "update task to Completed/Failed", "task", nn.String())
+		return
+	}
+	log.Printf("[Worker.processOne] task %s status updated to %s successfully", nn.String(), latestTask.Status.Phase)
 }
 
 // Ensure Worker implements TaskDispatcher.
