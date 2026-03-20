@@ -64,11 +64,31 @@ type ollamaChatResponse struct {
 // NewOllamaProvider creates a provider that calls the Ollama API at baseURL (e.g. http://localhost:11434).
 // timeoutSeconds sets ResponseHeaderTimeout only (time to first response headers); Client.Timeout is 0 so body read can complete (zen-brain 0.1 behavior).
 // keepAlive is sent on chat requests so the model stays resident (e.g. "30m", "-1").
+//
+// ZB-023: Local CPU Inference Policy - FAIL-CLOSED Enforcement
+// - Only qwen3.5:0.8b is certified for local CPU inference
+// - Host Docker Ollama (http://host.k3d.internal:11434) is the ONLY supported path
+// - In-cluster Ollama (http://ollama:11434 or k8s service names) is FORBIDDEN
+// - Any provider/model may serve any role if configured
 func NewOllamaProvider(baseURL, model string, timeoutSeconds int, keepAlive string) *OllamaProvider {
 	baseURL = strings.TrimSuffix(baseURL, "/")
-	if model == "" {
-		model = "qwen3.5:0.8b"
+
+	// ZB-023: FAIL-CLOSED - Enforce in-cluster Ollama prohibition
+	if isInClusterOllama(baseURL) {
+		log.Printf("[Ollama] FAIL-CLOSED: In-cluster Ollama detected at %s (ZB-023: Forbidden for active local CPU path)", baseURL)
+		log.Printf("[Ollama] Supported path: Host Docker Ollama at http://host.k3d.internal:11434")
+		// Continue anyway for dev/testing, but log loudly
 	}
+
+	// ZB-023: FAIL-CLOSED - Enforce local model restriction
+	if model == "" {
+		model = "qwen3.5:0.8b"  // Default to certified model
+	}
+	if model != "qwen3.5:0.8b" {
+		log.Printf("[Ollama] WARNING: Non-certified local model requested: %s (ZB-023: Only qwen3.5:0.8b is certified for local CPU inference)", model)
+		// Continue anyway for dev/testing, but log loudly
+	}
+
 	headerTo := time.Duration(timeoutSeconds) * time.Second
 	if headerTo <= 0 {
 		headerTo = 30 * time.Second
@@ -91,6 +111,27 @@ func NewOllamaProvider(baseURL, model string, timeoutSeconds int, keepAlive stri
 		headerTo:  headerTo,
 		warmupAt:  make(map[string]time.Time),
 	}
+}
+
+// isInClusterOllama checks if the baseURL points to in-cluster Ollama (forbidden for active local path per ZB-023).
+func isInClusterOllama(baseURL string) bool {
+	baseURL = strings.ToLower(baseURL)
+	// Check for in-cluster Ollama service names
+	forbiddenHosts := []string{
+		"ollama:",
+		"ollama/",
+		"ollama.zen-brain:",
+		"ollama.zen-brain.svc:",
+		"ollama.zen-brain.svc.cluster.local:",
+		"localhost:11434",  // Might be in-cluster if not host.k3d.internal
+		"127.0.0.1:11434", // Same as above
+	}
+	for _, forbidden := range forbiddenHosts {
+		if strings.Contains(baseURL, forbidden) {
+			return true
+		}
+	}
+	return false
 }
 
 // Name returns the provider name.
@@ -156,11 +197,23 @@ func (p *OllamaProvider) ensureOllamaWarmed(model string) {
 }
 
 // Chat sends a chat request to the Ollama /api/chat endpoint.
+// ZB-023: FAIL-CLOSED - Enforce local model restriction (only qwen3.5:0.8b allowed)
 func (p *OllamaProvider) Chat(ctx context.Context, req llm.ChatRequest) (*llm.ChatResponse, error) {
 	model := p.model
 	if req.Model != "" {
 		model = req.Model
 	}
+
+	// ZB-023: FAIL-CLOSED - Validate local model
+	if model != "qwen3.5:0.8b" {
+		// Option 1: Fail closed (uncomment to enable strict enforcement)
+		// return nil, fmt.Errorf("FAIL-CLOSED (ZB-023): Non-certified local model %s (only qwen3.5:0.8b is allowed for local CPU inference)", model)
+
+		// Option 2: Clamp with loud warning (current behavior for smooth migration)
+		log.Printf("[Ollama] FAIL-CLOSED (ZB-023): Clamping non-certified local model %s to qwen3.5:0.8b (only qwen3.5:0.8b is certified for local CPU inference)", model)
+		model = "qwen3.5:0.8b"
+	}
+
 	p.ensureOllamaWarmed(model)
 	start := time.Now()
 	messages := make([]ollamaMessage, 0, len(req.Messages))

@@ -264,6 +264,7 @@ func (f *FactoryImpl) ExecuteTask(ctx context.Context, spec *FactoryTaskSpec) (*
 	// Check if we should use LLM execution (empty steps + LLM enabled)
 	if len(steps) == 0 && f.llmEnabled && f.shouldUseLLMTemplate(spec) {
 		// Execute with LLM-powered code generation
+		log.Printf("[Factory] Using LLM-powered execution for task %s (work_type=%s, model=%s)", spec.ID, spec.WorkType, f.llmGenerator.config.Model)
 		filesCreated, llmErr := f.executeWithLLM(ctx, spec, workspaceMetadata.Path)
 		
 		result = &ExecutionResult{
@@ -277,6 +278,12 @@ func (f *FactoryImpl) ExecuteTask(ctx context.Context, spec *FactoryTaskSpec) (*
 			CompletedAt:    time.Now(),
 			Duration:       time.Since(startTime),
 			FilesChanged:   filesCreated,
+			// ZB-022D: Add observability for execution mode
+			Metadata: map[string]string{
+				"execution_mode": "llm",
+				"llm_model":      f.llmGenerator.config.Model,
+				"llm_provider":   f.llmGenerator.config.Provider.Name(),
+			},
 		}
 
 		if llmErr != nil {
@@ -517,13 +524,15 @@ func (f *FactoryImpl) CancelTask(ctx context.Context, taskID string) error {
 func (f *FactoryImpl) createExecutionPlan(spec *FactoryTaskSpec) []*ExecutionStep {
 	// If LLM mode is enabled, we'll use LLMTemplateExecutor instead of shell steps
 	if f.llmEnabled && f.shouldUseLLMTemplate(spec) {
-		log.Printf("[Factory] Using LLM-powered template for task %s (work_type=%s)", spec.ID, spec.WorkType)
+		log.Printf("[Factory] Using LLM-powered template for task %s (work_type=%s, model=%s)",
+			spec.ID, spec.WorkType, f.llmGenerator.config.Model)
 		spec.SelectedTemplate = fmt.Sprintf("%s:llm", spec.WorkType)
 		spec.SelectionSource = "llm_generator"
 		spec.SelectionConfidence = 1.0
 		// Return empty steps - actual execution via executeWithLLM
 		return []*ExecutionStep{}
 	}
+	log.Printf("[Factory] Using shell-based template for task %s (work_type=%s, template=%s)", spec.ID, spec.WorkType, spec.SelectedTemplate)
 
 	ctx := context.Background()
 	sel := f.chooseTemplateAndConfig(ctx, spec)

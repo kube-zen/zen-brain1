@@ -12,6 +12,7 @@ import (
 	"github.com/kube-zen/zen-brain1/api/v1alpha1"
 	"github.com/kube-zen/zen-brain1/internal/evidence"
 	"github.com/kube-zen/zen-brain1/internal/factory"
+	"github.com/kube-zen/zen-brain1/internal/llm"
 	"github.com/kube-zen/zen-brain1/internal/worktree"
 	"github.com/kube-zen/zen-brain1/pkg/contracts"
 )
@@ -28,6 +29,13 @@ type FactoryTaskRunnerConfig struct {
 	WorktreeBasePath     string // base dir for worktrees (default <RuntimeDir>/worktrees)
 	SourceRef            string // git ref e.g. HEAD or main (default HEAD)
 	ReuseSessionWorktree bool   // reuse one worktree per session when true
+
+	// LLM-powered Factory execution (ZB-022D)
+	EnableFactoryLLM    bool   // when true, Factory uses LLM-powered templates instead of shell-only
+	LLMBaseURL          string // Ollama endpoint (e.g. http://host.k3d.internal:11434)
+	LLMModel            string // model name (default qwen3.5:0.8b for CPU inference)
+	LLMTimeoutSeconds    int    // timeout for LLM requests (default 300s)
+	LLMEnableThinking   bool   // enable chain-of-thought (default false for CPU path)
 }
 
 // FactoryTaskRunner runs a BrainTask by converting it to FactoryTaskSpec and calling Factory.ExecuteTask.
@@ -85,6 +93,57 @@ func NewFactoryTaskRunner(cfg FactoryTaskRunnerConfig) (*FactoryTaskRunner, erro
 	executor := factory.NewBoundedExecutor()
 	powManager := factory.NewProofOfWorkManager(cfg.RuntimeDir)
 	f := factory.NewFactory(workspaceManager, executor, powManager, cfg.RuntimeDir)
+
+	// Enable LLM-powered Factory execution (ZB-022D)
+	if cfg.EnableFactoryLLM {
+		log.Printf("[FactoryTaskRunner] Enabling LLM-powered Factory execution")
+		if cfg.LLMModel == "" {
+			cfg.LLMModel = "qwen3.5:0.8b"
+		}
+		if cfg.LLMTimeoutSeconds == 0 {
+			cfg.LLMTimeoutSeconds = 300
+		}
+
+		// ZB-023: FAIL-CLOSED - Enforce thinking default for local CPU path
+		// Local CPU path should default to thinking=false unless explicitly overridden
+		// This is enforced via cfg.LLMEnableThinking default in main.go (false)
+		if !cfg.LLMEnableThinking {
+			log.Printf("[FactoryTaskRunner] ZB-023: Local CPU path - thinking disabled (recommended for CPU inference)")
+		} else {
+			log.Printf("[FactoryTaskRunner] ZB-023 WARNING: Local CPU path - thinking enabled (may degrade performance on CPU)")
+		}
+
+		// Create Ollama provider
+		if cfg.LLMBaseURL == "" {
+			return nil, fmt.Errorf("LLM enabled but LLMBaseURL not set (set ZEN_FOREMAN_LLM_BASE_URL or config.LLMBaseURL)")
+		}
+
+		log.Printf("[FactoryTaskRunner] Creating Ollama provider: url=%s model=%s timeout=%ds thinking=%v",
+			cfg.LLMBaseURL, cfg.LLMModel, cfg.LLMTimeoutSeconds, cfg.LLMEnableThinking)
+
+		ollamaProvider := llm.NewOllamaProvider(
+			cfg.LLMBaseURL,
+			cfg.LLMModel,
+			cfg.LLMTimeoutSeconds,
+			"30m", // Keep-alive to match apiserver default
+		)
+
+		// Create LLM generator with enforced config
+		llmGenConfig := factory.DefaultLLMGeneratorConfig(ollamaProvider)
+		llmGenConfig.Model = cfg.LLMModel
+		llmGenConfig.EnableThinking = cfg.LLMEnableThinking
+		llmGenConfig.Timeout = time.Duration(cfg.LLMTimeoutSeconds) * time.Second
+
+		llmGenerator, err := factory.NewLLMGenerator(llmGenConfig)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create LLM generator: %w", err)
+		}
+
+		// Enable LLM in Factory (this registers LLM templates)
+		f.SetLLMGenerator(llmGenerator)
+		log.Printf("[FactoryTaskRunner] LLM-powered Factory execution enabled (model=%s)", cfg.LLMModel)
+	}
+
 	return &FactoryTaskRunner{Factory: f, cfg: cfg}, nil
 }
 

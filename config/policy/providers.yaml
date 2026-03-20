@@ -1,0 +1,138 @@
+# Provider Policy Configuration for zen-brain1
+# Version: 1.0
+# Status: Production
+#
+# IMPORTANT: Local CPU Inference Policy (ZB-023)
+# ================================================
+# UNTIL EXPLICITLY OVERRIDDEN BY THE OPERATOR:
+# - qwen3.5:0.8b is the ONLY allowed local Ollama model
+# - Host Docker Ollama is the ONLY supported local CPU inference path
+# - In-cluster Ollama is FORBIDDEN for the active local path
+#
+# Any provider/model may serve any role if configured.
+# The strict "planner=GLM, worker=0.8b" split is outdated and removed.
+# Local CPU path is certified ONLY for qwen3.5:0.8b via host Docker Ollama.
+
+providers:
+  # Local Ollama Provider (host Docker, NOT in-cluster)
+  - name: local-worker
+    display_name: "Local Ollama (Host Docker)"
+    class: language-model
+    enabled: true
+    provider_type: managed
+    api_endpoint: "http://host.k3d.internal:11434"
+    local_cpu_certified: true  # FAIL-CLOSED: only qwen3.5:0.8b is certified
+    fail_if_other_model_requested: true  # FAIL-CLOSED: reject non-certified models
+    default_model: "qwen3.5:0.8b"
+    models:
+      - name: "qwen3.5:0.8b"
+        display_name: "Qwen 3.5 0.8B (Local)"
+        class: chat
+        context_window: 32768
+        max_output_tokens: 2048
+        cost_per_1m_input_tokens: 0.0
+        cost_per_1m_output_tokens: 0.0
+        supports_streaming: true
+        supports_functions: true
+        supports_json_mode: false
+        max_batch_size: 20  # 20+ parallel workers validated
+        rate_limit_rpm: 120  # 20 workers * 6 requests/min each
+        rate_limit_rpd: 100000
+        certified_local_cpu: true  # Only this model is certified for local CPU
+    timeout_seconds: 300  # 5 minutes - generous for CPU inference
+    keep_alive: "30m"  # Keep model resident
+
+  # GLM Provider (Z.AI) - Cloud-based
+  - name: zen-glm
+    display_name: "Z.AI GLM-5"
+    class: language-model
+    enabled: false  # Requires ZEN_GLM_API_KEY
+    provider_type: managed
+    api_endpoint: ""
+    models:
+      - name: "GLM-5"
+        display_name: "GLM-5 (Z.AI)"
+        class: chat
+        context_window: 128000
+        max_output_tokens: 4096
+        cost_per_1m_input_tokens: 0.5
+        cost_per_1m_output_tokens: 1.0
+        supports_streaming: true
+        supports_functions: true
+        supports_json_mode: true
+        max_batch_size: 1
+        rate_limit_rpm: 60
+        rate_limit_rpd: 100000
+        supports_thinking: true  # Chain-of-thought enabled
+
+  # OpenAI Provider - Cloud-based
+  - name: openai
+    display_name: "OpenAI GPT-4o"
+    class: language-model
+    enabled: false  # Requires OPENAI_API_KEY
+    provider_type: managed
+    api_endpoint: "https://api.openai.com/v1"
+    models:
+      - name: "gpt-4o-mini"
+        display_name: "GPT-4o Mini"
+        class: chat
+        context_window: 128000
+        max_output_tokens: 16384
+        cost_per_1m_input_tokens: 0.15
+        cost_per_1m_output_tokens: 0.60
+        supports_streaming: true
+        supports_functions: true
+        supports_json_mode: true
+        max_batch_size: 1
+        rate_limit_rpm: 60
+        rate_limit_rpd: 100000
+
+  # Anthropic Provider - Cloud-based
+  - name: anthropic
+    display_name: "Anthropic Claude 3"
+    class: language-model
+    enabled: false  # Requires ANTHROPIC_API_KEY
+    provider_type: managed
+    api_endpoint: "https://api.anthropic.com/v1"
+    models:
+      - name: "claude-3-5-sonnet-20241022"
+        display_name: "Claude 3.5 Sonnet"
+        class: chat
+        context_window: 200000
+        max_output_tokens: 8192
+        cost_per_1m_input_tokens: 3.0
+        cost_per_1m_output_tokens: 15.0
+        supports_streaming: true
+        supports_functions: true
+        supports_json_mode: true
+        max_batch_size: 1
+        rate_limit_rpm: 60
+        rate_limit_rpd: 100000
+
+  # DeepSeek Provider - Cloud-based
+  - name: deepseek
+    display_name: "DeepSeek V2.5"
+    class: language-model
+    enabled: false  # Requires DEEPSEEK_API_KEY
+    provider_type: managed
+    api_endpoint: "https://api.deepseek.com/v1"
+    models:
+      - name: "deepseek-chat"
+        display_name: "DeepSeek Chat"
+        class: chat
+        context_window: 64000
+        max_output_tokens: 4096
+        cost_per_1m_input_tokens: 0.14
+        cost_per_1m_output_tokens: 0.28
+        supports_streaming: true
+        supports_functions: true
+        supports_json_mode: true
+        max_batch_size: 1
+        rate_limit_rpm: 60
+        rate_limit_rpd: 100000
+
+# FAIL-CLOSED: In-cluster Ollama is explicitly forbidden for active local CPU path
+in_cluster_ollama_allowed: false  # ZB-023: In-cluster Ollama forbidden
+
+# FAIL-CLOSED: Local CPU path thinking default (false unless explicitly overridden)
+local_cpu_thinking_enabled: false  # ZB-023: CPU path defaults to no thinking

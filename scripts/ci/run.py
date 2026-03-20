@@ -31,14 +31,18 @@ GATES = {
     "kb_qmd_direction": "scripts/ci/kb_qmd_direction_gate.py",
     "model_facing_policy": "scripts/ci/model_facing_policy_gate.py",
     "vertical_slice_contract": "scripts/ci/vertical_slice_contract_gate.py",
+    "local_model_policy": "scripts/ci/local_model_policy_gate.py",  # ZB-023: Enforce local CPU inference policy
 }
 
 SUITES = {
     "default": ["no_shell_scripts", "python_placement", "repo_layout",
-                "executable_sprawl", "no_binaries", "docs_links", "canonical_plan", "zen_sdk_ownership", "kb_qmd_direction", "model_facing_policy"],
+                "executable_sprawl", "no_binaries", "docs_links", "canonical_plan", "zen_sdk_ownership", "kb_qmd_direction", "model_facing_policy",
+                "local_model_policy"],  # ZB-023: Always check local model policy
     "governance": ["no_shell_scripts", "python_placement", "repo_layout",
-                   "executable_sprawl", "zen_sdk_ownership", "model_facing_policy"],
-    "docs": ["repo_layout", "docs_links", "canonical_plan", "kb_qmd_direction"],
+                   "executable_sprawl", "zen_sdk_ownership", "model_facing_policy",
+                   "local_model_policy"],  # ZB-023: Governance includes local model check
+    "docs": ["repo_layout", "docs_links", "canonical_plan", "kb_qmd_direction",
+              "local_model_policy"],  # ZB-023: Docs include local model check
     "binaries": ["no_binaries"],
     "all": list(GATES.keys()),
 }
