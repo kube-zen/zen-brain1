@@ -42,6 +42,16 @@ func runOfficeCommand() {
 		runOfficeWatch()
 	case "smoke-real":
 		runOfficeSmokeReal()
+	case "start-dogfood":
+		runOfficeStartDogfood()
+	case "stop-dogfood":
+		runOfficeStopDogfood()
+	case "status":
+		runOfficeStatus()
+	case "recover":
+		runOfficeRecover()
+	case "queue-query":
+		runOfficeQueueQuery()
 	default:
 		fmt.Printf("Unknown office subcommand: %s\n", sub)
 		printOfficeUsage()
@@ -58,6 +68,13 @@ func printOfficeUsage() {
 	fmt.Println("  fetch <key>    Fetch one item by Jira key; prints canonical mapping")
 	fmt.Println("  watch          Start Jira webhook listener and stream events until interrupted")
 	fmt.Println("  smoke-real     Validate Jira credentials via read-only API check and project search")
+	fmt.Println()
+	fmt.Println("ZB-025 24/7 Operations:")
+	fmt.Println("  start-dogfood  Start unattended 5-worker dogfood run on Jira issues")
+	fmt.Println("  stop-dogfood   Stop unattended run gracefully (allows in-flight tasks to complete)")
+	fmt.Println("  status          Operator status check (workers, queue, recent tasks)")
+	fmt.Println("  recover         Recover from degraded/blocked state")
+	fmt.Println("  queue-query     Detailed queue state (grouped by status)")
 }
 
 func runOfficeDoctor() {
@@ -345,6 +362,222 @@ func runOfficeSmokeReal() {
 	fmt.Println("✓ Jira integration functional")
 	fmt.Println()
 	fmt.Println("Jira is ready for use with canonical credential source")
+}
+
+func runOfficeStartDogfood() {
+	fmt.Println("=== ZB-025: Start Unattended Dogfood Run ===")
+	fmt.Println()
+
+	// Validate Jira connectivity first
+	mgr, err := getOfficeManager()
+	if err != nil {
+		log.Fatalf("Office: %v", err)
+	}
+
+	// Validate Jira connectivity first
+	fmt.Println("Step 1: Validating Jira connectivity...")
+	conn, err := mgr.GetConnectorForCluster("default")
+	if err != nil {
+		log.Fatalf("Failed to get default connector: %v", err)
+	}
+	jiraConn, ok := conn.(*jira.JiraOffice)
+	if !ok {
+		log.Fatal("Default connector is not Jira")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := jiraConn.Ping(ctx); err != nil {
+		log.Fatalf("Jira connectivity check failed: %v", err)
+	}
+	fmt.Println("✓ Jira connectivity OK")
+
+	// Check foreman is running
+	fmt.Println()
+	fmt.Println("Step 2: Checking Foreman status...")
+	// TODO: Implement actual kubectl check or use client-go
+	fmt.Println("⚠  Foreman check not yet implemented - assuming 5 workers")
+	fmt.Println("⚠  Please verify: kubectl get pods -n zen-brain -l app.kubernetes.io/name=foreman")
+
+	// Parse command line flags
+	jqlQuery := "project = ZB AND labels in (\"zen-brain-dogfood\")"
+	maxQueueDepth := 10
+	maxRuntime := 8 * time.Hour
+
+	// Simple flag parsing (TODO: use proper flag package)
+	for i := 3; i < len(os.Args); i++ {
+		arg := os.Args[i]
+		if arg == "--jql" && i+1 < len(os.Args) {
+			i++
+			jqlQuery = os.Args[i]
+		} else if arg == "--max-queue-depth" && i+1 < len(os.Args) {
+			i++
+			fmt.Sscanf(os.Args[i], "%d", &maxQueueDepth)
+		} else if arg == "--max-runtime" && i+1 < len(os.Args) {
+			i++
+			duration, err := time.ParseDuration(os.Args[i])
+			if err == nil {
+				maxRuntime = duration
+			}
+		}
+	}
+
+	fmt.Println()
+	fmt.Println("Step 3: Starting dogfood ingestion...")
+	fmt.Printf("  JQL Query: %s\n", jqlQuery)
+	fmt.Printf("  Max Queue Depth: %d\n", maxQueueDepth)
+	fmt.Printf("  Max Runtime: %v\n", maxRuntime)
+
+	// TODO: Implement actual ingestion loop
+	fmt.Println()
+	fmt.Println("⚠  Dogfood ingestion not yet implemented")
+	fmt.Println()
+	fmt.Println("Design spec in: docs/06-OPERATIONS/ZB_025_JIRA_INTAKE_CONTRACT.md")
+	fmt.Println("Implementation requires:")
+	fmt.Println("  - Valid Jira API token (ATATT3... format)")
+	fmt.Println("  - Jira -> BrainTask ingestion logic")
+	fmt.Println("  - Deduplication / idempotency checks")
+	fmt.Println("  - Foreman webhook/event integration")
+}
+
+func runOfficeStopDogfood() {
+	fmt.Println("=== ZB-025: Stop Unattended Dogfood Run ===")
+	fmt.Println()
+
+	force := false
+	for i := 3; i < len(os.Args); i++ {
+		if os.Args[i] == "--force" {
+			force = true
+		}
+	}
+
+	if force {
+		fmt.Println("⚠  FORCE STOP - immediate shutdown (may leave tasks in Running state)")
+		fmt.Println()
+		fmt.Println("⚠  Stop not yet implemented")
+	} else {
+		fmt.Println("Graceful shutdown requested...")
+		fmt.Println("  - Stopping new task ingestion")
+		fmt.Println("  - Allowing in-flight tasks to complete (max 15m)")
+		fmt.Println("  - Waiting for queue to drain")
+		fmt.Println()
+		fmt.Println("⚠  Stop not yet implemented")
+	}
+}
+
+func runOfficeStatus() {
+	fmt.Println("=== ZB-025: Operator Status ===")
+	fmt.Println()
+
+	// Jira connectivity
+	fmt.Println("Jira Connectivity:")
+	mgr, err := getOfficeManager()
+	if err != nil {
+		fmt.Println("  ✗ Office manager failed to init")
+	} else {
+		conn, connErr := mgr.GetConnectorForCluster("default")
+		if connErr != nil {
+			fmt.Println("  ✗ No default connector")
+		} else {
+			jiraConn, ok := conn.(*jira.JiraOffice)
+			if !ok {
+				fmt.Println("  ✗ Default connector is not Jira")
+			} else {
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				if err := jiraConn.Ping(ctx); err != nil {
+					fmt.Printf("  ✗ API reachability failed: %v\n", err)
+				} else {
+					fmt.Println("  ✓ OK")
+					fmt.Printf("    URL: %s\n", jiraConn.Config().BaseURL)
+					fmt.Printf("    Project: %s\n", jiraConn.Config().ProjectKey)
+				}
+				cancel()
+			}
+		}
+	}
+
+	fmt.Println()
+	fmt.Println("Workers:")
+	// TODO: Implement actual worker count check from Foreman API
+	fmt.Println("  ⚠  Worker check not yet implemented")
+	fmt.Println("  Expected: 5 workers")
+
+	fmt.Println()
+	fmt.Println("Queue:")
+	// TODO: Implement actual queue depth check from Foreman API
+	fmt.Println("  ⚠  Queue depth not yet implemented")
+
+	fmt.Println()
+	fmt.Println("Tasks:")
+	// TODO: Implement actual task counts from Foreman API
+	fmt.Println("  ⚠  Task counts not yet implemented")
+	fmt.Println("  Active: (Running)")
+	fmt.Println("  Completed (last hour): (?)")
+	fmt.Println("  Failed (last hour): (?)")
+	fmt.Println("  Stuck (>50m): (?)")
+
+	fmt.Println()
+	fmt.Println("Implementation requires:")
+	fmt.Println("  - Foreman API client for worker stats")
+	fmt.Println("  - BrainTask query for status counts")
+	fmt.Println("  - Stuck task detection (>50m in Running)")
+}
+
+func runOfficeRecover() {
+	fmt.Println("=== ZB-025: Recover from Degraded State ===")
+	fmt.Println()
+
+	checkOnly := false
+	for i := 3; i < len(os.Args); i++ {
+		if os.Args[i] == "--check-only" {
+			checkOnly = true
+		}
+	}
+
+	if checkOnly {
+		fmt.Println("Checking for degraded state...")
+		fmt.Println()
+		fmt.Println("⚠  Recovery check not yet implemented")
+		fmt.Println()
+		fmt.Println("Implementation requires:")
+			fmt.Println("  - Stuck task detection (>50m in Running)")
+			fmt.Println("  - Excessive retry detection (>5 retries)")
+			fmt.Println("  - High conflict rate detection (>50%)")
+	} else {
+		fmt.Println("Recovery actions:")
+		fmt.Println()
+		fmt.Println("⚠  Recovery not yet implemented")
+		fmt.Println()
+		fmt.Println("Planned actions:")
+		fmt.Println("  1. Identify stuck tasks (>50m)")
+		fmt.Println("  2. Identify tasks with excessive retries (>5)")
+		fmt.Println("  3. Delete stuck tasks (they'll be retried)")
+		fmt.Println("  4. Scale workers to 2 if conflict rate >50%")
+		fmt.Println("  5. Force-refresh Jira connection")
+		fmt.Println("  6. Drain queue to clean state")
+	}
+}
+
+func runOfficeQueueQuery() {
+	fmt.Println("=== ZB-025: Queue Query ===")
+	fmt.Println()
+
+	// TODO: Implement actual BrainTask query
+	fmt.Println("⚠  Queue query not yet implemented")
+	fmt.Println()
+	fmt.Println("Implementation requires:")
+	fmt.Println("  - Query BrainTasks with labels.tranche=ZB-025")
+	fmt.Println("  - Group by status (Running, Completed, Failed)")
+	fmt.Println("  - Sort by age (oldest first)")
+	fmt.Println("  - Show retry counts and execution times")
+	fmt.Println()
+	fmt.Println("Expected output:")
+	fmt.Println("Running (N):")
+	fmt.Println("  jira-ZB-502 (docs_update) - Age: 12m - Retries: 0")
+	fmt.Println("Completed (N):")
+	fmt.Println("  jira-ZB-495 (docs_update) - Duration: 14m 22s - Retries: 1")
+	fmt.Println("Failed (N):")
+	fmt.Println("  jira-ZB-490 (docs_update) - Duration: 3m 12s - Retries: 2")
 }
 
 func getOfficeManager() (*office.Manager, error) {
