@@ -69,7 +69,7 @@ func main() {
 	flag.BoolVar(&enableFactoryLLM, "factory-enable-llm", envBool("ZEN_FOREMAN_ENABLE_LLM", false), "Enable LLM-powered Factory execution (ZB-022G).")
 	flag.StringVar(&llmBaseURL, "factory-llm-base-url", envStr("ZEN_FOREMAN_LLM_BASE_URL", ""), "LLM endpoint for Factory (e.g. http://host.k3d.internal:11434).")
 	flag.StringVar(&llmModel, "factory-llm-model", envStr("ZEN_FOREMAN_LLM_MODEL", "qwen3.5:0.8b"), "LLM model for Factory (default qwen3.5:0.8b for CPU inference).")
-	flag.IntVar(&llmTimeoutSeconds, "factory-llm-timeout-seconds", envInt("ZEN_FOREMAN_LLM_TIMEOUT_SECONDS", 300), "LLM request timeout in seconds (default 300).")
+	flag.IntVar(&llmTimeoutSeconds, "factory-llm-timeout-seconds", envInt("ZEN_FOREMAN_LLM_TIMEOUT_SECONDS", 2700), "LLM request timeout in seconds (default 2700s=45m for CPU path).")
 	flag.BoolVar(&llmEnableThinking, "factory-llm-enable-thinking", envBool("ZEN_FOREMAN_LLM_ENABLE_THINKING", false), "Enable chain-of-thought reasoning (default false for CPU path).")
 
 	flag.StringVar(&clusterID, "cluster-id", envStr("CLUSTER_ID", "default"), "Cluster identifier for session/context lookups and ZenContext.")
@@ -186,6 +186,11 @@ func main() {
 		os.Exit(1)
 	}
 	runner.Vault = evidence.NewMemoryVault() // proof-of-work evidence stored when tasks succeed
+
+	// ZB-024: Log local CPU profile clearly
+	if enableFactoryLLM {
+		log.Printf("ZB-024: Local CPU profile active - model=%s timeout=%ds thinking=%v", llmModel, llmTimeoutSeconds, llmEnableThinking)
+	}
 	if useGitWorktree {
 		log.Printf("Foreman: FactoryTaskRunner (git-worktree mode, repo=%s, base=%s)", sourceRepoPath, worktreeBasePath)
 	} else {

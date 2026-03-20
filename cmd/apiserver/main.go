@@ -203,6 +203,13 @@ func main() {
 		)
 		srv.Handle("/api/v1/chat", apiserver.ChatHandler(nil, nil))
 	} else {
+		// ZB-024: Log local CPU profile clearly
+		logger.Info("ZB-024: Local CPU inference profile active",
+			zenlog.String("local_model", gwCfg.LocalWorkerModel),
+			zenlog.Int("local_worker_timeout", gwCfg.LocalWorkerTimeout),
+			zenlog.Int("request_timeout", gwCfg.RequestTimeout),
+			zenlog.String("keep_alive", gwCfg.LocalWorkerKeepAlive),
+		)
 		if baseURL := os.Getenv("OLLAMA_BASE_URL"); baseURL != "" {
 			model := gwCfg.LocalWorkerModel
 			keepAlive := os.Getenv("OLLAMA_KEEP_ALIVE")
