@@ -5,7 +5,7 @@
 # Build the application
 build:
 	@echo "Building zen-brain1..."
-	@go build -ldflags "-X main.Version=$(VERSION) -X main.BuildSHA=$(BUILD_SHA) -X main.BuildTime=$(BUILD_TIME)" -o bin/zen-brain1 .
+	@go build -ldflags "-X github.com/kube-zen/zen-brain1/cmd/zen-brain.Version=$(VERSION) -X github.com/kube-zen/zen-brain1/cmd/zen-brain.BuildSHA=$(BUILD_SHA) -X github.com/kube-zen/zen-brain1/cmd/zen-brain.BuildTime=$(BUILD_TIME)" -o bin/zen-brain1 ./cmd/zen-brain
 	@echo "Build complete: bin/zen-brain1"
 
 # Run the application
