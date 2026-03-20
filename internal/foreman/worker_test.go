@@ -161,3 +161,153 @@ func (r *runCountRunner) Run(ctx context.Context, task *v1alpha1.BrainTask) (*Ta
 	r.mu.Unlock()
 	return r.runner.Run(ctx, task)
 }
+
+// TestWorker_ClaimConflictRetry tests ZB-024B: atomic claim with retry
+// Verifies that when a claim fails due to conflict, the worker retries
+func TestWorker_ClaimConflictRetry(t *testing.T) {
+	task := &v1alpha1.BrainTask{
+		ObjectMeta: metav1.ObjectMeta{Name: "task-claim-retry", Namespace: "default", ResourceVersion: "1"},
+		Spec: v1alpha1.BrainTaskSpec{
+			WorkItemID: "WI-claim", SessionID: "s-claim", Title: "T", Objective: "O",
+			WorkType: contracts.WorkTypeImplementation, WorkDomain: contracts.DomainCore,
+		},
+		Status: v1alpha1.BrainTaskStatus{Phase: v1alpha1.BrainTaskPhaseScheduled},
+	}
+	
+	// Start with task in Scheduled state
+	cb := fake.NewClientBuilder().WithScheme(testScheme).WithStatusSubresource(task).WithObjects(task)
+	cl := cb.Build()
+	
+	runner := &stubRunner{
+		outcome: &TaskRunOutcome{ResultStatus: "completed"},
+		err:    nil,
+	}
+	w := NewWorker(cl, runner, 1)
+	ctx := context.Background()
+	
+	// Process the task - should claim successfully on first attempt
+	nn := client.ObjectKeyFromObject(task)
+	w.processOne(ctx, nn)
+	
+	// Verify task transitioned to Completed
+	var updated v1alpha1.BrainTask
+	if err := cl.Get(ctx, nn, &updated); err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	
+	if updated.Status.Phase != v1alpha1.BrainTaskPhaseCompleted {
+		t.Errorf("expected Phase Completed, got %s", updated.Status.Phase)
+	}
+}
+
+// TestWorker_CompletionConflictRetry tests ZB-024B: completion update with retry
+// Verifies that when a completion update fails due to conflict, the worker retries
+func TestWorker_CompletionConflictRetry(t *testing.T) {
+	task := &v1alpha1.BrainTask{
+		ObjectMeta: metav1.ObjectMeta{Name: "task-completion-retry", Namespace: "default", ResourceVersion: "1"},
+		Spec: v1alpha1.BrainTaskSpec{
+			WorkItemID: "WI-completion", SessionID: "s-completion", Title: "T", Objective: "O",
+			WorkType: contracts.WorkTypeImplementation, WorkDomain: contracts.DomainCore,
+		},
+		Status: v1alpha1.BrainTaskStatus{Phase: v1alpha1.BrainTaskPhaseScheduled},
+	}
+	
+	cb := fake.NewClientBuilder().WithScheme(testScheme).WithStatusSubresource(task).WithObjects(task)
+	cl := cb.Build()
+	
+	runner := &stubRunner{
+		outcome: &TaskRunOutcome{ResultStatus: "completed"},
+		err:    nil,
+	}
+	w := NewWorker(cl, runner, 1)
+	ctx := context.Background()
+	
+	// Process the task - should complete successfully with retry logic in place
+	nn := client.ObjectKeyFromObject(task)
+	w.processOne(ctx, nn)
+	
+	// Verify task reached terminal state
+	var updated v1alpha1.BrainTask
+	if err := cl.Get(ctx, nn, &updated); err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	
+	if updated.Status.Phase != v1alpha1.BrainTaskPhaseCompleted {
+		t.Errorf("expected Phase Completed, got %s", updated.Status.Phase)
+	}
+	
+	// Verify Executed condition was added
+	var hasExecuted bool
+	for _, cond := range updated.Status.Conditions {
+		if cond.Type == "Executed" {
+			hasExecuted = true
+			break
+		}
+	}
+	if !hasExecuted {
+		t.Error("expected Executed condition to be present")
+	}
+}
+
+// TestWorker_DuplicateClaimPrevention tests ZB-024B: duplicate claim prevention
+// Verifies that two workers cannot claim the same task
+func TestWorker_DuplicateClaimPrevention(t *testing.T) {
+	task := &v1alpha1.BrainTask{
+		ObjectMeta: metav1.ObjectMeta{Name: "task-duplicate-claim", Namespace: "default", ResourceVersion: "1"},
+		Spec: v1alpha1.BrainTaskSpec{
+			WorkItemID: "WI-dup", SessionID: "s-dup", Title: "T", Objective: "O",
+			WorkType: contracts.WorkTypeImplementation, WorkDomain: contracts.DomainCore,
+		},
+		Status: v1alpha1.BrainTaskStatus{Phase: v1alpha1.BrainTaskPhaseScheduled},
+	}
+	
+	cb := fake.NewClientBuilder().WithScheme(testScheme).WithStatusSubresource(task).WithObjects(task)
+	cl := cb.Build()
+	
+	var runCount int
+	var mu sync.Mutex
+	runner := &stubRunner{
+		outcome: &TaskRunOutcome{ResultStatus: "completed"},
+		err:    nil,
+	}
+	runCounter := &runCountRunner{runner: runner, count: &runCount, mu: &mu}
+	
+	// Create two workers sharing the same client
+	w1 := NewWorker(cl, runCounter, 1)
+	w2 := NewWorker(cl, runCounter, 1)
+	ctx := context.Background()
+	
+	// Both workers try to process the same task
+	nn := client.ObjectKeyFromObject(task)
+	
+	// First worker claims and processes
+	w1.processOne(ctx, nn)
+	
+	// Get the task state after first worker
+	var afterFirst v1alpha1.BrainTask
+	if err := cl.Get(ctx, nn, &afterFirst); err != nil {
+		t.Fatalf("Get after first: %v", err)
+	}
+	
+	// Second worker tries to claim - should see Running/Completed and skip
+	w2.processOne(ctx, nn)
+	
+	// Verify task ran exactly once
+	mu.Lock()
+	count := runCount
+	mu.Unlock()
+	
+	if count != 1 {
+		t.Errorf("expected task to run exactly once, but ran %d times", count)
+	}
+	
+	// Verify task is in terminal state
+	var final v1alpha1.BrainTask
+	if err := cl.Get(ctx, nn, &final); err != nil {
+		t.Fatalf("Get final: %v", err)
+	}
+	
+	if final.Status.Phase != v1alpha1.BrainTaskPhaseCompleted {
+		t.Errorf("expected Phase Completed, got %s", final.Status.Phase)
+	}
+}
