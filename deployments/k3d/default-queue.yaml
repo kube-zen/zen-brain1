@@ -1,0 +1,9 @@
+apiVersion: zen.kube-zen.com/v1alpha1
+kind: BrainQueue
+metadata:
+  name: default
+  namespace: zen-brain
+spec:
+  priority: 0
+  maxConcurrency: 3
+  sessionAffinity: false
