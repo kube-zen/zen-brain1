@@ -214,30 +214,49 @@ func (w *Worker) runLoopFrom(ctx context.Context, ch chan types.NamespacedName, 
 func (w *Worker) processOne(ctx context.Context, nn types.NamespacedName) {
 	log.Printf("[Worker.processOne] processing task %s", nn.String())
 	logger := ctrllog.FromContext(ctx)
+	
+	// ZB-024B: Atomic claim with optimistic concurrency
+	// Retry loop handles race between dispatch and state visibility
 	var task v1alpha1.BrainTask
-	if err := w.Client.Get(ctx, nn, &task); err != nil {
-		if errors.IsNotFound(err) {
-			log.Printf("[Worker.processOne] task %s not found (was deleted)", nn.String())
+	maxRetries := 3
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		if err := w.Client.Get(ctx, nn, &task); err != nil {
+			if errors.IsNotFound(err) {
+				log.Printf("[Worker.processOne] task %s not found (was deleted)", nn.String())
+				return
+			}
+			log.Printf("[Worker.processOne] error getting task %s: %v", nn.String(), err)
+			logger.Error(err, "get task for execution", "task", nn.String())
 			return
 		}
-		log.Printf("[Worker.processOne] error getting task %s: %v", nn.String(), err)
-		logger.Error(err, "get task for execution", "task", nn.String())
-		return
-	}
-	log.Printf("[Worker.processOne] task %s current phase=%s", nn.String(), task.Status.Phase)
-	// Only run if still Scheduled (avoid double-run if reconciler retried).
-	if task.Status.Phase != v1alpha1.BrainTaskPhaseScheduled {
-		log.Printf("[Worker.processOne] task %s not in Scheduled phase (phase=%s), skipping", nn.String(), task.Status.Phase)
-		return
-	}
-
-	// Patch to Running
-	task.Status.Phase = v1alpha1.BrainTaskPhaseRunning
-	task.Status.Message = "Running"
-	task.Status.ObservedGeneration = task.Generation
-	if err := w.Client.Status().Update(ctx, &task); err != nil {
-		logger.Error(err, "update task to Running", "task", nn.String())
-		return
+		
+		log.Printf("[Worker.processOne] task %s current phase=%s (attempt %d/%d)", nn.String(), task.Status.Phase, attempt, maxRetries)
+		
+		// ZB-024B: Only claim if Scheduled OR Pending (reconciler might not have updated yet)
+		if task.Status.Phase != v1alpha1.BrainTaskPhaseScheduled && task.Status.Phase != v1alpha1.BrainTaskPhasePending {
+			log.Printf("[Worker.processOne] task %s not claimable (phase=%s), skipping", nn.String(), task.Status.Phase)
+			return
+		}
+		
+		// ZB-024B: Atomic claim - try to transition to Running
+		// This will fail if another worker claimed it or if state changed
+		originalPhase := task.Status.Phase
+		task.Status.Phase = v1alpha1.BrainTaskPhaseRunning
+		task.Status.Message = "Running"
+		task.Status.ObservedGeneration = task.Generation
+		
+		if err := w.Client.Status().Update(ctx, &task); err != nil {
+			if errors.IsConflict(err) {
+				log.Printf("[Worker.processOne] task %s claim conflict (attempt %d), retrying...", nn.String(), attempt)
+				continue // Retry - re-read and try again
+			}
+			logger.Error(err, "update task to Running", "task", nn.String())
+			return
+		}
+		
+		// ZB-024B: Claim succeeded!
+		log.Printf("[Worker.processOne] task %s claimed successfully (was %s, now Running)", nn.String(), originalPhase)
+		break // Exit retry loop - we own the task now
 	}
 
 	log.Printf("[Worker.processOne] task %s calling Runner.Run()", nn.String())
