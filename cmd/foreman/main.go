@@ -61,6 +61,17 @@ func main() {
 	flag.StringVar(&worktreeBasePath, "factory-worktree-base", envStr("ZEN_FOREMAN_WORKTREE_BASE", ""), "Base path for git worktrees (default <runtime-dir>/worktrees).")
 	flag.StringVar(&sourceRef, "factory-source-ref", envStr("ZEN_FOREMAN_SOURCE_REF", "HEAD"), "Git ref for worktree (e.g. HEAD, main).")
 	flag.BoolVar(&reuseSessionWorktree, "factory-reuse-session-worktree", envBool("ZEN_FOREMAN_REUSE_SESSION_WORKTREE", false), "Reuse one worktree per session when using git worktrees.")
+	// Factory LLM configuration (ZB-022G)
+	var enableFactoryLLM bool
+	var llmBaseURL, llmModel string
+	var llmTimeoutSeconds int
+	var llmEnableThinking bool
+	flag.BoolVar(&enableFactoryLLM, "factory-enable-llm", envBool("ZEN_FOREMAN_ENABLE_LLM", false), "Enable LLM-powered Factory execution (ZB-022G).")
+	flag.StringVar(&llmBaseURL, "factory-llm-base-url", envStr("ZEN_FOREMAN_LLM_BASE_URL", ""), "LLM endpoint for Factory (e.g. http://host.k3d.internal:11434).")
+	flag.StringVar(&llmModel, "factory-llm-model", envStr("ZEN_FOREMAN_LLM_MODEL", "qwen3.5:0.8b"), "LLM model for Factory (default qwen3.5:0.8b for CPU inference).")
+	flag.IntVar(&llmTimeoutSeconds, "factory-llm-timeout-seconds", envInt("ZEN_FOREMAN_LLM_TIMEOUT_SECONDS", 300), "LLM request timeout in seconds (default 300).")
+	flag.BoolVar(&llmEnableThinking, "factory-llm-enable-thinking", envBool("ZEN_FOREMAN_LLM_ENABLE_THINKING", false), "Enable chain-of-thought reasoning (default false for CPU path).")
+
 	flag.StringVar(&clusterID, "cluster-id", envStr("CLUSTER_ID", "default"), "Cluster identifier for session/context lookups and ZenContext.")
 	zenContextRedis := flag.String("zen-context-redis", envStr("ZEN_CONTEXT_REDIS_URL", ""), "Redis URL for ZenContext (ReMe). When set, Worker uses ReMeBinder for session context on continuation.")
 	sessionAffinity := flag.Bool("session-affinity", envBool("ZEN_FOREMAN_SESSION_AFFINITY", false), "Route tasks by session (same session → same worker).")
@@ -163,6 +174,11 @@ func main() {
 		WorktreeBasePath:      worktreeBasePath,
 		SourceRef:             sourceRef,
 		ReuseSessionWorktree:  reuseSessionWorktree,
+		EnableFactoryLLM:     enableFactoryLLM,
+		LLMBaseURL:          llmBaseURL,
+		LLMModel:            llmModel,
+		LLMTimeoutSeconds:    llmTimeoutSeconds,
+		LLMEnableThinking:     llmEnableThinking,
 	}
 	runner, err := foreman.NewFactoryTaskRunner(cfg)
 	if err != nil {
