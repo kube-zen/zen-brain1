@@ -1,0 +1,75 @@
+# Routing Policy Configuration for zen-brain1
+# Version: 1.0
+# Status: Production
+#
+# IMPORTANT: Local CPU Inference Policy (ZB-023)
+# ================================================
+# UNTIL EXPLICITLY OVERRIDDEN BY THE OPERATOR:
+# - qwen3.5:0.8b is the ONLY allowed local Ollama model
+# - Host Docker Ollama is the ONLY supported local CPU inference path
+# - In-cluster Ollama is FORBIDDEN for the active local path
+#
+# Any provider/model may serve any role if configured.
+# The strict "planner=GLM, worker=0.8b" split is outdated and removed.
+# Local CPU path is certified ONLY for qwen3.5:0.8b via host Docker Ollama.
+
+routing:
+  # Global routing strategy
+  default_strategy: "smart"  # Balance cost, speed, and quality
+
+  # Fallback chain for provider selection
+  # Local 0.8b first (cost-free), then cloud providers
+  fallback_chain:
+    - local-worker    # Primary: qwen3.5:0.8b via host Docker Ollama
+    - zen-glm         # Fallback: GLM-5 (if available)
+    - deepseek        # Fallback: DeepSeek Chat (if available)
+    - openai          # Fallback: GPT-4o Mini (if available)
+    - anthropic       # Last resort: Claude 3.5 Sonnet (if available)
+
+  # Task-specific routing rules
+  task_routing:
+    # Bounded execution tasks (docs, config, small code changes)
+    - task_class: bounded-execution
+      strategy: "lowest_cost"
+      preferred_providers: ["local-worker"]
+
+    # Complex planning tasks
+    - task_class: complex-planning
+      strategy: "highest_quality"
+      preferred_providers: ["zen-glm", "openai", "anthropic"]
+
+    # Real-time chat (use local for speed, fallback to cloud)
+    - task_class: chat
+      strategy: "smart"
+      preferred_providers: ["local-worker", "deepseek"]
+
+    # Code generation (may need larger models)
+    - task_class: code-generation
+      strategy: "highest_quality"
+      preferred_providers: ["zen-glm", "openai", "anthropic"]
+
+    # Documentation (local is sufficient for most cases)
+    - task_class: documentation
+      strategy: "lowest_cost"
+      preferred_providers: ["local-worker"]
+
+  # Multi-provider arbitration (for consistency checks)
+  arbitration:
+    enabled: false  # Disabled by default to reduce cost
+    strategy: "first_success"  # or: "majority_vote", "all_consensus"
+    providers_for_arbitration: ["zen-glm", "deepseek"]
+
+  # FAIL-CLOSED: Model validation
+  # Reject requests that try to use non-certified local models
+  validate_local_model: true
+  certified_local_models:
+    - "qwen3.5:0.8b"  # ONLY certified local model
+
+  # FAIL-CLOSED: In-cluster Ollama validation
+  # Reject any config that points to in-cluster Ollama for local path
+  forbid_in_cluster_ollama: true
+  in_cluster_hostnames:
+    - "ollama"  # k8s service name
+    - "ollama.zen-brain"
+    - "ollama.zen-brain.svc"
+    - "ollama.zen-brain.svc.cluster.local"

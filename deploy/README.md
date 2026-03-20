@@ -1,11 +1,57 @@
 # zen-brain Deployment Guide
 
 **Version:** 1.0
-**Last Updated:** 2026-03-19
+**Last Updated:** 2026-03-20
 
 ## Overview
 
 This guide covers deploying zen-brain in production with policy-based configuration.
+
+## 🚨 CRITICAL: Local CPU Inference Policy (ZB-023)
+
+**UNTIL EXPLICITLY OVERRIDDEN BY THE OPERATOR:**
+
+### Certified Local CPU Path
+
+- ✅ **ONLY allowed local model:** `qwen3.5:0.8b`
+- ✅ **ONLY supported local inference path:** Host Docker Ollama (http://host.k3d.internal:11434)
+- ❌ **FORBIDDEN:** In-cluster Ollama for active local CPU path
+- ❌ **FORBIDDEN:** Any other local model (e.g., qwen3.5:14b, llama*, mistral*)
+
+### Provider/Model Flexibility
+
+- Any provider/model may serve any role if configured
+- The outdated "planner=GLM, worker=0.8b" split is **REMOVED**
+- `qwen3.5:0.8b` is NOT worker-only by architecture
+- GLM is NOT planner-only by architecture
+- **However:** The ONLY certified LOCAL CPU lane is `qwen3.5:0.8b` via host Docker Ollama
+
+### Verification Commands (Post-Deployment)
+
+```bash
+# 1. Check OLLAMA_BASE_URL points to host Docker (NOT in-cluster)
+kubectl exec -n zen-brain deploy/apiserver -- env | grep OLLAMA_BASE_URL
+# Expected: OLLAMA_BASE_URL=http://host.k3d.internal:11434
+
+# 2. Check local-worker lane is using host Docker Ollama with qwen3.5:0.8b
+kubectl logs -n zen-brain deploy/apiserver | grep -E 'local-worker lane|Ollama warmup'
+# Expected: [LLM Gateway] local-worker lane: Ollama at http://host.k3d.internal:11434 (model=qwen3.5:0.8b)
+
+# 3. Verify host Docker Ollama has the 0.8b model
+kubectl exec -n zen-brain deploy/apiserver -- wget -qO- http://host.k3d.internal:11434/api/tags
+# Expected: JSON with "qwen3.5:0.8b" in models list
+
+# 4. Verify in-cluster Ollama is NOT running
+kubectl get pods -n zen-brain | grep ollama
+# Expected: No ollama pods (in-cluster Ollama disabled)
+```
+
+### See Also
+
+- `docs/05-OPERATIONS/OLLAMA_08B_OPERATIONS_GUIDE.md` - Detailed operations guide
+- `config/policy/README.md` - Policy system documentation with local model rules
+
+---
 
 ## Configuration
 

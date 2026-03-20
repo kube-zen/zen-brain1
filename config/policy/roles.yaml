@@ -1,0 +1,112 @@
+# Role Policy Configuration for zen-brain1
+# Version: 1.0
+# Status: Production
+#
+# IMPORTANT: Local CPU Inference Policy (ZB-023)
+# ================================================
+# UNTIL EXPLICITLY OVERRIDDEN BY THE OPERATOR:
+# - qwen3.5:0.8b is the ONLY allowed local Ollama model
+# - Host Docker Ollama is the ONLY supported local CPU inference path
+# - In-cluster Ollama is FORBIDDEN for the active local path
+#
+# Any provider/model may serve any role if configured.
+# The strict "planner=GLM, worker=0.8b" split is outdated and removed.
+# Local CPU path is certified ONLY for qwen3.5:0.8b via host Docker Ollama.
+
+roles:
+  - name: worker
+    display_name: "Worker Agent"
+    description: "Executes bounded tasks using local or cloud providers"
+    capabilities:
+      - file-operations
+      - git-operations
+      - shell-execution
+      - jira-integration
+      - bounded-execution
+      - documentation
+    allowed_providers: ["local-worker", "zen-glm", "deepseek", "openai", "anthropic"]
+    default_provider: "local-worker"  # Use local 0.8b by default
+    max_tokens_per_request: 4000
+    timeout_seconds: 300
+    supports_thinking: false  # Worker path defaults to no thinking
+    system_prompt_override: |
+      You are a Worker Agent that executes bounded tasks efficiently.
+      Focus on completing the requested task with precision.
+      Use the available tools (file operations, git, shell, etc.) to complete work.
+      Keep responses concise and actionable.
+
+  - name: planner
+    display_name: "Planner Agent"
+    description: "Plans and decomposes complex tasks"
+    capabilities:
+      - task-planning
+      - decomposition
+      - jira-creation
+      - architecture-review
+    allowed_providers: ["local-worker", "zen-glm", "deepseek", "openai", "anthropic"]
+    default_provider: "local-worker"  # Local 0.8b can plan too
+    max_tokens_per_request: 8000
+    timeout_seconds: 600
+    supports_thinking: true  # Planning benefits from chain-of-thought
+    system_prompt_override: |
+      You are a Planner Agent that breaks down complex tasks into actionable steps.
+      Analyze requirements, identify dependencies, and create detailed plans.
+      When appropriate, create Jira tickets with clear descriptions and acceptance criteria.
+      Use local provider when possible for cost efficiency.
+
+  - name: reviewer
+    display_name: "Code Review Agent"
+    description: "Reviews code and provides feedback"
+    capabilities:
+      - code-review
+      - security-audit
+      - best-practices-check
+      - bug-detection
+    allowed_providers: ["local-worker", "zen-glm", "deepseek", "openai", "anthropic"]
+    default_provider: "zen-glm"  # Prefer larger model for code review
+    max_tokens_per_request: 8000
+    timeout_seconds: 600
+    supports_thinking: false
+    system_prompt_override: |
+      You are a Code Review Agent that provides constructive feedback.
+      Focus on correctness, security, maintainability, and best practices.
+      Be specific about issues and provide actionable suggestions.
+
+  - name: summarizer
+    display_name: "Summarizer Agent"
+    description: "Summarizes content and extracts insights"
+    capabilities:
+      - text-summarization
+      - information-extraction
+      - insight-generation
+    allowed_providers: ["local-worker", "zen-glm", "deepseek", "openai", "anthropic"]
+    default_provider: "local-worker"  # Local 0.8b sufficient for summarization
+    max_tokens_per_request: 4000
+    timeout_seconds: 300
+    supports_thinking: false
+    system_prompt_override: |
+      You are a Summarizer Agent that distills information into clear summaries.
+      Extract key points, insights, and actionable takeaways.
+      Keep summaries concise and well-structured.
+
+  - name: debugger
+    display_name: "Debugging Agent"
+    description: "Diagnoses and fixes issues"
+    capabilities:
+      - error-analysis
+      - log-analysis
+      - fix-suggestion
+      - root-cause-identification
+    allowed_providers: ["local-worker", "zen-glm", "deepseek", "openai", "anthropic"]
+    default_provider: "zen-glm"  # Prefer larger model for debugging
+    max_tokens_per_request: 6000
+    timeout_seconds: 600
+    supports_thinking: false
+    system_prompt_override: |
+      You are a Debugging Agent that identifies and resolves issues.
+      Analyze error messages, logs, and code to find root causes.
+      Provide clear explanations and actionable fixes.
+
+# FAIL-CLOSED: No hard model-to-role binding
+# Any provider/model combination is allowed if configured above
+# The outdated "planner=GLM, worker=0.8b" rule is removed (ZB-023)

@@ -159,6 +159,9 @@ type ExecutionResult struct {
 	GitBranch string `json:"git_branch,omitempty"`
 	GitCommit string `json:"git_commit,omitempty"`
 
+	// ZB-022D: Execution mode metadata (observability)
+	Metadata map[string]string `json:"metadata,omitempty"`
+
 	// Error handling
 	Error              string `json:"error,omitempty"`
 	ErrorCode          string `json:"error_code,omitempty"`

@@ -8,29 +8,44 @@
 
 ## 🎯 Executive Summary
 
-### ZB-019: Planner/Worker Split (2026-03-19)
+### ZB-023: Local CPU Inference Policy (2026-03-20)
 
-**The zen-brain1 architecture enforces a strict role separation:**
+**CRITICAL POLICY (UNTIL EXPLICITLY OVERRIDDEN BY OPERATOR):**
 
-| Role | Model | Responsibility |
-|------|-------|----------------|
-| **Planner** | GLM (glm-4.7) | Planning, decomposition, Jira task creation |
-| **Worker** | qwen3.5:0.8b | Bounded execution from Jira task description |
+| Aspect | Rule | Rationale |
+|--------|------|-----------|
+| **Certified Local Model** | qwen3.5:0.8b ONLY | Validated for CPU inference, 20+ parallel workers |
+| **Certified Local Path** | Host Docker Ollama ONLY | 10-15x faster than k8s in-cluster (8-23s vs 3-5+ min) |
+| **Forbidden Path** | In-cluster Ollama | k8s networking overhead makes CPU inference impractical |
+| **Provider Flexibility** | Any model can serve any role | Removed outdated strict planner/worker split |
 
-**Worker Tasks (0.8B):**
-- Docs update
-- Config edit
-- Code comment / small patch
-- Runbook improvement
-- Classification / extraction / summarization
+### Provider/Model Policy (ZB-023)
 
-**Worker MUST NOT:**
-- Perform broad reasoning
-- Make architecture choices
-- Multi-step decomposition
-- Create new Jira tasks
+**Allowed:**
+- ✅ Any provider/model may serve any role if configured in policy
+- ✅ qwen3.5:0.8b can plan, execute, review, summarize (certified for CPU)
+- ✅ GLM/DeepSeek/OpenAI/Anthropic can be used for any role
+- ✅ Local 0.8b is cost-effective and sufficient for many tasks
 
-**If task requires broad reasoning → Route back to GLM (planner)**
+**Prohibited (for active local CPU path):**
+- ❌ Using local models other than qwen3.5:0.8b (e.g., qwen3.5:14b, llama*, mistral*)
+- ❌ Using in-cluster Ollama (http://ollama:11434 or k8s service names)
+- ❌ Re-introducing strict "planner=GLM, worker=0.8b" binding as architecture rule
+
+**Task Categories for 0.8B:**
+- ✅ File operations (create, read, edit)
+- ✅ Git operations (commit, push, merge)
+- ✅ Shell execution (run tests, validate)
+- ✅ Jira integration (read tickets, add comments)
+- ✅ Documentation (create, update, summarize)
+- ✅ Planning and task decomposition (0.8b can plan!)
+- ✅ Code review (for simple/medium complexity code)
+
+**When to Use Cloud Providers:**
+- Complex architecture decisions (may benefit from larger models)
+- Very long context (>32K tokens)
+- High-stakes code review (prefer larger model)
+- When 0.8b fails or produces low-quality results
 
 ### Key Finding: Docker Host Ollama = 10-15x Better Performance
 
@@ -608,51 +623,76 @@ The 0.8B model on Docker host Ollama is **production-ready** for CPU-only infere
 
 ---
 
-## ZB-018: Local Inference Policy Hardening (2026-03-19)
+## ZB-023: Local CPU Inference Policy Institutionalized (2026-03-20)
 
-### Supported Path: Host Docker Ollama Only
+### Supported Path: Host Docker Ollama Only (CERTIFIED)
 
 **For sandbox/dev CPU-only environments, the ONLY supported local inference path is**
 
 1. **Host Docker Ollama** running outside Kubernetes
-2. **Model:** \`qwen3.5:0.8b\` (ONLY supported local model)
-3. **Connection:** \`http://host.k3d.internal:11434\` from inside k3d pods
+2. **Model:** `qwen3.5:0.8b` (ONLY certified local model)
+3. **Connection:** `http://host.k3d.internal:11434` from inside k3d pods
 
-### Code Enforcement (ZB-018)
-The following code changes enforce the 0.8b-only policy:
+### Policy Enforcement (ZB-023)
 
-| File | Change |
-|------|--------|
-| \`cmd/zen-brain/factory.go\` | Changed \`LocalWorkerModel\` from \`qwen3.5:14b\` to \`qwen3.5:0.8b\` |
-| \`internal/llm/gateway.go\` | Already had \`qwen3.5:0.8b\` in \`DefaultGatewayConfig()\` |
-| \`cmd/zen-brain/main.go\` | Already had \`qwen3.5:0.8b\` |
-| \`config/clusters.yaml\` | Already had \`models: ["qwen3.5:0.8b"]\` |
+The following layers enforce the local CPU inference policy:
+
+| Layer | Enforcement | Location |
+|-------|-------------|----------|
+| **Policy** | `fail_if_other_model_requested: true`, `forbid_in_cluster_ollama: true` | `config/policy/providers.yaml`, `routing.yaml` |
+| **Documentation** | Outdated planner/worker split removed | `OLLAMA_08B_OPERATIONS_GUIDE.md`, `policy/README.md` |
+| **Runtime** | Default to qwen3.5:0.8b, validate in-cluster Ollama prohibited | `internal/llm/gateway.go`, `ollama_provider.go` |
+| **CI** | Gates prevent drift (model and in-cluster Ollama) | `scripts/ci/local_model_policy_gate.py` |
+| **Deployment** | `use_ollama: false` for in-cluster, host Docker configured | `config/clusters.yaml` |
+| **Tests** | Unit tests for 0.8b allow, non-0.8b reject | `internal/llm/ollama_provider_test.go` |
+
+### Provider/Model Flexibility (ZB-023)
+
+**IMPORTANT:** Any provider/model may serve any role if configured in policy.
+
+- `qwen3.5:0.8b` is NOT worker-only by architecture
+- GLM is NOT planner-only by architecture
+- The 0.8b certification applies ONLY to local CPU inference path
+- Cloud providers can serve any role (planner, worker, reviewer, etc.)
 
 ### Unsupported/Experimental Paths
+
 - **In-cluster Ollama:** NOT supported for CPU-only sandbox/dev
   - Why: k8s networking overhead makes CPU inference impractical (3-5+ min latency vs 8-23s with Docker host)
-  - Status: Disabled by default (\`use_ollama: false\` in \`config/clusters.yaml\`)
+  - Status: Disabled by default (`use_ollama: false` in `config/clusters.yaml`)
+  - Enforcement: CI gate (`scripts/ci/local_model_policy_gate.py`) blocks reintroduction
+
+- **Other local models:** NOT supported for active local CPU path
+  - Models like qwen3.5:14b, llama*, mistral* are NOT certified
+  - Enforcement: Policy `fail_if_other_model_requested: true` in `providers.yaml`
+  - Override requires: EXPLICIT operator approval + policy/code/docs update
 
 ### Verify Live Wiring
-\`\`\`bash
-# 1. Check OLLAMA_BASE_URL is set to host Docker
+
+```bash
+# 1. Check OLLAMA_BASE_URL is set to host Docker (NOT in-cluster)
 kubectl exec -n zen-brain deploy/apiserver -- env | grep OLLAMA_BASE_URL
 # Expected: OLLAMA_BASE_URL=http://host.k3d.internal:11434
 
-# 2. Check local-worker lane is using host Docker Ollama
+# 2. Check local-worker lane is using host Docker Ollama with qwen3.5:0.8b
 kubectl logs -n zen-brain deploy/apiserver | grep -E 'local-worker lane|Ollama warmup'
 # Expected: [LLM Gateway] local-worker lane: Ollama at http://host.k3d.internal:11434 (model=qwen3.5:0.8b)
 
-# 3. Verify host Docker Ollama has the model
+# 3. Verify host Docker Ollama has the 0.8b model
 kubectl exec -n zen-brain deploy/apiserver -- wget -qO- http://host.k3d.internal:11434/api/tags
-# Expected: JSON with qwen3.5:0.8b in models list
-\`\`\`
+# Expected: JSON with "qwen3.5:0.8b" in models list
 
-### Real Task Execution Evidence (ZB-018)
+# 4. Verify in-cluster Ollama is NOT running
+kubectl get pods -n zen-brain | grep ollama
+# Expected: No ollama pods (in-cluster Ollama disabled)
+```
+
+### Real Task Execution Evidence (ZB-018, ZB-023)
+
 The following logs prove real 0.8b inference through zen-brain1:
-\`\`\`
+```
 2026/03/19 20:45:17 [Ollama] Chat: model=qwen3.5:0.8b latency=219743ms in=12 out=1606
 2026/03/19 20:46:57 [Ollama] Chat: model=qwen3.5:0.8b latency=212933ms in=78 out=1426
 2026/03/19 20:49:27 [Ollama] Chat: model=qwen3.5:0.8b latency=149571ms in=78 out=2015
-\`\`\`
-All requests used \`provider=local-worker\` routing through the gateway to host Docker Ollama.
+```
+All requests used `provider=local-worker` routing through the gateway to host Docker Ollama.
