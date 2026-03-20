@@ -292,18 +292,46 @@ func (c *Config) loadFromEnv() {
 }
 
 // loadJiraCredentials resolves Jira credentials from canonical sources.
+// In cluster mode: ONLY accepts credentials from /zen-lock/secrets.
+// In local dev mode: MAY use credentials_file for debugging only.
 // Resolution order: credentials_dir → credentials_file → env fallback (if allowed).
 // Populates BaseURL, Email, APIToken, ProjectKey, and CredentialsSource.
 func (c *Config) loadJiraCredentials() {
 	ctx := context.Background()
 
+	// Detect cluster mode: if running in Kubernetes, use ONLY ZenLock secrets
+	inClusterMode := os.Getenv("KUBERNETES_SERVICE_HOST") != "" ||
+		os.Getenv("CONTAINER_NAME") != "" ||
+		os.Getenv("CLUSTER_ID") != ""
+
 	// Check if env fallback is explicitly enabled via env var
 	allowEnvFallback := c.Jira.AllowEnvFallback || os.Getenv("ZEN_BRAIN_ALLOW_ENV_SECRETS") == "1"
 
 	// Set defaults for credential paths
-	if c.Jira.CredentialsFile == "" {
+	if c.Jira.CredentialsDir == "" {
+		c.Jira.CredentialsDir = "/zen-lock/secrets"
+	}
+
+	// ZB-025A: In cluster mode, credentials_file is FORBIDDEN
+	// Only /zen-lock/secrets is allowed as source of truth
+	if inClusterMode && c.Jira.CredentialsFile != "" {
+		// Check if operator explicitly set credentials_file (not default)
+		defaultFilePath := filepath.Join(HomeDir(), "secrets", "jira.yaml")
+		if c.Jira.CredentialsFile != defaultFilePath {
+			// Non-default credentials_file in cluster mode is forbidden
+			fmt.Fprintf(os.Stderr, "ERROR: credentials_file is forbidden in cluster mode\n")
+			fmt.Fprintf(os.Stderr, "Cluster mode MUST use zenlock-dir:/zen-lock/secrets only\n")
+			fmt.Fprintf(os.Stderr, "Run: deploy/zen-lock/bootstrap-jira-zenlock-from-local.sh\n")
+			c.Jira.CredentialsSource = "error: forbidden in cluster mode"
+			return
+		}
+		// Fall through - will resolve from credentials_dir
+	}
+
+	// Only set credentials_file for local dev mode (not cluster mode)
+	if !inClusterMode && c.Jira.CredentialsFile == "" {
 		c.Jira.CredentialsFile = filepath.Join(HomeDir(), "secrets", "jira.yaml")
-	} else {
+	} else if !inClusterMode && c.Jira.CredentialsFile != "" {
 		// Expand tilde in credentials_file path
 		if strings.HasPrefix(c.Jira.CredentialsFile, "~/") {
 			// Get user home directory and expand tilde
@@ -313,26 +341,49 @@ func (c *Config) loadJiraCredentials() {
 			}
 		}
 	}
-	if c.Jira.CredentialsDir == "" {
-		c.Jira.CredentialsDir = "/zen-lock/secrets"
-	}
 
 	// Debug output
 	if os.Getenv("DEBUG_JIRA_CREDS") == "1" {
 		fmt.Fprintf(os.Stderr, "DEBUG Jira config:\n")
+		fmt.Fprintf(os.Stderr, "  InClusterMode: %v\n", inClusterMode)
 		fmt.Fprintf(os.Stderr, "  CredentialsFile: %s\n", c.Jira.CredentialsFile)
 		fmt.Fprintf(os.Stderr, "  CredentialsDir: %s\n", c.Jira.CredentialsDir)
 		fmt.Fprintf(os.Stderr, "  AllowEnvFallback: %v\n", allowEnvFallback)
 	}
 
-	// Resolve credentials from canonical sources
+	// ZB-025A: In cluster mode, ONLY use credentials_dir, never credentials_file
 	opts := secrets.JiraResolveOptions{
 		DirPath:          c.Jira.CredentialsDir,
-		FilePath:         c.Jira.CredentialsFile,
-		AllowEnvFallback: allowEnvFallback,
+		FilePath:         "", // Empty in cluster mode
+		AllowEnvFallback: false, // Never allowed in cluster mode
 	}
 
+	// In local dev mode, allow credentials_file and env fallback
+	if !inClusterMode {
+		opts.FilePath = c.Jira.CredentialsFile
+		opts.AllowEnvFallback = allowEnvFallback
+	}
+
+	// Resolve credentials from canonical sources
 	material, err := secrets.ResolveJira(ctx, opts)
+
+	// ZB-025A: Hard-fail in cluster mode if Jira enabled but credentials not found
+	if inClusterMode && c.Jira.Enabled && (err != nil || material == nil || material.Source == "none") {
+		fmt.Fprintf(os.Stderr, "\nERROR: Jira credentials not loaded from ZenLock\n")
+		fmt.Fprintf(os.Stderr, "Source: %s\n", c.Jira.CredentialsDir)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		}
+		fmt.Fprintf(os.Stderr, "\nResolution: Run bootstrap script to set up Jira integration\n")
+		fmt.Fprintf(os.Stderr, "  deploy/zen-lock/bootstrap-jira-zenlock-from-local.sh\n")
+		fmt.Fprintf(os.Stderr, "\nRequired files:\n")
+		fmt.Fprintf(os.Stderr, "  - ~/zen/DONOTASKMOREFORTHISSHIT.txt\n")
+		fmt.Fprintf(os.Stderr, "  - ~/zen/ZENBRAINPRIVATEKEYNEVERDELETETHISSHIT.age\n")
+		fmt.Fprintf(os.Stderr, "  - ~/zen/ZENBRAINPUBLICKEYNEVERDELETETHISSHIT.age\n")
+		c.Jira.CredentialsSource = "error: missing zenlock-dir credentials"
+		return
+	}
+
 	if err != nil {
 		// Log warning but don't fail config load
 		// Credentials may not be configured yet
@@ -405,13 +456,14 @@ func (c *Config) setDefaults() {
 		c.MessageBus.Stream = "zen-brain.events"
 	}
 
-	// Set default credential paths
-	if c.Jira.CredentialsFile == "" {
-		c.Jira.CredentialsFile = filepath.Join(HomeDir(), "secrets", "jira.yaml")
-	}
+	// ZB-025A: Set ONLY canonical runtime path for Jira
+	// credentials_file is FORBIDDEN as default - use ZenLock only
 	if c.Jira.CredentialsDir == "" {
 		c.Jira.CredentialsDir = "/zen-lock/secrets"
 	}
+	// ZB-025A: DO NOT set default credentials_file path
+	// This eliminates ambiguity and prevents silent fallback
+	// If credentials_file is needed for local debug, operator must explicitly set it
 	// AllowEnvFallback defaults to false (already set by struct tag)
 }
 
