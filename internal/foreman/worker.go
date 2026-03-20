@@ -348,32 +348,41 @@ func (w *Worker) processOne(ctx context.Context, nn types.NamespacedName) {
 		}
 	}
 	
-	// ZB-024B: Re-read task to get latest resource version before final status update
-	// This prevents conflicts if reconciler updated the task during execution
-	var latestTask v1alpha1.BrainTask
-	if getErr := w.Client.Get(ctx, nn, &latestTask); getErr != nil {
-		log.Printf("[Worker.processOne] ERROR: failed to re-read task %s before completion: %v", nn.String(), getErr)
-		logger.Error(getErr, "re-read task before completion update", "task", nn.String())
-		return
+	// ZB-024B: Atomic status update with retry loop
+	// Retry up to 3 times to handle conflicts from reconciler updates
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		var latestTask v1alpha1.BrainTask
+		if getErr := w.Client.Get(ctx, nn, &latestTask); getErr != nil {
+			log.Printf("[Worker.processOne] ERROR: failed to re-read task %s before completion (attempt %d): %v", nn.String(), attempt, getErr)
+			logger.Error(getErr, "re-read task before completion update", "task", nn.String())
+			return
+		}
+		
+		// ZB-024B: Set final status based on execution outcome
+		// IMPORTANT: Set on latestTask, not on the old task object
+		if err != nil {
+			latestTask.Status.Phase = v1alpha1.BrainTaskPhaseFailed
+			latestTask.Status.Message = err.Error()
+		} else {
+			latestTask.Status.Phase = v1alpha1.BrainTaskPhaseCompleted
+			latestTask.Status.Message = "Completed"
+		}
+		latestTask.Status.Conditions = append(latestTask.Status.Conditions, executedCondition)
+		
+		if updateErr := w.Client.Status().Update(ctx, &latestTask); updateErr != nil {
+			if errors.IsConflict(updateErr) && attempt < maxRetries {
+				log.Printf("[Worker.processOne] task %s completion update conflict (attempt %d/%d), retrying...", nn.String(), attempt, maxRetries)
+				continue // Retry - re-read and try again
+			}
+			log.Printf("[Worker.processOne] ERROR: failed to update task %s to %s (attempt %d): %v", nn.String(), latestTask.Status.Phase, attempt, updateErr)
+			logger.Error(updateErr, "update task to Completed/Failed", "task", nn.String())
+			return
+		}
+		
+		// Success!
+		log.Printf("[Worker.processOne] task %s status updated to %s successfully", nn.String(), latestTask.Status.Phase)
+		break
 	}
-	
-	// ZB-024B: Set final status based on execution outcome
-	// IMPORTANT: Set on latestTask, not on the old task object
-	if err != nil {
-		latestTask.Status.Phase = v1alpha1.BrainTaskPhaseFailed
-		latestTask.Status.Message = err.Error()
-	} else {
-		latestTask.Status.Phase = v1alpha1.BrainTaskPhaseCompleted
-		latestTask.Status.Message = "Completed"
-	}
-	latestTask.Status.Conditions = append(latestTask.Status.Conditions, executedCondition)
-	
-	if patchErr := w.Client.Status().Update(ctx, &latestTask); patchErr != nil {
-		log.Printf("[Worker.processOne] ERROR: failed to update task %s to %s: %v", nn.String(), latestTask.Status.Phase, patchErr)
-		logger.Error(patchErr, "update task to Completed/Failed", "task", nn.String())
-		return
-	}
-	log.Printf("[Worker.processOne] task %s status updated to %s successfully", nn.String(), latestTask.Status.Phase)
 }
 
 // Ensure Worker implements TaskDispatcher.
