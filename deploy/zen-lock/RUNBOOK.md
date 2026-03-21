@@ -353,3 +353,53 @@ helm upgrade zen-lock charts/zen-lock -n zen-lock-system --reuse-values
 - ~~RBAC drift~~: Fixed - Helm chart already had correct RBAC, deployed ClusterRole was manually patched then Helm upgrade synced it
 - ~~AGE key mismatch~~: Fixed - ZenLock re-encrypted with matching public key
 - ~~Placeholder master key~~: Fixed - Updated with actual private key
+
+## DO / DO NOT (ZB-025B-SEC Security Model)
+
+DO:
+- Place plaintext token only temporarily for bootstrap at `~/zen/DONOTASKMOREFORTHISSHIT.txt`
+- Bootstrap into ZenLock using AGE encryption
+- Verify with `office doctor` / `office smoke-real`
+- Delete plaintext file after successful verification
+- Use only `/zen-lock/secrets` as runtime credential source
+
+DO NOT:
+- Run runtime from plaintext Jira files
+- Keep plaintext token lying around after verification
+- Commit tokens to repository
+- Ask for creds again if bootstrap artifacts already exist locally
+- Use `~/.zen-brain/secrets/jira.yaml` as active path
+- Use host-file or env-var Jira sources in cluster mode
+
+## Security Enforcement
+
+### Bootstrap Phase (Temporary)
+- Plaintext file: `~/zen/DONOTASKMOREFORTHISSHIT.txt`
+- Purpose: Temporary input only for bootstrap
+- Lifecycle: Created by operator → Encrypted → Deleted after verification
+- Never used for runtime access
+
+### Runtime Phase (ZenLock Only)
+- Credentials source: `/zen-lock/secrets` (ZenLock-managed)
+- Decryption: Happens at pod startup by zen-lock webhook
+- Foreman config: `credentials_dir: "/zen-lock/secrets"`
+- Fallback: `allow_env_fallback: false` (strict mode)
+
+### Guardrails
+1. Preflight check validates: credentials_dir=/zen-lock/secrets
+2. Preflight check validates: plaintext bootstrap file removed
+3. Preflight check validates: AGE keypair exists for bootstrap
+4. Runtime fails closed if: plaintext Jira source detected
+5. Runtime fails closed if: ZenLock not available
+
+### Verification
+```bash
+# Check runtime credentials source
+kubectl exec -n zen-brain deployment/foreman -- sh -c 'grep credentials_dir /home/zenuser/.zen-brain/config.yaml'
+
+# Check plaintext file removed
+ls ~/zen/DONOTASKMOREFORTHISSHIT.txt && echo "SECURITY FAIL: plaintext file exists" || echo "OK"
+
+# Run security preflight checks
+bash deploy/preflight-checks.sh | grep -E "Security:"
+```

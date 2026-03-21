@@ -30,7 +30,13 @@ releases:
     chart: kube-zen/zen-lock
     version: "0.0.3-alpha"
     timeout: 300
+    # Sandbox: atomic disabled temporarily for webhook cert job convergence
+    # Will restore atomic:true after confirming webhook self-signed mode stable
+    {{- if eq .Environment.Name "sandbox" }}
+    atomic: false
+    {{- else }}
     atomic: true
+    {{- end }}
     values:
       - ../../values/{{ .Environment.Name }}/zen-lock.yaml
     set:
