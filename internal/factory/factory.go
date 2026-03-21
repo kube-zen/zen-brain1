@@ -6,6 +6,7 @@ import (
 	"log"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -522,9 +523,36 @@ func (f *FactoryImpl) CancelTask(ctx context.Context, taskID string) error {
 // When a recommender is set, it is used to choose template and configuration; otherwise static selection is used.
 // When LLM mode is enabled, returns empty steps (LLM execution handled separately).
 func (f *FactoryImpl) createExecutionPlan(spec *FactoryTaskSpec) []*ExecutionStep {
-	// If LLM mode is enabled, we'll use LLMTemplateExecutor instead of shell steps
-	if f.llmEnabled && f.shouldUseLLMTemplate(spec) {
-		log.Printf("[Factory] Using LLM-powered template for task %s (work_type=%s, model=%s)",
+	// PHASE 1: Add hard observability around the LLM decision point
+	// Log all decision criteria before any branching
+	normalizedWorkType := strings.TrimSpace(strings.ToLower(string(spec.WorkType)))
+	normalizedWorkDomain := strings.TrimSpace(strings.ToLower(string(spec.WorkDomain)))
+	shouldUseLLM := f.shouldUseLLMTemplate(spec)
+
+	log.Printf("[Factory] llm gate: task_id=%s work_type=%s (normalized=%s) work_domain=%s (normalized=%s) llmEnabled=%v generator=%v shouldUseLLM=%v",
+		spec.ID,
+		spec.WorkType,
+		normalizedWorkType,
+		spec.WorkDomain,
+		normalizedWorkDomain,
+		f.llmEnabled,
+		f.llmGenerator != nil,
+		shouldUseLLM)
+
+	// Log current template state before decision
+	if spec.SelectedTemplate != "" {
+		log.Printf("[Factory] llm gate: task_id=%s pre_decision_template=%s pre_decision_source=%s pre_decision_confidence=%.2f",
+			spec.ID, spec.SelectedTemplate, spec.SelectionSource, spec.SelectionConfidence)
+	} else {
+		log.Printf("[Factory] llm gate: task_id=%s pre_decision_template=(empty)", spec.ID)
+	}
+
+	// PHASE 2: Make implementation tasks deterministic
+	// For bounded implementation-capable work types on the active local CPU path:
+	// if llmEnabled && llmGenerator != nil && work type is in the LLM allowlist
+	// then force LLM path directly
+	if f.llmEnabled && f.llmGenerator != nil && shouldUseLLM {
+		log.Printf("[Factory] llm gate: task_id=%s FORCING_LLM_PATH work_type=%s model=%s",
 			spec.ID, spec.WorkType, f.llmGenerator.config.Model)
 		spec.SelectedTemplate = fmt.Sprintf("%s:llm", spec.WorkType)
 		spec.SelectionSource = "llm_generator"
@@ -532,6 +560,7 @@ func (f *FactoryImpl) createExecutionPlan(spec *FactoryTaskSpec) []*ExecutionSte
 		// Return empty steps - actual execution via executeWithLLM
 		return []*ExecutionStep{}
 	}
+
 	log.Printf("[Factory] Using shell-based template for task %s (work_type=%s, template=%s)", spec.ID, spec.WorkType, spec.SelectedTemplate)
 
 	ctx := context.Background()
@@ -568,6 +597,10 @@ func (f *FactoryImpl) shouldUseLLMTemplate(spec *FactoryTaskSpec) bool {
 		return false
 	}
 
+	// PHASE 3: Normalize work type matching
+	// Guard against string drift: trim spaces, lowercase, ensure aliases
+	normalizedWorkType := strings.TrimSpace(strings.ToLower(string(spec.WorkType)))
+
 	// Use LLM for code generation tasks
 	llmWorkTypes := map[string]bool{
 		"implementation": true,
@@ -579,7 +612,43 @@ func (f *FactoryImpl) shouldUseLLMTemplate(spec *FactoryTaskSpec) bool {
 		"migration":      true,
 	}
 
-	return llmWorkTypes[string(spec.WorkType)]
+	// Also support aliases for robustness
+	llmWorkAliases := map[string]string{
+		"implementation": "implementation",
+		"implement":     "implementation",
+		"impl":          "implementation",
+		"feature":       "feature",
+		"new":           "feature",
+		"bugfix":        "bugfix",
+		"fix":           "bugfix",
+		"bug":           "bugfix",
+		"debug":         "debug",
+		"refactor":      "refactor",
+		"refactoring":   "refactor",
+		"test":          "test",
+		"testing":       "test",
+		"unit_test":     "test",
+		"integration_test": "test",
+		"migration":     "migration",
+		"migrate":       "migration",
+	}
+
+	// Check direct match first
+	if llmWorkTypes[normalizedWorkType] {
+		log.Printf("[Factory] llm gate: task_id=%s work_type=%s normalized=%s -> LLM_CAPABLE (direct_match)", spec.ID, spec.WorkType, normalizedWorkType)
+		return true
+	}
+
+	// Check alias match
+	if canonicalType, ok := llmWorkAliases[normalizedWorkType]; ok {
+		if llmWorkTypes[canonicalType] {
+			log.Printf("[Factory] llm gate: task_id=%s work_type=%s normalized=%s -> LLM_CAPABLE (alias_match -> %s)", spec.ID, spec.WorkType, normalizedWorkType, canonicalType)
+			return true
+		}
+	}
+
+	log.Printf("[Factory] llm gate: task_id=%s work_type=%s normalized=%s -> NOT_LLM_CAPABLE", spec.ID, spec.WorkType, normalizedWorkType)
+	return false
 }
 
 // executeWithLLM executes a task using LLM-powered code generation.
