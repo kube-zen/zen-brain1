@@ -57,8 +57,19 @@ spec:
       labels:
         app.kubernetes.io/name: foreman
         app.kubernetes.io/part-of: zen-brain
+      {{- if .Values.foreman.jiraZenLock.enabled }}
+      annotations:
+        zen-lock/inject: "{{ .Values.foreman.jiraZenLock.secretName }}"
+        zen-lock/mount-path: "{{ .Values.foreman.jiraZenLock.mountPath }}"
+      {{- end }}
     spec:
       serviceAccountName: foreman
+      {{- if .Values.foreman.jira.enabled }}
+      volumes:
+        - name: config-volume
+          configMap:
+            name: foreman-config
+      {{- end }}
       containers:
         - name: foreman
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
@@ -100,6 +111,12 @@ spec:
               port: 8081
             initialDelaySeconds: 5
             periodSeconds: 5
+          {{- if .Values.foreman.jira.enabled }}
+          volumeMounts:
+            - name: config-volume
+              mountPath: /home/zenuser/.zen-brain/config.yaml
+              subPath: config.yaml
+          {{- end }}
 ---
 apiVersion: v1
 kind: Service
@@ -120,3 +137,29 @@ spec:
       targetPort: 8081
   selector:
     app.kubernetes.io/name: foreman
+---
+{{- if .Values.foreman.jira.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: foreman-config
+  namespace: zen-brain
+  labels:
+    app.kubernetes.io/name: foreman
+    app.kubernetes.io/part-of: zen-brain
+data:
+  config.yaml: |
+    jira:
+      enabled: true
+      base_url: "{{ .Values.foreman.jira.url }}"
+      email: "{{ .Values.foreman.jira.email }}"
+      project_key: "{{ .Values.foreman.jira.projectKey }}"
+      credentials_dir: "{{ .Values.foreman.jira.credentialsDir }}"
+      allow_env_fallback: {{ .Values.foreman.jira.allowEnvFallback }}
+      status_mapping:
+{{ toYaml .Values.foreman.jira.statusMapping | indent 8 }}
+      worktype_mapping:
+{{ toYaml .Values.foreman.jira.worktypeMapping | indent 8 }}
+      priority_mapping:
+{{ toYaml .Values.foreman.jira.priorityMapping | indent 8 }}
+{{- end }}

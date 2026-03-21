@@ -1,0 +1,34 @@
+# Sandbox environment values for zen-brain
+# Jira integration enabled with ZenLock injection
+
+foreman:
+  # Enable ZenLock Jira credentials injection
+  jiraZenLock:
+    enabled: true
+    secretName: "jira-credentials"
+    mountPath: "/zen-lock/secrets"
+
+  # Jira metadata (non-secret, source-controlled)
+  jira:
+    enabled: true
+    url: "https://zen-mesh.atlassian.net"
+    email: "zen@zen-mesh.io"
+    projectKey: "ZB"
+    credentialsDir: "/zen-lock/secrets"
+    allowEnvFallback: false
+    statusMapping:
+      "To Do": "requested"
+      "In Progress": "running"
+      "Done": "completed"
+      "Blocked": "blocked"
+    worktypeMapping:
+      "Bug": "debug"
+      "Task": "implementation"
+      "Story": "design"
+      "Epic": "research"
+    priorityMapping:
+      "Highest": "critical"
+      "High": "high"
+      "Medium": "medium"
+      "Low": "low"
+      "Lowest": "background"
