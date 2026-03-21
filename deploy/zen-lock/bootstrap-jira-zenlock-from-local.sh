@@ -127,10 +127,11 @@ kubectl -n zen-lock-system create secret generic "$SECRET_NAME" \
   --from-file="${KEY_FIELD}=${AGE_PRIV}" \
   --dry-run=client -o yaml | kubectl apply -f -
 
-kubectl -n zen-lock-system rollout restart deployment/zen-lock-webhook
 kubectl -n zen-lock-system rollout restart deployment/zen-lock-controller
-kubectl -n zen-lock-system rollout status deployment/zen-lock-webhook --timeout=180s
 kubectl -n zen-lock-system rollout status deployment/zen-lock-controller --timeout=180s
+
+kubectl -n zen-lock-system rollout restart deployment/zen-lock-webhook
+kubectl -n zen-lock-system rollout status deployment/zen-lock-webhook --timeout=180s
 
 echo "✓ Zen-lock components updated"
 
@@ -143,7 +144,7 @@ kubectl apply -f "$OUT_MANIFEST"
 
 kubectl label namespace zen-brain zen-lock=enabled --overwrite
 
-kubectl apply -f - << EOF
+kubectl apply -f - << 'EOF'
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -235,3 +236,24 @@ echo ""
 echo "=== SUCCESS ==="
 echo "Jira zen-lock integration is ready!"
 echo "Run 'kubectl exec -n zen-brain deployment/foreman -- /app/zen-brain office smoke-real' to validate API access."
+
+###############################################################################
+# PHASE 7: DELETE PLAINTEXT BOOTSTRAP FILE (ZB-025B-SEC)
+###############################################################################
+echo "=== PHASE 7: Securely removing plaintext bootstrap file ==="
+
+if [ -s "$JIRA_TOKEN_FILE" ]; then
+  # Try secure deletion first
+  if command -v shred >/dev/null 2>&1; then
+    shred -u "$JIRA_TOKEN_FILE"
+    echo "✓ Plaintext bootstrap file securely deleted (shred)"
+  else
+    rm -f "$JIRA_TOKEN_FILE"
+    echo "✓ Plaintext bootstrap file removed (rm - no shred available)"
+  fi
+else
+  echo "⚠ Plaintext bootstrap file not found (already removed or never existed)"
+fi
+
+echo "⚠ SECURITY REMINDER: Plaintext Jira credentials should NEVER be used again."
+echo "⚠ All future Jira operations must use ZenLock-mounted credentials at /zen-lock/secrets"

@@ -62,6 +62,7 @@ def _ensure_namespaces(context_name: str) -> None:
             check=False
         )
         if r.returncode != 0:
+            # Create namespace
             create = subprocess.run(
                 ["kubectl", "--context", context_name, "create", "namespace", ns],
                 capture_output=True,
@@ -73,9 +74,22 @@ def _ensure_namespaces(context_name: str) -> None:
                 _err(create.stderr or f"Failed to create namespace {ns}")
                 raise RuntimeError(f"Failed to create namespace {ns}")
             _log(f"Created namespace {ns}")
-
-
-
+            
+            # Add Helm ownership metadata for zen-lock-system namespace
+            if ns == "zen-lock-system":
+                label_cmd = ["kubectl", "--context", context_name, "label", "namespace", ns, "app.kubernetes.io/managed-by=Helm"]
+                label = subprocess.run(label_cmd, capture_output=True, text=True, timeout=10, check=False)
+                if label.returncode != 0:
+                    _err(label.stderr or f"Failed to label namespace {ns}")
+                    raise RuntimeError(f"Failed to label namespace {ns}")
+                
+                annot_cmd = ["kubectl", "--context", context_name, "annotate", "namespace", ns, "meta.helm.sh/release-name=zen-lock", "meta.helm.sh/release-namespace=zen-lock-system"]
+                annot = subprocess.run(annot_cmd, capture_output=True, text=True, timeout=10, check=False)
+                if annot.returncode != 0:
+                    _err(annot.stderr or f"Failed to annotate namespace {ns}")
+                    raise RuntimeError(f"Failed to annotate namespace {ns}")
+                
+                _log(f"Added Helm ownership metadata to namespace {ns}")
 def _ensure_zen_glm_secret(context_name: str, config_path: str | None, env: str) -> None:
     """If deploy.use_zen_glm and ZEN_GLM_API_KEY is set, create/update secret (key from env only, never committed)."""
     if not _config.get_deploy_use_zen_glm(env, config_path):
@@ -118,6 +132,18 @@ def _ensure_zen_lock_secret(context_name: str, config_path: str | None) -> None:
     secret_name = "zen-lock-master-key"
     namespace = "zen-lock-system"
     
+    # Check if namespace exists first (Helm will create it)
+    ns_check = subprocess.run(
+        ["kubectl", "--context", context_name, "get", "namespace", namespace],
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=False
+    )
+    if ns_check.returncode != 0:
+        _log(f"Namespace '{namespace}' does not exist yet - skipping secret creation (Helm will create it)")
+        return
+    
     check = subprocess.run(
         ["kubectl", "--context", context_name, "get", "secret", secret_name, "-n", namespace],
         capture_output=True,
@@ -141,8 +167,23 @@ def _ensure_zen_lock_secret(context_name: str, config_path: str | None) -> None:
         _err(create.stderr or f"Zen-lock secret creation failed")
         raise RuntimeError("zen-lock secret creation failed")
     _log(f"Zen-lock secret '{secret_name}' created from {private_key_path}")
-
-
+    
+    # Add Helm ownership metadata to the secret
+    label_cmd = ["kubectl", "--context", context_name, "label", "secret", secret_name,
+                 "-n", namespace, "app.kubernetes.io/managed-by=Helm"]
+    label = subprocess.run(label_cmd, capture_output=True, text=True, timeout=10, check=False)
+    if label.returncode != 0:
+        _err(label.stderr or f"Failed to label secret {secret_name}")
+        raise RuntimeError(f"Failed to label secret {secret_name}")
+    
+    annot_cmd = ["kubectl", "--context", context_name, "annotate", "secret", secret_name,
+                 "-n", namespace, "meta.helm.sh/release-name=zen-lock", "meta.helm.sh/release-namespace=zen-lock-system"]
+    annot = subprocess.run(annot_cmd, capture_output=True, text=True, timeout=10, check=False)
+    if annot.returncode != 0:
+        _err(annot.stderr or f"Failed to annotate secret {secret_name}")
+        raise RuntimeError(f"Failed to annotate secret {secret_name}")
+    
+    _log(f"Added Helm ownership metadata to secret {secret_name}")
 def _run_helmfile(env: str, config_path: str | None, context_name: str, skip_ollama: bool = False) -> None:
     """Canonical deployment: render values from clusters.yaml then helmfile sync."""
     import helmfile_values  # noqa: E402
