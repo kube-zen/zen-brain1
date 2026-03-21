@@ -37,6 +37,16 @@ foreman:
   env:
     - name: ZEN_RUNTIME_PROFILE
       value: dev
+    - name: ZEN_FOREMAN_ENABLE_LLM
+      value: "true"
+    - name: ZEN_FOREMAN_LLM_BASE_URL
+      value: "http://host.k3d.internal:11434"
+    - name: ZEN_FOREMAN_LLM_MODEL
+      value: "qwen3.5:0.8b"
+    - name: ZEN_FOREMAN_LLM_TIMEOUT_SECONDS
+      value: "2700"
+    - name: ZEN_FOREMAN_LLM_ENABLE_THINKING
+      value: "false"
   # Optional: Zen-Lock Jira credentials injection
   jiraZenLock:
     enabled: false

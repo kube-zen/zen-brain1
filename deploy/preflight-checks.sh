@@ -1,7 +1,10 @@
 #!/bin/bash
 set -e
 
-export KUBECONFIG=/tmp/k3d-kubeconfig.yaml
+# Use k3d kubeconfig if not already set
+if [ -z "$KUBECONFIG" ]; then
+  export KUBECONFIG=/home/neves/.config/k3d/kubeconfig-zen-platform-sandbox.yaml
+fi
 
 echo "=== Zen-Brain Preflight Checks ==="
 
@@ -73,6 +76,39 @@ elif kubectl logs -n zen-brain deployment/foreman --tail=1000 2>&1 | grep -q "in
 else
   echo "FAIL (Factory not processing tasks or LLM path not healthy)"
   FAIL=$((FAIL + 1))
+fi
+
+# 7. Security: Runtime credentials source is ZenLock (ZB-025B-SEC)
+echo -n "7. Security: Runtime Jira credentials source is ZenLock: "
+CREDENTIALS_SOURCE=$(kubectl exec -n zen-brain deployment/foreman -- sh -c 'grep -E "credentials_dir|credential_source" /home/zenuser/.zen-brain/config.yaml 2>/dev/null || echo "no config"' 2>/dev/null || echo "no config")
+if echo "$CREDENTIALS_SOURCE" | grep -q "/zen-lock/secrets"; then
+  echo "PASS (credentials_dir=/zen-lock/secrets)"
+elif echo "$CREDENTIALS_SOURCE" | grep -q "zenlock"; then
+  echo "PASS (ZenLock source detected)"
+else
+  echo "FAIL (ZenLock not configured as credentials source: $CREDENTIALS_SOURCE)"
+  FAIL=$((FAIL + 1))
+fi
+
+# 8. Security: Plaintext bootstrap file removed after successful bootstrap (ZB-025B-SEC)
+echo -n "8. Security: Plaintext bootstrap file removed: "
+PLAINTEXT_FILE="$HOME/zen/DONOTASKMOREFORTHISSHIT.txt"
+if [ ! -f "$PLAINTEXT_FILE" ]; then
+  echo "PASS (plaintext bootstrap file not present)"
+else
+  echo "FAIL (plaintext bootstrap file still exists: $PLAINTEXT_FILE)"
+  echo "⚠ SECURITY: Plaintext Jira credentials must be deleted after bootstrap!"
+  FAIL=$((FAIL + 1))
+fi
+
+# 9. Security: AGE key files exist (ZB-025B-SEC)
+echo -n "9. Security: AGE keypair exists: "
+AGE_PRIV="$HOME/zen/ZENBRAINPRIVATEKEYNEVERDELETETHISSHIT.age"
+AGE_PUB="$HOME/zen/ZENBRAINPUBLICKEYNEVERDELETETHISSHIT.age"
+if [ -s "$AGE_PRIV" ] && [ -s "$AGE_PUB" ]; then
+  echo "PASS (AGE keypair exists)"
+else
+  echo "INFO (AGE keypair not found - needed for bootstrap if not present)"
 fi
 
 echo ""
