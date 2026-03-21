@@ -500,10 +500,11 @@ func buildFactory() (*factory.FactoryImpl, error) {
 			})
 
 			if gwErr == nil {
-				provider, providerFound := gw.GetProvider("ollama")
+				provider, providerFound := gw.GetProvider("local-worker")
 				if providerFound {
 					llmConfig := factory.DefaultLLMGeneratorConfig(provider)
-					llmConfig.EnableThinking = true
+					llmConfig.EnableThinking = false // ZB-025H1: Disable thinking for CPU path
+					llmConfig.Model = "qwen3.5:0.8b" // ZB-025H2: Set explicit model
 					llmConfig.Temperature = 0.3
 					llmConfig.MaxTokens = 4096
 
@@ -516,7 +517,7 @@ func buildFactory() (*factory.FactoryImpl, error) {
 						log.Printf("Warning: Failed to create LLM generator: %v", genErr)
 					}
 				} else {
-					log.Printf("Warning: Ollama provider not found")
+					log.Printf("Warning: Local-worker provider not found")
 				}
 			} else {
 				log.Printf("Warning: Failed to create LLM gateway: %v", gwErr)
