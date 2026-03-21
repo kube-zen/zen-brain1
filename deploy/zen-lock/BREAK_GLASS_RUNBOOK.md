@@ -22,39 +22,43 @@ This runbook covers emergency recovery procedures for Jira integration failures.
 
 ### Check live private key is real (not placeholder)
 
+**Canonical path:** `~/zen/ZENBRAINPRIVATEKEYNEVERDELETETHISSHIT.age`
+
 ```bash
-# Check private key exists
-ls -la ~/.zen-lock/private-key.age
+# Check private key exists at canonical path
+ls -la ~/zen/ZENBRAINPRIVATEKEYNEVERDELETETHISSHIT.age
 
-# Verify it's not a placeholder (should be 70+ bytes)
-wc -c ~/.zen-lock/private-key.age
+# Verify it's not a placeholder (should be 74 bytes, starts with AGE-SECRET-KEY-1)
+wc -c ~/zen/ZENBRAINPRIVATEKEYNEVERDELETETHISSHIT.age
+head -c 20 ~/zen/ZENBRAINPRIVATEKEYNEVERDELETETHISSHIT.age
 
-# Get public key hash for comparison
-zen-lock pubkey ~/.zen-lock/private-key.age 2>/dev/null || \
-  age-keygen -y ~/.zen-lock/private-key.age
+# Get public key for comparison
+age-keygen -y ~/zen/ZENBRAINPRIVATEKEYNEVERDELETETHISSHIT.age
 ```
 
-**Expected:** Private key file is 70+ bytes, public key output is valid.
+**Expected:** Private key file is 74 bytes, starts with `AGE-SECRET-KEY-1`, public key output starts with `age1`.
 
-**If placeholder:** Regenerate keypair:
+**If missing or placeholder:** Run canonical bootstrap:
 ```bash
-age-keygen -o ~/.zen-lock/private-key.age
-mkdir -p ~/.zen-lock
-chmod 600 ~/.zen-lock/private-key.age
+~/zen/zen-brain1/deploy/zen-lock/bootstrap-jira-zenlock-from-local.sh
 ```
 
 ### Sync to cluster
 
 ```bash
-# Recreate the master key secret
+# Recreate the master key secret (using canonical path and --from-file)
 kubectl create secret generic zen-lock-master-key \
-  --from-file=private-key.age=~/.zen-lock/private-key.age \
+  --from-file=key.txt=~/zen/ZENBRAINPRIVATEKEYNEVERDELETETHISSHIT.age \
   -n zen-lock-system \
   --dry-run=client -o yaml | kubectl apply -f -
 
 # Restart controller to load new key
 kubectl rollout restart deployment zen-lock-controller -n zen-lock-system
 kubectl rollout status deployment zen-lock-controller -n zen-lock-system
+
+# Restart webhook to load new key
+kubectl rollout restart deployment zen-lock-webhook -n zen-lock-system
+kubectl rollout status deployment zen-lock-webhook -n zen-lock-system
 ```
 
 ---

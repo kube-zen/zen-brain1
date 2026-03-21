@@ -1,5 +1,13 @@
 #!/usr/bin/env python3
 """
+DEPRECATED: This script is no longer the canonical runtime path.
+
+Cluster runtime uses ZenLock injection only:
+  - Pod annotation: zen-lock/inject: jira-credentials
+  - Runtime path: /zen-lock/secrets
+
+Host runtime is not supported for production use.
+
 Canonical Jira credential consumption for Zen-Brain (host runtime).
 
 This script loads Jira credentials from a ZenLock-managed env file

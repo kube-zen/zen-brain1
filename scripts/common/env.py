@@ -124,10 +124,15 @@ def _ensure_zen_glm_secret(context_name: str, config_path: str | None, env: str)
 
 
 def _ensure_zen_lock_secret(context_name: str, config_path: str | None) -> None:
-    """Ensure zen-lock master key secret exists (from ~/.zen-lock/private-key.age)."""
-    private_key_path = os.path.expanduser("~/.zen-lock/private-key.age")
+    """Ensure zen-lock master key secret exists (from canonical AGE key path).
+    
+    Canonical path: ~/zen/ZENBRAINPRIVATEKEYNEVERDELETETHISSHIT.age
+    This is the ONLY supported local path for the AGE private key.
+    """
+    private_key_path = os.path.expanduser("~/zen/ZENBRAINPRIVATEKEYNEVERDELETETHISSHIT.age")
     if not os.path.exists(private_key_path):
-        _log(f"Zen-lock private key not found at {private_key_path}, skipping secret creation")
+        _log(f"Zen-lock private key not found at canonical path {private_key_path}")
+        _log("Run deploy/zen-lock/bootstrap-jira-zenlock-from-local.sh first")
         return
     secret_name = "zen-lock-master-key"
     namespace = "zen-lock-system"
@@ -155,9 +160,12 @@ def _ensure_zen_lock_secret(context_name: str, config_path: str | None) -> None:
         _log(f"Zen-lock secret '{secret_name}' already exists")
         return
     
+    # CRITICAL: Use --from-file, NOT --from-literal
+    # --from-file reads file contents
+    # --from-literal would store the path string itself
     create = subprocess.run(
         ["kubectl", "--context", context_name, "create", "secret", "generic", secret_name,
-         "-n", namespace, "--from-literal=key.txt=" + private_key_path],
+         "-n", namespace, f"--from-file=key.txt={private_key_path}"],
         capture_output=True,
         text=True,
         timeout=15,
