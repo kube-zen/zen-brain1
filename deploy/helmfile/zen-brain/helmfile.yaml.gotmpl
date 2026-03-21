@@ -43,7 +43,7 @@ releases:
       - name: image.repository
         value: {{ env "ZEN_LOCK_IMAGE_REPO" | default "zen-registry:5000/kubezen/zen-lock" }}
       - name: image.tag
-        value: {{ env "ZEN_LOCK_TAG" | default "0.0.3-alpha" }}
+        value: {{ env "ZEN_LOCK_TAG" | default "f0570cf" }}
       - name: privateKey.secretName
         value: zen-lock-master-key
       - name: privateKey.secretKey
