@@ -52,6 +52,33 @@ foreman:
     enabled: false
     secretName: "jira-credentials"
     mountPath: "/zen-lock/secrets"
+  # Jira integration metadata (non-secret, source-controlled)
+  jira:
+    enabled: false
+    url: "https://zen-mesh.atlassian.net"
+    email: "zen@zen-mesh.io"
+    projectKey: "ZB"
+    credentialsDir: "/zen-lock/secrets"
+    allowEnvFallback: false
+    # Status mapping: Jira -> BrainTask
+    statusMapping:
+      "To Do": "requested"
+      "In Progress": "running"
+      "Done": "completed"
+      "Blocked": "blocked"
+    # Work type mapping: Jira -> BrainTask
+    worktypeMapping:
+      "Bug": "debug"
+      "Task": "implementation"
+      "Story": "design"
+      "Epic": "research"
+    # Priority mapping: Jira -> BrainTask
+    priorityMapping:
+      "Highest": "critical"
+      "High": "high"
+      "Medium": "medium"
+      "Low": "low"
+      "Lowest": "background"
   resources:
     requests:
       memory: "64Mi"
