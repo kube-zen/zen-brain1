@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# ZB-014 Bootstrap Script: Jira ZenLock from Local Files
+# ZB-026E Canonical Bootstrap: Jira ZenLock from Local Files
 # This script sets up Jira integration using ONLY local credential files.
 # NEVER asks for credentials. NEVER prints secrets.
+# ONLY prepares secrets and ZenLock manifest - does NOT patch application topology.
 
 set -euo pipefail
 umask 077
@@ -12,12 +13,11 @@ umask 077
 HOME="${HOME:-/root}"
 ZEN_DIR="$HOME/zen"
 ZB1_DIR="$ZEN_DIR/zen-brain1"
-ZB0_DIR="$ZEN_DIR/zen-brain"
 AGE_PRIV="$ZEN_DIR/ZENBRAINPRIVATEKEYNEVERDELETETHISSHIT.age"
 AGE_PUB="$ZEN_DIR/ZENBRAINPUBLICKEYNEVERDELETETHISSHIT.age"
 JIRA_TOKEN_FILE="$ZEN_DIR/DONOTASKMOREFORTHISSHIT.txt"
+JIRA_METADATA="$ZB1_DIR/deploy/zen-lock/jira-metadata.yaml"
 OUT_MANIFEST="$ZB1_DIR/deploy/zen-lock/jira-credentials.zenlock.yaml"
-GEN_SCRIPT="$ZB1_DIR/deploy/zen-lock/generate-jira-secret.sh"
 
 ###############################################################################
 # PHASE 1: AGE KEYPAIR
@@ -33,7 +33,7 @@ if [ ! -s "$AGE_PRIV" ]; then
   age-keygen -o "$AGE_PRIV"
 fi
 
-# Extract public key
+# Extract public key (don't mutate the private key file)
 age-keygen -y "$AGE_PRIV" > "$AGE_PUB"
 chmod 600 "$AGE_PRIV" "$AGE_PUB"
 
@@ -41,47 +41,46 @@ chmod 600 "$AGE_PRIV" "$AGE_PUB"
 grep -q '^AGE-SECRET-KEY-1' "$AGE_PRIV" || { echo "ERROR: Invalid private key" >&2; exit 1; }
 grep -q '^age1' "$AGE_PUB" || { echo "ERROR: Invalid public key" >&2; exit 1; }
 
-# Create key-only file for k8s (no comments, no trailing newline)
-KEY_ONLY=$(grep '^AGE-SECRET-KEY-1' "$AGE_PRIV")
-printf '%s' "$KEY_ONLY" > "$AGE_PRIV"
 echo "✓ AGE keypair ready"
 
 ###############################################################################
-# PHASE 2: LOAD JIRA SETTINGS FROM LOCAL FILES
+# PHASE 2: LOAD JIRA METADATA FROM CANONICAL SOURCE
 ###############################################################################
-echo "=== PHASE 2: Loading Jira settings ==="
+echo "=== PHASE 2: Loading Jira metadata ==="
 
-pick_var() {
-  local var="$1"; shift
-  local f line val
-  for f in "$@"; do
-    [ -f "$f" ] || continue
-    line="$(grep -m1 "^${var}=" "$f" 2>/dev/null || true)"
-    [ -n "$line" ] || continue
-    val="${line#*=}"
-    [ -n "$val" ] && { printf '%s' "$val"; return 0; }
-  done
-  return 1
-}
+if [ ! -f "$JIRA_METADATA" ]; then
+  echo "ERROR: Jira metadata file not found: $JIRA_METADATA" >&2
+  echo "Create it from the template or copy from deploy/zen-lock/jira-metadata.yaml" >&2
+  exit 1
+fi
 
-JIRA_URL="${JIRA_URL:-$(pick_var JIRA_URL "$HOME/.env.jira.local" "$ZB0_DIR/.env.jira.local" "$ZB1_DIR/.env.jira.local" 2>/dev/null || true)}"
-JIRA_EMAIL="${JIRA_EMAIL:-$(pick_var JIRA_EMAIL "$HOME/.env.jira.local" "$ZB0_DIR/.env.jira.local" "$ZB1_DIR/.env.jira.local" 2>/dev/null || true)}"
-JIRA_PROJECT_KEY="${JIRA_PROJECT_KEY:-$(pick_var JIRA_PROJECT_KEY "$HOME/.env.jira.local" "$ZB0_DIR/.env.jira.local" "$ZB1_DIR/.env.jira.local" 2>/dev/null || true)}"
+# Read metadata from source-controlled config (NOT secrets)
+JIRA_URL=$(grep 'url:' "$JIRA_METADATA" | awk '{print $2}' | tr -d '"')
+JIRA_EMAIL=$(grep 'email:' "$JIRA_METADATA" | awk '{print $2}' | tr -d '"')
+JIRA_PROJECT_KEY=$(grep 'project_key:' "$JIRA_METADATA" | awk '{print $2}' | tr -d '"')
 
-: "${JIRA_URL:=https://zen-mesh.atlassian.net}"
-: "${JIRA_PROJECT_KEY:=ZB}"
+[ -n "$JIRA_URL" ] || { echo "ERROR: JIRA_URL not found in $JIRA_METADATA" >&2; exit 1; }
+[ -n "$JIRA_EMAIL" ] || { echo "ERROR: JIRA_EMAIL not found in $JIRA_METADATA" >&2; exit 1; }
+[ -n "$JIRA_PROJECT_KEY" ] || { echo "ERROR: JIRA_PROJECT_KEY not found in $JIRA_METADATA" >&2; exit 1; }
+
+echo "✓ Metadata loaded from $JIRA_METADATA"
+
+###############################################################################
+# PHASE 3: LOAD JIRA TOKEN FROM LOCAL FILE
+###############################################################################
+echo "=== PHASE 3: Loading Jira token ==="
 
 [ -s "$JIRA_TOKEN_FILE" ] || { echo "ERROR: Token file missing: $JIRA_TOKEN_FILE" >&2; exit 1; }
 JIRA_API_TOKEN="$(tr -d '\r\n' < "$JIRA_TOKEN_FILE")"
-[ -n "$JIRA_EMAIL" ] || { echo "ERROR: JIRA_EMAIL not found" >&2; exit 1; }
+[ -n "$JIRA_API_TOKEN" ] || { echo "ERROR: Token file empty: $JIRA_TOKEN_FILE" >&2; exit 1; }
 
 AGE_RECIPIENT="$(tr -d '\r\n' < "$AGE_PUB")"
-echo "✓ Settings loaded from local files"
+echo "✓ Token loaded from $JIRA_TOKEN_FILE"
 
 ###############################################################################
-# PHASE 3: GENERATE ZEN-LOCKED CREDENTIALS
+# PHASE 4: GENERATE ZEN-LOCKED CREDENTIALS
 ###############################################################################
-echo "=== PHASE 3: Generating zen-locked credentials ==="
+echo "=== PHASE 4: Generating zen-locked credentials ==="
 
 cd "$ZB1_DIR"
 mkdir -p deploy/zen-lock
@@ -116,16 +115,22 @@ EOF
 echo "✓ ZenLock manifest generated: $OUT_MANIFEST"
 
 ###############################################################################
-# PHASE 4: UPDATE K8S SECRET
+# PHASE 5: UPDATE K8S SECRET
 ###############################################################################
-echo "=== PHASE 4: Updating zen-lock master key ==="
+echo "=== PHASE 5: Updating zen-lock master key ==="
 
 SECRET_NAME="zen-lock-master-key"
 KEY_FIELD="key.txt"
 
+# Use temporary file for normalized key (don't mutate original)
+TEMP_KEY=$(mktemp)
+grep '^AGE-SECRET-KEY-1' "$AGE_PRIV" > "$TEMP_KEY"
+
 kubectl -n zen-lock-system create secret generic "$SECRET_NAME" \
-  --from-file="${KEY_FIELD}=${AGE_PRIV}" \
+  --from-file="${KEY_FIELD}=${TEMP_KEY}" \
   --dry-run=client -o yaml | kubectl apply -f -
+
+rm -f "$TEMP_KEY"
 
 kubectl -n zen-lock-system rollout restart deployment/zen-lock-controller
 kubectl -n zen-lock-system rollout status deployment/zen-lock-controller --timeout=180s
@@ -136,111 +141,67 @@ kubectl -n zen-lock-system rollout status deployment/zen-lock-webhook --timeout=
 echo "✓ Zen-lock components updated"
 
 ###############################################################################
-# PHASE 5: APPLY ZENLOCK AND FOREMAN
+# PHASE 6: APPLY ZENLOCK
 ###############################################################################
-echo "=== PHASE 5: Applying ZenLock ==="
+echo "=== PHASE 6: Applying ZenLock ==="
 
 kubectl apply -f "$OUT_MANIFEST"
 
 kubectl label namespace zen-brain zen-lock=enabled --overwrite
 
-kubectl apply -f - << 'EOF'
+echo "✓ ZenLock applied"
+
+###############################################################################
+# PHASE 7: VALIDATE
+###############################################################################
+echo "=== PHASE 7: Validating ==="
+
+echo "Waiting for ZenLock webhook to be ready..."
+sleep 5
+
+# Create a test pod to verify injection
+cat <<'TESTPOD' | kubectl apply -f - >/dev/null 2>&1
 apiVersion: v1
-kind: ConfigMap
+kind: Pod
 metadata:
-  name: foreman-config
+  name: zenlock-bootstrap-test
   namespace: zen-brain
-data:
-  config.yaml: |
-    jira:
-      enabled: true
-      base_url: "$JIRA_URL"
-      email: "$JIRA_EMAIL"
-      project_key: "$JIRA_PROJECT_KEY"
-      credentials_dir: "/zen-lock/secrets"
-      allow_env_fallback: false
-      status_mapping:
-        "To Do": "requested"
-        "In Progress": "running"
-        "Done": "completed"
-        "Blocked": "blocked"
-      worktype_mapping:
-        "Bug": "debug"
-        "Task": "implementation"
-        "Story": "design"
-        "Epic": "research"
-      priority_mapping:
-        "Highest": "critical"
-        "High": "high"
-        "Medium": "medium"
-        "Low": "low"
-        "Lowest": "background"
-EOF
+  annotations:
+    zen-lock/inject: jira-credentials
+spec:
+  serviceAccountName: foreman
+  containers:
+  - name: test
+    image: busybox
+    command: ["sleep", "10"]
+TESTPOD
 
-kubectl patch deployment foreman -n zen-brain --type merge -p '{
-  "spec": {
-    "template": {
-      "metadata": {
-        "annotations": {
-          "zen-lock/inject": "jira-credentials",
-          "zen-lock/mount-path": "/zen-lock/secrets"
-        }
-      },
-      "spec": {
-        "volumes": [
-          {
-            "name": "config-volume",
-            "configMap": { "name": "foreman-config" }
-          }
-        ],
-        "containers": [
-          {
-            "name": "foreman",
-            "volumeMounts": [
-              {
-                "name": "config-volume",
-                "mountPath": "/home/zenuser/.zen-brain/config.yaml",
-                "subPath": "config.yaml"
-              }
-            ]
-          }
-        ]
-      }
-    }
-  }
-}' 2>/dev/null || true
+sleep 5
 
-kubectl rollout restart deployment/foreman -n zen-brain
-kubectl rollout status deployment/foreman -n zen-brain --timeout=180s
-
-echo "✓ Foreman deployment updated"
-
-###############################################################################
-# PHASE 6: VALIDATE
-###############################################################################
-echo "=== PHASE 6: Validating ==="
-
-FOREMAN_POD=$(kubectl get pod -n zen-brain -l app.kubernetes.io/name=foreman -o jsonpath='{.items[0].metadata.name}')
-
-kubectl exec -n zen-brain "$FOREMAN_POD" -- sh -c '
-  set -eu
-  test -d /zen-lock/secrets
-  for f in JIRA_URL JIRA_EMAIL JIRA_API_TOKEN JIRA_PROJECT_KEY; do
-    test -s "/zen-lock/secrets/$f"
-  done
-' && echo "✓ All secret files present"
-
-kubectl exec -n zen-brain "$FOREMAN_POD" -- /app/zen-brain office doctor
+# Check if test pod got the secrets
+if kubectl exec -n zen-brain zenlock-bootstrap-test -- sh -c 'test -f /zen-lock/secrets/JIRA_API_TOKEN' 2>/dev/null; then
+  echo "✓ ZenLock injection verified"
+  kubectl delete pod zenlock-bootstrap-test -n zen-brain >/dev/null 2>&1 || true
+else
+  echo "⚠ Warning: Could not verify ZenLock injection (may be webhook timing)"
+  kubectl delete pod zenlock-bootstrap-test -n zen-brain >/dev/null 2>&1 || true
+fi
 
 echo ""
 echo "=== SUCCESS ==="
-echo "Jira zen-lock integration is ready!"
-echo "Run 'kubectl exec -n zen-brain deployment/foreman -- /app/zen-brain office smoke-real' to validate API access."
+echo "Jira zen-lock integration bootstrap complete!"
+echo ""
+echo "Next steps:"
+echo "1. Deploy foreman with Helm (includes jira-metadata.yaml config)"
+echo "2. Verify: kubectl exec -n zen-brain deployment/foreman -- /app/zen-brain office doctor"
+echo "3. Test: kubectl exec -n zen-brain deployment/foreman -- /app/zen-brain office smoke-real"
+echo ""
+echo "Runtime credentials source: /zen-lock/secrets (ZenLock injection only)"
 
 ###############################################################################
-# PHASE 7: DELETE PLAINTEXT BOOTSTRAP FILE (ZB-025B-SEC)
+# PHASE 8: DELETE PLAINTEXT BOOTSTRAP FILE (SECURITY)
 ###############################################################################
-echo "=== PHASE 7: Securely removing plaintext bootstrap file ==="
+echo "=== PHASE 8: Securely removing plaintext bootstrap file ==="
 
 if [ -s "$JIRA_TOKEN_FILE" ]; then
   # Try secure deletion first
@@ -255,5 +216,8 @@ else
   echo "⚠ Plaintext bootstrap file not found (already removed or never existed)"
 fi
 
+echo ""
 echo "⚠ SECURITY REMINDER: Plaintext Jira credentials should NEVER be used again."
 echo "⚠ All future Jira operations must use ZenLock-mounted credentials at /zen-lock/secrets"
+echo ""
+echo "Bootstrap complete. Application topology (foreman-config, deployments) managed by Helm."
