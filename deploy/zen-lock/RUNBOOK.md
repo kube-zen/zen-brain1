@@ -25,6 +25,37 @@
 4. **NEVER** use placeholder keys in live zen-lock
 5. **ALWAYS** validate with Deployment-managed foreman pod
 
+## DO / DON'T
+
+### ✓ DO
+- **DO** use canonical bootstrap script: `deploy/zen-lock/bootstrap-jira-zenlock-from-local.sh`
+- **DO** store AGE keys in: `~/zen/ZENBRAINPRIVATEKEYNEVERDELETETHISSHIT.age`
+- **DO** use plaintext token file for bootstrap only: `~/zen/DONOTASKMOREFORTHISSHIT.txt`
+- **DO** delete plaintext token after successful bootstrap verification
+- **DO** use ZenLock injection for cluster runtime: pod annotation `zen-lock/inject: jira-credentials`
+- **DO** read credentials from `/zen-lock/secrets` in cluster pods
+- **DO** verify with `office doctor` and `office smoke-real` after bootstrap
+
+### ✗ DON'T
+- **DON'T** use `~/.zen-lock/private-key.age` (legacy path, not supported)
+- **DON'T** use `~/.zen-brain/secrets/jira.yaml` (legacy path, not supported)
+- **DON'T** use `.env.jira.local` files for secrets (only for non-secret config)
+- **DON'T** use scripts in `scripts/` directory for bootstrap (deprecated)
+- **DON'T** use `--from-literal` for AGE key secret creation (stores path string, not contents)
+- **DON'T** keep plaintext token file after successful bootstrap
+- **DON'T** fallback to environment variables for credentials in cluster mode
+- **DON'T** use ZenLock for non-secret config (JIRA_URL, JIRA_EMAIL, JIRA_PROJECT_KEY)
+
+### Bootstrap-Only vs Runtime-Only
+
+| Item | Bootstrap | Runtime |
+|------|-----------|---------|
+| `~/zen/DONOTASKMOREFORTHISSHIT.txt` | ✓ (input) | ✗ (must be deleted) |
+| `~/zen/ZENBRAINPRIVATEKEYNEVERDELETETHISSHIT.age` | ✓ (input) | ✗ (stays local) |
+| ZenLock secret in cluster | ✗ (created by bootstrap) | ✓ (read-only) |
+| `/zen-lock/secrets/*` | ✗ (injected by webhook) | ✓ (ONLY source) |
+| Environment variables | ✗ (not for secrets) | ✗ (not for secrets) |
+
 ## Architecture
 
 ```

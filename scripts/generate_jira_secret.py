@@ -1,9 +1,16 @@
 #!/usr/bin/env python3
 """
-Generate ZenLock resource for Jira credentials.
+DEPRECATED: This script is no longer the canonical bootstrap path.
 
-This script generates encrypted Jira credentials using zen-lock CLI
-and creates a ZenLock CRD manifest for Kubernetes deployment.
+Use the canonical bootstrap script instead:
+  deploy/zen-lock/bootstrap-jira-zenlock-from-local.sh
+
+Canonical flow:
+  1. AGE keys: ~/zen/ZENBRAINPRIVATEKEYNEVERDELETETHISSHIT.age
+  2. Plaintext token: ~/zen/DONOTASKMOREFORTHISSHIT.txt (bootstrap-only)
+  3. ZenLock manifest: deploy/zen-lock/jira-credentials.zenlock.yaml
+
+This script is kept for reference only and will be removed in a future release.
 """
 
 import os
