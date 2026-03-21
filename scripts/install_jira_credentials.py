@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
 """
+DEPRECATED: This script is no longer the canonical bootstrap path.
+
+Use the canonical bootstrap script instead:
+  deploy/zen-lock/bootstrap-jira-zenlock-from-local.sh
+
+Canonical flow:
+  1. AGE keys: ~/zen/ZENBRAINPRIVATEKEYNEVERDELETETHISSHIT.age
+  2. Plaintext token: ~/zen/DONOTASKMOREFORTHISSHIT.txt (bootstrap-only)
+  3. ZenLock manifest: deploy/zen-lock/jira-credentials.zenlock.yaml
+
 Install Jira credentials from input YAML file.
 
 This script is non-interactive and must be called with FILE= argument.
