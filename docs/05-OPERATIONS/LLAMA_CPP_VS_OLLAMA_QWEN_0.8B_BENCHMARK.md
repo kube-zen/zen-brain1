@@ -277,3 +277,8 @@ This section ties **local CPU** measurements in this file to **product and ops**
 
 **Takeaway:** Zen-brain remains aligned with **Ollama + `qwen3.5:0.8b`** for the **certified** local lane. These numbers show **where** an optional **llama.cpp + GGUF** path can win on **raw generation speed** (especially **Q4**) and **where** **RSS / cgroup** differ—any adoption beside policy needs an **explicit operator decision**, not only bench results.
 
+## See also
+
+- [LOCAL_LLM_ESCALATION_LADDER.md](../03-DESIGN/LOCAL_LLM_ESCALATION_LADDER.md) — 0.8B workhorse → optional local 2B → external models; subtask checkpoints and retries.
+- [QWEN_2B_LOCAL_EVALUATION.md](./QWEN_2B_LOCAL_EVALUATION.md) — llama.cpp **0.8B vs 2B** (same Q4_K_M) for RAM and throughput sizing.
+
