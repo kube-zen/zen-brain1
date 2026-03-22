@@ -267,7 +267,8 @@ llm:
 2. **`LocalWorkerProvider`** (`internal/llm/local_worker.go`) - Local worker lane using small CPU-efficient models
 3. **`PlannerProvider`** (`internal/llm/planner.go`) - Planner/escalation lane using more powerful models
 4. **`OllamaProvider`** (`internal/llm/ollama_provider.go`) - Real Ollama integration with warmup support
-5. **Configuration** - `GatewayConfig` with sensible defaults and routing policies
+5. **`fallback_chain`** (`internal/llm/routing/fallback_chain.go`) - Ordered provider attempts on retryable errors when fallback chain is enabled
+6. **Configuration** - `GatewayConfig` with sensible defaults and routing policies
 
 **Production Features:**
 
@@ -276,7 +277,7 @@ llm:
 - **Warmup support**: OllamaWarmupCoordinator for cold-start optimization
 - **Keep-alive**: OLLAMA_KEEP_ALIVE=-1 keeps models loaded
 - **Health checks**: LiveHealthChecker for readiness probes
-- **Retry logic**: Exponential backoff with zen-sdk retry
+- **Retries / fallback**: When the fallback chain is enabled (typical), requests move to the next provider on retryable failures; otherwise zen-sdk-style retries may apply on a single provider path — see `gateway.go`. This is **not** Multi-Level Queue (MLQ) or subtask checkpoint replay; MLQ remains roadmap ([ROADMAP.md](../01-ARCHITECTURE/ROADMAP.md)).
 - **Timeout handling**: Configurable per lane (local: 120s default)
 - **Tool support**: Both lanes support tool calling
 - **Statistics tracking**: Success rates, latencies, error counts

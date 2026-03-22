@@ -253,7 +253,6 @@ curl -s -w "\nHTTP_CODE:%{http_code}\n" -X POST "http://127.0.1.6:11434/api/chat
   - On `/ai set primary` or `/ai set workhorse` with Ollama (goroutine)
   - On preset `workhorse` (Ollama)
   - On `/diag warmup`
-  - At queue init per level provider (`multi_level_queue.go`)
 - **Probe:** One-shot `POST baseURL/chat/completions` with `max_tokens: 1`, 1200s header timeout. Base URL comes from provider spec (Ollama ports 11434, 11448, 11449, 11450).
 - **Per-request (Ollama only):** `OpenAIProvider.ensureOllamaWarmed` runs a TTL-based probe (5 min) before Chat/Complete when the provider base URL is Ollama.
 
