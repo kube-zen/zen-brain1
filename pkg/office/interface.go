@@ -1,5 +1,5 @@
 // Package office provides the ZenOffice interface for work ingress.
-// ZenOffice is the abstract interface that defines how zen-brain
+// ZenOffice is an abstract interface that defines how zen-brain
 // interacts with external planning systems (Jira, Linear, Slack, etc.)
 //
 // The Factory operates on canonical WorkItem types only.
@@ -23,6 +23,10 @@ type ZenOffice interface {
 	// FetchBySourceKey retrieves a work item by its source system key (e.g., "PROJ-123").
 	FetchBySourceKey(ctx context.Context, clusterID, sourceKey string) (*contracts.WorkItem, error)
 
+	// CreateWorkItem creates a new work item and returns it.
+	// Returns the created WorkItem with its ID, URL, and metadata.
+	CreateWorkItem(ctx context.Context, clusterID string, item *contracts.WorkItem) (*contracts.WorkItem, error)
+
 	// UpdateStatus updates the status of a work item.
 	UpdateStatus(ctx context.Context, clusterID, workItemID string, status contracts.WorkStatus) error
 
@@ -40,7 +44,7 @@ type ZenOffice interface {
 	Watch(ctx context.Context, clusterID string) (<-chan WorkItemEvent, error)
 }
 
-// WorkEventType represents the type of work item event.
+// WorkEventType represents a type of work item event.
 type WorkEventType string
 
 const (

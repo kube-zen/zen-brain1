@@ -84,6 +84,8 @@ spec:
               value: "/tmp/zen-brain-factory"
             - name: ZEN_FOREMAN_WORKSPACE_HOME
               value: "/tmp/zen-brain-factory"
+            - name: ZEN_BRAIN_RUNTIME_DIR
+              value: "/tmp/zen-brain-factory"
             {{- if .Values.foreman.jiraZenLock.enabled }}
             - name: ZEN_FOREMAN_JIRA_CREDENTIALS
               value: "{{ .Values.foreman.jiraZenLock.secretName | quote }}"
