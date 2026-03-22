@@ -272,6 +272,10 @@ func (c *Config) loadFromEnv() {
 	if c.ZenContext.Tier3S3.SessionToken == "" {
 		c.ZenContext.Tier3S3.SessionToken = os.Getenv("AWS_SESSION_TOKEN")
 	}
+	// ZenContext Tier1 Redis (env override for sandbox deployments)
+	if c.ZenContext.Tier1Redis.Addr == "" {
+		c.ZenContext.Tier1Redis.Addr = os.Getenv("TIER1_REDIS_ADDR")
+	}
 	// Message bus
 	if c.MessageBus.RedisURL == "" {
 		c.MessageBus.RedisURL = os.Getenv("REDIS_URL")
