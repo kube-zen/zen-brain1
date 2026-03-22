@@ -275,6 +275,9 @@ func (c *Config) loadFromEnv() {
 	// ZenContext Tier1 Redis (env override for sandbox deployments)
 	if c.ZenContext.Tier1Redis.Addr == "" {
 		c.ZenContext.Tier1Redis.Addr = os.Getenv("TIER1_REDIS_ADDR")
+		if c.ZenContext.Tier1Redis.Addr != "" {
+			fmt.Fprintf(os.Stderr, "[Config] TIER1_REDIS_ADDR loaded from env: %s\n", c.ZenContext.Tier1Redis.Addr)
+		}
 	}
 	// Message bus
 	if c.MessageBus.RedisURL == "" {
@@ -469,6 +472,15 @@ func (c *Config) setDefaults() {
 	// This eliminates ambiguity and prevents silent fallback
 	// If credentials_file is needed for local debug, operator must explicitly set it
 	// AllowEnvFallback defaults to false (already set by struct tag)
+}
+
+// ApplyEnvOverrides applies environment variable overrides and loads Jira credentials.
+// This MUST be called after DefaultConfig() to ensure env vars are absorbed.
+// LoadConfig() calls this automatically, but DefaultConfig() does not.
+func (c *Config) ApplyEnvOverrides() {
+	c.loadFromEnv()
+	c.loadJiraCredentials()
+	c.setDefaults()
 }
 
 // DefaultConfig returns a default configuration.
