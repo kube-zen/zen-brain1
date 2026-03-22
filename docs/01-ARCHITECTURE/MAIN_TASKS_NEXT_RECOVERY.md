@@ -81,11 +81,11 @@
 
 ---
 
-## 5) Keep MLQ/provider lane practical, not broad
+## 5) Keep the LLM / provider lane practical, not broad
 
-**Focus:** Use the intended model strategy to improve usefulness; avoid adding more provider complexity.
+**Focus:** Use the intended model strategy to improve usefulness; avoid adding more provider complexity. **MLQ (L1–L4 queues)** is out of scope here until implemented — see [ROADMAP.md](./ROADMAP.md).
 
-**Current state:** LLM Gateway, fallback chain, and routing live in `internal/llm` and `pkg/llm`. Session-context-aware routing exists (`ProviderOrderForContext` in `internal/llm/routing/fallback_chain.go`).
+**Current state:** LLM Gateway, fallback chain, and routing live in `internal/llm` and `pkg/llm`. Session-context-aware routing exists (`ProviderOrderForContext` in `internal/llm/routing/fallback_chain.go`). This is **not** multi-level task queuing.
 
 **Recovery / next steps:**
 
@@ -102,6 +102,6 @@
 | 2 – Trusted useful path | [COMPLETENESS_MATRIX.md](./COMPLETENESS_MATRIX.md), [FACTORY_TEMPLATE_TIERS.md](./FACTORY_TEMPLATE_TIERS.md), factory templates |
 | 3 – Session/context glue | [ZEN_CONTEXT.md](../03-DESIGN/ZEN_CONTEXT.md), [session/manager.go](../../internal/session/manager.go), [pkg/context](../../pkg/context/) |
 | 4 – 0.1 rescue batch | Office/Jira, [REMAINING_DRAGS.md](./REMAINING_DRAGS.md) (Intelligence/Factory), proof templates, watchdog |
-| 5 – MLQ/provider practical | [internal/llm](../../internal/llm/), [fallback_chain.go](../../internal/llm/routing/fallback_chain.go) |
+| 5 – LLM/provider practical | [internal/llm](../../internal/llm/), [fallback_chain.go](../../internal/llm/routing/fallback_chain.go) |
 
 **Build:** `go build ./...` from repo root. Fix any regressions in `internal/runner` or contracts/llm types before adding new behavior.

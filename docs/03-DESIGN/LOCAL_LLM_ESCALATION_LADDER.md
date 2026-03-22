@@ -6,6 +6,15 @@
 
 This document captures **architecture and control-flow insights** for multi-queue (MLQ) execution: **tiered model escalation**, **retry semantics**, and **subtask-level recovery**. It **does not** change [SMALL_MODEL_STRATEGY.md](./SMALL_MODEL_STRATEGY.md) **ZB-023** policy by itself; operator override and product decisions are required before any new local model is “certified.”
 
+### Implementation status (zen-brain1)
+
+| Topic | In code today | Still design / roadmap |
+|--------|----------------|-------------------------|
+| Local vs planner routing, provider fallback on retryable errors | `internal/llm/gateway.go`, `internal/llm/routing/fallback_chain.go` | — |
+| L1–L4 task queues, `multi_level_queue` | No — not present in this repo | [ROADMAP.md](../01-ARCHITECTURE/ROADMAP.md) MLQ section |
+| Tiered **0.8B → 2B → external** as separate escalation rungs | Partially via provider config/order only; not a dedicated ladder | This document + future MLQ work |
+| Subtask checkpoints / partial replay | Not wired to LLM escalation | Sections below (subtask-level control) |
+
 ## Goals
 
 1. Keep **Qwen3.5 0.8B** as the **default local workhorse** (high volume, lowest marginal cost).

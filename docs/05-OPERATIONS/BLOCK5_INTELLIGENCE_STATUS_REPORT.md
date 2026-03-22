@@ -78,7 +78,7 @@
 ## Action Items
 
 ### A001: Update PROGRESS.md Item #5 ✅
-Update MLQ/Provider status to reflect real Ollama integration.
+Update gateway/provider status to reflect real Ollama integration; distinguish **MLQ** (not implemented) from the LLM gateway/fallback lane.
 
 ### A002: Update LLM_GATEWAY.md ✅
 Remove "simulated" references, add real Ollama performance metrics.

@@ -168,14 +168,16 @@ Transformed the zen-brain vertical slice from MVP to genuinely useful:
 
 **Commit**: 9e4ec3d - "feat(Item #2): Enhanced proof artifacts with versioning, checksums, verification"
 
-## Item #5: MLQ/Provider – Complete (90%)
+## Item #5: LLM gateway / provider fallback — strong (not MLQ)
+
+**Naming:** This item tracks the **LLM gateway and provider lane** (Ollama, planner, fallback chain). **Multi-Level Queue (MLQ)** — L1–L4 task queues, `multi_level_queue`-style routing — is **not** implemented; see [ROADMAP.md](./ROADMAP.md) (MLQ section).
 
 **Current State** (2026-03-11):
 - Provider set: 3 providers (local-worker, planner, fallback) ✅
 - Real Ollama integration: 100% success rate, 8-57s latency (Docker host networking) ✅
 - Warmup & keep-alive: OllamaWarmupCoordinator, OLLAMA_KEEP_ALIVE=-1 ✅
 - Health checks: LiveHealthChecker for readiness probes ✅
-- Retry logic: Exponential backoff with zen-sdk retry ✅
+- Retries: zen-sdk retry on some paths; provider **fallback chain** when enabled (see `internal/llm/gateway.go`, `internal/llm/routing/fallback_chain.go`) — not subtask-level MLQ replay ✅
 
 **Validated Performance (qwen3.5:0.8b on Docker):**
 - Latency: 8-57 seconds (warm), 22-82 seconds (cold)

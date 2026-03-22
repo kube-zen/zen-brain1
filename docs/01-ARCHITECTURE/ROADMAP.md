@@ -27,6 +27,10 @@ The highest-priority work is to complete one trustworthy vertical slice:
 
 **Principle:** Build one trustworthy internal vertical slice first. Breadth comes later.
 
+### After the vertical slice is validated (next)
+
+Basic operation of zen-brain1 is still being validated against remaining blockers. When those are cleared, one of the **first follow-on priorities** is **MLQ / escalation alignment**: keep architecture and operations docs accurate about what the code does today versus what remains design-only (see [Multi-Level Queue (MLQ) and Escalation](#multi-level-queue-mlq-and-escalation) below and [LOCAL_LLM_ESCALATION_LADDER.md](../03-DESIGN/LOCAL_LLM_ESCALATION_LADDER.md)). That includes tightening language around retries, provider fallback, and any future L1–L4 task queues—without implying MLQ exists before it is implemented.
+
 ---
 
 ## 1.0 Must-Have
@@ -197,18 +201,19 @@ The highest-priority work is to complete one trustworthy vertical slice:
 
 ### Multi-Level Queue (MLQ) and Escalation
 - **Goal:** Intelligent task routing and escalation based on complexity, urgency, and model capability
-- **Components:**
+- **Target components (not yet in zen-brain1):**
   - Multi-level task queues (L1: simple, L2: moderate, L3: complex, L4: critical)
   - Automatic escalation rules when tasks timeout or fail
   - Worker pool assignment per queue level
   - Model selection based on task class and queue level
   - Escalation tracking and metrics
+- **What exists today (precursor only):** LLM calls are routed through **`internal/llm/gateway.go`** with **`internal/llm/routing/fallback_chain.go`** — e.g. local-worker vs planner, ordered provider fallback on retryable errors, and session-aware provider order. There is **no** `internal/queue/multi_level_queue.go` in this repo and **no** L1–L4 task queue implementation. Subtask checkpoint replay and a full **0.8B → 2B → external** tier ladder are **design** ([LOCAL_LLM_ESCALATION_LADDER.md](../03-DESIGN/LOCAL_LLM_ESCALATION_LADDER.md)), not wired as separate queue levels here.
 - **Approach:**
-  - Start with 4-level queue system from zen-brain (zen-brain1 can adopt or adapt)
-  - Integrate with small-model strategy for L1/L2 worker allocation
-  - Reserve stronger models (cloud APIs) for L3/L4 critical tasks
-  - Build escalation metrics and dashboards
-- **Status:** Radar item – design pending, zen-brain has working implementation
+  - When MLQ is tackled, align with any proven patterns from the legacy zen-brain codebase only after explicit port/verification — do not assume parity.
+  - Integrate with small-model strategy for worker allocation once queues exist
+  - Reserve stronger models (cloud APIs) for critical tasks
+  - Build escalation metrics and dashboards with the queue layer
+- **Status:** Radar item — design pending; gateway/fallback provide routing only, not MLQ
 
 ### Future Control-Plane Vocabulary
 These concepts should be elevated to first-class architecture before implementation:

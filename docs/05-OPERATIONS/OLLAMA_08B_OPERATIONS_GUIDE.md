@@ -285,7 +285,6 @@ sandbox:
 | `/ai set workhorse ollama <model>` | Goroutine: `WarmupOllamaIfNeeded` | `internal/gateway/commands_session.go` |
 | `/diag warmup` | Sync: `WarmupOllamaIfNeeded` | `internal/gateway/commands_session.go` |
 | First task in run | Sync: `execution_runner` → `WarmupOllamaIfNeeded` | `internal/gateway/execution_runner.go` |
-| Queue level config = ollama | Sync at init: `multi_level_queue` → `warmupProvider` | `internal/queue/multi_level_queue.go` |
 | Any Chat/Complete to Ollama | In-request: `ensureOllamaWarmed` (5-min TTL) | `internal/llm/ollama_provider.go` |
 | `wait_for_ready.py` | Direct POST to `/api/chat` | `scripts/py/wait_for_ready.py` |
 | `inference_validate.py` | Direct POST to `/api/chat` | `scripts/py/inference_validate.py` |
@@ -539,7 +538,6 @@ curl http://localhost:11434/api/ps
 - `cmd/apiserver/main.go` - Warmup initiation
 - `internal/gateway/commands_session.go` - `/diag warmup`, `/ai set` warmup
 - `internal/gateway/execution_runner.go` - Pre-execution warmup
-- `internal/queue/multi_level_queue.go` - Queue-level warmup
 - `scripts/py/wait_for_ready.py` - Deploy readiness check
 - `scripts/py/inference_validate.py` - Validation suite
 
