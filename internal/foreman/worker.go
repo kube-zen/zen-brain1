@@ -30,6 +30,8 @@ type Worker struct {
 	ContextBinder ContextBinder
 	// LedgerClient optional: when set, record task completion in ZenLedger (Block 4 completeness) for cost/audit visibility.
 	LedgerClient ledger.ZenLedgerClient
+	// FeedbackService optional: when set, report task results back to Jira on terminal states (ZB-027G).
+	FeedbackService FeedbackService
 	queue        chan types.NamespacedName   // used when !SessionAffinity
 	queues       []chan types.NamespacedName // used when SessionAffinity (one per worker)
 	affinityMu   sync.Mutex
@@ -385,8 +387,22 @@ func (w *Worker) processOne(ctx context.Context, nn types.NamespacedName) {
 		
 		// Success!
 		log.Printf("[Worker.processOne] task %s status updated to %s successfully", nn.String(), latestTask.Status.Phase)
+		
+		// ZB-027G: Report result to Jira on terminal state (if feedback service is configured)
+		if w.FeedbackService != nil {
+			if reportErr := w.FeedbackService.ReportResult(ctx, &latestTask); reportErr != nil {
+				log.Printf("[Worker.processOne] ERROR: failed to report task %s result to Jira: %v", nn.String(), reportErr)
+			} else {
+				log.Printf("[Worker.processOne] task %s result reported to Jira successfully (SourceKey: %s)", nn.String(), latestTask.Spec.SourceKey)
+			}
+		}
 		break
 	}
+}
+
+// FeedbackService reports BrainTask results back to external systems (Jira, etc.)
+type FeedbackService interface {
+	ReportResult(ctx context.Context, task *v1alpha1.BrainTask) error
 }
 
 // Ensure Worker implements TaskDispatcher.

@@ -136,7 +136,7 @@ func (s *BrainTaskToJiraService) buildResultComment(task *v1alpha1.BrainTask) st
 	// Acceptance criteria
 	if len(task.Spec.AcceptanceCriteria) > 0 {
 		sb.WriteString("*Acceptance Criteria:*\n")
-		for i, criteria := range task.Spec.AcceptanceCriteria {
+		for _, criteria := range task.Spec.AcceptanceCriteria {
 			sb.WriteString(fmt.Sprintf("# %s\n", criteria))
 		}
 		sb.WriteString("\n")
@@ -171,14 +171,11 @@ func (s *BrainTaskToJiraService) updateJiraIssue(ctx context.Context, task *v1al
 		return nil
 	}
 
-	// Build update request
-	updates := &contracts.WorkItemUpdate{
-		ID:     task.Spec.SourceKey,
-		Status: transition,
-	}
-
-	// Update issue
-	if err := s.jiraConn.UpdateWorkItem(ctx, updates); err != nil {
+	// Map transition string to WorkStatus
+	status := contracts.WorkStatus(transition)
+	
+	// Update issue status
+	if err := s.jiraConn.UpdateStatus(ctx, "default", task.Spec.SourceKey, status); err != nil {
 		return fmt.Errorf("failed to update Jira issue status: %w", err)
 	}
 
@@ -190,15 +187,11 @@ func (s *BrainTaskToJiraService) updateJiraIssue(ctx context.Context, task *v1al
 // addJiraComment adds a comment to a Jira issue.
 func (s *BrainTaskToJiraService) addJiraComment(ctx context.Context, issueKey, comment string) error {
 	// Add comment via Jira connector
-	// TODO: Implement jiraConn.AddComment() method
-	// For now, use UpdateWorkItem with comment field
-
-	updates := &contracts.WorkItemUpdate{
-		ID:      issueKey,
-		Comment: comment,
+	jiraComment := &contracts.Comment{
+		Body: comment,
 	}
 
-	if err := s.jiraConn.UpdateWorkItem(ctx, updates); err != nil {
+	if err := s.jiraConn.AddComment(ctx, "default", issueKey, jiraComment); err != nil {
 		return fmt.Errorf("failed to add Jira comment: %w", err)
 	}
 
