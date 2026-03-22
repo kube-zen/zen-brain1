@@ -15,6 +15,7 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
@@ -23,7 +24,9 @@ import (
 	"github.com/kube-zen/zen-brain1/internal/config"
 	internalcontext "github.com/kube-zen/zen-brain1/internal/context"
 	"github.com/kube-zen/zen-brain1/internal/evidence"
+	"github.com/kube-zen/zen-brain1/internal/feedback"
 	"github.com/kube-zen/zen-brain1/internal/foreman"
+	"github.com/kube-zen/zen-brain1/internal/office/jira"
 	"github.com/kube-zen/zen-brain1/internal/gate"
 	internalguardian "github.com/kube-zen/zen-brain1/internal/guardian"
 	internalledger "github.com/kube-zen/zen-brain1/internal/ledger"
@@ -113,8 +116,13 @@ func main() {
 
 	appCfg, errCfg := config.LoadConfig("")
 	if errCfg != nil {
-		log.Printf("Config load failed (%v), using defaults", errCfg)
+		log.Printf("Config load failed (%v), using defaults with env overrides", errCfg)
 		appCfg = config.DefaultConfig()
+		// CRITICAL: Apply env overrides after DefaultConfig() or TIER1_REDIS_ADDR etc. are ignored
+		appCfg.ApplyEnvOverrides()
+		log.Printf("Config: applied env overrides (tier1_redis.addr=%q)", appCfg.ZenContext.Tier1Redis.Addr)
+	} else {
+		log.Printf("Config: loaded from file (tier1_redis.addr=%q)", appCfg.ZenContext.Tier1Redis.Addr)
 	}
 
 	strictRT, errRT := internalruntime.NewStrictRuntime(ctx, &internalruntime.StrictRuntimeConfig{
@@ -216,6 +224,13 @@ func main() {
 			log.Printf("Foreman: ReMe enabled (ZenContext Redis, cluster=%s)", clusterID)
 		}
 	}
+	
+	// ZB-027G: Initialize Jira feedback service
+	if feedbackSvc := foremanFeedbackService(mgr.GetClient(), appCfg); feedbackSvc != nil {
+		worker.FeedbackService = feedbackSvc
+		log.Printf("Foreman: Jira feedback enabled (task results will be reported to Jira)")
+	}
+	
 	worker.Start(ctx)
 
 	// Re-enqueue tasks stuck in Scheduled phase (pod restart recovery)
@@ -316,6 +331,34 @@ func envInt(key string, defaultVal int) int {
 		}
 	}
 	return defaultVal
+}
+
+// foremanFeedbackService returns a BrainTask->Jira feedback service when Jira is configured.
+// ZB-027G: Required for live Jira loop completion.
+func foremanFeedbackService(k8sClient client.Client, cfg *config.Config) foreman.FeedbackService {
+	// Check if Jira is configured
+	if cfg.Jira.BaseURL == "" || cfg.Jira.Email == "" || cfg.Jira.APIToken == "" {
+		log.Printf("Foreman: Jira feedback disabled (missing Jira credentials)")
+		return nil
+	}
+	
+	// Create Jira connection
+	jiraConfig := &jira.Config{
+		BaseURL:    cfg.Jira.BaseURL,
+		Email:      cfg.Jira.Email,
+		APIToken:   cfg.Jira.APIToken,
+		ProjectKey: cfg.Jira.ProjectKey,
+	}
+	
+	jiraConn, err := jira.New("foreman-feedback", "default", jiraConfig)
+	if err != nil {
+		log.Printf("Warning: failed to create Jira connection for feedback: %v", err)
+		return nil
+	}
+	
+	// Create and return feedback service
+	feedbackConfig := feedback.DefaultBrainTaskToJiraConfig()
+	return feedback.NewBrainTaskToJiraService(k8sClient, jiraConn, feedbackConfig)
 }
 
 // foremanLedgerClient returns a ZenLedgerClient when ZEN_LEDGER_DSN or LEDGER_DATABASE_URL is set (Block 4 completeness).

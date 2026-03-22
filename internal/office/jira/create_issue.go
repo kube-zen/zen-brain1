@@ -44,7 +44,7 @@ func (j *JiraOffice) CreateWorkItem(ctx context.Context, clusterID string, item 
 				},
 			},
 			IssueType: IssueType{
-				Name: string(item.WorkType), // Convert to string for mapping
+				Name: "Task", // Always use "Task" issue type for creation
 			},
 			Priority: Priority{
 				Name: string(item.Priority), // Convert to string for mapping

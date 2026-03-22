@@ -196,6 +196,15 @@ func (f *FactoryImpl) ExecuteTask(ctx context.Context, spec *FactoryTaskSpec) (*
 		return nil, fmt.Errorf("task ID cannot be empty")
 	}
 
+	// ZB-027G: Enforce hard task-level timeout as outer deadline
+	// This wraps the entire execution (preflight, LLM generation, validation, postflight)
+	if spec.TimeoutSeconds > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, time.Duration(spec.TimeoutSeconds)*time.Second)
+		defer cancel()
+		log.Printf("[Factory] Task timeout set: task_id=%s timeout=%ds", spec.ID, spec.TimeoutSeconds)
+	}
+
 	log.Printf("[Factory] Executing task: task_id=%s session_id=%s title=%s", spec.ID, spec.SessionID, spec.Title)
 
 	// Run preflight checks (using enhanced checker when mode is set)
