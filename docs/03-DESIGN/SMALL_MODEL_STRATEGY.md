@@ -36,6 +36,9 @@
 - **Warmup Runbook:** [OLLAMA_WARMUP_RUNBOOK.md](../05-OPERATIONS/OLLAMA_WARMUP_RUNBOOK.md)
 - **Deployment:** [deploy/README.md](../../deploy/README.md)
 - **Runbook:** [ZB_023_LOCAL_CPU_INFERENCE_RULE.md](../05-OPERATIONS/ZB_023_LOCAL_CPU_INFERENCE_RULE.md)
+- **Escalation design (0.8B → 2B → external, subtask retries):** [LOCAL_LLM_ESCALATION_LADDER.md](./LOCAL_LLM_ESCALATION_LADDER.md)
+- **2B vs 0.8B local evaluation (llama.cpp Q4_K_M):** [QWEN_2B_LOCAL_EVALUATION.md](../05-OPERATIONS/QWEN_2B_LOCAL_EVALUATION.md)
+- **0.8B llama.cpp vs Ollama (2×2 matrix):** [LLAMA_CPP_VS_OLLAMA_QWEN_0.8B_BENCHMARK.md](../05-OPERATIONS/LLAMA_CPP_VS_OLLAMA_QWEN_0.8B_BENCHMARK.md)
 
 ---
 

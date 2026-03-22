@@ -58,6 +58,8 @@ kubectl get pods -n zen-brain | grep ollama
 | Topic | Document | Purpose |
 |--------|----------|---------|
 | **Canonical Policy** | [SMALL_MODEL_STRATEGY.md](docs/03-DESIGN/SMALL_MODEL_STRATEGY.md) | Local CPU inference policy (qwen3.5:0.8b ONLY) |
+| **Escalation ladder (design)** | [LOCAL_LLM_ESCALATION_LADDER.md](docs/03-DESIGN/LOCAL_LLM_ESCALATION_LADDER.md) | 0.8B workhorse → optional local 2B → external models; subtask checkpoints & retries |
+| **2B local evaluation** | [QWEN_2B_LOCAL_EVALUATION.md](docs/05-OPERATIONS/QWEN_2B_LOCAL_EVALUATION.md) | llama.cpp 0.8B vs 2B Q4_K_M throughput/RAM (ops sizing) |
 | **Operational Guide** | [OLLAMA_08B_OPERATIONS_GUIDE.md](docs/05-OPERATIONS/OLLAMA_08B_OPERATIONS_GUIDE.md) | Operations for local Ollama (host Docker) |
 | **Warmup Runbook** | [OLLAMA_WARMUP_RUNBOOK.md](docs/05-OPERATIONS/OLLAMA_WARMUP_RUNBOOK.md) | Warmup/keepalive procedures |
 | **Operator Runbook** | [ZB_023_LOCAL_CPU_INFERENCE_RULE.md](docs/05-OPERATIONS/ZB_023_LOCAL_CPU_INFERENCE_RULE.md) | Troubleshooting and verification commands |
