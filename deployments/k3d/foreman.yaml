@@ -26,13 +26,13 @@ metadata:
   labels:
     app.kubernetes.io/name: foreman
     app.kubernetes.io/part-of: zen-brain
-  rules:
-    - apiGroups: ["zen.kube-zen.com"]
-      resources: ["braintasks", "braintasks/status", "brainqueues", "brainqueues/status", "brainagents", "brainagents/status", "brainpolicies", "brainpolicies/status"]
-      verbs: ["get", "list", "watch", "create", "update", "patch"]
-    - apiGroups: [""]
-      resources: ["configmaps"]
-      verbs: ["get", "list", "watch"]
+rules:
+  - apiGroups: ["zen.kube-zen.com"]
+    resources: ["braintasks", "braintasks/status", "brainqueues", "brainqueues/status", "brainagents", "brainagents/status", "brainpolicies", "brainpolicies/status"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "watch"]
 # NOTE: Image reference `zen-registry:5000` assumes k3d registry port 5000 is accessible.
 # Ensure `docker push zen-registry:5000/zen-brain:dev` is possible before deployment updates.
 # If rebuild/push is blocked, `imagePullPolicy: IfNotPresent` will fail.
@@ -45,14 +45,14 @@ metadata:
   labels:
     app.kubernetes.io/name: foreman
     app.kubernetes.io/part-of: zen-brain
-  roleRef:
-    apiGroup: rbac.authorization.k8s.io
-    kind: ClusterRole
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: foreman
+subjects:
+  - kind: ServiceAccount
     name: foreman
-  subjects:
-    - kind: ServiceAccount
-      name: foreman
-      namespace: zen-brain
+    namespace: zen-brain
 # NOTE: Image reference `zen-registry:5000` assumes k3d registry port 5000 is accessible.
 # Ensure `docker push zen-registry:5000/zen-brain:dev` is possible before deployment updates.
 # If rebuild/push is blocked, `imagePullPolicy: IfNotPresent` will fail.
@@ -90,7 +90,7 @@ spec:
           args:
             - "-metrics-bind-address=:8080"
             - "-health-probe-bind-address=:8081"
-            - "-workers=2"
+            - "-workers=5"
           env:
             - name: ZEN_FOREMAN_RUNTIME_DIR
               value: "/tmp/zen-brain-factory"

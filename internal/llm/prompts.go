@@ -347,6 +347,7 @@ Subtasks:
 			Variables:   []string{"title", "description", "work_type"},
 		},
 	}
+	return templates
 }
 
 // InitializeDefaultManager creates and registers all default templates.

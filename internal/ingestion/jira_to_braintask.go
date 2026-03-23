@@ -150,32 +150,42 @@ func (s *JiraToBrainTaskService) issueToBrainTask(issue *contracts.WorkItem) *v1
 	// Generate BrainTask name from Jira key
 	name := fmt.Sprintf("jira-%s", strings.ToLower(issue.ID))
 
-	// Map WorkType
-	workType := s.mapWorkType(issue.Type)
-
-	// Map WorkDomain (default to office for self-improvement)
-	workDomain := s.mapWorkDomain(issue.Component)
-
-	// Map Priority
-	priority := s.mapPriority(issue.Priority)
-
-	// Build objective from summary + description
-	objective := issue.Title
-	if issue.Description != "" {
-		objective = fmt.Sprintf("%s\n\n%s", issue.Title, issue.Description)
+	// Use WorkType directly from issue (already a WorkType)
+	workType := issue.WorkType
+	if workType == "" {
+		workType = contracts.WorkTypeImplementation
 	}
 
-	// Build acceptance criteria from issue fields
-	acceptanceCriteria := []string{}
-	if len(issue.AcceptanceCriteria) > 0 {
-		acceptanceCriteria = issue.AcceptanceCriteria
-	} else {
-		// Default criteria
-		acceptanceCriteria = []string{
-			"Task completes without errors",
-			"Result is captured in proof-of-work",
-			"Jira issue is updated with result",
-		}
+	// Use WorkDomain directly from issue (already a WorkDomain)
+	workDomain := issue.WorkDomain
+	if workDomain == "" {
+		workDomain = contracts.DomainOffice // Default to office for self-improvement
+	}
+
+	// Use Priority directly from issue (already a Priority)
+	priority := issue.Priority
+	if priority == "" {
+		priority = contracts.PriorityMedium
+	}
+
+	// Build objective from title + body
+	objective := issue.Title
+	if issue.Body != "" {
+		objective = fmt.Sprintf("%s\n\n%s", issue.Title, issue.Body)
+	}
+
+	// Default acceptance criteria
+	acceptanceCriteria := []string{
+		"Task completes without errors",
+		"Result is captured in proof-of-work",
+		"Jira issue is updated with result",
+	}
+
+	// Determine timeout: 2700s for normal lane, short timeout only for controlled failure test
+	timeoutSeconds := int64(2700) // ZB-024: 45 minutes for qwen3.5:0.8b normal lane
+	if strings.Contains(strings.ToLower(issue.Title), "timeout") ||
+	   strings.Contains(strings.ToLower(issue.Title), "failure test") {
+		timeoutSeconds = 60 // Short timeout for controlled failure testing
 	}
 
 	// Create BrainTask
@@ -196,7 +206,7 @@ func (s *JiraToBrainTaskService) issueToBrainTask(issue *contracts.WorkItem) *v1
 			SessionID:         fmt.Sprintf("jira-session-%s", issue.ID),
 			SourceKey:         issue.ID, // Jira key (e.g., PROJ-123)
 			Title:             issue.Title,
-			Description:       issue.Description,
+			Description:       issue.Body,
 			WorkType:          workType,
 			WorkDomain:        workDomain,
 			Priority:          priority,
@@ -207,12 +217,11 @@ func (s *JiraToBrainTaskService) issueToBrainTask(issue *contracts.WorkItem) *v1
 				"Prefer real repo changes over synthetic defaults",
 				"Local Ollama must use qwen3.5:0.8b only",
 			},
-			EvidenceRequirement: contracts.EvidenceRequirementSummary,
+			EvidenceRequirement: contracts.EvidenceSummary,
 			SREDTags: []contracts.SREDTag{
-				contracts.SREDTagExperimental,
-				contracts.SREDTagSystematic,
+				contracts.SREDExperimentalGeneral,
 			},
-			TimeoutSeconds:    300, // 5 minutes
+			TimeoutSeconds:    timeoutSeconds, // ZB-024: 2700s for normal lane, short for controlled failure
 			MaxRetries:        1,
 			EstimatedCostUSD:  0.05, // Rough estimate
 			QueueName:         s.config.DefaultQueueName,
@@ -238,13 +247,13 @@ func (s *JiraToBrainTaskService) mapWorkType(issueType string) contracts.WorkTyp
 func (s *JiraToBrainTaskService) mapWorkDomain(component string) contracts.WorkDomain {
 	if component == "" {
 		// Default to office for self-improvement
-		return contracts.WorkDomainOffice
+		return contracts.DomainOffice
 	}
 	if wd, ok := s.config.WorkDomainMapping[component]; ok {
 		return wd
 	}
 	// Default to office
-	return contracts.WorkDomainOffice
+	return contracts.DomainOffice
 }
 
 // mapPriority maps Jira priority to Priority.

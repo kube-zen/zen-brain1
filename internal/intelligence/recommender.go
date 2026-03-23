@@ -160,7 +160,7 @@ func (r *Recommender) RecommendConfiguration(ctx context.Context, workType contr
 	if err != nil || len(durationStats.Samples) < r.minSamples {
 		// No duration statistics available, return conservative defaults
 		return &ConfigurationRecommendation{
-			TimeoutSeconds: 300, // 5 minutes default
+			TimeoutSeconds: 2700, // ZB-024: 45 minutes for qwen3.5:0.8b normal lane
 			MaxRetries:     3,
 			Reasoning:      "No historical duration data available, using conservative defaults",
 			Confidence:     0.0,
