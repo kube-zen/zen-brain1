@@ -34,7 +34,7 @@ type FactoryTaskRunnerConfig struct {
 	EnableFactoryLLM    bool   // when true, Factory uses LLM-powered templates instead of shell-only
 	LLMBaseURL          string // Ollama endpoint (e.g. http://host.k3d.internal:11434)
 	LLMModel            string // model name (default qwen3.5:0.8b for CPU inference)
-	LLMTimeoutSeconds    int    // timeout for LLM requests (default 300s)
+	LLMTimeoutSeconds    int    // timeout for LLM requests (default 2700s=45m for qwen3.5:0.8b normal lane; only controlled-failure uses short timeout)
 	LLMEnableThinking   bool   // enable chain-of-thought (default false for CPU path)
 }
 

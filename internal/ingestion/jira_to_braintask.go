@@ -108,7 +108,8 @@ func (s *JiraToBrainTaskService) IngestIssues(ctx context.Context) (int, error) 
 	log.Printf("[IngestIssues] Found %d issues with label %s", len(issues), s.config.JiraLabel)
 
 	created := 0
-	for _, issue := range issues {
+	for i := range issues {
+		issue := &issues[i]
 		// Convert to BrainTask
 		task := s.issueToBrainTask(issue)
 
