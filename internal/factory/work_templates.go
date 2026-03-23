@@ -29,7 +29,7 @@ func (r *WorkTypeTemplateRegistry) registerBugFixTemplates() {
 				Description: "Implement the bug fix based on analysis",
 				Command:     "echo 'Implementing fix for {{.work_item_id}}' && echo 'Modifying source files...' && echo 'Adding test coverage...' && echo 'Fix implementation complete'",
 				Variables:   map[string]string{},
-				Timeout:     300,
+				Timeout:       2700,
 				MaxRetries:  2,
 			},
 			{
@@ -121,7 +121,7 @@ func (r *WorkTypeTemplateRegistry) registerFeatureTemplates() {
 				Name:        "Run tests",
 				Description: "Execute feature tests (real go test when go.mod present)",
 				Variables:   map[string]string{},
-				Timeout:     300,
+				Timeout:       2700,
 				MaxRetries:  1,
 			},
 			{
@@ -157,7 +157,7 @@ func (r *WorkTypeTemplateRegistry) registerRefactorTemplates() {
 				Description: "Apply refactoring changes",
 				Command:     "echo 'Refactoring code for {{.work_item_id}}' && echo 'Improving code structure...' && echo 'Reducing complexity...' && echo 'Refactoring complete'",
 				Variables:   map[string]string{},
-				Timeout:     300,
+				Timeout:       2700,
 				MaxRetries:  2,
 			},
 			{
@@ -206,7 +206,7 @@ func (r *WorkTypeTemplateRegistry) registerDocumentationTemplates() {
 				Description: "Create or update documentation",
 				Command:     "echo 'Writing documentation for {{.work_item_id}}' && echo 'Creating markdown documents...' && echo 'Adding examples and diagrams' && echo 'Documentation written'",
 				Variables:   map[string]string{},
-				Timeout:     300,
+				Timeout:       2700,
 				MaxRetries:  2,
 			},
 			{
