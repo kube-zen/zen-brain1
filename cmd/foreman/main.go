@@ -125,6 +125,39 @@ func main() {
 		log.Printf("Config: loaded from file (tier1_redis.addr=%q)", appCfg.ZenContext.Tier1Redis.Addr)
 	}
 
+	// ZB-CREDENTIAL-RAILS: Log startup configuration for observability
+	log.Println("=== FOREMAN STARTUP CONFIG ===")
+	log.Printf("  Jira credential source: %s", appCfg.Jira.CredentialsSource)
+	log.Printf("  Jira URL: %s", appCfg.Jira.BaseURL)
+	log.Printf("  Jira email: %s", appCfg.Jira.Email)
+
+	// ZB-CREDENTIAL-RAILS: Log canonical Jira project key
+	if appCfg.Jira.Enabled {
+		projectKey := appCfg.Jira.ProjectKey
+		if projectKey == "" {
+			log.Printf("  Jira project key: NOT CONFIGURED (WARNING: Jira enabled but no project key)")
+		} else {
+			log.Printf("  Jira project key: %s", projectKey)
+		}
+	} else {
+		log.Printf("  Jira project key: (Jira disabled)")
+	}
+
+	log.Printf("  Tier1 Redis: %s", appCfg.ZenContext.Tier1Redis.Addr)
+	log.Printf("  Local LLM model: %s", llmModel)
+	log.Printf("  Local LLM timeout: %ds", llmTimeoutSeconds)
+	keepAlive := os.Getenv("ZEN_FOREMAN_LLM_KEEP_ALIVE")
+	if keepAlive == "" {
+		keepAlive = "45m"
+	}
+	staleThreshold := os.Getenv("ZEN_FOREMAN_STALE_THRESHOLD")
+	if staleThreshold == "" {
+		staleThreshold = "60m"
+	}
+	log.Printf("  Keep-alive: %s", keepAlive)
+	log.Printf("  Stale threshold: %s", staleThreshold)
+	log.Println("===============================")
+
 	strictRT, errRT := internalruntime.NewStrictRuntime(ctx, &internalruntime.StrictRuntimeConfig{
 		Profile:        profile,
 		Config:         appCfg,

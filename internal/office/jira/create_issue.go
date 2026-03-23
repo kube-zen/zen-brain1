@@ -52,10 +52,11 @@ func (j *JiraOffice) CreateWorkItem(ctx context.Context, clusterID string, item 
 		},
 	}
 
-	// Map tags to labels if present
-	// WorkTags is a custom type, handle it appropriately
-	// If WorkTags implements String() or similar, use that
-	// Otherwise, skip labels for now
+	// Map tags to labels (use Routing tags as Jira labels)
+	if len(item.Tags.Routing) > 0 {
+		jiraIssue.Fields.Labels = make([]string, len(item.Tags.Routing))
+		copy(jiraIssue.Fields.Labels, item.Tags.Routing)
+	}
 
 	// Serialize to JSON
 	bodyBytes, err := json.Marshal(jiraIssue)

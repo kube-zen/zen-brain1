@@ -25,7 +25,8 @@ ARG VERSION="dev"
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -mod=vendor -ldflags="-s -w -X main.version=${VERSION} -X main.buildCommit=${BUILD_SHA}" -o zen-brain ./cmd/zen-brain && \
     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -mod=vendor -ldflags="-s -w" -o foreman ./cmd/foreman && \
     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -mod=vendor -ldflags="-s -w" -o apiserver ./cmd/apiserver && \
-    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -mod=vendor -ldflags="-s -w" -o controller ./cmd/controller
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -mod=vendor -ldflags="-s -w" -o controller ./cmd/controller && \
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -mod=vendor -ldflags="-s -w" -o create-jira-issues ./cmd/create-jira-issues
 
 # Runtime stage (minimal Alpine image)
 FROM alpine:3.19
@@ -37,7 +38,7 @@ RUN apk --no-cache add ca-certificates && \
 # In-cluster binaries under /app (Block 6 bootstrap)
 # Use --chown to set ownership during copy (eliminates separate chown layer)
 WORKDIR /app
-COPY --from=builder --chown=zenuser:zenuser /build/zen-brain /build/foreman /build/apiserver /build/controller .
+COPY --from=builder --chown=zenuser:zenuser /build/zen-brain /build/foreman /build/apiserver /build/controller /build/create-jira-issues .
 
 USER zenuser
 ENTRYPOINT ["./zen-brain"]

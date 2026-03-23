@@ -166,6 +166,19 @@ func runEnhancedPreflightChecks(ctx context.Context, cfg *config.Config, report 
 		}
 	}
 
+	// ZB-CREDENTIAL-RAILS: Jira project key verification
+	// This ensures the configured project key is accessible before runtime starts
+	if cfg.Jira.Enabled {
+		jiraProjectCheck := PreflightJiraProjectKey(ctx, cfg)
+		preflightReport.Checks = append(preflightReport.Checks, *jiraProjectCheck)
+
+		// Fail fast on Jira project key failures
+		if pc.FailFast && !jiraProjectCheck.Healthy && jiraProjectCheck.Required {
+			preflightReport.Summary = buildEnhancedPreflightSummary(preflightReport)
+			return preflightReport, fmt.Errorf("fail-fast: Jira project key verification failed")
+		}
+	}
+
 	// Analyze results
 	analyzeEnhancedPreflightResults(preflightReport, pc)
 
