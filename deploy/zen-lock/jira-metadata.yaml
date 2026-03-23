@@ -1,41 +1,4 @@
-# Jira Integration Metadata (Non-Secret)
-# This file contains non-secret configuration for Jira integration.
-# Source-controlled since these are NOT credentials.
-
 jira:
-  # Jira instance URL (not a secret)
   url: "https://zen-mesh.atlassian.net"
-
-  # Jira user email (not a secret - public information)
   email: "zen@zen-mesh.io"
-
-  # Default project key for dogfood (not a secret)
   project_key: "ZB"
-
-  # Runtime credentials directory (ZenLock injection path)
-  credentials_dir: "/zen-lock/secrets"
-
-  # Fail-closed: no env fallback for credentials in cluster mode
-  allow_env_fallback: false
-
-  # Status mapping: Jira -> BrainTask
-  status_mapping:
-    "To Do": "requested"
-    "In Progress": "running"
-    "Done": "completed"
-    "Blocked": "blocked"
-
-  # Work type mapping: Jira -> BrainTask
-  worktype_mapping:
-    "Bug": "debug"
-    "Task": "implementation"
-    "Story": "design"
-    "Epic": "research"
-
-  # Priority mapping: Jira -> BrainTask
-  priority_mapping:
-    "Highest": "critical"
-    "High": "high"
-    "Medium": "medium"
-    "Low": "low"
-    "Lowest": "background"

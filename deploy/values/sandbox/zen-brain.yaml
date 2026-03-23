@@ -1,4 +1,18 @@
-# Optional base overrides for sandbox. Most values are generated from config/clusters.yaml.
-# Uncomment to override chart defaults.
-# image:
-#   tag: dev
+foreman:
+  env:
+    - name: ZEN_RUNTIME_PROFILE
+      value: dev
+    - name: ZEN_FOREMAN_ENABLE_LLM
+      value: "true"
+    - name: ZEN_FOREMAN_LLM_BASE_URL
+      value: "http://host.k3d.internal:11434"
+    - name: ZEN_FOREMAN_LLM_MODEL
+      value: "qwen3.5:0.8b"
+    - name: ZEN_FOREMAN_LLM_TIMEOUT_SECONDS
+      value: "2700"
+    - name: ZEN_FOREMAN_LLM_ENABLE_THINKING
+      value: "false"
+  jiraZenLock:
+    enabled: true
+    secretName: "jira-credentials"
+    mountPath: "/zen-lock/secrets"
