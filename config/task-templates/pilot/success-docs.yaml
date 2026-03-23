@@ -1,0 +1,35 @@
+# Success Path: Documentation Template
+# ZB-024: 45m timeout profile, bounded work, real Jira ticket creation
+
+summary: "Update or create system documentation (SUCCESS PATH)"
+description: |
+  This template is for bounded documentation work that improves the zen-brain system.
+  The planner will identify the specific documentation need, check for existing content,
+  and execute a focused update or creation task.
+
+labels:
+  - "documentation"
+  - "pilot-success"
+  - "system-improvement"
+
+work_type: "documentation"
+allowed_paths:
+  - "docs/"
+  - "README.md"
+  - "CONFIG.md"
+  - "DEPLOYMENT.md"
+  - "deploy/README.md"
+
+acceptance_criteria:
+  - "Documentation is clear, accurate, and complete"
+  - "All examples are tested and work as described"
+  - "Documentation follows project style conventions"
+  - "No placeholder or TODO text remains in final output"
+
+verification:
+  - "Documentation renders correctly (markdown, no broken links)"
+  - "Examples can be followed end-to-end without errors"
+  - "Documentation covers edge cases and troubleshooting"
+
+timeout_profile: "normal-45m"
+controlled_failure: false

@@ -1,0 +1,37 @@
+# Success Path: Runbook/Operations Template
+# ZB-024: 45m timeout profile, bounded work, real Jira ticket creation
+
+summary: "Create or update operational runbook (SUCCESS PATH)"
+description: |
+  This template is for bounded operations/runbook work that improves zen-brain reliability.
+  The planner will identify the operational need, check for existing procedures,
+  and execute a focused runbook creation or update.
+
+labels:
+  - "operations"
+  - "runbook"
+  - "pilot-success"
+  - "system-improvement"
+
+work_type: "operations"
+allowed_paths:
+  - "runbooks/"
+  - "docs/"
+  - "scripts/"
+  - "deploy/"
+
+acceptance_criteria:
+  - "Runbook has clear step-by-step procedures"
+  - "Prerequisites and dependencies are documented"
+  - "Troubleshooting section covers common failures"
+  - "Rollback procedures are included where applicable"
+  - "All commands are tested and work as documented"
+
+verification:
+  - "Runbook procedures work on actual system"
+  - "No ambiguous or missing steps"
+  - "Troubleshooting guide helps resolve actual issues"
+  - "Rollback tested and documented"
+
+timeout_profile: "normal-45m"
+controlled_failure: false

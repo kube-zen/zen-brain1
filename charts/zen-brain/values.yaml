@@ -12,8 +12,8 @@ image:
 ollama:
   baseUrl: ""       # Default for dev/sandbox: http://host.k3d.internal:11434
                       # In-cluster: http://ollama:11434 (optional/legacy/experimental)
-  timeoutSeconds: 1200 # local-worker/Ollama HTTP timeout; sandbox (CPU-only) can need 10–20min for first reply
-  keepAlive: "30m"    # OLLAMA_KEEP_ALIVE: how long to keep model resident after preload/verify ("30m", "-1" = indefinite)
+  timeoutSeconds: 2700 # local-worker/Ollama HTTP timeout; qwen3.5:0.8b on CPU needs 45m (2700s) for normal lane
+  keepAlive: "45m"    # OLLAMA_KEEP_ALIVE: keep model resident (45m for qwen3.5:0.8b normal lane; only controlled-failure path uses short timeout)
 
 apiserver:
   port: 8080
