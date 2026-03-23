@@ -99,11 +99,11 @@ func verifyJiraProjectAccess(ctx context.Context, cfg *config.Config, projectKey
 		Timeout: 10 * time.Second,
 	}
 
-	// Check 1: Verify project is visible in /project/search
-	searchURL := fmt.Sprintf("%s/rest/api/3/project/search", cfg.Jira.BaseURL)
-	req, err := http.NewRequestWithContext(ctx, "GET", searchURL, nil)
+	// Check 1: Verify authentication via /myself
+	myselfURL := fmt.Sprintf("%s/rest/api/3/myself", cfg.Jira.BaseURL)
+	req, err := http.NewRequestWithContext(ctx, "GET", myselfURL, nil)
 	if err != nil {
-		return false, "Failed to create project search request", fmt.Errorf("create request failed: %w", err)
+		return false, "Failed to create auth check request", fmt.Errorf("create request failed: %w", err)
 	}
 
 	req.SetBasicAuth(cfg.Jira.Email, cfg.Jira.APIToken)
@@ -111,19 +111,24 @@ func verifyJiraProjectAccess(ctx context.Context, cfg *config.Config, projectKey
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return false, fmt.Sprintf("Jira API unreachable: %v", err), fmt.Errorf("api unreachable: %w", err)
+		return false, fmt.Sprintf("Jira auth check unreachable: %v", err), fmt.Errorf("auth unreachable: %w", err)
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return false, fmt.Sprintf("Jira API returned status %d", resp.StatusCode), fmt.Errorf("api status %d", resp.StatusCode)
+	if resp.StatusCode == http.StatusUnauthorized {
+		return false, fmt.Sprintf("Jira auth failed (401) - invalid credentials for email %s", cfg.Jira.Email),
+			fmt.Errorf("auth failed for %s", cfg.Jira.Email)
 	}
 
-	// Check 2: Verify direct project access via /project/{key}
-	projectURL := fmt.Sprintf("%s/rest/api/3/project/%s", cfg.Jira.BaseURL, projectKey)
-	req2, err := http.NewRequestWithContext(ctx, "GET", projectURL, nil)
+	if resp.StatusCode != http.StatusOK {
+		return false, fmt.Sprintf("Jira auth check returned status %d", resp.StatusCode), fmt.Errorf("auth status %d", resp.StatusCode)
+	}
+
+	// Check 2: Verify project is visible in /project/search
+	searchURL := fmt.Sprintf("%s/rest/api/3/project/search", cfg.Jira.BaseURL)
+	req2, err := http.NewRequestWithContext(ctx, "GET", searchURL, nil)
 	if err != nil {
-		return false, "Failed to create project direct access request", fmt.Errorf("create request failed: %w", err)
+		return false, "Failed to create project search request", fmt.Errorf("create request failed: %w", err)
 	}
 
 	req2.SetBasicAuth(cfg.Jira.Email, cfg.Jira.APIToken)
@@ -131,27 +136,47 @@ func verifyJiraProjectAccess(ctx context.Context, cfg *config.Config, projectKey
 
 	resp2, err := client.Do(req2)
 	if err != nil {
-		return false, fmt.Sprintf("Jira project %s API check failed: %v", projectKey, err), fmt.Errorf("project check failed: %w", err)
+		return false, fmt.Sprintf("Jira project search failed: %v", err), fmt.Errorf("project search failed: %w", err)
 	}
 	defer resp2.Body.Close()
 
-	if resp2.StatusCode == http.StatusNotFound {
+	if resp2.StatusCode != http.StatusOK {
+		return false, fmt.Sprintf("Jira project search returned status %d", resp2.StatusCode), fmt.Errorf("project search status %d", resp2.StatusCode)
+	}
+
+	// Check 3: Verify direct project access via /project/{key}
+	projectURL := fmt.Sprintf("%s/rest/api/3/project/%s", cfg.Jira.BaseURL, projectKey)
+	req3, err := http.NewRequestWithContext(ctx, "GET", projectURL, nil)
+	if err != nil {
+		return false, "Failed to create project direct access request", fmt.Errorf("create request failed: %w", err)
+	}
+
+	req3.SetBasicAuth(cfg.Jira.Email, cfg.Jira.APIToken)
+	req3.Header.Set("Accept", "application/json")
+
+	resp3, err := client.Do(req3)
+	if err != nil {
+		return false, fmt.Sprintf("Jira project %s API check failed: %v", projectKey, err), fmt.Errorf("project check failed: %w", err)
+	}
+	defer resp3.Body.Close()
+
+	if resp3.StatusCode == http.StatusNotFound {
 		return false, fmt.Sprintf("Jira project %s not found or not accessible to runtime account %s", projectKey, cfg.Jira.Email),
 			fmt.Errorf("project %s not accessible", projectKey)
 	}
 
-	if resp2.StatusCode == http.StatusForbidden {
+	if resp3.StatusCode == http.StatusForbidden {
 		return false, fmt.Sprintf("Jira project %s forbidden - runtime account %s lacks permissions", projectKey, cfg.Jira.Email),
 			fmt.Errorf("project %s forbidden", projectKey)
 	}
 
-	if resp2.StatusCode != http.StatusOK {
-		return false, fmt.Sprintf("Jira project %s returned status %d", projectKey, resp2.StatusCode),
-			fmt.Errorf("project %s status %d", projectKey, resp2.StatusCode)
+	if resp3.StatusCode != http.StatusOK {
+		return false, fmt.Sprintf("Jira project %s returned status %d", projectKey, resp3.StatusCode),
+			fmt.Errorf("project %s status %d", projectKey, resp3.StatusCode)
 	}
 
-	// Success - project key is accessible
-	return true, fmt.Sprintf("Jira project key %s verified and accessible to %s", projectKey, cfg.Jira.Email), nil
+	// Success - auth good and project key is accessible
+	return true, fmt.Sprintf("Jira auth OK, project key %s verified and accessible to %s", projectKey, cfg.Jira.Email), nil
 }
 
 // LogJiraProjectKey logs the configured Jira project key at startup for observability.

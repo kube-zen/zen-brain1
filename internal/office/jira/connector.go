@@ -232,28 +232,6 @@ func (j *JiraOffice) ValidateConfig() error {
 	return nil
 }
 
-// Ping performs a lightweight API reachability check (e.g. GET /rest/api/3/myself or project).
-func (j *JiraOffice) Ping(ctx context.Context) error {
-	if err := j.ValidateConfig(); err != nil {
-		return err
-	}
-	// Prefer project key if set, otherwise /myself
-	path := "/rest/api/3/myself"
-	if j.config.ProjectKey != "" {
-		path = fmt.Sprintf("/rest/api/3/project/%s", url.PathEscape(j.config.ProjectKey))
-	}
-	resp, err := j.jiraRequest(ctx, "GET", path, nil)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("ping failed (status %d): %s", resp.StatusCode, string(body))
-	}
-	return nil
-}
-
 // formatAIAttribution formats an AI attribution header according to V6 spec.
 
 // injectAIAttribution injects AI attribution into comment body.

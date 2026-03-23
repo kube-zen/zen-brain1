@@ -170,12 +170,31 @@ func runOfficeDoctor() {
 		fmt.Printf("ValidateConfig: %v\n", err)
 		return
 	}
+
+	// Split validation into auth and project checks
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	if err := jiraConn.Ping(ctx); err != nil {
-		fmt.Printf("API reachability: failed (%v)\n", err)
+
+	// Check authentication via /myself
+	fmt.Println()
+	fmt.Println("=== Jira Validation ===")
+	authErr := jiraConn.CheckAuth(ctx)
+	if authErr != nil {
+		fmt.Printf("Auth check: FAIL (%v)\n", authErr)
 	} else {
-		fmt.Println("API reachability: ok")
+		fmt.Println("Auth check: PASS")
+	}
+
+	// Check project access if auth passes
+	if authErr == nil && jiraConn.Config().ProjectKey != "" {
+		projectErr := jiraConn.CheckProjectAccess(ctx)
+		if projectErr != nil {
+			fmt.Printf("Project check: FAIL (%v)\n", projectErr)
+		} else {
+			fmt.Printf("Project check: PASS (project %s accessible)\n", jiraConn.Config().ProjectKey)
+		}
+	} else if authErr == nil && jiraConn.Config().ProjectKey == "" {
+		fmt.Println("Project check: SKIP (no project key configured)")
 	}
 }
 
