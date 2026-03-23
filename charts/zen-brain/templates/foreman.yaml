@@ -78,7 +78,7 @@ spec:
           args:
             - "-metrics-bind-address=:8080"
             - "-health-probe-bind-address=:8081"
-            - "-workers=2"
+            - "-workers={{ .Values.foreman.workerCount }}"
           env:
             - name: ZEN_FOREMAN_RUNTIME_DIR
               value: "/tmp/zen-brain-factory"

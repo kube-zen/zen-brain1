@@ -34,6 +34,7 @@ apiserver:
       cpu: "200m"
 
 foreman:
+  workerCount: 5  # Number of parallel workers (pilot default: 5)
   env:
     - name: ZEN_RUNTIME_PROFILE
       value: dev

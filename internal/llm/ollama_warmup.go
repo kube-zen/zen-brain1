@@ -50,7 +50,7 @@ func NewOllamaWarmupCoordinator(baseURL, model, keepAlive string, timeoutSec int
 		keepAlive = DefaultKeepAlive
 	}
 	if timeoutSec <= 0 {
-		timeoutSec = 300
+		timeoutSec = 2700 // ZB-024: 45 minutes for qwen3.5:0.8b normal lane
 	}
 	return &OllamaWarmupCoordinator{
 		baseURL:    baseURL,

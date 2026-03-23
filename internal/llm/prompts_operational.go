@@ -2,15 +2,25 @@
 // ZB-024: Operational planner/worker prompts - bounded work, blueprint outputs, no code examples in planning.
 package llm
 
-// InitializeOperationalManager creates a prompt manager with operational templates only.
-// Used by DefaultTemplates() to register operational prompts alongside default ones.
-func InitializeOperationalManager() *PromptManager {
-
 import (
 	"fmt"
 	"strings"
-	"text/template"
 )
+
+// InitializeOperationalManager creates a prompt manager with operational templates only.
+// Used by DefaultTemplates() to register operational prompts alongside default ones.
+func InitializeOperationalManager() *PromptManager {
+	manager := NewPromptManager()
+	templates := OperationalTemplates()
+
+	for _, template := range templates {
+		if err := manager.RegisterTemplate(template); err != nil {
+			continue
+		}
+	}
+
+	return manager
+}
 
 // OperationalTemplates returns zen-brain 0.1 style prompt templates.
 // These prompts follow the operational pattern: bounded work, clear requirements, structured outputs.
@@ -179,20 +189,6 @@ NOTES: <any issues, blockers, or dependencies encountered>`,
 			Variables:   []string{"work_item", "template", "path_scope", "requirements", "expected_behavior", "verification", "acceptance_criteria", "is_success_path", "proof_instructions"},
 		},
 	}
-}
-
-// InitializeOperationalManager creates a prompt manager with operational templates.
-func InitializeOperationalManager() *PromptManager {
-	manager := NewPromptManager()
-	templates := OperationalTemplates()
-
-	for _, template := range templates {
-		if err := manager.RegisterTemplate(template); err != nil {
-			continue
-		}
-	}
-
-	return manager
 }
 
 // RenderPlannerContext creates work context string for planner prompt.

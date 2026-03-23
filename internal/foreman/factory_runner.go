@@ -101,7 +101,7 @@ func NewFactoryTaskRunner(cfg FactoryTaskRunnerConfig) (*FactoryTaskRunner, erro
 			cfg.LLMModel = "qwen3.5:0.8b"
 		}
 		if cfg.LLMTimeoutSeconds == 0 {
-			cfg.LLMTimeoutSeconds = 300
+			cfg.LLMTimeoutSeconds = 2700 // ZB-024: 45 minutes for qwen3.5:0.8b normal lane
 		}
 
 		// ZB-023: FAIL-CLOSED - Enforce thinking default for local CPU path
