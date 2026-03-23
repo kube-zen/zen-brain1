@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"github.com/kube-zen/zen-brain1/internal/config"
@@ -29,6 +30,32 @@ func main() {
 	log.Printf("  Token present: %v (length=%d)", cfg.Jira.APIToken != "", len(cfg.Jira.APIToken))
 	log.Printf("  Credentials source: %s", cfg.Jira.CredentialsSource)
 	log.Printf("  Enabled: %v", cfg.Jira.Enabled)
+
+	// Debug output
+	if cfg.Jira.BaseURL == "" {
+		log.Println("WARNING: Jira URL is empty, trying env vars")
+		if url := os.Getenv("JIRA_URL"); url != "" {
+			cfg.Jira.BaseURL = url
+			log.Printf("  Set Jira URL from env: %s", cfg.Jira.BaseURL)
+		}
+	}
+	if cfg.Jira.APIToken == "" {
+		log.Println("WARNING: Jira API token is empty, trying env vars")
+		if token := os.Getenv("JIRA_API_TOKEN"); token != "" {
+			cfg.Jira.APIToken = token
+			log.Printf("  Set token from env, length: %d", len(cfg.Jira.APIToken))
+		} else if token := os.Getenv("JIRA_TOKEN"); token != "" {
+			cfg.Jira.APIToken = token
+			log.Printf("  Set token from JIRA_TOKEN, length: %d", len(cfg.Jira.APIToken))
+		}
+	}
+	if cfg.Jira.Email == "" {
+		log.Println("WARNING: Jira email is empty, trying env vars")
+		if email := os.Getenv("JIRA_EMAIL"); email != "" {
+			cfg.Jira.Email = email
+			log.Printf("  Set email from env: %s", cfg.Jira.Email)
+		}
+	}
 
 	// Use exact same office manager initialization as office doctor
 	mgr, err := integration.InitOfficeManagerFromConfig(cfg)

@@ -23,6 +23,21 @@ func (j *JiraOffice) CreateWorkItem(ctx context.Context, clusterID string, item 
 		return nil, fmt.Errorf("project_key is required")
 	}
 
+	// Map priority to Jira priority name
+	priorityName := "Medium" // default
+	switch item.Priority {
+	case contracts.PriorityCritical:
+		priorityName = "Highest"
+	case contracts.PriorityHigh:
+		priorityName = "High"
+	case contracts.PriorityMedium:
+		priorityName = "Medium"
+	case contracts.PriorityLow:
+		priorityName = "Low"
+	case contracts.PriorityBackground:
+		priorityName = "Lowest"
+	}
+
 	// Build Jira create payload
 	jiraIssue := JiraIssueCreate{
 		Fields: IssueFields{
@@ -47,7 +62,7 @@ func (j *JiraOffice) CreateWorkItem(ctx context.Context, clusterID string, item 
 				Name: "Task", // Always use "Task" issue type for creation
 			},
 			Priority: Priority{
-				Name: string(item.Priority), // Convert to string for mapping
+				Name: priorityName,
 			},
 		},
 	}
