@@ -39,8 +39,8 @@ providers:
         rate_limit_rpm: 120  # 20 workers * 6 requests/min each
         rate_limit_rpd: 100000
         certified_local_cpu: true  # Only this model is certified for local CPU
-    timeout_seconds: 300  # 5 minutes - generous for CPU inference
-    keep_alive: "30m"  # Keep model resident
+    timeout_seconds: 2700  # ZB-024: 45 minutes for qwen3.5:0.8b normal lane
+    keep_alive: "45m"  # ZB-024: Keep model resident for 45 minutes
 
   # GLM Provider (Z.AI) - Cloud-based
   - name: zen-glm

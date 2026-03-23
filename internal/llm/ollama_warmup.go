@@ -15,8 +15,9 @@ import (
 	"time"
 )
 
-// DefaultKeepAlive is the default keep_alive for preload and verify (OLLAMA_KEEP_ALIVE or "30m").
-const DefaultKeepAlive = "30m"
+// DefaultKeepAlive is the default keep_alive for preload and verify (OLLAMA_KEEP_ALIVE or "45m").
+// ZB-024: 45m for qwen3.5:0.8b normal lane; only controlled-failure path uses short timeout.
+const DefaultKeepAlive = "45m"
 
 // WarmupResult holds the result of a warmup run for logging and metrics.
 type WarmupResult struct {
@@ -73,7 +74,8 @@ func (c *OllamaWarmupCoordinator) DoWarmup(ctx context.Context) {
 
 	timeout := time.Duration(c.timeoutSec) * time.Second
 	if timeout <= 0 {
-		timeout = 300 * time.Second
+		// ZB-024: Default to 2700s (45m) for qwen3.5:0.8b normal lane
+		timeout = 2700 * time.Second
 	}
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()

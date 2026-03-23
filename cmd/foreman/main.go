@@ -25,6 +25,7 @@ import (
 	internalcontext "github.com/kube-zen/zen-brain1/internal/context"
 	"github.com/kube-zen/zen-brain1/internal/evidence"
 	"github.com/kube-zen/zen-brain1/internal/feedback"
+	internalllm "github.com/kube-zen/zen-brain1/internal/llm"
 	"github.com/kube-zen/zen-brain1/internal/foreman"
 	"github.com/kube-zen/zen-brain1/internal/office/jira"
 	"github.com/kube-zen/zen-brain1/internal/gate"
@@ -150,6 +151,22 @@ func main() {
 	if keepAlive == "" {
 		keepAlive = "45m"
 	}
+
+	// ZB-024: Log operational prompt templates availability
+	promptMgr := internalllm.InitializeDefaultManager()
+	operationalPlannerTmpl, _ := promptMgr.GetTemplate("planner_operational")
+	operationalWorkerTmpl, _ := promptMgr.GetTemplate("worker_operational")
+	if operationalPlannerTmpl != nil {
+		log.Printf("  [ZB-024] Operational planner prompt: REGISTERED")
+	} else {
+		log.Printf("  [ZB-024] Operational planner prompt: NOT FOUND")
+	}
+	if operationalWorkerTmpl != nil {
+		log.Printf("  [ZB-024] Operational worker prompt: REGISTERED")
+	} else {
+		log.Printf("  [ZB-024] Operational worker prompt: NOT FOUND")
+	}
+
 	staleThreshold := os.Getenv("ZEN_FOREMAN_STALE_THRESHOLD")
 	if staleThreshold == "" {
 		staleThreshold = "60m"

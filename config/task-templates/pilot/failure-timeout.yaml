@@ -1,0 +1,40 @@
+# Controlled Failure Path: Timeout Testing Template
+# ZB-024: Short timeout for controlled failure testing ONLY
+
+summary: "Test timeout behavior and error handling (CONTROLLED FAILURE PATH)"
+description: |
+  This template is ONLY for intentional timeout testing to verify error handling.
+  This is a controlled failure path for validating that zen-brain correctly
+  handles timeout scenarios and provides useful feedback.
+
+  WARNING: This template deliberately uses short timeouts to trigger failures.
+  DO NOT use this template for normal work. Use success-docs.yaml or
+  success-runbook.yaml for actual work.
+
+labels:
+  - "testing"
+  - "timeout-test"
+  - "controlled-failure"
+  - "pilot-validation"
+
+work_type: "testing"
+allowed_paths:
+  - "test/timeout/"
+  - "test/failure/"
+
+acceptance_criteria:
+  - "Test intentionally triggers timeout"
+  - "System handles timeout gracefully without panic"
+  - "Error messages are clear and actionable"
+  - "Session state is correctly updated to failed/timeout"
+  - "No resource leaks or orphaned processes"
+
+verification:
+  - "Timeout occurs at expected time (short timeout profile)"
+  - "Logs show proper error handling flow"
+  - "Jira ticket reflects timeout/failure status"
+  - "System remains operational after test"
+  - "Cleanup happens automatically (no manual intervention needed)"
+
+timeout_profile: "short-test"
+controlled_failure: true

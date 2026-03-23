@@ -7,8 +7,8 @@ replicas: 1
 
 image: ollama/ollama:latest
 
-# OLLAMA_KEEP_ALIVE: keep model loaded for warm inference; 30m for sandbox to avoid cold starts
-keepAlive: "30m"  # was "2m" which caused models to evict before warmupTTL (5m) expired
+# OLLAMA_KEEP_ALIVE: keep model loaded for warm inference; 45m for qwen3.5:0.8b normal lane (ZB-024)
+keepAlive: "45m"  # ZB-024: 45 minutes for qwen3.5:0.8b normal lane
 
 models: []  # e.g. ["qwen3.5:0.8b"]; preload Job pulls declaratively
 

@@ -27,7 +27,7 @@ roles:
     allowed_providers: ["local-worker", "zen-glm", "deepseek", "openai", "anthropic"]
     default_provider: "local-worker"  # Use local 0.8b by default
     max_tokens_per_request: 4000
-    timeout_seconds: 300
+    timeout_seconds: 2700  # ZB-024: 45 minutes for qwen3.5:0.8b normal lane
     supports_thinking: false  # Worker path defaults to no thinking
     system_prompt_override: |
       You are a Worker Agent that executes bounded tasks efficiently.
@@ -46,7 +46,7 @@ roles:
     allowed_providers: ["local-worker", "zen-glm", "deepseek", "openai", "anthropic"]
     default_provider: "local-worker"  # Local 0.8b can plan too
     max_tokens_per_request: 8000
-    timeout_seconds: 600
+    timeout_seconds: 2700  # ZB-024: 45 minutes for qwen3.5:0.8b normal lane
     supports_thinking: true  # Planning benefits from chain-of-thought
     system_prompt_override: |
       You are a Planner Agent that breaks down complex tasks into actionable steps.
@@ -65,7 +65,7 @@ roles:
     allowed_providers: ["local-worker", "zen-glm", "deepseek", "openai", "anthropic"]
     default_provider: "zen-glm"  # Prefer larger model for code review
     max_tokens_per_request: 8000
-    timeout_seconds: 600
+    timeout_seconds: 2700  # ZB-024: 45 minutes for qwen3.5:0.8b normal lane
     supports_thinking: false
     system_prompt_override: |
       You are a Code Review Agent that provides constructive feedback.
@@ -82,7 +82,7 @@ roles:
     allowed_providers: ["local-worker", "zen-glm", "deepseek", "openai", "anthropic"]
     default_provider: "local-worker"  # Local 0.8b sufficient for summarization
     max_tokens_per_request: 4000
-    timeout_seconds: 300
+    timeout_seconds: 2700  # ZB-024: 45 minutes for qwen3.5:0.8b normal lane
     supports_thinking: false
     system_prompt_override: |
       You are a Summarizer Agent that distills information into clear summaries.
@@ -100,7 +100,7 @@ roles:
     allowed_providers: ["local-worker", "zen-glm", "deepseek", "openai", "anthropic"]
     default_provider: "zen-glm"  # Prefer larger model for debugging
     max_tokens_per_request: 6000
-    timeout_seconds: 600
+    timeout_seconds: 2700  # ZB-024: 45 minutes normal timeout (cloud can use longer if needed)
     supports_thinking: false
     system_prompt_override: |
       You are a Debugging Agent that identifies and resolves issues.

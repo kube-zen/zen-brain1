@@ -132,7 +132,8 @@ func (pt *PromptTemplate) compile() (*template.Template, error) {
 
 // DefaultTemplates returns the default prompt templates.
 func DefaultTemplates() []*PromptTemplate {
-	return []*PromptTemplate{
+	// Include both default templates AND operational templates for pilot
+	templates := []*PromptTemplate{
 		{
 			Name:         "work_item_analysis",
 			Role:         RoleAnalyzer,
@@ -359,6 +360,12 @@ func InitializeDefaultManager() *PromptManager {
 			continue
 		}
 	}
-	
+
+	// Register operational templates for pilot execution (ZB-024)
+	operationalManager := InitializeOperationalManager()
+	for name, template := range operationalManager.templates {
+		manager.templates[name] = template
+	}
+
 	return manager
 }

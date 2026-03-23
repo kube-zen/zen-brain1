@@ -1319,7 +1319,7 @@ func convertToFactoryTaskSpec(brainTask contracts.BrainTaskSpec, sessionID, work
 		WorkType:       brainTask.WorkType,
 		WorkDomain:     brainTask.WorkDomain,
 		Priority:       brainTask.Priority,
-		TimeoutSeconds: 300, // 5 minutes default timeout
+		TimeoutSeconds: 2700, // ZB-024: 45 minutes for qwen3.5:0.8b normal lane (only controlled-failure uses short timeout)
 		MaxRetries:     3,   // 3 retries default
 		CreatedAt:      now,
 		UpdatedAt:      now,
