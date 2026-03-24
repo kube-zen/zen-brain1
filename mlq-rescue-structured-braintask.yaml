@@ -8,6 +8,10 @@ metadata:
     zen.kube-zen.com/work-type: implementation
 spec:
   title: "Rescue MLQ from zen-brain 0.1 (Structured Prompt)"
+  workItemID: "ZB-281"
+  workDomain: office
+  workType: implementation
+  sessionID: "mlq-rescue-level2-v3"
   objective: |
     ADAPT the MLQ (Multi-Level Queue) abstraction from zen-brain 0.1 to zen-brain 1.0.
 
@@ -29,12 +33,8 @@ spec:
 
     If a required symbol is missing, report blocker instead of inventing it.
   acceptanceCriteria:
-    - internal/mlq/selector.go exists with MLQ selection logic
-    - Code compiles: go build ./...
-    - Reuses pkg/llm types (Provider, ChatRequest, ChatResponse)
-    - No fake imports or invented packages
-    - Tests pass if present
-  labels:
-    - zen-structured-prompt
-    - zen-adapt-not-copy
-    - zen-no-fake-imports
+    - "internal/mlq/selector.go exists with MLQ selection logic"
+    - "Code compiles: go build ./..."
+    - "Reuses pkg/llm types (Provider, ChatRequest, ChatResponse)"
+    - "No fake imports or invented packages"
+    - "Tests pass if present"

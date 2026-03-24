@@ -21,9 +21,11 @@ type FactoryTaskSpec struct {
 	WorkItemID string `json:"work_item_id"`
 
 	// Work definition
-	Title       string   `json:"title"`
-	Objective   string   `json:"objective"`
-	Constraints []string `json:"constraints,omitempty"`
+	Title             string   `json:"title"`
+	Objective         string   `json:"objective"`
+	Description       string   `json:"description,omitempty"`
+	Constraints       []string `json:"constraints,omitempty"`
+	AcceptanceCriteria []string `json:"acceptance_criteria,omitempty"`
 
 	// Classification
 	WorkType   contracts.WorkType   `json:"work_type"`
@@ -191,12 +193,14 @@ const (
 // GenerationRequest contains all context needed for code generation.
 type GenerationRequest struct {
 	// Work item details
-	WorkItemID string
-	Title      string
-	Objective  string
-	WorkType   string
-	WorkDomain string
-	JiraKey    string // For structured rescue prompts
+	WorkItemID        string
+	Title             string
+	Objective         string
+	Description       string   // Task description for context
+	AcceptanceCriteria []string // Acceptance criteria from task spec
+	WorkType          string
+	WorkDomain        string
+	JiraKey           string // For structured rescue prompts
 
 	// Project context
 	ProjectType   string // "go", "python", "node", etc.

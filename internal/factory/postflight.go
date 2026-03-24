@@ -84,6 +84,8 @@ func (p *PostflightVerifier) RunPostflightVerification(ctx context.Context, resu
 		{"workspace_clean", p.checkWorkspaceClean},
 		{"artifacts_generated", p.checkArtifactsGenerated},
 		{"files_verified", p.checkFilesCreated},
+		{"code_compiles", p.checkCodeCompiles},
+		{"no_fake_imports", p.checkNoFakeImports},
 		{"tests_verified", p.checkTestsRan},
 		{"git_status", p.checkGitStatus},
 		{"proof_of_work", p.checkProofOfWork},
@@ -113,6 +115,8 @@ func (p *PostflightVerifier) RunPostflightVerification(ctx context.Context, resu
 		"execution_completed": true,
 		"files_verified":      result.FilesChanged != nil && len(result.FilesChanged) > 0,
 		"proof_of_work":       true,
+		"code_compiles":       true, // ZB-281 C022: compile failure is always critical
+		"no_fake_imports":     true, // ZB-281 C022: fake imports are always critical
 	}
 
 	failedCriticalChecks := []string{}
@@ -485,8 +489,9 @@ func (p *PostflightVerifier) checkFilesCreated(ctx context.Context, result *Exec
 	if len(result.FilesChanged) == 0 {
 		return PostflightCheckResult{
 			Name:     "files_verified",
-			Passed:   true,
-			Message:  "No files declared as changed",
+			Passed:   false,
+			Message:  "No files generated — hard failure",
+			Details:  "Task completed but produced zero files",
 			Duration: time.Since(start),
 		}, nil
 	}
@@ -647,4 +652,122 @@ func (p *PostflightVerifier) MustRunPostflightVerification(ctx context.Context, 
 	}
 
 	return report, nil
+}
+
+// checkCodeCompiles verifies that generated Go code compiles successfully.
+// ZB-281 C022: This is a critical hard gate when the toolchain is available.
+func (p *PostflightVerifier) checkCodeCompiles(ctx context.Context, result *ExecutionResult, spec *FactoryTaskSpec) (PostflightCheckResult, error) {
+	start := time.Now()
+
+	if result.WorkspacePath == "" {
+		return PostflightCheckResult{
+			Name:     "code_compiles",
+			Passed:   false,
+			Message:  "No workspace path — cannot verify compilation",
+			Duration: time.Since(start),
+		}, nil
+	}
+
+	// Check if go toolchain is available
+	if _, err := exec.LookPath("go"); err != nil {
+		return PostflightCheckResult{
+			Name:     "code_compiles",
+			Passed:   true,
+			Message:  "Skipped: go toolchain not available in runtime container",
+			Duration: time.Since(start),
+		}, nil
+	}
+
+	// Run go build ./... in the workspace
+	cmd := exec.CommandContext(ctx, "go", "build", "./...")
+	cmd.Dir = result.WorkspacePath
+	output, err := cmd.CombinedOutput()
+
+	if err != nil {
+		// Truncate output to avoid huge logs
+		outStr := string(output)
+		if len(outStr) > 500 {
+			outStr = outStr[:500] + "... (truncated)"
+		}
+		return PostflightCheckResult{
+			Name:     "code_compiles",
+			Passed:   false,
+			Message:  fmt.Sprintf("go build ./... failed: %s", strings.TrimSpace(outStr)),
+			Details:  outStr,
+			Duration: time.Since(start),
+		}, nil
+	}
+
+	return PostflightCheckResult{
+		Name:     "code_compiles",
+		Passed:   true,
+		Message:  "go build ./... passed",
+		Duration: time.Since(start),
+	}, nil
+}
+
+// checkNoFakeImports scans generated files for hallucinated imports.
+// ZB-281 C022: Fake imports indicate the model invented code rather than adapted it.
+func (p *PostflightVerifier) checkNoFakeImports(ctx context.Context, result *ExecutionResult, spec *FactoryTaskSpec) (PostflightCheckResult, error) {
+	start := time.Now()
+
+	// Known fake/suspicious import patterns from previous hallucination evidence
+	fakePatterns := []string{
+		"github.com/alexmiller/",
+		"github.com/tidwall/",
+		"github.com/example.com/",
+		"github.com/stretchr/testify/mock",
+		"github.com/prometheus/client_golang/prometheus",
+		"github.com/sirupsen/logrus",
+	}
+
+	if len(result.FilesChanged) == 0 {
+		return PostflightCheckResult{
+			Name:     "no_fake_imports",
+			Passed:   false,
+			Message:  "No files to scan for fake imports",
+			Duration: time.Since(start),
+		}, nil
+	}
+
+	violations := []string{}
+	for _, fpath := range result.FilesChanged {
+		absPath := fpath
+		if !filepath.IsAbs(fpath) && result.WorkspacePath != "" {
+			absPath = filepath.Join(result.WorkspacePath, fpath)
+		}
+
+		content, err := os.ReadFile(absPath)
+		if err != nil {
+			continue // File might not exist, skip
+		}
+
+		for _, pattern := range fakePatterns {
+			if strings.Contains(string(content), pattern) {
+				violations = append(violations, fmt.Sprintf("%s contains %q", filepath.Base(fpath), pattern))
+			}
+		}
+
+		// Check for "command execution not implemented" marker (previous hallucination)
+		if strings.Contains(string(content), "command execution not implemented") {
+			violations = append(violations, fmt.Sprintf("%s contains placeholder marker", filepath.Base(fpath)))
+		}
+	}
+
+	if len(violations) > 0 {
+		return PostflightCheckResult{
+			Name:     "no_fake_imports",
+			Passed:   false,
+			Message:  fmt.Sprintf("%d fake/disallowed import violations: %s", len(violations), strings.Join(violations, "; ")),
+			Details:  strings.Join(violations, "\n"),
+			Duration: time.Since(start),
+		}, nil
+	}
+
+	return PostflightCheckResult{
+		Name:     "no_fake_imports",
+		Passed:   true,
+		Message:  fmt.Sprintf("No fake imports detected across %d files", len(result.FilesChanged)),
+		Duration: time.Since(start),
+	}, nil
 }

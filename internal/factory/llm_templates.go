@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -92,8 +93,18 @@ func (e *LLMTemplateExecutor) Execute(ctx context.Context, spec *FactoryTaskSpec
 	log.Printf("[LLMTemplate] Generated %s implementation for %s (model=%s, tokens=%d)",
 		e.config.Type, spec.WorkItemID, implResult.Model, implResult.TokensUsed)
 
+	// 2b. Reject empty/trivial output
+	if strings.TrimSpace(implResult.Code) == "" {
+		return nil, fmt.Errorf("LLM generated empty code for task %s", spec.WorkItemID)
+	}
+
 	// 3. Write generated code to target file
 	targetPath := e.determineTargetPath(spec, workspacePath, implResult.Language)
+	// Override target path if task specified explicit target files
+	if len(req.TargetFiles) > 0 {
+		targetPath = filepath.Join(workspacePath, req.TargetFiles[0])
+		log.Printf("[LLMTemplate] Using explicit target path from task spec: %s", targetPath)
+	}
 	if err := e.writeFile(targetPath, implResult.Code); err != nil {
 		return nil, fmt.Errorf("write implementation: %w", err)
 	}
@@ -152,11 +163,14 @@ func (e *LLMTemplateExecutor) Execute(ctx context.Context, spec *FactoryTaskSpec
 		}
 	}
 
-	// 6. Validate code if requested
+	// 6. Validate code if requested — HARD GATE when toolchain is available
 	if e.config.ValidateCode {
-		if err := e.validateCode(ctx, workspacePath, targetPath); err != nil {
-			log.Printf("[LLMTemplate] Warning: code validation failed: %v", err)
-			// Don't fail - just warn
+		// Check if build toolchain is available in container
+		if _, toolErr := exec.LookPath("go"); toolErr != nil {
+			log.Printf("[LLMTemplate] Skipping code validation: go toolchain not available in container (postflight will validate)")
+		} else if err := e.validateCode(ctx, workspacePath, targetPath); err != nil {
+			log.Printf("[LLMTemplate] HARD FAILURE: code validation failed: %v", err)
+			return filesCreated, fmt.Errorf("code validation hard failure: %w", err)
 		}
 	}
 
@@ -170,15 +184,17 @@ func (e *LLMTemplateExecutor) Execute(ctx context.Context, spec *FactoryTaskSpec
 // buildGenerationRequest gathers context for LLM generation.
 func (e *LLMTemplateExecutor) buildGenerationRequest(ctx context.Context, spec *FactoryTaskSpec, workspacePath string) (*GenerationRequest, error) {
 	req := &GenerationRequest{
-		WorkItemID:    spec.WorkItemID,
-		Title:         spec.Title,
-		Objective:     spec.Objective,
-		WorkType:      string(e.config.Type),
-		WorkDomain:    string(spec.WorkDomain),
-		ProjectType:   "go", // Default to Go, will detect
-		PackageName:   "main",
-		RelatedFiles:  make(map[string]string),
-		Constraints:   []string{},
+		WorkItemID:         spec.WorkItemID,
+		Title:              spec.Title,
+		Objective:          spec.Objective,
+		Description:        spec.Description,
+		AcceptanceCriteria: spec.AcceptanceCriteria,
+		WorkType:           string(e.config.Type),
+		WorkDomain:         string(spec.WorkDomain),
+		ProjectType:        "go", // Default to Go, will detect
+		PackageName:        "main",
+		RelatedFiles:       make(map[string]string),
+		Constraints:        []string{},
 	}
 
 	// Check if this is a rescue task with structured prompt
@@ -510,9 +526,21 @@ func (e *LLMTemplateExecutor) runCommand(ctx context.Context, cmd string, timeou
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	// Use executor if available, otherwise simple exec
-	// This is a simplified version - in production would use proper executor
-	return "", fmt.Errorf("command execution not implemented - would run: %s", cmd)
+	// Parse command: "cd DIR && CMD ARGS..."
+	parts := strings.SplitN(cmd, "&&", 2)
+	if len(parts) == 2 {
+		cdParts := strings.Fields(strings.TrimSpace(parts[0]))
+		if len(cdParts) == 2 && cdParts[0] == "cd" {
+			execCmd := exec.CommandContext(ctx, "sh", "-c", strings.TrimSpace(parts[1]))
+			execCmd.Dir = cdParts[1]
+			output, err := execCmd.CombinedOutput()
+			return string(output), err
+		}
+	}
+
+	execCmd := exec.CommandContext(ctx, "sh", "-c", cmd)
+	output, err := execCmd.CombinedOutput()
+	return string(output), err
 }
 
 // RegisterLLMTemplates registers LLM-powered templates in the registry.

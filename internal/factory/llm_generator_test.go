@@ -228,6 +228,7 @@ func TestLLMGenerator_ExtractCode(t *testing.T) {
 		input     string
 		wantCode  string
 		wantLang  string
+		wantErr   bool
 	}{
 		{
 			name:     "go code block",
@@ -242,10 +243,11 @@ func TestLLMGenerator_ExtractCode(t *testing.T) {
 			wantLang: "python",
 		},
 		{
-			name:     "no code block",
+			name:     "no code block - narrative rejected",
 			input:    "Just plain text without code blocks",
-			wantCode: "Just plain text without code blocks",
-			wantLang: "text",
+			wantCode: "",
+			wantLang: "",
+			wantErr:  true,
 		},
 		{
 			name:     "unclosed code block",
@@ -263,7 +265,16 @@ func TestLLMGenerator_ExtractCode(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			code, lang := generator.extractCode(tt.input)
+			code, lang, err := generator.extractCode(tt.input)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected error but got none")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
 
 			if code != tt.wantCode {
 				t.Errorf("extractCode() code = %q, want %q", code, tt.wantCode)

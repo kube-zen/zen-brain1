@@ -122,7 +122,10 @@ func (g *LLMGenerator) GenerateImplementation(ctx context.Context, req *Generati
 	}
 
 	// Extract code from response
-	code, language := g.extractCode(resp.Content)
+	code, language, err := g.extractCode(resp.Content)
+	if err != nil {
+		return nil, fmt.Errorf("code extraction failed: %w", err)
+	}
 
 	// Get token count
 	tokensUsed := 0
@@ -177,12 +180,22 @@ func (g *LLMGenerator) getSystemPrompt(req *GenerationRequest) string {
 
 	// Output format
 	sb.WriteString("\n**Output Format:**\n")
-	sb.WriteString("Return the code in a markdown code block with language identifier.\n")
-	sb.WriteString("Example:\n")
-	sb.WriteString("```go\n")
-	sb.WriteString("package example\n\n")
-	sb.WriteString("// Code here\n")
-	sb.WriteString("```\n")
+	if len(req.TargetFiles) > 0 {
+		sb.WriteString("When generating code for multiple files, use structured multi-file output:\n")
+		sb.WriteString("For each file, output:\n")
+		sb.WriteString("FILE: <relative/path/to/file.go>\n")
+		sb.WriteString("```go\n")
+		sb.WriteString("// code here\n")
+		sb.WriteString("```\n\n")
+		sb.WriteString("Separate each file with a blank line. Include all target files.\n")
+	} else {
+		sb.WriteString("Return the code in a markdown code block with language identifier.\n")
+		sb.WriteString("Example:\n")
+		sb.WriteString("```go\n")
+		sb.WriteString("package example\n\n")
+		sb.WriteString("// Code here\n")
+		sb.WriteString("```\n")
+	}
 
 	return sb.String()
 }
@@ -194,6 +207,40 @@ func (g *LLMGenerator) buildImplementationPrompt(req *GenerationRequest) string 
 	sb.WriteString(fmt.Sprintf("## Task: Implement %s\n\n", req.Title))
 	sb.WriteString(fmt.Sprintf("**Work Item ID:** %s\n\n", req.WorkItemID))
 	sb.WriteString(fmt.Sprintf("**Objective:**\n%s\n\n", req.Objective))
+
+	// Add description if available
+	if req.Description != "" {
+		sb.WriteString("**Description:**\n")
+		sb.WriteString(req.Description)
+		sb.WriteString("\n\n")
+	}
+
+	// Add acceptance criteria if available
+	if len(req.AcceptanceCriteria) > 0 {
+		sb.WriteString("**Acceptance Criteria:**\n")
+		for _, ac := range req.AcceptanceCriteria {
+			sb.WriteString(fmt.Sprintf("- %s\n", ac))
+		}
+		sb.WriteString("\n")
+	}
+
+	// Add target files if specified
+	if len(req.TargetFiles) > 0 {
+		sb.WriteString("**Target Files:**\n")
+		for _, tf := range req.TargetFiles {
+			sb.WriteString(fmt.Sprintf("- %s\n", tf))
+		}
+		sb.WriteString("\n")
+	}
+
+	// Add allowed paths if specified
+	if len(req.AllowedPaths) > 0 {
+		sb.WriteString("**Allowed Paths:**\n")
+		for _, ap := range req.AllowedPaths {
+			sb.WriteString(fmt.Sprintf("- %s\n", ap))
+		}
+		sb.WriteString("\n")
+	}
 
 	if len(req.Constraints) > 0 {
 		sb.WriteString("**Constraints:**\n")
@@ -339,7 +386,14 @@ func (g *LLMGenerator) buildGenericPrompt(req *GenerationRequest) string {
 }
 
 // extractCode extracts code from markdown code blocks.
-func (g *LLMGenerator) extractCode(content string) (code string, language string) {
+func (g *LLMGenerator) extractCode(content string) (code string, language string, err error) {
+	// Reject empty or whitespace-only content
+	trimmed := strings.TrimSpace(content)
+	if trimmed == "" {
+		log.Printf("[LLMGenerator] extractCode rejected empty content")
+		return "", "", fmt.Errorf("empty content - no code to extract")
+	}
+
 	// Look for markdown code blocks
 	// ```language
 	// code
@@ -348,15 +402,22 @@ func (g *LLMGenerator) extractCode(content string) (code string, language string
 	// Find code block
 	start := strings.Index(content, "```")
 	if start == -1 {
-		// No code block, return as-is
-		return strings.TrimSpace(content), "text"
+		// No code block - check if content looks like code
+		// Reject content that's just a short sentence (under 50 chars)
+		if len(trimmed) < 50 && !strings.Contains(trimmed, "{") && !strings.Contains(trimmed, "(") && !strings.Contains(trimmed, "func ") {
+			log.Printf("[LLMGenerator] extractCode rejected narrative-only content (len=%d): %.200q", len(trimmed), trimmed)
+			return "", "", fmt.Errorf("content appears to be narrative text, not code (length %d)", len(trimmed))
+		}
+		// Return as-is for non-code-block content that looks substantial
+		return trimmed, "text", nil
 	}
 
 	// Find language identifier
 	afterStart := content[start+3:]
 	endLang := strings.Index(afterStart, "\n")
 	if endLang == -1 {
-		return strings.TrimSpace(content), "text"
+		log.Printf("[LLMGenerator] extractCode rejected malformed code block (no newline after opener): %.200q", trimmed)
+		return "", "", fmt.Errorf("malformed code block - no newline after opening ```")
 	}
 
 	language = strings.TrimSpace(afterStart[:endLang])
@@ -368,12 +429,23 @@ func (g *LLMGenerator) extractCode(content string) (code string, language string
 	codeStart := start + 3 + endLang + 1
 	codeEnd := strings.Index(content[codeStart:], "```")
 	if codeEnd == -1 {
-		// Unclosed code block
-		return strings.TrimSpace(content[codeStart:]), language
+		// Unclosed code block - extract remaining content
+		extracted := strings.TrimSpace(content[codeStart:])
+		if extracted == "" {
+			log.Printf("[LLMGenerator] extractCode rejected unclosed empty code block")
+			return "", "", fmt.Errorf("unclosed code block with no content")
+		}
+		return extracted, language, nil
 	}
 
 	code = content[codeStart : codeStart+codeEnd]
-	return strings.TrimSpace(code), language
+	extracted := strings.TrimSpace(code)
+	if extracted == "" {
+		log.Printf("[LLMGenerator] extractCode rejected empty code block content")
+		return "", "", fmt.Errorf("code block is empty")
+	}
+
+	return extracted, language, nil
 }
 
 // GenerateDocumentation generates documentation using LLM.

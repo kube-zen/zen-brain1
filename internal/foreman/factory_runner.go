@@ -226,20 +226,22 @@ func (r *FactoryTaskRunner) Run(ctx context.Context, task *v1alpha1.BrainTask) (
 func (r *FactoryTaskRunner) brainTaskToFactorySpec(task *v1alpha1.BrainTask) *factory.FactoryTaskSpec {
 	now := time.Now()
 	spec := &factory.FactoryTaskSpec{
-		ID:              task.Name,
-		SessionID:       task.Spec.SessionID,
-		WorkItemID:      task.Spec.WorkItemID,
-		Title:           task.Spec.Title,
-		Objective:       task.Spec.Objective,
-		Constraints:     task.Spec.Constraints,
-		WorkType:        task.Spec.WorkType,
-		WorkDomain:      task.Spec.WorkDomain,
-		Priority:        task.Spec.Priority,
-		TimeoutSeconds:  task.Spec.TimeoutSeconds,
-		MaxRetries:      task.Spec.MaxRetries,
-		KBScopes:        task.Spec.KBScopes,
-		CreatedAt:       now,
-		UpdatedAt:       now,
+		ID:                 task.Name,
+		SessionID:          task.Spec.SessionID,
+		WorkItemID:         task.Spec.WorkItemID,
+		Title:              task.Spec.Title,
+		Objective:          task.Spec.Objective,
+		Description:        task.Spec.Description,
+		Constraints:        task.Spec.Constraints,
+		AcceptanceCriteria: task.Spec.AcceptanceCriteria,
+		WorkType:           task.Spec.WorkType,
+		WorkDomain:         task.Spec.WorkDomain,
+		Priority:           task.Spec.Priority,
+		TimeoutSeconds:     task.Spec.TimeoutSeconds,
+		MaxRetries:         task.Spec.MaxRetries,
+		KBScopes:           task.Spec.KBScopes,
+		CreatedAt:          now,
+		UpdatedAt:          now,
 	}
 	if spec.Priority == "" {
 		spec.Priority = contracts.PriorityMedium
