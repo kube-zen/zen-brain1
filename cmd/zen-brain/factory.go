@@ -13,7 +13,6 @@ import (
 
 	"github.com/kube-zen/zen-brain1/internal/config"
 	"github.com/kube-zen/zen-brain1/internal/factory"
-	"github.com/kube-zen/zen-brain1/internal/llm"
 	"github.com/kube-zen/zen-brain1/pkg/contracts"
 )
 
@@ -504,40 +503,28 @@ func buildFactory() (*factory.FactoryImpl, error) {
 		log.Printf("MLQ config not found, skipping (path=%s)", mlqConfigPath)
 	}
 
-	// Enable LLM mode if requested and OLLAMA_BASE_URL is set
+	// HIDDEN GATEWAY ELIMINATION (ZB-HIDDEN-GATEWAY):
+	// The --llm flag is now DEPRECATED and will be ignored.
+	// LLM execution is configured via:
+	// 1. MLQ routing (recommended): config/policy/mlq-levels.yaml
+	// 2. Foreman flags: ZEN_FOREMAN_LLM_BASE_URL, ZEN_FOREMAN_LLM_MODEL, etc.
+	//
+	// FAIL-CLOSED: No hidden Gateway creation allowed.
+	// Local execution must use llama.cpp or configured Ollama endpoint via MLQ.
 	if hasFlag("--llm") {
-		if ollamaURL := os.Getenv("OLLAMA_BASE_URL"); ollamaURL != "" {
-			gw, gwErr := llm.NewGateway(&llm.GatewayConfig{
-				LocalWorkerModel: "qwen3.5:0.8b", // ZB-018: only supported local model
-			})
-
-			if gwErr == nil {
-				provider, providerFound := gw.GetProvider("local-worker")
-				if providerFound {
-					llmConfig := factory.DefaultLLMGeneratorConfig(provider)
-					llmConfig.EnableThinking = false // ZB-025H1: Disable thinking for CPU path
-					llmConfig.Model = "qwen3.5:0.8b" // ZB-025H2: Set explicit model
-					llmConfig.Temperature = 0.3
-					llmConfig.MaxTokens = 4096
-
-					generator, genErr := factory.NewLLMGenerator(llmConfig)
-					if genErr == nil {
-						factoryInst.SetLLMGenerator(generator)
-						log.Printf("✓ LLM mode enabled (provider=%s, model=%s, url=%s)",
-							provider.Name(), llmConfig.Model, ollamaURL)
-					} else {
-						log.Printf("Warning: Failed to create LLM generator: %v", genErr)
-					}
-				} else {
-					log.Printf("Warning: Local-worker provider not found")
-				}
-			} else {
-				log.Printf("Warning: Failed to create LLM gateway: %v", gwErr)
-			}
+		if factoryInst.IsMLQEnabled() {
+			log.Printf("✓ LLM mode: MLQ routing enabled (ignoring deprecated --llm flag)")
+			log.Printf("   MLQ will select appropriate backend per task")
 		} else {
-			log.Printf("Warning: --llm flag set but OLLAMA_BASE_URL not set")
-			log.Printf("LLM mode disabled - falling back to shell templates")
-			log.Printf("Set OLLAMA_BASE_URL to enable LLM mode")
+			log.Printf("⚠ WARNING: --llm flag set but MLQ not enabled")
+			log.Printf("   --llm flag is deprecated and ignored")
+			log.Printf("   To enable LLM execution, configure MLQ:")
+			log.Printf("     config/policy/mlq-levels.yaml")
+			log.Printf("   Or use Foreman environment variables:")
+			log.Printf("     ZEN_FOREMAN_ENABLE_LLM=true")
+			log.Printf("     ZEN_FOREMAN_LLM_BASE_URL=http://...")
+			log.Printf("     ZEN_FOREMAN_LLM_MODEL=qwen3.5:0.8b")
+			log.Printf("   LLM mode disabled - falling back to shell templates")
 		}
 	}
 
