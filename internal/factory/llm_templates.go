@@ -185,7 +185,7 @@ func (e *LLMTemplateExecutor) buildGenerationRequest(ctx context.Context, spec *
 	isRescueTask := strings.Contains(spec.Objective, "ADAPT") ||
 		strings.Contains(spec.Objective, "Rescue") ||
 		strings.Contains(spec.Objective, "0.1") ||
-		strings.Contains(spec.Labels, "zen-structured-prompt")
+		strings.Contains(spec.Objective, "zen-structured-prompt")
 
 	if isRescueTask {
 		req.StructuredPrompt = true

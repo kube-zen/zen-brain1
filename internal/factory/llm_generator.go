@@ -139,41 +139,6 @@ func (g *LLMGenerator) GenerateImplementation(ctx context.Context, req *Generati
 	}, nil
 }
 
-// GenerationRequest contains all context needed for code generation.
-type GenerationRequest struct {
-	// Work item details
-	WorkItemID string
-	Title      string
-	Objective  string
-	WorkType   string
-	WorkDomain string
-
-	// Project context
-	ProjectType   string // "go", "python", "node", etc.
-	ModuleName    string // Go module name (if Go project)
-	PackageName   string // Target package name
-	TargetPath    string // Target file path
-
-	// Code context
-	ExistingCode   string // Existing code in target file (if any)
-	RelatedFiles   map[string]string // Related files for context
-	Imports        []string // Required imports
-
-	// Generation constraints
-	Constraints    []string // Additional constraints
-	Style          string // Code style preferences
-}
-
-// GenerationResult contains generated code and metadata.
-type GenerationResult struct {
-	Code         string            // Extracted code (without markdown)
-	Language     string            // Detected language (go, python, etc.)
-	FullResponse string            // Full LLM response (including reasoning)
-	Model        string            // Model used
-	TokensUsed   int               // Token count
-	Metadata     map[string]string // Additional metadata
-}
-
 // getSystemPrompt returns the system prompt for code generation.
 func (g *LLMGenerator) getSystemPrompt(req *GenerationRequest) string {
 	var sb strings.Builder

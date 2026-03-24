@@ -492,6 +492,18 @@ func buildFactory() (*factory.FactoryImpl, error) {
 		runtimeDir,
 	)
 
+	// Enable MLQ for backend selection (if config exists)
+	mlqConfigPath := filepath.Join(config.HomeDir(), "zen/zen-brain1/config/policy/mlq-levels.yaml")
+	if _, err := os.Stat(mlqConfigPath); err == nil {
+		if err := factoryInst.EnableMLQ(mlqConfigPath); err != nil {
+			log.Printf("Warning: Failed to enable MLQ: %v", err)
+		} else {
+			log.Printf("✓ MLQ enabled (config=%s)", mlqConfigPath)
+		}
+	} else {
+		log.Printf("MLQ config not found, skipping (path=%s)", mlqConfigPath)
+	}
+
 	// Enable LLM mode if requested and OLLAMA_BASE_URL is set
 	if hasFlag("--llm") {
 		if ollamaURL := os.Getenv("OLLAMA_BASE_URL"); ollamaURL != "" {

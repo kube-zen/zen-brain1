@@ -11,6 +11,9 @@ import (
 	"time"
 
 	"github.com/kube-zen/zen-brain1/internal/intelligence"
+	"github.com/kube-zen/zen-brain1/internal/llm"
+	llmcontracts "github.com/kube-zen/zen-brain1/pkg/llm"
+	"github.com/kube-zen/zen-brain1/internal/mlq"
 	"github.com/kube-zen/zen-brain1/internal/worktree"
 )
 
@@ -54,8 +57,9 @@ type FactoryImpl struct {
 	preflightMode          PreflightMode       // Mode for preflight checks (default: strict)
 	postflightStrictMode   bool               // If true, postflight failures are fatal (default: false)
 	proofVerificationMode   bool               // If true, run enhanced proof verification (default: false)
-	llmGenerator           *LLMGenerator      // Optional LLM generator for code generation
+	llmGenerator           *LLMGenerator      // Optional LLM generator for code generation (default fallback)
 	llmEnabled             bool               // Whether LLM templates are enabled
+	mlq                    *mlq.MLQ            // Multi-Level Queue for backend selection
 }
 
 // NewFactory creates a new Factory instance with default configuration.
@@ -178,6 +182,17 @@ func (f *FactoryImpl) EnableLLM(provider interface{}) error {
 	// Type assertion would happen here when using proper llm.Provider type
 	// For now, log that LLM mode is requested
 	log.Printf("[Factory] LLM mode requested (provider type: %T) - use SetLLMGenerator for full support", provider)
+	return nil
+}
+
+// EnableMLQ enables Multi-Level Queue for backend selection.
+func (f *FactoryImpl) EnableMLQ(configPath string) error {
+	m, err := mlq.NewMLQFromConfig(configPath)
+	if err != nil {
+		return fmt.Errorf("load MLQ config: %w", err)
+	}
+	f.mlq = m
+	log.Printf("[Factory] MLQ enabled (config=%s, levels=%v)", configPath, m.ListLevels())
 	return nil
 }
 
@@ -666,6 +681,91 @@ func (f *FactoryImpl) executeWithLLM(ctx context.Context, spec *FactoryTaskSpec,
 		return nil, fmt.Errorf("LLM generator not configured")
 	}
 
+	// MLQ-based backend selection
+	var generator *LLMGenerator
+	var selectedProvider, selectedModel, selectedBaseURL string
+	var selectedTimeout int
+
+	// If MLQ is enabled, select backend for this task
+	if f.mlq != nil {
+		// Determine task class from work type
+		taskClass := string(spec.WorkType)
+		if strings.Contains(taskClass, "implementation") {
+			taskClass = "implementation"
+		}
+
+		// Select MLQ level for this task
+		level, err := f.mlq.SelectLevel(spec.ID, spec.WorkItemID, taskClass)
+		if err != nil {
+			log.Printf("[Factory] MLQ selection failed, using fallback: task_id=%s error=%v", spec.ID, err)
+			// Use default/fallback generator
+			generator = f.llmGenerator
+			selectedProvider = f.llmGenerator.config.Provider.Name()
+			selectedModel = f.llmGenerator.config.Model
+
+			// FAIL-CLOSED: Check if we're using simulated local-worker provider
+			if selectedProvider == "local-worker" {
+				return nil, fmt.Errorf("FAIL-CLOSED: Local runtime is configured for llama.cpp only; simulated/Ollama fallback reached unexpectedly (MLQ selection failed). Fix provider transport wiring (MLQ config path or provider URL).")
+			}
+		} else {
+			// Get backend config from selected level
+			provider, model, baseURL, timeout := level.GetBackend()
+			selectedProvider = provider
+			selectedModel = model
+			selectedBaseURL = baseURL
+			selectedTimeout = timeout
+
+			// Create LLM provider for this backend
+			var providerProvider llmcontracts.Provider
+
+			switch provider {
+			case "ollama", "llama-cpp":
+				// Both Ollama and llama.cpp use OpenAI-compatible API
+				// Create provider with the selected baseURL
+				providerProvider = llm.NewOllamaProvider(
+					selectedBaseURL,
+					selectedModel,
+					selectedTimeout,
+					"45m", // Keep-alive
+				)
+			default:
+				return nil, fmt.Errorf("unsupported MLQ provider: %s", provider)
+			}
+
+			// Create task-specific LLM generator
+			genConfig := &LLMGeneratorConfig{
+				Provider:       providerProvider,
+				Model:          model,
+				Temperature:    0.3,
+				MaxTokens:      4096,
+				EnableThinking: false, // CPU path defaults to no thinking
+				Timeout:        time.Duration(timeout) * time.Second,
+			}
+
+			generator, err = NewLLMGenerator(genConfig)
+			if err != nil {
+				return nil, fmt.Errorf("create task LLM generator: %w", err)
+			}
+
+			// Log MLQ selection
+			log.Printf("[MLQ] Selected: task_id=%s jira=%s level=%d backend=%s model=%s url=%s timeout=%ds",
+				spec.ID, spec.WorkItemID, level.Level, selectedProvider, selectedModel, selectedBaseURL, selectedTimeout)
+		}
+	} else {
+		// No MLQ, use default generator
+		generator = f.llmGenerator
+		selectedProvider = f.llmGenerator.config.Provider.Name()
+		selectedModel = f.llmGenerator.config.Model
+		selectedTimeout = int(f.llmGenerator.config.Timeout.Seconds())
+		log.Printf("[Factory] No MLQ, using default: task_id=%s provider=%s model=%s timeout=%ds",
+			spec.ID, selectedProvider, selectedModel, selectedTimeout)
+
+		// FAIL-CLOSED: Check if we're using simulated local-worker provider
+		if selectedProvider == "local-worker" {
+			return nil, fmt.Errorf("FAIL-CLOSED: Local runtime is configured for llama.cpp only; simulated/Ollama fallback reached unexpectedly. Fix provider transport wiring (MLQ config path or provider URL).")
+		}
+	}
+
 	// Determine template type
 	templateType := LLMTemplateImplementation
 	switch spec.WorkType {
@@ -691,7 +791,7 @@ func (f *FactoryImpl) executeWithLLM(ctx context.Context, spec *FactoryTaskSpec,
 	}
 
 	// Create executor
-	executor, err := NewLLMTemplateExecutor(f.llmGenerator, config)
+	executor, err := NewLLMTemplateExecutor(generator, config)
 	if err != nil {
 		return nil, fmt.Errorf("create LLM executor: %w", err)
 	}

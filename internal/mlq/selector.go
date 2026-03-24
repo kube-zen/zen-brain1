@@ -3,120 +3,237 @@ package mlq
 import (
 	"fmt"
 	"log"
+	"os"
+
+	"sigs.k8s.io/yaml"
 )
 
-// Backend represents an MLQ backend (provider + model combination).
+// Level represents an MLQ level with backend and concurrency.
+type Level struct {
+	Level       int    `json:"level"`
+	Name        string `json:"name"`
+	DisplayName string `json:"display_name"`
+	Enabled     bool   `json:"enabled"`
 
-// Backend represents an MLQ backend (provider + model combination).
-type Backend struct {
-	// ProviderName is LLM provider name (e.g., ollama)
-	ProviderName string
-
-	// Model is model name (e.g., qwen3.5:0.8b)
-	Model string
-
-	// BaseURL is provider endpoint (e.g., http://host.k3d.internal:11434)
-	BaseURL string
-
-	// TimeoutSeconds is request timeout (default 2700s=45m for normal 0.8b lane)
-	TimeoutSeconds int
-
-	// EnableThinking indicates if chain-of-thought is enabled
-	EnableThinking bool
+	Backend       BackendConfig `json:"backend"`
+	Concurrency   ConcurrencyConfig `json:"concurrency"`
+	TaskClass     []string `json:"task_class"`
+	Capabilities  LevelCapabilities `json:"capabilities"`
+	Performance   PerformanceConfig `json:"performance"`
 }
 
-// SelectionCriteria defines how MLQ chooses backend for a task.
-type SelectionCriteria struct {
-	// PreferredProvider is provider to use if available (empty = MLQ chooses)
-	PreferredProvider string
-
-	// MaxContextTokens limits backends to those supporting required context
-	MaxContextTokens int
-
-	// RequireTools filters to backends that support function calling
-	RequireTools bool
-
-	// TimeoutProfile indicates task type (normal, short, long)
-	TimeoutProfile string
+// BackendConfig defines a backend connection.
+type BackendConfig struct {
+	Provider    string `json:"provider"`
+	Name        string `json:"name"`
+	ModelFile   string `json:"model_file"`
+	APIEndpoint string `json:"api_endpoint"`
+	TimeoutSeconds int `json:"timeout_seconds"`
 }
 
-// MLQ manages backend selection and provider lifecycle.
+// ConcurrencyConfig defines worker pool sizing.
+type ConcurrencyConfig struct {
+	MaxWorkers int `json:"max_workers"`
+	MinWorkers int `json:"min_workers"`
+}
+
+// LevelCapabilities defines what the level can do.
+type LevelCapabilities struct {
+	SupportsStreaming   bool `json:"supports_streaming"`
+	SupportsFunctions  bool `json:"supports_functions"`
+	MaxContextTokens   int `json:"max_context_tokens"`
+	MaxOutputTokens    int `json:"max_output_tokens"`
+}
+
+// PerformanceConfig defines performance targets.
+type PerformanceConfig struct {
+	TargetRPS          float64 `json:"target_rps"`
+	MaxLatencySeconds   int `json:"max_latency_seconds"`
+}
+
+// EscalationRule defines when to move between levels.
+type EscalationRule struct {
+	Trigger              string   `json:"trigger"`
+	FromLevel            int       `json:"from_level"`
+	ToLevel              int       `json:"to_level"`
+	MaxRetries           int       `json:"max_retries"`
+	TimeoutThresholdSec  int       `json:"timeout_threshold_seconds"`
+	RequireManualApproval bool      `json:"require_manual_approval"`
+	AllowedForTaskClass []string `json:"allowed_for_task_class,omitempty"`
+}
+
+// SelectionPolicy defines default level mapping and overrides.
+type SelectionPolicy struct {
+	DefaultLevelMapping map[string]int  `json:"default_level_mapping"`
+	JiraKeyOverrides    map[string]int  `json:"jira_key_overrides"`
+	FallbackBehavior    FallbackConfig  `json:"fallback_behavior"`
+}
+
+// FallbackConfig defines fallback behavior.
+type FallbackConfig struct {
+	Strategy              string `json:"strategy"`
+	MaxFallbackAttempts   int    `json:"max_fallback_attempts"`
+	FallbackDelaySeconds  int    `json:"fallback_delay_seconds"`
+}
+
+// MLQConfig is the full MLQ configuration.
+type MLQConfig struct {
+	MLQLevels        []Level           `json:"mlq_levels"`
+	EscalationRules  []EscalationRule  `json:"escalation_rules"`
+	SelectionPolicy  SelectionPolicy    `json:"selection_policy"`
+	HealthChecks     HealthCheckConfig  `json:"health_checks"`
+	Logging         LoggingConfig      `json:"logging"`
+}
+
+// HealthCheckConfig defines backend health monitoring.
+type HealthCheckConfig struct {
+	Enabled            bool               `json:"enabled"`
+	IntervalSeconds    int                `json:"interval_seconds"`
+	Backends          []BackendHealthCheck `json:"backends"`
+}
+
+// BackendHealthCheck defines health check for a backend.
+type BackendHealthCheck struct {
+	Level               int    `json:"level"`
+	CheckEndpoint       string `json:"check_endpoint"`
+	TimeoutSeconds      int    `json:"timeout_seconds"`
+	HealthyThreshold    int    `json:"healthy_threshold"`
+	UnhealthyThreshold int    `json:"unhealthy_threshold"`
+}
+
+// LoggingConfig defines MLQ logging.
+type LoggingConfig struct {
+	Level              string `json:"level"`
+	LogSelection       bool   `json:"log_selection"`
+	SelectionFormat    string `json:"selection_format"`
+	LogEscalation     bool   `json:"log_escalation"`
+	EscalationFormat  string `json:"escalation_format"`
+	LogFallback       bool   `json:"log_fallback"`
+	FallbackFormat    string `json:"fallback_format"`
+}
+
+// MLQ manages multi-level backend selection.
 type MLQ struct {
-	// backends are available backends indexed by name
-	backends map[string]Backend
-
-	// defaultBackend is fallback if no criteria match
-	defaultBackend string
+	config     *MLQConfig
+	levels     map[int]*Level
+	healthy     map[int]bool
 }
 
-// NewMLQ creates a new MLQ instance with registered backends.
-func NewMLQ() *MLQ {
-	return &MLQ{
-		backends:      make(map[string]Backend),
-		defaultBackend: "ollama", // Ollama/qwen3.5:0.8b is current working backend
+// NewMLQFromConfig creates MLQ from config file.
+func NewMLQFromConfig(configPath string) (*MLQ, error) {
+	config, err := LoadMLQConfig(configPath)
+	if err != nil {
+		return nil, fmt.Errorf("load config: %w", err)
 	}
+
+	return NewMLQ(config), nil
 }
 
-// RegisterBackend adds a backend to MLQ.
-// ZB-027H: Backends are registered, then MLQ selects based on criteria.
-func (m *MLQ) RegisterBackend(name string, backend Backend) {
-	m.backends[name] = backend
-	log.Printf("[MLQ] Registered backend: name=%s provider=%s model=%s url=%s",
-		name, backend.ProviderName, backend.Model, backend.BaseURL)
+// LoadMLQConfig loads MLQ config from YAML file.
+func LoadMLQConfig(configPath string) (*MLQConfig, error) {
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return nil, fmt.Errorf("read config: %w", err)
+	}
+
+	var config MLQConfig
+	if err := yaml.Unmarshal(data, &config); err != nil {
+		return nil, fmt.Errorf("parse config: %w", err)
+	}
+
+	return &config, nil
 }
 
-// Select chooses best backend for given criteria.
-func (m *MLQ) Select(criteria SelectionCriteria) (*Backend, error) {
-	// If PreferredProvider is specified, use it if exists
-	if criteria.PreferredProvider != "" {
-		if backend, ok := m.backends[criteria.PreferredProvider]; ok {
-			log.Printf("[MLQ] Selected preferred backend: %s (provider=%s model=%s)",
-				criteria.PreferredProvider, backend.ProviderName, backend.Model)
-			return &backend, nil
+// NewMLQ creates MLQ from config struct.
+func NewMLQ(config *MLQConfig) *MLQ {
+	m := &MLQ{
+		config:  config,
+		levels:  make(map[int]*Level),
+		healthy: make(map[int]bool),
+	}
+
+	// Build level index
+	for i := range config.MLQLevels {
+		level := &config.MLQLevels[i]
+		m.levels[level.Level] = level
+		m.healthy[level.Level] = level.Enabled // Assume enabled = healthy initially
+		log.Printf("[MLQ] Loaded level %d: name=%s enabled=%v backend=%s/%s",
+			level.Level, level.DisplayName, level.Enabled, level.Backend.Provider, level.Backend.Name)
+	}
+
+	return m
+}
+
+// SelectLevel chooses MLQ level for a task.
+func (m *MLQ) SelectLevel(taskID, jiraKey, taskClass string) (*Level, error) {
+	config := m.config
+
+	// 1. Check Jira key overrides first
+	if jiraKey != "" {
+		if levelNum, ok := config.SelectionPolicy.JiraKeyOverrides[jiraKey]; ok {
+			if level, ok := m.levels[levelNum]; ok && level.Enabled {
+				m.logSelection(taskID, jiraKey, level, "jira_override")
+				return level, nil
+			}
+			log.Printf("[MLQ] Jira override for %s points to disabled level %d", jiraKey, levelNum)
 		}
-		log.Printf("[MLQ] Preferred backend '%s' not found, using default", criteria.PreferredProvider)
 	}
 
-	// Use default backend
-	if backend, ok := m.backends[m.defaultBackend]; ok {
-		log.Printf("[MLQ] Selected default backend: %s (provider=%s model=%s)",
-			m.defaultBackend, backend.ProviderName, backend.Model)
-		return &backend, nil
+	// 2. Check task class mapping
+	if taskClass != "" {
+		if levelNum, ok := config.SelectionPolicy.DefaultLevelMapping[taskClass]; ok {
+			if level, ok := m.levels[levelNum]; ok && level.Enabled {
+				m.logSelection(taskID, jiraKey, level, "task_class")
+				return level, nil
+			}
+			log.Printf("[MLQ] Task class %s maps to disabled level %d", taskClass, levelNum)
+		}
 	}
 
-	return nil, fmt.Errorf("no backend available (default: %s)", m.defaultBackend)
-}
-
-// CreateProvider returns provider configuration for factory_runner to create the actual provider.
-func (b *Backend) CreateProvider() (providerName, model, baseURL string, timeoutSeconds int) {
-	return b.ProviderName, b.Model, b.BaseURL, b.TimeoutSeconds
-}
-
-// DefaultConfiguration returns sensible defaults for MLQ setup.
-func DefaultConfiguration() *Configuration {
-	return &Configuration{
-		PrimaryBackend: "ollama",
-		FallbackOrder: []string{"ollama"}, // Current working backend only
-		Backends: map[string]Backend{
-			"ollama": {
-				ProviderName:   "ollama",
-				Model:         "qwen3.5:0.8b",
-				BaseURL:       "http://host.k3d.internal:11434",
-				TimeoutSeconds: 2700, // ZB-024: 45 minutes for qwen3.5:0.8b normal lane
-				EnableThinking: false,
-			},
-		},
+	// 3. Use fallback (Level 0) if nothing matched
+	if level, ok := m.levels[0]; ok && level.Enabled {
+		m.logSelection(taskID, jiraKey, level, "fallback")
+		return level, nil
 	}
+
+	return nil, fmt.Errorf("no enabled level available for task=%s jira=%s", taskID, jiraKey)
 }
 
-// Configuration holds MLQ backend configuration.
-type Configuration struct {
-	// PrimaryBackend is default backend
-	PrimaryBackend string
+// GetBackend returns backend configuration for a level.
+func (l *Level) GetBackend() (provider, model, baseURL string, timeoutSeconds int) {
+	return l.Backend.Provider,
+		l.Backend.Name,
+		l.Backend.APIEndpoint,
+		l.Backend.TimeoutSeconds
+}
 
-	// FallbackOrder is ordered list of backends to try
-	FallbackOrder []string
+// logSelection logs level selection according to config.
+func (m *MLQ) logSelection(taskID, jiraKey string, level *Level, reason string) {
+	if !m.config.Logging.LogSelection {
+		return
+	}
 
-	// Backends is full backend registry
-	Backends map[string]Backend
+	format := m.config.Logging.SelectionFormat
+	logStr := fmt.Sprintf(format,
+		level.Level, taskID, jiraKey,
+		level.Backend.Provider, level.Backend.Name, level.Backend.TimeoutSeconds)
+
+	log.Printf("[MLQ] Selection: %s (reason=%s)", logStr, reason)
+}
+
+// GetLevel returns level by number.
+func (m *MLQ) GetLevel(levelNum int) (*Level, bool) {
+	level, ok := m.levels[levelNum]
+	return level, ok
+}
+
+// ListLevels returns all enabled levels.
+func (m *MLQ) ListLevels() []int {
+	var levels []int
+	for levelNum, level := range m.levels {
+		if level.Enabled {
+			levels = append(levels, levelNum)
+		}
+	}
+	return levels
 }
