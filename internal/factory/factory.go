@@ -201,6 +201,11 @@ func (f *FactoryImpl) IsLLMEnabled() bool {
 	return f.llmEnabled && f.llmGenerator != nil
 }
 
+// IsMLQEnabled returns true if MLQ routing is enabled.
+func (f *FactoryImpl) IsMLQEnabled() bool {
+	return f.mlq != nil
+}
+
 // ExecuteTask runs a task in an isolated workspace.
 func (f *FactoryImpl) ExecuteTask(ctx context.Context, spec *FactoryTaskSpec) (*ExecutionResult, error) {
 	// Validate spec

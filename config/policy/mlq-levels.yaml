@@ -22,7 +22,7 @@ mlq_levels:
       provider: "llama-cpp"
       name: "qwen3.5:0.8b-q4"
       model_file: "/home/neves/git/ai/Qwen3.5-0.8B-Q4_K_M.gguf"
-      api_endpoint: "http://127.0.0.1:56227"  # llama.cpp host endpoint
+      api_endpoint: "http://host.k3d.internal:56227"  # llama.cpp host endpoint (k3d host access)
       timeout_seconds: 2700  # 45 minutes for normal tasks
 
     # Concurrency settings
