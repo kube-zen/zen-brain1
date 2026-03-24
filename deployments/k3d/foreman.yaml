@@ -91,6 +91,12 @@ spec:
             - "-metrics-bind-address=:8080"
             - "-health-probe-bind-address=:8081"
             - "-workers=5"
+            - "-factory-enable-llm=true"
+            - "-factory-llm-provider=ollama"
+            - "-factory-llm-base-url=http://host.k3d.internal:11434"
+            - "-factory-llm-model=qwen3.5:0.8b"
+            - "-factory-llm-timeout-seconds=2700"
+            - "-factory-llm-enable-thinking=false"
           env:
             - name: ZEN_FOREMAN_RUNTIME_DIR
               value: "/tmp/zen-brain-factory"

@@ -35,6 +35,12 @@ apiserver:
 
 foreman:
   workerCount: 5  # Number of parallel workers (pilot default: 5)
+  # LLM configuration for Factory execution (ZB-024: qwen3.5:0.8b, 45min timeout)
+  enableFactoryLLM: true
+  llmBaseURL: "http://host.k3d.internal:11434"
+  llmModel: "qwen3.5:0.8b"
+  llmTimeoutSeconds: 2700
+  llmEnableThinking: false
   env:
     - name: ZEN_RUNTIME_PROFILE
       value: dev

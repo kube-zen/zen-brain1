@@ -1,0 +1,58 @@
+apiVersion: zen.kube-zen.com/v1alpha1
+kind: BrainTask
+metadata:
+  name: jira-zb-282
+  namespace: zen-brain
+  labels:
+    jira-key: ZB-282
+    work-type: implementation
+    priority: high
+spec:
+  workItemID: ZB-282
+  workType: implementation
+  description: |
+    Port YAML roles/permissions system from zen-brain 0.1.
+    Create config/roles/ directory with role definitions.
+    Scope: config/roles/*, minimal API authorization changes.
+  timeoutSeconds: 2700
+  sessionID: jira-session-ZB-282
+---
+apiVersion: zen.kube-zen.com/v1alpha1
+kind: BrainTask
+metadata:
+  name: jira-zb-283
+  namespace: zen-brain
+  labels:
+    jira-key: ZB-283
+    work-type: implementation
+    priority: high
+spec:
+  workItemID: ZB-283
+  workType: implementation
+  description: |
+    Port YAML task templates from zen-brain 0.1.
+    Create config/task-templates/ directory.
+    Templates should define bounded work with requirements, verification.
+    Scope: config/task-templates/*.
+  timeoutSeconds: 2700
+  sessionID: jira-session-ZB-283
+---
+apiVersion: zen.kube-zen.com/v1alpha1
+kind: BrainTask
+metadata:
+  name: jira-zb-284
+  namespace: zen-brain
+  labels:
+    jira-key: ZB-284
+    work-type: implementation
+    priority: high
+spec:
+  workItemID: ZB-284
+  workType: implementation
+  description: |
+    Port scheduling/cron behavior from zen-brain 0.1.
+    Implement generic schedule definitions (recurring, nights, weekends, catch-up).
+    Express in YAML where possible. Scope: internal/scheduler/*, config/schedules/*.
+    Must not productize 'nightshift' as architecture.
+  timeoutSeconds: 2700
+  sessionID: jira-session-ZB-284

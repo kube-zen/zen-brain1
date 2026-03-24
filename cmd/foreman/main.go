@@ -67,10 +67,12 @@ func main() {
 	flag.BoolVar(&reuseSessionWorktree, "factory-reuse-session-worktree", envBool("ZEN_FOREMAN_REUSE_SESSION_WORKTREE", false), "Reuse one worktree per session when using git worktrees.")
 	// Factory LLM configuration (ZB-022G)
 	var enableFactoryLLM bool
+	var llmProvider string
 	var llmBaseURL, llmModel string
 	var llmTimeoutSeconds int
 	var llmEnableThinking bool
 	flag.BoolVar(&enableFactoryLLM, "factory-enable-llm", envBool("ZEN_FOREMAN_ENABLE_LLM", false), "Enable LLM-powered Factory execution (ZB-022G).")
+	flag.StringVar(&llmProvider, "factory-llm-provider", envStr("ZEN_FOREMAN_LLM_PROVIDER", ""), "LLM provider (default ollama, options: ollama, llama.cpp).")
 	flag.StringVar(&llmBaseURL, "factory-llm-base-url", envStr("ZEN_FOREMAN_LLM_BASE_URL", ""), "LLM endpoint for Factory (e.g. http://host.k3d.internal:11434).")
 	flag.StringVar(&llmModel, "factory-llm-model", envStr("ZEN_FOREMAN_LLM_MODEL", "qwen3.5:0.8b"), "LLM model for Factory (default qwen3.5:0.8b for CPU inference).")
 	flag.IntVar(&llmTimeoutSeconds, "factory-llm-timeout-seconds", envInt("ZEN_FOREMAN_LLM_TIMEOUT_SECONDS", 2700), "LLM request timeout in seconds (default 2700s=45m for CPU path).")

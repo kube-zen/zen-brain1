@@ -2,8 +2,76 @@
 
 **This file is the authoritative source of truth for all agents (human and AI) working on zen-brain.**
 
-**Last Updated**: 2026-03-22
+**Last Updated**: 2026-03-23
 **Status**: LOCKED - Changes require explicit operator approval
+
+---
+
+## For qwen3.5:0.8b: Generic Role Prompts Are Insufficient
+
+**CRITICAL:** Small models like qwen3.5:0.8b need structured task packets, not generic "You are a planner/worker" prompts.
+
+**Every execution MUST use a structured task packet that includes:**
+
+### Required Components
+1. **Task Identity**
+   - Jira key
+   - Summary
+   - Work type
+   - Timeout
+
+2. **Scope**
+   - Allowed paths (what CAN be modified)
+   - Forbidden paths (what MUST NOT be touched)
+   - Context files (what to read FIRST)
+   - Target files (what will be modified)
+
+3. **Architecture Constraints**
+   - Existing types/interfaces to use
+   - Existing packages to import
+   - Wiring points (where integration belongs)
+   - Do not modify list
+
+4. **Phased Execution**
+   - Phase 1, 2, 3, etc.
+   - Each with:
+     - Requirements (WHAT)
+     - Expected Behavior (HOW)
+     - Verification (TEST)
+
+5. **Verification Commands**
+   - Compile: `go build ./...`
+   - Tests: `go test ./...`
+   - Static checks: `grep`, assertions
+
+6. **Output Contract**
+   - Exact files changed
+   - Verification output
+   - Result: SUCCESS | FAILURE
+   - Blockers reported honestly
+
+### Forbidden Actions
+- Do NOT invent new packages/imports not in existing list
+- Do NOT create fake artifacts or placeholder code
+- Do NOT modify files outside allowed paths
+- Do NOT claim success if compile/test fails
+- If a required type is missing, report blocker instead of hallucinating
+
+### For Rescue Tasks (0.1 → 1.0)
+Always provide:
+- 0.1 source file(s) to read
+- 1.0 target file(s) to read
+- Ask for bounded adaptation, not freeform rewrite
+- Use template: `config/task-templates/rescue_from_01.yaml`
+
+### Prompt Builder Location
+- Code: `internal/promptbuilder/packet.go`
+- Template: `config/task-templates/rescue_from_01.yaml`
+- Function: `BuildPrompt(packet TaskPacket) (string, error)`
+
+**DO NOT** use generic planner/worker prompts for rescue tasks without template/context injection.
+
+See `docs/PROMPT_ENGINEERING_MIGRATION.md` for full details.
 
 ---
 

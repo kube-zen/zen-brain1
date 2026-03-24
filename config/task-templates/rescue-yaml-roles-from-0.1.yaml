@@ -1,0 +1,37 @@
+# Task template for rescuing YAML roles from zen-brain 0.1
+# ZB-YAML-RESCUE
+
+summary: "Rescue YAML roles from zen-brain 0.1"
+description: |
+  Port YAML roles/permissions system from zen-brain 0.1.
+  Create config/roles/ directory with role definitions.
+  
+  Scope:
+  - config/roles/* - Role definitions (planner, worker, admin, etc.)
+  - Minimal API authorization changes
+  
+  Requirements:
+  - Roles defined in YAML files
+  - Roles can be loaded at runtime
+  - Each role has permissions/capabilities
+
+labels:
+  - zen-brain-dogfood
+  - zen-brain-nightshift
+
+work_type: implementation
+
+allowed_paths:
+  - config/roles/*
+  - internal/auth/roles.go (minimal)
+
+acceptance_criteria:
+  - config/roles/ directory exists with at least 3 roles
+  - Roles can be loaded from YAML
+  - Each role has name, description, permissions
+
+verification:
+  - ls config/roles/ shows role files
+  - Roles load without error
+
+timeout_profile: normal

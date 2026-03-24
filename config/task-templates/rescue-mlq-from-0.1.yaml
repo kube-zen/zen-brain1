@@ -1,0 +1,41 @@
+# Task template for rescuing MLQ from zen-brain 0.1
+# ZB-MLQ-RESCUE
+
+summary: "Rescue MLQ (Model/Provider Selection) from zen-brain 0.1"
+description: |
+  Port MLQ architecture from zen-brain 0.1 to zen-brain1.
+  MLQ owns model/provider selection (Ollama, llama.cpp, future providers).
+  
+  Scope:
+  - internal/mlq/* - MLQ selection layer
+  - pkg/llm/types.go - ProviderCapability type
+  - internal/foreman/factory_runner.go - wire MLQ selection
+  
+  Requirements:
+  - MLQ selects backend based on criteria (provider, model, timeout)
+  - Current Ollama/qwen3.5:0.8b path must remain working
+  - Backend selection is MLQ concern, not ad-hoc factory logic
+
+labels:
+  - zen-brain-dogfood
+  - zen-brain-nightshift
+
+work_type: implementation
+
+allowed_paths:
+  - internal/mlq/*
+  - pkg/llm/types.go
+  - internal/foreman/factory_runner.go
+
+acceptance_criteria:
+  - MLQ types exist (Backend, SelectionCriteria, MLQ selector)
+  - Factory runner uses MLQ for provider selection
+  - Logs show "[MLQ] Selected backend: provider=ollama model=qwen3.5:0.8b"
+  - Current runtime behavior unchanged
+
+verification:
+  - go build ./... compiles cleanly
+  - kubectl logs shows MLQ selection in action
+  - Existing BrainTask execution still works
+
+timeout_profile: normal  # 2700s for qwen3.5:0.8b

@@ -1,0 +1,35 @@
+# Task template for rescuing YAML task templates from zen-brain 0.1
+# ZB-TEMPLATE-RESCUE
+
+summary: "Rescue YAML task templates from zen-brain 0.1"
+description: |
+  Port YAML task templates from zen-brain 0.1.
+  Templates define bounded work with requirements, expected behavior, verification.
+  
+  Scope:
+  - config/task-templates/* - Template definitions
+  
+  Requirements:
+  - Templates in YAML format
+  - Each template has: summary, description, labels, work_type, allowed_paths, acceptance_criteria, verification, timeout_profile
+  - Templates can be used to generate Jira issues
+
+labels:
+  - zen-brain-dogfood
+  - zen-brain-nightshift
+
+work_type: implementation
+
+allowed_paths:
+  - config/task-templates/*
+
+acceptance_criteria:
+  - config/task-templates/ directory exists with template files
+  - Templates follow standard schema
+  - Templates are human-readable and version-controlled
+
+verification:
+  - ls config/task-templates/ shows template files
+  - Templates parse as valid YAML
+
+timeout_profile: normal
