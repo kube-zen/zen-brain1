@@ -735,11 +735,13 @@ func (f *FactoryImpl) executeWithLLM(ctx context.Context, spec *FactoryTaskSpec,
 			case "llama-cpp":
 				// llama.cpp uses /v1/chat/completions (OpenAI-compatible)
 				// Use OpenAICompatibleProvider for correct transport
-				providerProvider = llm.NewOpenAICompatibleProvider(
+				// Note: selectedTimeout is in seconds, convert to Duration
+				providerProvider = llm.NewOpenAICompatibleProviderWithTimeout(
 					"llama-cpp",
 					selectedBaseURL,
 					selectedModel,
 					"", // No API key for llama.cpp
+					time.Duration(selectedTimeout)*time.Second,
 				)
 			default:
 				return nil, fmt.Errorf("unsupported MLQ provider: %s", provider)
