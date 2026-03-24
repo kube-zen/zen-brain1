@@ -1,0 +1,39 @@
+# Task template for rescuing scheduling/cron from zen-brain 0.1
+# ZB-SCHED-RESCUE
+
+summary: "Rescue scheduling/cron behavior from zen-brain 0.1"
+description: |
+  Port scheduling/cron behavior from zen-brain 0.1.
+  Implement generic schedule definitions (recurring, nights, weekends, catch-up).
+  
+  Scope:
+  - internal/scheduler/* - Scheduler implementation
+  - config/schedules/* - Schedule definitions in YAML
+  
+  Requirements:
+  - Generic scheduling, not hardcoded "nightshift" logic
+  - Schedules defined in YAML
+  - Support: recurring, nights, weekends, retry/catch-up
+  - Keep execution bounded and gate-controlled
+
+labels:
+  - zen-brain-dogfood
+  - zen-brain-nightshift
+
+work_type: implementation
+
+allowed_paths:
+  - internal/scheduler/*
+  - config/schedules/*
+
+acceptance_criteria:
+  - Scheduler package exists
+  - Schedule definitions in YAML
+  - Schedules can be loaded at runtime
+  - No hardcoded "nightshift" product logic
+
+verification:
+  - ls config/schedules/ shows schedule files
+  - Schedules load without error
+
+timeout_profile: normal

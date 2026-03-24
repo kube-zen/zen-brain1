@@ -1,0 +1,131 @@
+apiVersion: zen.kube-zen.com/v1alpha1
+kind: BrainTask
+metadata:
+  name: jira-zb-281
+  namespace: zen-brain
+  labels:
+    zen.kube-zen.com/jira-key: ZB-281
+    zen.kube-zen.com/source: jira
+    zen.kube-zen.com/work-type: implementation
+    zen.kube-zen.com/work-domain: office
+spec:
+  id: jira-zb-281
+  workItemID: ZB-281
+  workType: implementation
+  workDomain: office
+  title: "ZB-MLQ-RESCUE: Rescue MLQ from zen-brain 0.1"
+  objective: "Port MLQ (model/provider selection) architecture from zen-brain 0.1"
+  description: |
+    MLQ owns backend selection (Ollama, llama.cpp, future providers).
+    Scope: internal/mlq/*, pkg/llm/types.go for ProviderCapability.
+    Must keep current Ollama/qwen3.5:0.8b path working.
+  priority: high
+  timeoutSeconds: 2700
+  sessionID: jira-session-ZB-281
+  sourceKey: ZB-281
+  queueName: dogfood
+  maxRetries: 1
+  acceptanceCriteria:
+  - MLQ selection layer created
+  - Factory runner uses MLQ
+  - Logs show MLQ selection
+  - No regression in current path
+  evidenceRequirement: summary
+---
+apiVersion: zen.kube-zen.com/v1alpha1
+kind: BrainTask
+metadata:
+  name: jira-zb-282
+  namespace: zen-brain
+  labels:
+    zen.kube-zen.com/jira-key: ZB-282
+    zen.kube-zen.com/source: jira
+    zen.kube-zen.com/work-type: implementation
+    zen.kube-zen.com/work-domain: office
+spec:
+  id: jira-zb-282
+  workItemID: ZB-282
+  workType: implementation
+  workDomain: office
+  title: "ZB-YAML-RESCUE: Rescue YAML roles from zen-brain 0.1"
+  objective: "Port YAML roles/permissions system from zen-brain 0.1"
+  description: |
+    Create config/roles/ directory with role definitions.
+    Scope: config/roles/*, minimal API authorization changes.
+  priority: high
+  timeoutSeconds: 2700
+  sessionID: jira-session-ZB-282
+  sourceKey: ZB-282
+  queueName: dogfood
+  maxRetries: 1
+  acceptanceCriteria:
+  - config/roles/ directory exists
+  - At least 3 role files created
+  - Roles load without error
+  evidenceRequirement: summary
+---
+apiVersion: zen.kube-zen.com/v1alpha1
+kind: BrainTask
+metadata:
+  name: jira-zb-283
+  namespace: zen-brain
+  labels:
+    zen.kube-zen.com/jira-key: ZB-283
+    zen.kube-zen.com/source: jira
+    zen.kube-zen.com/work-type: implementation
+    zen.kube-zen.com/work-domain: office
+spec:
+  id: jira-zb-283
+  workItemID: ZB-283
+  workType: implementation
+  workDomain: office
+  title: "ZB-TEMPLATE-RESCUE: Rescue YAML task templates from zen-brain 0.1"
+  objective: "Port YAML task templates from zen-brain 0.1"
+  description: |
+    Create config/task-templates/ directory.
+    Templates should define bounded work with requirements, verification.
+    Scope: config/task-templates/*.
+  priority: high
+  timeoutSeconds: 2700
+  sessionID: jira-session-ZB-283
+  sourceKey: ZB-283
+  queueName: dogfood
+  maxRetries: 1
+  acceptanceCriteria:
+  - config/task-templates/ directory exists
+  - Templates parse as valid YAML
+  - Templates contain required fields
+  evidenceRequirement: summary
+---
+apiVersion: zen.kube-zen.com/v1alpha1
+kind: BrainTask
+metadata:
+  name: jira-zb-284
+  namespace: zen-brain
+  labels:
+    zen.kube-zen.com/jira-key: ZB-284
+    zen.kube-zen.com/source: jira
+    zen.kube-zen.com/work-type: implementation
+    zen.kube-zen.com/work-domain: office
+spec:
+  id: jira-zb-284
+  workItemID: ZB-284
+  workType: implementation
+  workDomain: office
+  title: "ZB-SCHED-RESCUE: Rescue scheduling/cron from zen-brain 0.1"
+  objective: "Port scheduling/cron behavior from zen-brain 0.1"
+  description: |
+    Implement generic schedule definitions (recurring, nights, weekends, catch-up).
+    Express in YAML where possible. Scope: internal/scheduler/*, config/schedules/*.
+    Must not productize 'nightshift' as architecture.
+  priority: high
+  timeoutSeconds: 2700
+  sessionID: jira-session-ZB-284
+  sourceKey: ZB-284
+  queueName: dogfood
+  maxRetries: 1
+  acceptanceCriteria:
+  - internal/scheduler/types.go exists
+  - config/schedules/ directory exists
+  - Schedule definitions load correctly
+  evidenceRequirement: summary

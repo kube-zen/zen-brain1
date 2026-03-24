@@ -181,6 +181,53 @@ func (e *LLMTemplateExecutor) buildGenerationRequest(ctx context.Context, spec *
 		Constraints:   []string{},
 	}
 
+	// Check if this is a rescue task with structured prompt
+	isRescueTask := strings.Contains(spec.Objective, "ADAPT") ||
+		strings.Contains(spec.Objective, "Rescue") ||
+		strings.Contains(spec.Objective, "0.1") ||
+		strings.Contains(spec.Labels, "zen-structured-prompt")
+
+	if isRescueTask {
+		req.StructuredPrompt = true
+		req.JiraKey = spec.WorkItemID
+		req.WorkTypeLabel = "rescue_implementation"
+		req.TimeoutSec = 2700 // 45 min for rescue tasks
+
+		// Parse objective for source/target files
+		sourceFile := extractFileFromObjective(spec.Objective, "SOURCE:")
+		targetFile := extractFileFromObjective(spec.Objective, "TARGET:")
+		allowedPaths := extractListFromObjective(spec.Objective, "Allowed paths:")
+		existingTypes := extractListFromObjective(spec.Objective, "Use these existing types:")
+
+		if sourceFile != "" {
+			req.ContextFiles = []string{sourceFile}
+		}
+		if targetFile != "" {
+			req.TargetFiles = []string{targetFile}
+		}
+		if len(allowedPaths) > 0 {
+			req.AllowedPaths = allowedPaths
+		}
+		if len(existingTypes) > 0 {
+			req.ExistingTypes = existingTypes
+		}
+
+		// Default packages for rescue tasks
+		req.ExistingPackages = []string{
+			"github.com/kube-zen/zen-brain1/internal/llm",
+			"github.com/kube-zen/zen-brain1/pkg/llm",
+			"github.com/kube-zen/zen-brain1/internal/mlq",
+		}
+
+		// Forbidden paths
+		req.ForbiddenPaths = []string{
+			"cmd/",
+			"deployments/",
+			"charts/",
+			"docs/",
+		}
+	}
+
 	// Detect project type
 	req.ProjectType = e.detectProjectType(workspacePath)
 
@@ -549,3 +596,45 @@ func (r *WorkTypeTemplateRegistry) registerLLMMigrationTemplate() {
 	}
 	r.registerTemplate(template)
 }
+
+
+// Helper functions for parsing rescue task objectives
+
+func extractFileFromObjective(objective, marker string) string {
+	lines := strings.Split(objective, "\n")
+	for _, line := range lines {
+		if strings.Contains(line, marker) {
+			parts := strings.Split(line, marker)
+			if len(parts) > 1 {
+				return strings.TrimSpace(parts[1])
+			}
+		}
+	}
+	return ""
+}
+
+func extractListFromObjective(objective, marker string) []string {
+	var result []string
+	lines := strings.Split(objective, "\n")
+	collecting := false
+	for _, line := range lines {
+		if strings.Contains(line, marker) {
+			collecting = true
+			continue
+		}
+		if collecting {
+			trimmed := strings.TrimSpace(line)
+			if trimmed == "" {
+				continue
+			}
+			if strings.HasPrefix(trimmed, "-") {
+				result = append(result, strings.TrimSpace(trimmed[1:]))
+			} else if !strings.HasPrefix(trimmed, " ") && !strings.HasPrefix(trimmed, "\t") {
+				// Stop collecting on next non-indented line
+				collecting = false
+			}
+		}
+	}
+	return result
+}
+

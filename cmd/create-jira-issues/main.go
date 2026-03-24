@@ -88,25 +88,33 @@ func main() {
 	}
 
 	issues := []*contracts.WorkItem{
+		// Rescue backlog from zen-brain 0.1 (ZB-MLQ-RESCUE)
 		{
-			Title:       "ZB-027H/I Pilot Success 1 - Update README",
-			Body:        "Update main README.md with current project status. Bounded safe task for nightshift pilot.",
+			Title:       "ZB-MLQ-RESCUE: Rescue MLQ from zen-brain 0.1",
+			Body:        "Port MLQ (model/provider selection) architecture from zen-brain 0.1. MLQ owns backend selection (Ollama, llama.cpp, future providers). Scope: internal/mlq/*, pkg/llm/types.go for ProviderCapability. Must keep current Ollama/qwen3.5:0.8b path working.",
 			WorkType:    contracts.WorkTypeImplementation,
-			Priority:    contracts.PriorityMedium,
+			Priority:    contracts.PriorityHigh,
 			Tags:        dogfoodTags,
 		},
 		{
-			Title:       "ZB-027H/I Pilot Success 2 - Add inline comment",
-			Body:        "Add a brief inline comment to a sample function. Bounded safe task.",
+			Title:       "ZB-YAML-RESCUE: Rescue YAML roles from zen-brain 0.1",
+			Body:        "Port YAML roles/permissions system from zen-brain 0.1. Create config/roles/ directory with role definitions (e.g., planner, worker, admin). Scope: config/roles/*, minimal API authorization changes.",
 			WorkType:    contracts.WorkTypeImplementation,
-			Priority:    contracts.PriorityMedium,
+			Priority:    contracts.PriorityHigh,
 			Tags:        dogfoodTags,
 		},
 		{
-			Title:       "ZB-027H/I Pilot Failure Test - Intentional timeout",
-			Body:        "Task designed to timeout for controlled failure test. Will exceed short timeout.",
+			Title:       "ZB-TEMPLATE-RESCUE: Rescue YAML task templates from zen-brain 0.1",
+			Body:        "Port YAML task templates from zen-brain 0.1. Create config/task-templates/ directory. Templates should define bounded work with requirements, expected behavior, verification. Scope: config/task-templates/*.",
 			WorkType:    contracts.WorkTypeImplementation,
-			Priority:    contracts.PriorityLow,
+			Priority:    contracts.PriorityHigh,
+			Tags:        dogfoodTags,
+		},
+		{
+			Title:       "ZB-SCHED-RESCUE: Rescue scheduling/cron from zen-brain 0.1",
+			Body:        "Port scheduling/cron behavior from zen-brain 0.1. Implement generic schedule definitions (recurring, nights, weekends, catch-up). Express in YAML where possible. Scope: internal/scheduler/*, config/schedules/*. Must not productize 'nightshift' as architecture.",
+			WorkType:    contracts.WorkTypeImplementation,
+			Priority:    contracts.PriorityHigh,
 			Tags:        dogfoodTags,
 		},
 	}

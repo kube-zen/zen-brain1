@@ -79,6 +79,13 @@ spec:
             - "-metrics-bind-address=:8080"
             - "-health-probe-bind-address=:8081"
             - "-workers={{ .Values.foreman.workerCount }}"
+            {{- if .Values.foreman.enableFactoryLLM }}
+            - "-factory-enable-llm=true"
+            - "-factory-llm-base-url={{ .Values.foreman.llmBaseURL }}"
+            - "-factory-llm-model={{ .Values.foreman.llmModel }}"
+            - "-factory-llm-timeout-seconds={{ .Values.foreman.llmTimeoutSeconds }}"
+            - "-factory-llm-enable-thinking={{ .Values.foreman.llmEnableThinking }}"
+            {{- end }}
           env:
             - name: ZEN_FOREMAN_RUNTIME_DIR
               value: "/tmp/zen-brain-factory"

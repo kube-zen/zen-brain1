@@ -1,0 +1,216 @@
+name: rescue_from_01
+display_name: Rescue code from zen-brain 0.1
+description: Port bounded code from zen-brain 0.1 to zen-brain 1.0 with structured prompts
+version: '1.0'
+
+# Role: Worker implements changes
+role: worker
+operation_type: provider
+
+# AI Configuration
+planner_ai: glm/GLM-4.7
+executor_ai: ''
+target_model: qwen3.5
+max_blueprint_size: 10000
+
+# Execution Constraints
+can_split_operations: false
+max_concurrent: 1
+queue_level: 3
+priority: 6
+estimated_hours: 2
+
+# Template-based prompt (NOT generic role prompts)
+planner_prompt_template: |
+  {{- /* This template is based on zen-brain 0.1 task-templates/quickwin.yaml */ -}}
+  You are executing Jira issue {{.JiraKey}}.
+  
+  === TASK IDENTITY ===
+  Goal: {{.Summary}}
+  Work type: {{.WorkType}}
+  Source (0.1): {{.Source01}}
+  Target (1.0): {{.Target10}}
+  Timeout: {{.TimeoutSec}} seconds
+  
+  === SCOPE ===
+  Allowed paths:
+  {{range .AllowedPaths}}- {{.}}
+  {{end}}
+  
+  Read these files first:
+  - {{.Source01}} (0.1 source)
+  - {{.Target10}} (1.0 target)
+  - internal/llm/provider.go (existing interfaces)
+  - pkg/llm/types.go (existing types)
+  
+  === ARCHITECTURE CONSTRAINTS ===
+  Use these existing types/interfaces:
+  - github.com/kube-zen/zen-brain1/pkg/llm.Provider
+  - github.com/kube-zen/zen-brain1/pkg/llm.ChatRequest
+  - github.com/kube-zen/zen-brain1/pkg/llm.ChatResponse
+  
+  Use these existing packages:
+  - github.com/kube-zen/zen-brain1/internal/llm
+  - github.com/kube-zen/zen-brain1/pkg/llm
+  - github.com/kube-zen/zen-brain1/internal/mlq
+  
+  === PHASED EXECUTION ===
+  
+  Phase 0: Pre-flight Check
+  Requirements:
+  - Confirm source file exists: {{.Source01}}
+  - Confirm target structure exists: {{.Target10}}
+  - List files in allowed paths
+  
+  Expected Behavior:
+  - Source file readable
+  - Target structure exists
+  - No blockers
+  
+  Verification:
+  - Run: ls {{.Source01}} {{.Target10}}
+  
+  Phase 1: Analyze 0.1 Source
+  Requirements:
+  - Read {{.Source01}}
+  - Identify core abstraction (types, interfaces, functions)
+  - Identify dependencies on other 0.1 packages
+  
+  Expected Behavior:
+  - List the key types/interfaces to port
+  - List the functions to implement
+  - Note any dependencies that need adaptation
+  
+  Verification:
+  - Confirm source file was read
+  - List extracted types/functions
+  
+  Phase 2: Analyze 1.0 Target
+  Requirements:
+  - Read {{.Target10}}
+  - Identify where to integrate (wiring points)
+  - Identify existing types to reuse
+  
+  Expected Behavior:
+  - List integration points in 1.0
+  - List existing types that match 0.1 types
+  - Identify gaps that need new types
+  
+  Verification:
+  - Confirm target file was read
+  - List integration points
+  
+  Phase 3: Port with Adaptation
+  Requirements:
+  - Port core abstraction shape, not blind copy
+  - Adapt to 1.0 existing types where possible
+  - Create new types only if needed
+  - Use only allowed paths
+  - Do NOT invent new packages/imports
+  - Do NOT create fake placeholder code
+  
+  Expected Behavior:
+  - Code compiles against 1.0 architecture
+  - No fake imports or invented packages
+  - Reuses existing types from pkg/llm
+  - Minimal changes, bounded scope
+  
+  Verification:
+  - Run: go build ./...
+  - Confirm no compilation errors
+  - List exact files modified
+  
+  Phase 4: Report Results
+  Requirements:
+  - List exact files changed
+  - Report compilation result
+  - Report test result (if tests exist)
+  - Report any blockers honestly
+  
+  Expected Behavior:
+  - Structured output with Files changed / Verification / Result / Blockers
+  - Do not claim success if compile fails
+  - Do not claim success if tests fail
+  
+  Verification:
+  - Confirm all sections present in output
+  - Confirm Result is SUCCESS or FAILURE
+  
+  === VERIFICATION COMMANDS ===
+  Compile: go build ./...
+  Tests: go test ./...
+  Static: grep -r 'type Provider interface' pkg/llm/
+  
+  === OUTPUT CONTRACT ===
+  Format: structured
+  
+  CRITICAL: Do NOT create fake artifacts or self-referential code.
+  CRITICAL: Report exact files changed.
+  CRITICAL: Report blockers honestly - do not claim success if verification fails.
+  
+  FORBIDDEN:
+  - Do NOT invent new packages/imports not in existing packages list
+  - Do NOT create fake modules or placeholder code
+  - Do NOT modify files outside allowed paths
+  - Do NOT claim success if compile/test commands fail
+  - If a required type is missing, report blocker instead of hallucinating
+  
+  OUTPUT:
+  Files changed:
+  - <list exact files>
+  
+  Verification run:
+  - <exact output of verification commands>
+  
+  Result: SUCCESS | FAILURE
+  
+  Blockers (if any):
+  - <list what blocked you>
+
+# Configuration for rescue tasks
+config:
+  source_01_base: /home/neves/zen-old/zen-brain
+  target_10_base: /home/neves/zen/zen-brain1
+  
+  # Timeout profiles
+  normal_timeout: 2700    # 45 min for qwen3.5:0.8b
+  quick_timeout: 600      # 10 min for simple tasks
+  extended_timeout: 5400  # 90 min for complex tasks
+
+# Example task definitions
+examples:
+  mlq_rescue:
+    jira_key: ZB-281
+    summary: Rescue MLQ from zen-brain 0.1
+    source_01: internal/queue/multi_level_queue.go
+    target_10: internal/mlq/selector.go
+    allowed_paths:
+      - internal/mlq/*
+      - pkg/llm/types.go
+      - internal/foreman/factory_runner.go
+  
+  yaml_roles_rescue:
+    jira_key: ZB-282
+    summary: Rescue YAML roles from zen-brain 0.1
+    source_01: config/roles.yaml
+    target_10: config/roles/
+    allowed_paths:
+      - config/roles/*.yaml
+      - internal/auth/roles.go
+  
+  templates_rescue:
+    jira_key: ZB-283
+    summary: Rescue YAML task templates from zen-brain 0.1
+    source_01: task-templates/
+    target_10: config/task-templates/
+    allowed_paths:
+      - config/task-templates/*.yaml
+  
+  scheduling_rescue:
+    jira_key: ZB-284
+    summary: Rescue scheduling/cron from zen-brain 0.1
+    source_01: internal/scheduler/
+    target_10: internal/scheduler/
+    allowed_paths:
+      - internal/scheduler/*.go
+      - config/schedules/*.yaml
