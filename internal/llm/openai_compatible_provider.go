@@ -37,8 +37,20 @@ func NewOpenAICompatibleProvider(name, baseURL, model, apiKey string) *OpenAICom
 	if model == "" {
 		model = "GLM-5"
 	}
+	return NewOpenAICompatibleProviderWithTimeout(name, baseURL, model, apiKey, 120*time.Second)
+}
+
+// NewOpenAICompatibleProviderWithTimeout creates a provider with custom timeout (for llama.cpp long-running requests).
+func NewOpenAICompatibleProviderWithTimeout(name, baseURL, model, apiKey string, timeout time.Duration) *OpenAICompatibleProvider {
+	baseURL = strings.TrimSuffix(strings.TrimSpace(baseURL), "/")
+	if baseURL == "" {
+		baseURL = defaultZenGLMBaseURL
+	}
+	if model == "" {
+		model = "GLM-5"
+	}
 	client := &http.Client{
-		Timeout: 120 * time.Second,
+		Timeout: timeout,
 	}
 	return &OpenAICompatibleProvider{
 		name:    name,
