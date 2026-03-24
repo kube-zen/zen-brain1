@@ -64,12 +64,17 @@ spec:
       {{- end }}
     spec:
       serviceAccountName: foreman
-      {{- if .Values.foreman.jira.enabled }}
       volumes:
+        {{- if .Values.foreman.jira.enabled }}
         - name: config-volume
           configMap:
             name: foreman-config
-      {{- end }}
+        {{- end }}
+        {{- if .Values.foreman.enableFactoryLLM }}
+        - name: mlq-config
+          configMap:
+            name: mlq-config
+        {{- end }}
       containers:
         - name: foreman
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
@@ -125,6 +130,12 @@ spec:
             - name: config-volume
               mountPath: /home/zenuser/.zen-brain/config.yaml
               subPath: config.yaml
+          {{- end }}
+          {{- if .Values.foreman.enableFactoryLLM }}
+          volumeMounts:
+            - name: mlq-config
+              mountPath: /tmp/zen-brain1/config/policy/mlq-levels.yaml
+              subPath: mlq-levels.yaml
           {{- end }}
 ---
 apiVersion: v1

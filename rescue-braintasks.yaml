@@ -14,7 +14,7 @@ spec:
   workType: implementation
   workDomain: office
   title: "ZB-MLQ-RESCUE: Rescue MLQ from zen-brain 0.1"
-  objective: "Port MLQ (model/provider selection) architecture from zen-brain 0.1"
+  objective: "ADAPT MLQ (multi-level queue) architecture from zen-brain 0.1. SOURCE: /home/neves/zen-old/zen-brain/internal/queue/multi_level_queue.go. TARGET: internal/mlq/selector.go. Allowed paths: internal/mlq/. Use these existing types: github.com/kube-zen/zen-brain1/pkg/llm.Provider, github.com/kube-zen/zen-brain1/pkg/llm.ChatRequest, github.com/kube-zen/zen-brain1/pkg/llm.ChatResponse."
   description: |
     MLQ owns backend selection (Ollama, llama.cpp, future providers).
     Scope: internal/mlq/*, pkg/llm/types.go for ProviderCapability.

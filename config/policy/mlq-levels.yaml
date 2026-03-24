@@ -1,0 +1,225 @@
+# MLQ Levels Configuration for zen-brain1
+# Version: 1.0
+# Status: Production
+#
+# Multi-Level Queue (MLQ) manages backend/model selection and task escalation.
+# This config defines levels, backends, and escalation rules.
+#
+# Architecture:
+# - Level 1: Many cheap workers (qwen3.5:0.8b Q4 via llama.cpp)
+# - Level 2: One stronger worker (2B Q4 via llama.cpp)
+# - Fallback: Current working control backend (Ollama qwen3.5:0.8b)
+
+mlq_levels:
+  # MLQ Level 1: Primary execution lane
+  - level: 1
+    name: "mlq-level-1"
+    display_name: "MLQ Level 1 (Cheap Workers)"
+    enabled: true
+
+    # Backend configuration
+    backend:
+      provider: "llama-cpp"
+      name: "qwen3.5:0.8b-q4"
+      model_file: "/home/neves/git/ai/Qwen3.5-0.8B-Q4_K_M.gguf"
+      api_endpoint: "http://127.0.0.1:56227"  # llama.cpp host endpoint
+      timeout_seconds: 2700  # 45 minutes for normal tasks
+
+    # Concurrency settings
+    concurrency:
+      max_workers: 10  # Many cheap workers
+      min_workers: 2
+
+    # Task classification
+    task_class:
+      - "bounded-execution"
+      - "implementation"
+      - "bugfix"
+      - "documentation"
+      - "test-generation"
+
+    # Capabilities
+    capabilities:
+      supports_streaming: false
+      supports_functions: false
+      max_context_tokens: 65536
+      max_output_tokens: 2048
+
+    # Performance targets
+    performance:
+      target_rps: 1.0  # 1 request per second per worker
+      max_latency_seconds: 1800  # 30 minutes max
+
+  # MLQ Level 2: Escalation lane for hard tasks
+  - level: 2
+    name: "mlq-level-2"
+    display_name: "MLQ Level 2 (Stronger Worker)"
+    enabled: true
+
+    # Backend configuration
+    backend:
+      provider: "llama-cpp"
+      name: "2b-q4"
+      model_file: "/home/neves/Downloads/zen-go-q4_k_m.gguf"
+      api_endpoint: "http://host.k3d.internal:60509"  # llama.cpp host endpoint (k3d host access)
+      timeout_seconds: 3600  # 60 minutes for complex tasks
+
+    # Concurrency settings
+    concurrency:
+      max_workers: 1  # One stronger worker
+      min_workers: 1
+
+    # Task classification
+    task_class:
+      - "complex-planning"
+      - "rescue"
+      - "refactor"
+      - "migration"
+      - "architecture-design"
+
+    # Capabilities
+    capabilities:
+      supports_streaming: false
+      supports_functions: false
+      max_context_tokens: 65536
+      max_output_tokens: 4096
+
+    # Performance targets
+    performance:
+      target_rps: 0.5  # 0.5 request per second
+      max_latency_seconds: 3600  # 60 minutes max
+
+  # Fallback/Control: Current working backend (Ollama)
+  # Keep existing control path until llama.cpp MLQ is proven
+  - level: 0
+    name: "fallback-control"
+    display_name: "Fallback Control (Ollama)"
+    enabled: true
+
+    # Backend configuration
+    backend:
+      provider: "ollama"
+      name: "qwen3.5:0.8b"
+      model_file: ""
+      api_endpoint: "http://host.k3d.internal:11434"  # Ollama endpoint
+      timeout_seconds: 2700  # 45 minutes
+
+    # Concurrency settings
+    concurrency:
+      max_workers: 5
+      min_workers: 1
+
+    # Task classification (fallback only)
+    task_class:
+      - "chat"
+      - "quick-test"
+
+    # Capabilities
+    capabilities:
+      supports_streaming: true
+      supports_functions: true
+      max_context_tokens: 32768
+      max_output_tokens: 2048
+
+    # Performance targets
+    performance:
+      target_rps: 2.0
+      max_latency_seconds: 1800
+
+# Escalation Rules
+escalation_rules:
+  # Auto-escalate from Level 1 to Level 2
+  - trigger: "retry_count"
+    from_level: 1
+    to_level: 2
+    max_retries: 2  # Escalate after 2 failures
+    timeout_threshold_seconds: 2400  # 40 minutes
+
+  # Auto-escalate from Level 1 to Fallback
+  - trigger: "timeout_or_error"
+    from_level: 1
+    to_level: 0
+    timeout_threshold_seconds: 2700  # Timeout at 45 minutes
+    require_manual_approval: false
+
+  # Manual escalation for complex tasks
+  - trigger: "manual"
+    from_level: 1
+    to_level: 2
+    require_manual_approval: true
+    allowed_for_task_class:
+      - "rescue"
+      - "complex-planning"
+
+# Runtime Selection Policy
+selection_policy:
+  # Default level for task classes
+  default_level_mapping:
+    "bounded-execution": 1
+    "implementation": 1
+    "bugfix": 1
+    "documentation": 1
+    "test-generation": 1
+    "complex-planning": 2
+    "rescue": 2
+    "refactor": 2
+    "migration": 2
+    "architecture-design": 2
+    "chat": 0  # Use fallback for chat
+    "quick-test": 0  # Use fallback for quick tests
+
+  # Jira key overrides (explicit routing)
+  jira_key_overrides:
+    "SMOKE-LEVEL1": 1  # Level 1 smoke test
+    "SMOKE-LEVEL2": 2  # Level 2 smoke test
+    "ZB-281": 2  # MLQ rescue goes to Level 2
+    "ZB-282": 2  # YAML roles rescue goes to Level 2
+    "ZB-283": 2  # YAML templates rescue goes to Level 2
+    "ZB-284": 2  # Scheduling rescue goes to Level 2
+
+  # Fallback behavior
+  fallback_behavior:
+    strategy: "fallback_on_failure"
+    max_fallback_attempts: 3
+    fallback_delay_seconds: 30
+
+# Health and Monitoring
+health_checks:
+  enabled: true
+  interval_seconds: 60
+
+  # Check each backend
+  backends:
+    - level: 1
+      check_endpoint: "/health"
+      timeout_seconds: 10
+      healthy_threshold: 3  # 3 consecutive checks = healthy
+      unhealthy_threshold: 1  # 1 failed check = unhealthy
+
+    - level: 2
+      check_endpoint: "/health"
+      timeout_seconds: 10
+      healthy_threshold: 3
+      unhealthy_threshold: 1
+
+    - level: 0
+      check_endpoint: "/api/tags"  # Ollama health check
+      timeout_seconds: 10
+      healthy_threshold: 3
+      unhealthy_threshold: 1
+
+# Runtime Logging
+logging:
+  level: "INFO"
+
+  # Log on every selection
+  log_selection: true
+  selection_format: "[MLQ] Selected Level {level} for task {task_id} (jira={jira_key}) - backend={backend} model={model} timeout={timeout}s"
+
+  # Log escalations
+  log_escalation: true
+  escalation_format: "[MLQ] Escalating task {task_id} from Level {from_level} to Level {to_level} - reason={reason}"
+
+  # Log fallbacks
+  log_fallback: true
+  fallback_format: "[MLQ] Fallback task {task_id} to Level 0 (Ollama) - reason={reason}"

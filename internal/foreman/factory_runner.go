@@ -13,7 +13,6 @@ import (
 	"github.com/kube-zen/zen-brain1/internal/evidence"
 	"github.com/kube-zen/zen-brain1/internal/factory"
 	"github.com/kube-zen/zen-brain1/internal/llm"
-	"github.com/kube-zen/zen-brain1/internal/mlq"
 	"github.com/kube-zen/zen-brain1/internal/worktree"
 	"github.com/kube-zen/zen-brain1/pkg/contracts"
 )
@@ -114,48 +113,26 @@ func NewFactoryTaskRunner(cfg FactoryTaskRunnerConfig) (*FactoryTaskRunner, erro
 			log.Printf("[FactoryTaskRunner] ZB-023 WARNING: Local CPU path - thinking enabled (may degrade performance on CPU)")
 		}
 
-		// ZB-MLQ-RESCUE: MLQ owns backend selection
-		// Create MLQ selector
-		mlqSelector := mlq.NewMLQ()
-
-		// Register Ollama backend (current working path)
-		ollamaBackend := mlq.Backend{
-			ProviderName:   "ollama",
-			Model:         cfg.LLMModel,
-			BaseURL:       cfg.LLMBaseURL,
-			TimeoutSeconds: cfg.LLMTimeoutSeconds,
-			EnableThinking: cfg.LLMEnableThinking,
-		}
-		mlqSelector.RegisterBackend("ollama", ollamaBackend)
-
-		// Select backend via MLQ
-		criteria := mlq.SelectionCriteria{
-			PreferredProvider: cfg.LLMProvider, // If set, use this specific backend
-		}
-		selectedBackend, err := mlqSelector.Select(criteria)
-		if err != nil {
-			return nil, fmt.Errorf("MLQ backend selection failed: %w", err)
+		// Create Ollama provider
+		if cfg.LLMBaseURL == "" {
+			return nil, fmt.Errorf("LLM enabled but LLMBaseURL not set (set ZEN_FOREMAN_LLM_BASE_URL or config.LLMBaseURL)")
 		}
 
-		log.Printf("[FactoryTaskRunner] MLQ selected backend: provider=%s model=%s timeout=%ds thinking=%v",
-			selectedBackend.ProviderName, selectedBackend.Model, selectedBackend.TimeoutSeconds, selectedBackend.EnableThinking)
+		log.Printf("[FactoryTaskRunner] Creating Ollama provider: url=%s model=%s timeout=%ds thinking=%v",
+			cfg.LLMBaseURL, cfg.LLMModel, cfg.LLMTimeoutSeconds, cfg.LLMEnableThinking)
 
-		// Create provider based on MLQ selection
-		var provider llm.Provider
-		providerName, model, baseURL, timeoutSeconds := selectedBackend.CreateProvider()
-		
-		switch providerName {
-		case "ollama":
-			provider = llm.NewOllamaProvider(baseURL, model, timeoutSeconds, "30m")
-		default:
-			return nil, fmt.Errorf("unsupported provider from MLQ: %s", providerName)
-		}
+		ollamaProvider := llm.NewOllamaProvider(
+			cfg.LLMBaseURL,
+			cfg.LLMModel,
+			cfg.LLMTimeoutSeconds,
+			"30m", // Keep-alive to match apiserver default
+		)
 
 		// Create LLM generator with enforced config
 		llmGenConfig := factory.DefaultLLMGeneratorConfig(ollamaProvider)
-		llmGenConfig.Model = selectedBackend.Model
-		llmGenConfig.EnableThinking = selectedBackend.EnableThinking
-		llmGenConfig.Timeout = time.Duration(selectedBackend.TimeoutSeconds) * time.Second
+		llmGenConfig.Model = cfg.LLMModel
+		llmGenConfig.EnableThinking = cfg.LLMEnableThinking
+		llmGenConfig.Timeout = time.Duration(cfg.LLMTimeoutSeconds) * time.Second
 
 		llmGenerator, err := factory.NewLLMGenerator(llmGenConfig)
 		if err != nil {
@@ -164,8 +141,33 @@ func NewFactoryTaskRunner(cfg FactoryTaskRunnerConfig) (*FactoryTaskRunner, erro
 
 		// Enable LLM in Factory (this registers LLM templates)
 		f.SetLLMGenerator(llmGenerator)
-		log.Printf("[FactoryTaskRunner] LLM-powered Factory execution enabled via MLQ (provider=%s model=%s)",
-			selectedBackend.ProviderName, selectedBackend.Model)
+		log.Printf("[FactoryTaskRunner] LLM-powered Factory execution enabled (model=%s)", cfg.LLMModel)
+
+		// Try to enable MLQ if config exists (ZB-MLQ-RESCUE: MLQ owns backend selection)
+		// Factory.executeWithLLM() will use MLQ.SelectLevel() for each task
+		// 
+		// MLQ config path resolution order:
+		// 1. ZEN_BRAIN_MLQ_CONFIG env var (explicit path - highest priority)
+		// 2. /config/policy/mlq-levels.yaml (Kubernetes ConfigMap mount)
+		// 3. Relative to runtime dir (local dev: ../zen-brain1/config/policy/mlq-levels.yaml)
+		mlqConfigPath := os.Getenv("ZEN_BRAIN_MLQ_CONFIG")
+		if mlqConfigPath == "" {
+			// Try Kubernetes ConfigMap mount location first
+			mlqConfigPath = "/config/policy/mlq-levels.yaml"
+			if _, err := os.Stat(mlqConfigPath); err != nil {
+				// Fall back to relative path for local dev
+				mlqConfigPath = filepath.Join(cfg.RuntimeDir, "../zen-brain1/config/policy/mlq-levels.yaml")
+			}
+		}
+		if _, err := os.Stat(mlqConfigPath); err == nil {
+			if err := f.EnableMLQ(mlqConfigPath); err != nil {
+				log.Printf("[FactoryTaskRunner] Warning: Failed to enable MLQ from config: %v", err)
+			} else {
+				log.Printf("[FactoryTaskRunner] MLQ enabled from config: %s", mlqConfigPath)
+			}
+		} else {
+			log.Printf("[FactoryTaskRunner] MLQ config not found at %s, using default backend", mlqConfigPath)
+		}
 	}
 
 	return &FactoryTaskRunner{Factory: f, cfg: cfg}, nil
@@ -267,4 +269,3 @@ func hasRealTemplateForWorkType(workType string) bool {
 
 // Ensure FactoryTaskRunner implements TaskRunner.
 var _ TaskRunner = (*FactoryTaskRunner)(nil)
-Runner)(nil)

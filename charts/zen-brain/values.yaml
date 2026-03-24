@@ -2,7 +2,7 @@
 
 image:
   repository: zen-registry:5000/zen-brain
-  tag: dev
+  tag: mlq-enabled
   pullPolicy: IfNotPresent
 
 # Ollama deployment model:
