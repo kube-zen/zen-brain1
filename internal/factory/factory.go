@@ -724,18 +724,39 @@ func (f *FactoryImpl) executeWithLLM(ctx context.Context, spec *FactoryTaskSpec,
 			var providerProvider llmcontracts.Provider
 
 			switch provider {
-			case "ollama", "llama-cpp":
-				// Both Ollama and llama.cpp use OpenAI-compatible API
-				// Create provider with the selected baseURL
+			case "ollama":
+				// Ollama uses /api/chat endpoint
 				providerProvider = llm.NewOllamaProvider(
 					selectedBaseURL,
 					selectedModel,
 					selectedTimeout,
 					"45m", // Keep-alive
 				)
+			case "llama-cpp":
+				// llama.cpp uses /v1/chat/completions (OpenAI-compatible)
+				// Use OpenAICompatibleProvider for correct transport
+				providerProvider = llm.NewOpenAICompatibleProvider(
+					"llama-cpp",
+					selectedBaseURL,
+					selectedModel,
+					"", // No API key for llama.cpp
+				)
 			default:
 				return nil, fmt.Errorf("unsupported MLQ provider: %s", provider)
 			}
+
+			// Provider-level health check (fail fast if endpoint unreachable)
+			log.Printf("[Factory] Checking provider health: backend=%s provider=%s url=%s", selectedProvider, provider, selectedBaseURL)
+			healthCtx, healthCancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer healthCancel()
+			
+			probeMsg := []llmcontracts.Message{{Role: "user", Content: "ping"}}
+			_, healthErr := providerProvider.Chat(healthCtx, llmcontracts.ChatRequest{Messages: probeMsg})
+			if healthErr != nil {
+				return nil, fmt.Errorf("provider health check failed: backend=%s provider=%s url=%s error=%w",
+					selectedProvider, provider, selectedBaseURL, healthErr)
+			}
+			log.Printf("[Factory] Provider health check passed: backend=%s provider=%s", selectedProvider, provider)
 
 			// Create task-specific LLM generator
 			genConfig := &LLMGeneratorConfig{
