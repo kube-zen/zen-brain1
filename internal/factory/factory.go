@@ -413,11 +413,33 @@ func (f *FactoryImpl) ExecuteTask(ctx context.Context, spec *FactoryTaskSpec) (*
 	// Extract check results from report
 	if report, ok := postflightReport.(*PostflightReport); ok {
 		if !report.AllPassed {
-			log.Printf("[Factory] Postflight checks failed (non-fatal): task_id=%s failed=%d", spec.ID, len(report.Checks))
+			// Collect all failed checks with reasons
+			failedReasons := []string{}
+			criticalFailures := []string{}
 			for _, check := range report.Checks {
 				if !check.Passed {
 					log.Printf("[Factory]   - %s: %s", check.Name, check.Message)
+					failedReasons = append(failedReasons, fmt.Sprintf("%s: %s", check.Name, check.Message))
+					// Critical checks that must hard-fail even in non-strict mode
+					switch check.Name {
+					case "execution_completed", "files_verified", "proof_of_work":
+						criticalFailures = append(criticalFailures, check.Name)
+					}
 				}
+			}
+
+			if len(criticalFailures) > 0 {
+				// HARD FAILURE: critical postflight checks failed
+				log.Printf("[Factory] HARD FAILURE: critical postflight checks failed: task_id=%s critical=%v all_failed=%d",
+					spec.ID, criticalFailures, len(failedReasons))
+				result.Success = false
+				result.Status = ExecutionStatusFailed
+				result.VerificationFailed = true
+				result.Recommendation = "retry"
+				result.Error = fmt.Sprintf("critical postflight failure: %s", strings.Join(failedReasons, "; "))
+			} else {
+				log.Printf("[Factory] Postflight checks failed (non-fatal): task_id=%s failed=%d", spec.ID, len(failedReasons))
+				result.VerificationFailed = true
 			}
 		} else {
 			log.Printf("[Factory] Postflight checks passed: task_id=%s checks=%d", spec.ID, len(report.Checks))

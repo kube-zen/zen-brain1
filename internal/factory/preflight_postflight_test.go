@@ -366,8 +366,8 @@ func TestPostflightVerifier_checkFilesCreated(t *testing.T) {
 			t.Fatalf("checkFilesCreated failed: %v", err)
 		}
 
-		if !checkResult.Passed {
-			t.Error("Expected check to pass when no files declared")
+		if checkResult.Passed {
+			t.Error("Expected check to fail when no files generated (hard gate)")
 		}
 	})
 }
