@@ -2,6 +2,10 @@
 bin/
 /apiserver
 /foreman
+/zen-brain
+/controller
+/create-jira-issues
+/zen-brain1
 *.exe
 *.exe~
 *.dll
