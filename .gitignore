@@ -110,3 +110,9 @@ DONOTASKMOREFORTHISSHIT.txt
 ZENBRAIN*NEVERDELETETHISSHIT.age
 zen-lock-private-key.age
 zen-lock-public-key.age
+
+# Binaries (historical bloat cleanup)
+create-jira-issues
+
+# Vendored sqlite generated Go files (restore via go mod vendor)
+vendor/modernc.org/sqlite/lib/
