@@ -254,10 +254,23 @@ func (e *LLMTemplateExecutor) buildGenerationRequest(ctx context.Context, spec *
 	}
 
 	// Read existing code if modifying a file
-	targetPath := e.guessTargetPath(spec, workspacePath)
-	if content, err := os.ReadFile(targetPath); err == nil {
-		req.ExistingCode = string(content)
-		req.TargetPath = targetPath
+	// ZB-281 C030: When TargetFiles is explicitly set (structured prompt), use that path
+	// instead of guessTargetPath which generates a wrong slug-based path.
+	if len(req.TargetFiles) > 0 {
+		explicitTarget := filepath.Join(workspacePath, req.TargetFiles[0])
+		if content, err := os.ReadFile(explicitTarget); err == nil {
+			req.ExistingCode = string(content)
+			req.TargetPath = explicitTarget
+			log.Printf("[LLMTemplate] Loaded existing code from explicit target: %s (%d bytes)", explicitTarget, len(content))
+		}
+	}
+	// Fallback to guessTargetPath if explicit target didn't load
+	if req.ExistingCode == "" {
+		targetPath := e.guessTargetPath(spec, workspacePath)
+		if content, err := os.ReadFile(targetPath); err == nil {
+			req.ExistingCode = string(content)
+			req.TargetPath = targetPath
+		}
 	}
 
 	// Read related files for context
@@ -267,6 +280,33 @@ func (e *LLMTemplateExecutor) buildGenerationRequest(ctx context.Context, spec *
 			relPath, _ := filepath.Rel(workspacePath, path)
 			req.RelatedFiles[relPath] = string(content)
 		}
+	}
+
+	// ZB-281 C030: For structured rescue tasks, inject grounded repo context
+	// that the model must use instead of inventing types.
+	if req.StructuredPrompt {
+		groundedContextFiles := []string{
+			"pkg/llm/provider.go",
+			"pkg/llm/types.go",
+		}
+		for _, relPath := range groundedContextFiles {
+			fullPath := filepath.Join(workspacePath, relPath)
+			if content, err := os.ReadFile(fullPath); err == nil {
+				req.RelatedFiles[relPath] = string(content)
+				log.Printf("[LLMTemplate] Injected grounded context: %s (%d bytes)", relPath, len(content))
+			}
+		}
+
+		// ZB-281 C030/C031: Add explicit constraints forbidding type invention
+		req.Constraints = append(req.Constraints,
+			"CRITICAL: You MUST modify the existing target file in place. Do NOT synthesize greenfield code.",
+			"CRITICAL: Use ONLY types, methods, interfaces, and symbols that appear in the provided existing code or related context files.",
+			"FORBIDDEN: Do NOT invent SelectRequest, SelectSlot, SelectedSlots, GetProviderConfig, or any pkg/llm surface not present in the provided context.",
+			"FORBIDDEN: Do NOT import github.com/stretchr/testify/assert or any testify/mock packages.",
+			"FORBIDDEN: Do NOT create new files unless explicitly requested.",
+			"PRESERVE the existing package name and all existing function/type signatures in the target file.",
+			"Use only imports that already exist in the target file or are in the provided context files.",
+		)
 	}
 
 	// Add custom prompt if provided
