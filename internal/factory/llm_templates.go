@@ -256,12 +256,26 @@ func (e *LLMTemplateExecutor) buildGenerationRequest(ctx context.Context, spec *
 	// Read existing code if modifying a file
 	// ZB-281 C030: When TargetFiles is explicitly set (structured prompt), use that path
 	// instead of guessTargetPath which generates a wrong slug-based path.
+	// ZB-281 W004: Also fall back to ZEN_SOURCE_REPO for isolated-dir workspaces.
+	sourcePaths := []string{workspacePath}
+	if repoPath := os.Getenv("ZEN_SOURCE_REPO"); repoPath != "" {
+		sourcePaths = append([]string{repoPath}, sourcePaths...)
+	}
+
 	if len(req.TargetFiles) > 0 {
-		explicitTarget := filepath.Join(workspacePath, req.TargetFiles[0])
-		if content, err := os.ReadFile(explicitTarget); err == nil {
-			req.ExistingCode = string(content)
-			req.TargetPath = explicitTarget
-			log.Printf("[LLMTemplate] Loaded existing code from explicit target: %s (%d bytes)", explicitTarget, len(content))
+		loaded := false
+		for _, srcPath := range sourcePaths {
+			explicitTarget := filepath.Join(srcPath, req.TargetFiles[0])
+			if content, err := os.ReadFile(explicitTarget); err == nil {
+				req.ExistingCode = string(content)
+				req.TargetPath = filepath.Join(workspacePath, req.TargetFiles[0])
+				log.Printf("[LLMTemplate] Loaded existing code from %s: %s (%d bytes)", srcPath, req.TargetFiles[0], len(content))
+				loaded = true
+				break
+			}
+		}
+		if !loaded {
+			log.Printf("[LLMTemplate] WARNING: Could not load target file %s from any source path (tried: %v)", req.TargetFiles[0], sourcePaths)
 		}
 	}
 	// Fallback to guessTargetPath if explicit target didn't load
@@ -285,13 +299,6 @@ func (e *LLMTemplateExecutor) buildGenerationRequest(ctx context.Context, spec *
 	// ZB-281 C030: For structured rescue tasks, inject grounded repo context
 	// that the model must use instead of inventing types.
 	if req.StructuredPrompt {
-		// Try workspace first, then fall back to ZEN_SOURCE_REPO env var
-		// (needed when workspace is isolated dirs, not git worktrees)
-		sourcePaths := []string{workspacePath}
-		if repoPath := os.Getenv("ZEN_SOURCE_REPO"); repoPath != "" {
-			sourcePaths = append([]string{repoPath}, sourcePaths...)
-		}
-
 		groundedContextFiles := []string{
 			"pkg/llm/provider.go",
 			"pkg/llm/types.go",
