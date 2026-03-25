@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kube-zen/zen-brain1/internal/promptbuilder"
 	"github.com/kube-zen/zen-brain1/pkg/llm"
 )
 
@@ -143,7 +144,68 @@ func (g *LLMGenerator) GenerateImplementation(ctx context.Context, req *Generati
 }
 
 // getSystemPrompt returns the system prompt for code generation.
+// ZB-281 C059: Use canonical promptbuilder.BuildPrompt() for structured rescue tasks.
 func (g *LLMGenerator) getSystemPrompt(req *GenerationRequest) string {
+	// ZB-281 C059: For structured rescue tasks, use canonical promptbuilder path
+	if req.StructuredPrompt {
+		// Construct TaskPacket with all required fields
+		packet := promptbuilder.TaskPacket{
+			JiraKey:    req.JiraKey,
+			Summary:    req.Title,
+			WorkType:   req.WorkTypeLabel,
+			TimeoutSec:  req.TimeoutSec,
+
+			// Scope
+			AllowedPaths:   req.AllowedPaths,
+			ForbiddenPaths:  req.ForbiddenPaths,
+			ContextFiles:    []string{}, // Will be populated below
+			TargetFiles:     req.TargetFiles,
+
+			// Architecture constraints
+			ExistingTypes:    req.ExistingTypes,
+			ExistingPackages: req.ExistingPackages,
+			WiringPoints:     []string{}, // No explicit wiring needed for this task
+			DoNotModify:      []string{},
+
+			// Phased execution
+			Phases: []promptbuilder.Phase{
+					{
+							Name:             "Implementation",
+							Requirements:     []string{"Generate complete, working implementation"},
+							ExpectedBehavior: []string{"Modify existing file in place"},
+							Verification:     []string{"Code compiles: go build ./...", "Tests pass if present"},
+					},
+			},
+
+			// Verification
+			CompileCmd: "go build ./...",
+			TestCmd:    "go test ./internal/... ./pkg/... ./cmd/...",
+
+			// Output contract
+			OutputFormat:   "single in-place edit",
+			ReportFiles:    true,
+			ReportBlockers:  true,
+			NoCodeExamples:  true,
+			NoFakeArtifacts: true,
+		}
+
+			// Populate ContextFiles with grounded context
+		for relPath := range req.RelatedFiles {
+			packet.ContextFiles = append(packet.ContextFiles, relPath)
+		}
+
+		// Build canonical structured prompt
+		canonicalPrompt, err := promptbuilder.BuildPrompt(packet)
+		if err != nil {
+			log.Printf("[LLMGenerator] Failed to build canonical prompt: %v", err)
+			return fmt.Sprintf("Error building structured prompt: %v\n", err)
+		}
+
+		log.Printf("[LLMGenerator] Using canonical structured prompt (TaskPacket)")
+		return canonicalPrompt
+	}
+
+	// Fallback to ad-hoc prompt for non-structured tasks
 	var sb strings.Builder
 
 	sb.WriteString("You are an expert software engineer generating production-quality code.\n\n")
