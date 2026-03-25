@@ -237,3 +237,17 @@ Different roles require different prompt tuning:
 - Ollama Model Library: [https://ollama.com/library](https://ollama.com/library)
 - ZenLedger Design: [ZEN_LEDGER.md](ZEN_LEDGER.md)
 - Bounded Orchestrator Loop: [BOUNDED_ORCHESTRATOR_LOOP.md](BOUNDED_ORCHESTRATOR_LOOP.md)
+
+## Phase 15 Updates (2026-03-25)
+
+See [L1/L2 Lane Runbook](../05-OPERATIONS/L1_L2_LANE_RUNBOOK.md) for the operational procedure.
+See [08B Positive Control Runbook](../05-OPERATIONS/08B_POSITIVE_CONTROL_RUNBOOK.md) for the test script.
+See [MLQ Lane Routing Matrix](../05-OPERATIONS/MLQ_LANE_ROUTING_MATRIX.md) for routing decisions.
+
+Key changes:
+- L1 = 0.8B workhorse (bounded single-file tasks)
+- L2 = 2B bounded (1-3 files, moderate adaptation)
+- Default target-file context injection from ZEN_SOURCE_REPO for all tasks
+- quickwin-l1.yaml template replaces heavy 4-phase rescue packets for L1
+- MLQ rescue is NOT the default proof vehicle for 0.8B capability
+- Run `scripts/run-08b-positive-control.sh` for preflight health check
