@@ -490,10 +490,39 @@ func (g *LLMGenerator) buildGenericPrompt(req *GenerationRequest) string {
 	return sb.String()
 }
 
+// stripMarkdownFences removes markdown code block fences from content.
+// Handles: ```language, ``` without language, and trailing fences.
+// Returns the content inside the fences, or original if no fences found.
+func stripMarkdownFences(content string) string {
+	// Skip all lines that start with ``` (both opening and closing fences)
+	lines := strings.Split(content, "\n")
+	var result []string
+
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		// Skip any line that starts with ```
+		if strings.HasPrefix(trimmed, "```") {
+			continue
+		}
+		// Keep non-fence lines
+		result = append(result, line)
+	}
+
+	// If we removed any lines (had fences), return cleaned content
+	if len(result) < len(lines) {
+		return strings.Join(result, "\n")
+	}
+	// No fences found, return original
+	return content
+}
+
 // extractCode extracts code from markdown code blocks.
 func (g *LLMGenerator) extractCode(content string) (code string, language string, err error) {
+	// Strip markdown fences first (PHASE 18 fix)
+	cleanContent := stripMarkdownFences(content)
+
 	// Reject empty or whitespace-only content
-	trimmed := strings.TrimSpace(content)
+	trimmed := strings.TrimSpace(cleanContent)
 	if trimmed == "" {
 		log.Printf("[LLMGenerator] extractCode rejected empty content")
 		return "", "", fmt.Errorf("empty content - no code to extract")
@@ -505,7 +534,7 @@ func (g *LLMGenerator) extractCode(content string) (code string, language string
 	// ```
 
 	// Find code block
-	start := strings.Index(content, "```")
+	start := strings.Index(cleanContent, "```")
 	if start == -1 {
 		// No code block - check if content looks like code
 		// Reject content that's just a short sentence (under 50 chars)
@@ -514,11 +543,11 @@ func (g *LLMGenerator) extractCode(content string) (code string, language string
 			return "", "", fmt.Errorf("content appears to be narrative text, not code (length %d)", len(trimmed))
 		}
 		// Return as-is for non-code-block content that looks substantial
-		return trimmed, "text", nil
+		return cleanContent, "text", nil
 	}
 
 	// Find language identifier
-	afterStart := content[start+3:]
+	afterStart := cleanContent[start+3:]
 	endLang := strings.Index(afterStart, "\n")
 	if endLang == -1 {
 		log.Printf("[LLMGenerator] extractCode rejected malformed code block (no newline after opener): %.200q", trimmed)
@@ -532,10 +561,10 @@ func (g *LLMGenerator) extractCode(content string) (code string, language string
 
 	// Find end of code block
 	codeStart := start + 3 + endLang + 1
-	codeEnd := strings.Index(content[codeStart:], "```")
+	codeEnd := strings.Index(cleanContent[codeStart:], "```")
 	if codeEnd == -1 {
 		// Unclosed code block - extract remaining content
-		extracted := strings.TrimSpace(content[codeStart:])
+		extracted := strings.TrimSpace(cleanContent[codeStart:])
 		if extracted == "" {
 			log.Printf("[LLMGenerator] extractCode rejected unclosed empty code block")
 			return "", "", fmt.Errorf("unclosed code block with no content")
@@ -543,7 +572,7 @@ func (g *LLMGenerator) extractCode(content string) (code string, language string
 		return extracted, language, nil
 	}
 
-	code = content[codeStart : codeStart+codeEnd]
+	code = cleanContent[codeStart : codeStart+codeEnd]
 	extracted := strings.TrimSpace(code)
 	if extracted == "" {
 		log.Printf("[LLMGenerator] extractCode rejected empty code block content")
