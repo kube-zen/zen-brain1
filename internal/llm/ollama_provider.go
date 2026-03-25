@@ -34,6 +34,7 @@ type OllamaProvider struct {
 
 // ollamaTool is a tool definition for Ollama function calling.
 type ollamaTool struct {
+	Type        string                 `json:"type"`
 	Name        string                 `json:"name"`
 	Description string                 `json:"description"`
 	Parameters  map[string]interface{} `json:"parameters"`
@@ -236,6 +237,7 @@ func (p *OllamaProvider) Chat(ctx context.Context, req llm.ChatRequest) (*llm.Ch
 		tools = make([]ollamaTool, 0, len(req.Tools))
 		for _, tool := range req.Tools {
 			tools = append(tools, ollamaTool{
+				Type:        "function",
 				Name:        tool.Name,
 				Description: tool.Description,
 				Parameters:  tool.Parameters,

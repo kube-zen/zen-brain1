@@ -1,0 +1,51 @@
+apiVersion: zen.kube-zen.com/v1alpha1
+kind: BrainTask
+metadata:
+  name: w016-l2-01-enhance-jira-validation
+  namespace: zen-brain
+spec:
+  workItemID: "W016-L2-01"
+  title: "Add credential format validation to Jira resolution"
+  description: |
+    Add comprehensive credential format validation to ResolveJira function in internal/secrets/jira.go:
+
+    1. Add private helper validateJiraURL(url string) error that checks:
+       - URL starts with http:// or https://
+       - URL contains a hostname
+
+    2. Add private helper validateJiraEmail(email string) error that checks:
+       - Email contains exactly one "@" symbol
+       - Domain part has at least one "." character
+
+    3. Add private helper validateJiraProjectKey(project string) error that checks:
+       - Project key is 2-10 characters uppercase letters
+
+    4. Integrate validation into ResolveJira before returning successful material
+
+    5. Add unit tests for each validation helper
+
+    6. Add integration test that validates complete resolution with invalid inputs
+  workType: "refactor"
+  workDomain: "core"
+  priority: "high"
+  queueName: "default"
+  constraints:
+    - "target_files: internal/secrets/jira.go, internal/secrets/jira_test.go"
+    - "package: secrets"
+    - "allowed_imports: fmt,strings,net/url"
+    - "forbid_new_types: true"
+    - "max_context_chars: 5000"
+  evidenceRequirement: "test_results"
+  timeoutSeconds: 1200
+  maxRetries: 2
+  sessionID: "session-w016-l2-01"
+  sourceKey: "W016-L2-01"
+  acceptanceCriteria:
+    - "validateJiraURL() function added"
+    - "validateJiraEmail() function added"
+    - "validateJiraProjectKey() function added"
+    - "Validation integrated into ResolveJira"
+    - "Unit tests added for each validator"
+    - "go build ./internal/secrets/ passes"
+    - "go test ./internal/secrets/ passes"
+  objective: "Demonstrate L2 (2B bounded) execution on multi-file validation task"

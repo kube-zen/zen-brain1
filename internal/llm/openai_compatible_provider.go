@@ -78,6 +78,7 @@ type oaiMessage struct {
 
 // oaiTool is a tool definition for OpenAI-compatible API.
 type oaiTool struct {
+	Type        string                 `json:"type"`
 	Name        string                 `json:"name"`
 	Description string                 `json:"description"`
 	Parameters  map[string]interface{} `json:"parameters"`
@@ -136,6 +137,7 @@ func (p *OpenAICompatibleProvider) Chat(ctx context.Context, req llm.ChatRequest
 		tools = make([]oaiTool, 0, len(req.Tools))
 		for _, tool := range req.Tools {
 			tools = append(tools, oaiTool{
+				Type:        "function",
 				Name:        tool.Name,
 				Description: tool.Description,
 				Parameters:  tool.Parameters,

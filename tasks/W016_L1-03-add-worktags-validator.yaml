@@ -1,0 +1,43 @@
+apiVersion: zen.kube-zen.com/v1alpha1
+kind: BrainTask
+metadata:
+  name: w016-l1-03-add-worktags-validator
+  namespace: zen-brain
+spec:
+  workItemID: "W016-L1-03"
+  title: "Add ValidateWorkTags() helper function to contracts package"
+  description: |
+    Add a validation helper function that checks a WorkTags struct for basic validity in pkg/contracts/validate.go:
+
+    func ValidateWorkTags(tags WorkTags) error {
+        // Check that at least one tag field is set
+        if tags.HumanOrg == "" && tags.Routing == "" &&
+           tags.Policy == "" && tags.Analytics == "" && tags.SRED == "" {
+            return fmt.Errorf("WorkTags: at least one tag must be set")
+        }
+        return nil
+    }
+
+    Also add a corresponding unit test in pkg/contracts/validate_test.go.
+  workType: "implementation"
+  workDomain: "core"
+  priority: "high"
+  queueName: "default"
+  constraints:
+    - "target_file: pkg/contracts/validate.go"
+    - "package: contracts"
+    - "allowed_imports: fmt"
+    - "allow_new_test_file: true"
+    - "max_context_chars: 2000"
+  evidenceRequirement: "test_results"
+  timeoutSeconds: 600
+  maxRetries: 2
+  sessionID: "session-w016-l1-03"
+  sourceKey: "W016-L1-03"
+  acceptanceCriteria:
+    - "ValidateWorkTags() function added"
+    - "Checks at least one tag field is set"
+    - "Unit test added to validate_test.go"
+    - "go build ./pkg/contracts/ passes"
+    - "go test ./pkg/contracts/ passes"
+  objective: "Demonstrate L1 (0.8B workhorse) execution on bounded validation function"
