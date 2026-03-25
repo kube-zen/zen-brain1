@@ -201,7 +201,37 @@ func (g *LLMGenerator) getSystemPrompt(req *GenerationRequest) string {
 			return fmt.Sprintf("Error building structured prompt: %v\n", err)
 		}
 
-		log.Printf("[LLMGenerator] Using canonical structured prompt (TaskPacket)")
+		// CRITICAL: Inject actual file contents into the prompt.
+		// The TaskPacket template lists file paths but the model cannot read files.
+		// Without real contents, the model hallucinates types/symbols.
+		// This appends the grounded file contents that RelatedFiles already gathered.
+		if len(req.RelatedFiles) > 0 {
+			canonicalPrompt += "\n=== ACTUAL FILE CONTENTS (READ THESE) ===\n\n"
+			// Inject existing/target code first (highest priority context)
+			if req.ExistingCode != "" {
+				for _, tf := range packet.TargetFiles {
+					canonicalPrompt += fmt.Sprintf("--- FILE: %s ---\n```go\n%s\n```\n\n", tf, req.ExistingCode)
+					break // Only inject once
+				}
+			}
+			// Inject related files in stable order
+			paths := make([]string, 0, len(req.RelatedFiles))
+			for p := range req.RelatedFiles {
+				paths = append(paths, p)
+			}
+			for i := 0; i < len(paths); i++ {
+				for j := i + 1; j < len(paths); j++ {
+					if paths[i] > paths[j] {
+						paths[i], paths[j] = paths[j], paths[i]
+					}
+				}
+			}
+			for _, path := range paths {
+				canonicalPrompt += fmt.Sprintf("--- FILE: %s ---\n```go\n%s\n```\n\n", path, req.RelatedFiles[path])
+			}
+		}
+
+		log.Printf("[LLMGenerator] Using canonical structured prompt (TaskPacket) with %d context files injected", len(req.RelatedFiles))
 		return canonicalPrompt
 	}
 
