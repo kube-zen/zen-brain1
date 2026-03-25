@@ -269,12 +269,17 @@ func parseTargetFiles(constraints []string) []string {
 	var targetFiles []string
 	for _, constraint := range constraints {
 		trimmed := strings.TrimSpace(constraint)
-		if strings.HasPrefix(strings.ToLower(trimmed), "target_file:") {
-			// Extract the path after "target_file:"
+		// Check both singular and plural forms
+		if strings.HasPrefix(strings.ToLower(trimmed), "target_file:") || strings.HasPrefix(strings.ToLower(trimmed), "target_files:") {
+			// Extract the path after "target_file:" or "target_files:"
 			targetFile := strings.TrimSpace(strings.TrimPrefix(trimmed, "target_file:"))
-			targetFile = strings.TrimSpace(strings.TrimPrefix(targetFile, "target_file:"))
-			if targetFile != "" {
-				targetFiles = append(targetFiles, targetFile)
+			targetFile = strings.TrimSpace(strings.TrimPrefix(targetFile, "target_files:"))
+			// Split by comma if multiple files (plural form)
+			for _, tf := range strings.Split(targetFile, ",") {
+				tf = strings.TrimSpace(tf)
+				if tf != "" {
+					targetFiles = append(targetFiles, tf)
+				}
 			}
 		}
 	}
