@@ -285,15 +285,30 @@ func (e *LLMTemplateExecutor) buildGenerationRequest(ctx context.Context, spec *
 	// ZB-281 C030: For structured rescue tasks, inject grounded repo context
 	// that the model must use instead of inventing types.
 	if req.StructuredPrompt {
+		// Try workspace first, then fall back to ZEN_SOURCE_REPO env var
+		// (needed when workspace is isolated dirs, not git worktrees)
+		sourcePaths := []string{workspacePath}
+		if repoPath := os.Getenv("ZEN_SOURCE_REPO"); repoPath != "" {
+			sourcePaths = append([]string{repoPath}, sourcePaths...)
+		}
+
 		groundedContextFiles := []string{
 			"pkg/llm/provider.go",
 			"pkg/llm/types.go",
 		}
 		for _, relPath := range groundedContextFiles {
-			fullPath := filepath.Join(workspacePath, relPath)
-			if content, err := os.ReadFile(fullPath); err == nil {
-				req.RelatedFiles[relPath] = string(content)
-				log.Printf("[LLMTemplate] Injected grounded context: %s (%d bytes)", relPath, len(content))
+			injected := false
+			for _, srcPath := range sourcePaths {
+				fullPath := filepath.Join(srcPath, relPath)
+				if content, err := os.ReadFile(fullPath); err == nil {
+					req.RelatedFiles[relPath] = string(content)
+					log.Printf("[LLMTemplate] Injected grounded context: %s (%d bytes) from %s", relPath, len(content), srcPath)
+					injected = true
+					break
+				}
+			}
+			if !injected {
+				log.Printf("[LLMTemplate] WARNING: Could not read grounded context file: %s (tried: %v)", relPath, sourcePaths)
 			}
 		}
 
