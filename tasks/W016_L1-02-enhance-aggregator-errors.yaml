@@ -1,0 +1,37 @@
+apiVersion: zen.kube-zen.com/v1alpha1
+kind: BrainTask
+metadata:
+  name: w016-l1-02-enhance-aggregator-errors
+  namespace: zen-brain
+spec:
+  workItemID: "W016-L1-02"
+  title: "Improve error messages in Aggregator.AggregateForSessions"
+  description: |
+    Enhance the error message in AggregateForSessions (internal/funding/aggregator.go) to include:
+    - Which session ID caused the failure
+    - Total number of sessions being processed
+    - Current project title
+
+    Change from: return nil, fmt.Errorf("vault is nil")
+    To: return nil, fmt.Errorf("vault is nil: cannot aggregate %d sessions for project %q", len(sessionIDs), projectTitle)
+  workType: "implementation"
+  workDomain: "core"
+  priority: "high"
+  queueName: "default"
+  constraints:
+    - "target_file: internal/funding/aggregator.go"
+    - "package: funding"
+    - "allowed_imports: fmt"
+    - "forbid_new_types: true"
+    - "max_context_chars: 2000"
+  evidenceRequirement: "test_results"
+  timeoutSeconds: 600
+  maxRetries: 2
+  sessionID: "session-w016-l1-02"
+  sourceKey: "W016-L1-02"
+  acceptanceCriteria:
+    - "Error message includes session count"
+    - "Error message includes project title"
+    - "go build ./internal/funding/ passes"
+    - "go test ./internal/funding/ passes"
+  objective: "Demonstrate L1 (0.8B workhorse) execution on bounded error message improvement"

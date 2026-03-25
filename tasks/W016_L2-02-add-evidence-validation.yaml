@@ -1,0 +1,46 @@
+apiVersion: zen.kube-zen.com/v1alpha1
+kind: BrainTask
+metadata:
+  name: w016-l2-02-add-evidence-validation
+  namespace: zen-brain
+spec:
+  workItemID: "W016-L2-02"
+  title: "Add evidence validity checking to funding report aggregation"
+  description: |
+    Add validation to ensure evidence references in funding reports are valid in internal/funding/aggregator.go:
+
+    1. Add helper validateEvidenceRefs(refs []EvidenceRef, vault evidence.Vault) error that checks:
+       - Each referenced evidence ID exists in vault
+       - Evidence type matches expected types (logs, diff, test_results, etc.)
+       - Session ID is valid
+
+    2. Integrate validation into AggregateForSessions after building the report
+
+    3. Add unit tests for:
+       - Valid evidence references
+       - Missing evidence IDs
+       - Mismatched evidence types
+
+    4. Ensure existing tests still pass
+  workType: "refactor"
+  workDomain: "core"
+  priority: "high"
+  queueName: "default"
+  constraints:
+    - "target_files: internal/funding/aggregator.go"
+    - "package: funding"
+    - "allowed_imports: fmt,errors"
+    - "forbid_new_types: true"
+    - "max_context_chars: 5000"
+  evidenceRequirement: "test_results"
+  timeoutSeconds: 1200
+  maxRetries: 2
+  sessionID: "session-w016-l2-02"
+  sourceKey: "W016-L2-02"
+  acceptanceCriteria:
+    - "validateEvidenceRefs() function added"
+    - "Validation integrated into AggregateForSessions"
+    - "Unit tests added"
+    - "go build ./internal/funding/ passes"
+    - "go test ./internal/funding/ passes"
+  objective: "Demonstrate L2 (2B bounded) execution on evidence validation task"
