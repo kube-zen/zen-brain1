@@ -1,0 +1,45 @@
+# L1 Worker Pool Configuration
+# PHASE 22 P4/P5: Single llama.cpp server with 10 parallel slots
+#
+# Architecture: One server process, 10 concurrent inference slots
+# Server: /home/neves/git/llama.cpp/build/bin/llama-server
+# Model:  /home/neves/git/ai/Qwen3.5-0.8B-Q4_K_M.gguf
+# Port:   56227
+# Slots:  10 (via --parallel 10)
+#
+# Proof: 10 concurrent requests complete in ~3.4s (same as single request)
+#         See /tmp/zen-brain1-mlq-run/telemetry/batch-telemetry.json
+#
+# Selection: Round-robin at application level (single endpoint, server-side slot mgmt)
+# Retry: Task-level retry/escalation in internal/mlq/task_executor.go
+# Escalation: L1→L2 after 2 failures (config/policy/mlq-levels.yaml escalation_rules)
+# Fallback: L1→L0 on provider outage (config/policy/mlq-levels.yaml escalation_rules)
+
+l1_workers:
+  count: 10
+  mode: "single_server_parallel_slots"
+  server:
+    binary: "/home/neves/git/llama.cpp/build/bin/llama-server"
+    model: "/home/neves/git/ai/Qwen3.5-0.8B-Q4_K_M.gguf"
+    host: "0.0.0.0"
+    port: 56227
+    parallel_slots: 10
+    ctx_size: 4096
+  endpoint: "http://localhost:56227"
+  model_name: "Qwen3.5-0.8B-Q4_K_M.gguf"
+
+l2_workers:
+  count: 1
+  mode: "single_server"
+  server:
+    binary: "/home/neves/git/llama.cpp/build/bin/llama-server"
+    model: "/home/neves/Downloads/zen-go-q4_k_m.gguf"
+    host: "0.0.0.0"
+    port: 60509
+  endpoint: "http://localhost:60509"
+
+l0_fallback:
+  count: 1
+  endpoint: "http://localhost:11434"
+  provider: "ollama"
+  model: "qwen3.5:0.8b"
