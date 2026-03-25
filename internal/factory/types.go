@@ -41,6 +41,9 @@ type FactoryTaskSpec struct {
 	// Workspace
 	WorkspacePath string `json:"workspace_path,omitempty"`
 
+	// W022: Target files for explicit-target tasks
+	TargetFiles   []string `json:"target_files,omitempty"`
+
 	// Template key selected for execution (e.g. "implementation:real" or "default")
 	TemplateKey string `json:"template_key,omitempty"`
 

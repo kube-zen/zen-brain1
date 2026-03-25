@@ -32,6 +32,13 @@ type OllamaProvider struct {
 	warmupAt   map[string]time.Time
 }
 
+// ollamaTool is a tool definition for Ollama function calling.
+type ollamaTool struct {
+	Name        string                 `json:"name"`
+	Description string                 `json:"description"`
+	Parameters  map[string]interface{} `json:"parameters"`
+}
+
 // ollamaChatRequest is the request body for Ollama /api/chat.
 type ollamaChatRequest struct {
 	Model     string          `json:"model"`
@@ -39,6 +46,8 @@ type ollamaChatRequest struct {
 	Stream    bool            `json:"stream"`
 	KeepAlive string          `json:"keep_alive,omitempty"`
 	Options   map[string]any  `json:"options,omitempty"`
+	// W031: Add tools field for function calling support
+	Tools     []ollamaTool     `json:"tools,omitempty"`
 }
 
 type ollamaMessage struct {
@@ -220,11 +229,27 @@ func (p *OllamaProvider) Chat(ctx context.Context, req llm.ChatRequest) (*llm.Ch
 	for _, m := range req.Messages {
 		messages = append(messages, ollamaMessage{Role: m.Role, Content: m.Content})
 	}
+
+	// W031: Convert and attach tools to request
+	var tools []ollamaTool
+	if len(req.Tools) > 0 {
+		tools = make([]ollamaTool, 0, len(req.Tools))
+		for _, tool := range req.Tools {
+			tools = append(tools, ollamaTool{
+				Name:        tool.Name,
+				Description: tool.Description,
+				Parameters:  tool.Parameters,
+			})
+		}
+		log.Printf("[Ollama] Attaching %d tool(s) to request: %v", len(tools), getToolNames(req.Tools))
+	}
+
 	body := ollamaChatRequest{
 		Model:     model,
 		Messages:  messages,
 		Stream:    false,
 		KeepAlive: p.keepAlive,
+		Tools:     tools,
 	}
 	payload, err := json.Marshal(body)
 	if err != nil {
@@ -270,6 +295,15 @@ func (p *OllamaProvider) Chat(ctx context.Context, req llm.ChatRequest) (*llm.Ch
 		},
 		LatencyMs: latencyMs,
 	}, nil
+}
+
+// getToolNames extracts tool names for logging.
+func getToolNames(tools []llm.Tool) []string {
+	names := make([]string, 0, len(tools))
+	for _, tool := range tools {
+		names = append(names, tool.Name)
+	}
+	return names
 }
 
 func messagesToContent(messages []llm.Message) []string {

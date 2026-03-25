@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/kube-zen/zen-brain1/api/v1alpha1"
@@ -256,7 +257,28 @@ func (r *FactoryTaskRunner) brainTaskToFactorySpec(task *v1alpha1.BrainTask) *fa
 	if r.cfg.PreferRealTemplates && task.Spec.WorkDomain == "" && hasRealTemplateForWorkType(string(spec.WorkType)) {
 		spec.WorkDomain = contracts.WorkDomain("real")
 	}
+	// W022: Parse target files from constraints in "target_file: X" format.
+	spec.TargetFiles = parseTargetFiles(task.Spec.Constraints)
+	log.Printf("[FactoryTaskRunner] Parsed %d target file(s) from constraints for task %s", len(spec.TargetFiles), task.Name)
 	return spec
+}
+
+// parseTargetFiles extracts target files from constraints in "target_file: X" format.
+// W022: Parse BrainTask constraints to populate TargetFiles for explicit-target tasks.
+func parseTargetFiles(constraints []string) []string {
+	var targetFiles []string
+	for _, constraint := range constraints {
+		trimmed := strings.TrimSpace(constraint)
+		if strings.HasPrefix(strings.ToLower(trimmed), "target_file:") {
+			// Extract the path after "target_file:"
+			targetFile := strings.TrimSpace(strings.TrimPrefix(trimmed, "target_file:"))
+			targetFile = strings.TrimSpace(strings.TrimPrefix(targetFile, "target_file:"))
+			if targetFile != "" {
+				targetFiles = append(targetFiles, targetFile)
+			}
+		}
+	}
+	return targetFiles
 }
 
 // hasRealTemplateForWorkType returns true for work types that have a "real" template in useful_templates.

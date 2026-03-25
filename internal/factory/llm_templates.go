@@ -92,6 +92,8 @@ func (e *LLMTemplateExecutor) Execute(ctx context.Context, spec *FactoryTaskSpec
 
 	log.Printf("[LLMTemplate] Generated %s implementation for %s (model=%s, tokens=%d)",
 		e.config.Type, spec.WorkItemID, implResult.Model, implResult.TokensUsed)
+	// H006: Debug evidence for generation result
+	log.Printf("[LLMTemplate] H006: Generation result - code_length=%d chars, language=%s", len(implResult.Code), implResult.Language)
 
 	// 2b. Reject empty/trivial output
 	if strings.TrimSpace(implResult.Code) == "" {
@@ -100,10 +102,12 @@ func (e *LLMTemplateExecutor) Execute(ctx context.Context, spec *FactoryTaskSpec
 
 	// 3. Write generated code to target file
 	targetPath := e.determineTargetPath(spec, workspacePath, implResult.Language)
+	log.Printf("[LLMTemplate] H006: Default target path: %s", targetPath)
 	// Override target path if task specified explicit target files
 	if len(req.TargetFiles) > 0 {
-		targetPath = filepath.Join(workspacePath, req.TargetFiles[0])
-		log.Printf("[LLMTemplate] Using explicit target path from task spec: %s", targetPath)
+		overridePath := filepath.Join(workspacePath, req.TargetFiles[0])
+		targetPath = overridePath
+		log.Printf("[LLMTemplate] H006: Override active - using explicit target path: %s (internal/office fallback disabled)", targetPath)
 	}
 	if err := e.writeFile(targetPath, implResult.Code); err != nil {
 		return nil, fmt.Errorf("write implementation: %w", err)
@@ -253,6 +257,13 @@ func (e *LLMTemplateExecutor) buildGenerationRequest(ctx context.Context, spec *
 		req.PackageName = e.detectPackageName(workspacePath)
 	}
 
+	// H006: Debug logging for TargetFiles parsing
+	if len(spec.TargetFiles) > 0 {
+		log.Printf("[LLMTemplate] H006: Task %s has explicit TargetFiles=%v", spec.WorkItemID, spec.TargetFiles)
+	} else {
+		log.Printf("[LLMTemplate] H006: Task %s has NO explicit TargetFiles (will use fallback)", spec.WorkItemID)
+	}
+
 	// Read existing code if modifying a file
 	// ZB-281 C030: When TargetFiles is explicitly set (structured prompt), use that path
 	// instead of guessTargetPath which generates a wrong slug-based path.
@@ -260,6 +271,7 @@ func (e *LLMTemplateExecutor) buildGenerationRequest(ctx context.Context, spec *
 	sourcePaths := []string{workspacePath}
 	if repoPath := os.Getenv("ZEN_SOURCE_REPO"); repoPath != "" {
 		sourcePaths = append([]string{repoPath}, sourcePaths...)
+		log.Printf("[LLMTemplate] H006: ZEN_SOURCE_REPO detected, searching paths: %v", sourcePaths)
 	}
 
 	if len(req.TargetFiles) > 0 {
@@ -269,13 +281,13 @@ func (e *LLMTemplateExecutor) buildGenerationRequest(ctx context.Context, spec *
 			if content, err := os.ReadFile(explicitTarget); err == nil {
 				req.ExistingCode = string(content)
 				req.TargetPath = filepath.Join(workspacePath, req.TargetFiles[0])
-				log.Printf("[LLMTemplate] Loaded existing code from %s: %s (%d bytes)", srcPath, req.TargetFiles[0], len(content))
+				log.Printf("[LLMTemplate] H006: Loaded existing code from %s: %s (%d bytes) -> TargetPath=%s", srcPath, req.TargetFiles[0], len(content), req.TargetPath)
 				loaded = true
 				break
 			}
 		}
 		if !loaded {
-			log.Printf("[LLMTemplate] WARNING: Could not load target file %s from any source path (tried: %v)", req.TargetFiles[0], sourcePaths)
+			log.Printf("[LLMTemplate] H006: WARNING - Could not load target file %s from any source path (tried: %v)", req.TargetFiles[0], sourcePaths)
 		}
 	}
 	// Fallback to guessTargetPath if explicit target didn't load
@@ -295,6 +307,7 @@ func (e *LLMTemplateExecutor) buildGenerationRequest(ctx context.Context, spec *
 			req.RelatedFiles[relPath] = string(content)
 		}
 	}
+	log.Printf("[LLMTemplate] H006: Loaded %d related file(s) for context: %v", len(req.RelatedFiles), getSortedMapKeys(req.RelatedFiles))
 
 	// ZB-281 C030: For structured rescue tasks, inject grounded repo context
 	// that the model must use instead of inventing types.
@@ -438,24 +451,34 @@ func (e *LLMTemplateExecutor) guessTargetPath(spec *FactoryTaskSpec, workspacePa
 }
 
 // findRelatedFiles finds related files for context.
+// W022: Search ZEN_SOURCE_REPO for related files instead of empty workspace.
 func (e *LLMTemplateExecutor) findRelatedFiles(workspacePath, workDomain string) []string {
 	var files []string
+	var searchPath string
+
+	// W022: Check ZEN_SOURCE_REPO mount point first
+	if repoPath := os.Getenv("ZEN_SOURCE_REPO"); repoPath != "" {
+		searchPath = repoPath
+		log.Printf("[LLMTemplate] Searching for related files in ZEN_SOURCE_REPO: %s", repoPath)
+	} else {
+		searchPath = workspacePath
+	}
 
 	// Look for interface files
-	interfacesPath := filepath.Join(workspacePath, "interface.go")
+	interfacesPath := filepath.Join(searchPath, "interface.go")
 	if _, err := os.Stat(interfacesPath); err == nil {
 		files = append(files, interfacesPath)
 	}
 
 	// Look for types files
-	typesPath := filepath.Join(workspacePath, "types.go")
+	typesPath := filepath.Join(searchPath, "types.go")
 	if _, err := os.Stat(typesPath); err == nil {
 		files = append(files, typesPath)
 	}
 
 	// Look for existing implementation in similar domain
 	if workDomain != "" {
-		domainPath := filepath.Join(workspacePath, "internal", workDomain)
+		domainPath := filepath.Join(searchPath, "internal", workDomain)
 		if entries, err := os.ReadDir(domainPath); err == nil {
 			for _, entry := range entries {
 				if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".go") && !strings.HasSuffix(entry.Name(), "_test.go") {
@@ -726,5 +749,23 @@ func extractListFromObjective(objective, marker string) []string {
 		}
 	}
 	return result
+}
+
+// getSortedMapKeys returns sorted keys from a map for stable logging.
+// H006: Helper for debug logging to show which files were loaded.
+func getSortedMapKeys(m map[string]string) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	// Simple sort for stable logging
+	for i := 0; i < len(keys); i++ {
+		for j := i + 1; j < len(keys); j++ {
+			if keys[i] > keys[j] {
+				keys[i], keys[j] = keys[j], keys[i]
+			}
+		}
+	}
+	return keys
 }
 
