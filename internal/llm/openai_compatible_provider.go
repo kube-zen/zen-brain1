@@ -76,12 +76,18 @@ type oaiMessage struct {
 	Content string `json:"content"`
 }
 
-// oaiTool is a tool definition for OpenAI-compatible API.
-type oaiTool struct {
-	Type        string                 `json:"type"`
+// oaiToolFunction is the function definition inside an OpenAI tool object.
+type oaiToolFunction struct {
 	Name        string                 `json:"name"`
 	Description string                 `json:"description"`
 	Parameters  map[string]interface{} `json:"parameters"`
+}
+
+// oaiTool is a tool definition for OpenAI-compatible API.
+// Wire format: {"type":"function","function":{...}}
+type oaiTool struct {
+	Type     string          `json:"type"`
+	Function oaiToolFunction `json:"function"`
 }
 
 type oaiRequest struct {
@@ -137,10 +143,12 @@ func (p *OpenAICompatibleProvider) Chat(ctx context.Context, req llm.ChatRequest
 		tools = make([]oaiTool, 0, len(req.Tools))
 		for _, tool := range req.Tools {
 			tools = append(tools, oaiTool{
-				Type:        "function",
-				Name:        tool.Name,
-				Description: tool.Description,
-				Parameters:  tool.Parameters,
+				Type: "function",
+				Function: oaiToolFunction{
+					Name:        tool.Name,
+					Description: tool.Description,
+					Parameters:  tool.Parameters,
+				},
 			})
 		}
 		log.Printf("[%s] Attaching %d tool(s) to request: %v", p.name, len(tools), getToolNamesOpenAI(tools))
@@ -209,7 +217,7 @@ func (p *OpenAICompatibleProvider) Chat(ctx context.Context, req llm.ChatRequest
 func getToolNamesOpenAI(tools []oaiTool) []string {
 	names := make([]string, 0, len(tools))
 	for _, tool := range tools {
-		names = append(names, tool.Name)
+		names = append(names, tool.Function.Name)
 	}
 	return names
 }

@@ -32,12 +32,18 @@ type OllamaProvider struct {
 	warmupAt   map[string]time.Time
 }
 
-// ollamaTool is a tool definition for Ollama function calling.
-type ollamaTool struct {
-	Type        string                 `json:"type"`
+// ollamaToolFunction is the function definition inside an Ollama tool object.
+type ollamaToolFunction struct {
 	Name        string                 `json:"name"`
 	Description string                 `json:"description"`
 	Parameters  map[string]interface{} `json:"parameters"`
+}
+
+// ollamaTool is a tool definition for Ollama function calling.
+// Wire format: {"type":"function","function":{...}}
+type ollamaTool struct {
+	Type     string             `json:"type"`
+	Function ollamaToolFunction `json:"function"`
 }
 
 // ollamaChatRequest is the request body for Ollama /api/chat.
@@ -237,10 +243,12 @@ func (p *OllamaProvider) Chat(ctx context.Context, req llm.ChatRequest) (*llm.Ch
 		tools = make([]ollamaTool, 0, len(req.Tools))
 		for _, tool := range req.Tools {
 			tools = append(tools, ollamaTool{
-				Type:        "function",
-				Name:        tool.Name,
-				Description: tool.Description,
-				Parameters:  tool.Parameters,
+				Type: "function",
+				Function: ollamaToolFunction{
+					Name:        tool.Name,
+					Description: tool.Description,
+					Parameters:  tool.Parameters,
+				},
 			})
 		}
 		log.Printf("[Ollama] Attaching %d tool(s) to request: %v", len(tools), getToolNames(req.Tools))
