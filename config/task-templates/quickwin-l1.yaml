@@ -1,0 +1,67 @@
+# Quick-Win L1 Packet Template
+#
+# Use this for bounded single-file Level 1 tasks (0.8B workhorse).
+# This is the operational successor to the zen-brain 0.1 quickwin.yaml.
+#
+# Rules:
+# - Single target file only (+ one test file if needed)
+# - Existing symbols only, no type invention
+# - Context = target file contents + one adjacent file
+# - Prompt < 2000 characters total
+# - Tools explicitly available
+# - Verification commands listed
+
+name: quickwin-l1
+display_name: Quick-Win L1 (Bounded Single-File)
+description: Bounded single-file task for L1 0.8B workhorse lane
+version: '1.0'
+
+role: worker
+operation_type: provider
+
+# AI Configuration
+executor_ai: ''
+target_model: qwen3.5
+max_blueprint_size: 5000
+
+can_split_operations: false
+max_concurrent: 1
+queue_level: 1
+priority: 5
+estimated_hours: 0.1
+
+# Prompt template — short, direct, tool-aware
+planner_prompt_template: |
+  You are completing task {{.WorkItemID}}.
+
+  GOAL: {{.Summary}}
+
+  TARGET FILE: {{.TargetFile}}
+  PACKAGE: {{.PackageName}}
+
+  TOOLS AVAILABLE: read_file, search_file, run_command
+
+  EXISTING CODE:
+  {{.ExistingCode}}
+
+  {{if .AdjacentContext}}
+  CONTEXT FILE: {{.AdjacentFileName}}
+  {{.AdjacentContext}}
+  {{end}}
+
+  RULES:
+  - Modify the target file in place. Package must remain "{{.PackageName}}".
+  - Use ONLY symbols already defined in the existing code or context file.
+  - Do NOT invent new types, interfaces, or imports.
+  - Do NOT create new files unless explicitly asked.
+  - After editing, run: go build ./{{.PackagePath}} && go test ./{{.PackagePath}}
+
+  OUTPUT: Return only the complete modified file content. No explanation needed.
+
+# L1-specific config
+config:
+  timeout: 600           # 10 min for quick wins
+  max_prompt_chars: 2000  # Keep prompt short for 0.8B
+  max_context_bytes: 8000  # Target file + one adjacent file
+  require_warmup: true
+  require_tools: true
