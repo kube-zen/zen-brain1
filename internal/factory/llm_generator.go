@@ -94,6 +94,18 @@ func (g *LLMGenerator) GenerateImplementation(ctx context.Context, req *Generati
 		prompt = g.buildGenericPrompt(req)
 	}
 
+	// H004: Build tool definitions for code generation tasks
+	tools := g.buildCodeTools(req)
+	if len(tools) > 0 {
+		log.Printf("[LLMGenerator] H006: Attached %d tool(s) to LLM request for task %s: %v", len(tools), req.WorkItemID, getToolNamesGenerator(tools))
+	} else {
+		log.Printf("[LLMGenerator] H006: No tools attached to LLM request for task %s", req.WorkItemID)
+	}
+
+	// H006: Log request metadata (no secrets, no full payload)
+	log.Printf("[LLMGenerator] H006: Request metadata - model=%s temperature=%0.2f maxTokens=%d thinking=%v tools=%d workType=%s",
+		g.config.Model, g.config.Temperature, g.config.MaxTokens, g.config.EnableThinking, len(tools), req.WorkType)
+
 	// Create LLM request
 	llmReq := llm.ChatRequest{
 		Messages: []llm.Message{
@@ -106,6 +118,7 @@ func (g *LLMGenerator) GenerateImplementation(ctx context.Context, req *Generati
 				Content: prompt,
 			},
 		},
+		Tools:        tools,
 		Model:        g.config.Model,
 		Temperature:  g.config.Temperature,
 		MaxTokens:    g.config.MaxTokens,
@@ -616,6 +629,125 @@ func (g *LLMGenerator) buildDocumentationPrompt(req *GenerationRequest) string {
 func (g *LLMGenerator) Close() error {
 	// No-op for now
 	return nil
+}
+
+// buildCodeTools builds tool definitions for code generation tasks.
+// H004: Attach standard code-task tools to LLM requests.
+func (g *LLMGenerator) buildCodeTools(req *GenerationRequest) []llm.Tool {
+	// H006: Log tool construction
+	log.Printf("[LLMGenerator] Building code tools for task %s (workType=%s, targetFiles=%d)",
+		req.WorkItemID, req.WorkType, len(req.TargetFiles))
+
+	tools := make([]llm.Tool, 0, 5)
+
+	// Tool 1: Read file
+	tools = append(tools, llm.Tool{
+		Name:        "read_file",
+		Description: "Read the contents of a specific file in the codebase",
+		Parameters: map[string]interface{}{
+			"type": "object",
+			"properties": map[string]interface{}{
+				"path": map[string]interface{}{
+					"type":        "string",
+					"description": "Absolute or relative file path to read",
+				},
+			},
+			"required": []string{"path"},
+		},
+	})
+
+	// Tool 2: Search file
+	tools = append(tools, llm.Tool{
+		Name:        "search_file",
+		Description: "Search for text patterns within files in the codebase",
+		Parameters: map[string]interface{}{
+			"type": "object",
+			"properties": map[string]interface{}{
+				"pattern": map[string]interface{}{
+					"type":        "string",
+					"description": "Text pattern or regex to search for",
+				},
+				"path": map[string]interface{}{
+					"type":        "string",
+					"description": "Directory or file path to search in (optional, defaults to working directory)",
+				},
+			},
+			"required": []string{"pattern"},
+		},
+	})
+
+	// Tool 3: Inspect target/adjacent file
+	tools = append(tools, llm.Tool{
+		Name:        "inspect_file",
+		Description: "Inspect the target file or adjacent files for context (similar types, related functions)",
+		Parameters: map[string]interface{}{
+			"type": "object",
+			"properties": map[string]interface{}{
+				"path": map[string]interface{}{
+					"type":        "string",
+					"description": "File path to inspect (defaults to target file if not specified)",
+				},
+				"adjacent": map[string]interface{}{
+					"type":        "boolean",
+					"description": "If true, inspect files adjacent to the target file (same directory)",
+				},
+			},
+			"required": []string{},
+		},
+	})
+
+	// Tool 4: Run build/test command
+	tools = append(tools, llm.Tool{
+		Name:        "run_build_test",
+		Description: "Execute build or test commands to validate generated code",
+		Parameters: map[string]interface{}{
+			"type": "object",
+			"properties": map[string]interface{}{
+				"command": map[string]interface{}{
+					"type":        "string",
+					"description": "Command to run (e.g., 'go build ./...', 'go test ./internal/...')",
+				},
+				"directory": map[string]interface{}{
+					"type":        "string",
+					"description": "Working directory for the command (optional, defaults to workspace)",
+				},
+			},
+			"required": []string{"command"},
+		},
+	})
+
+	// Tool 5: Inspect diff/changed files
+	tools = append(tools, llm.Tool{
+		Name:        "inspect_diff",
+		Description: "View git diff or changed files to understand what modifications were made",
+		Parameters: map[string]interface{}{
+			"type": "object",
+			"properties": map[string]interface{}{
+				"path": map[string]interface{}{
+					"type":        "string",
+					"description": "File or directory path to inspect (optional, shows all changes if not specified)",
+				},
+				"lines": map[string]interface{}{
+					"type":        "integer",
+					"description": "Number of context lines to show (optional)",
+				},
+			},
+			"required": []string{},
+		},
+	})
+
+	log.Printf("[LLMGenerator] Built %d tools for task %s", len(tools), req.WorkItemID)
+	return tools
+}
+
+// getToolNamesGenerator extracts tool names for logging.
+// H006: Helper for debug logging of attached tools.
+func getToolNamesGenerator(tools []llm.Tool) []string {
+	names := make([]string, 0, len(tools))
+	for _, tool := range tools {
+		names = append(names, tool.Name)
+	}
+	return names
 }
 
 // logGeneration logs generation details.

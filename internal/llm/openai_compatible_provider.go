@@ -76,11 +76,20 @@ type oaiMessage struct {
 	Content string `json:"content"`
 }
 
+// oaiTool is a tool definition for OpenAI-compatible API.
+type oaiTool struct {
+	Name        string                 `json:"name"`
+	Description string                 `json:"description"`
+	Parameters  map[string]interface{} `json:"parameters"`
+}
+
 type oaiRequest struct {
 	Model     string       `json:"model"`
 	Messages  []oaiMessage  `json:"messages"`
 	MaxTokens int           `json:"max_tokens,omitempty"`
 	Stream    bool          `json:"stream"`
+	// W031: Add tools field for function calling support
+	Tools     []oaiTool      `json:"tools,omitempty"`
 }
 
 type oaiChoice struct {
@@ -120,11 +129,27 @@ func (p *OpenAICompatibleProvider) Chat(ctx context.Context, req llm.ChatRequest
 	if maxTokens <= 0 {
 		maxTokens = 4096
 	}
+
+	// W031: Convert and attach tools to request
+	var tools []oaiTool
+	if len(req.Tools) > 0 {
+		tools = make([]oaiTool, 0, len(req.Tools))
+		for _, tool := range req.Tools {
+			tools = append(tools, oaiTool{
+				Name:        tool.Name,
+				Description: tool.Description,
+				Parameters:  tool.Parameters,
+			})
+		}
+		log.Printf("[%s] Attaching %d tool(s) to request: %v", p.name, len(tools), getToolNamesOpenAI(tools))
+	}
+
 	body := oaiRequest{
 		Model:     model,
 		Messages:  oaiMsgs,
 		MaxTokens: maxTokens,
 		Stream:    false,
+		Tools:     tools,
 	}
 	payload, err := json.Marshal(body)
 	if err != nil {
@@ -176,6 +201,15 @@ func (p *OpenAICompatibleProvider) Chat(ctx context.Context, req llm.ChatRequest
 		Usage:        &llm.TokenUsage{TotalTokens: 0},
 		LatencyMs:    latencyMs,
 	}, nil
+}
+
+// getToolNamesOpenAI extracts tool names for logging.
+func getToolNamesOpenAI(tools []oaiTool) []string {
+	names := make([]string, 0, len(tools))
+	for _, tool := range tools {
+		names = append(names, tool.Name)
+	}
+	return names
 }
 
 // ChatStream falls back to non-streaming Chat.
