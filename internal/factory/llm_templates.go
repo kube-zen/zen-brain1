@@ -260,6 +260,12 @@ func (e *LLMTemplateExecutor) buildGenerationRequest(ctx context.Context, spec *
 	// H006: Debug logging for TargetFiles parsing
 	if len(spec.TargetFiles) > 0 {
 		log.Printf("[LLMTemplate] H006: Task %s has explicit TargetFiles=%v", spec.WorkItemID, spec.TargetFiles)
+		// H002: Propagate spec.TargetFiles into req for normal (non-rescue) explicit-target tasks.
+		// Rescue tasks set req.TargetFiles inside the isRescueTask block above.
+		if !isRescueTask {
+			req.TargetFiles = spec.TargetFiles
+			log.Printf("[LLMTemplate] H006: Propagated %d TargetFiles from spec to req for normal task", len(req.TargetFiles))
+		}
 	} else {
 		log.Printf("[LLMTemplate] H006: Task %s has NO explicit TargetFiles (will use fallback)", spec.WorkItemID)
 	}
