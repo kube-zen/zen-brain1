@@ -84,7 +84,7 @@ spec:
       serviceAccountName: foreman
       containers:
         - name: foreman
-          image: zen-registry:5000/zen-brain:dev
+          image: zen-registry:5000/zen-brain:phase16-hotfix
           imagePullPolicy: Always
           command: ["/app/foreman"]
           args:
@@ -102,6 +102,8 @@ spec:
               value: "/tmp/zen-brain-factory"
             - name: ZEN_FOREMAN_WORKSPACE_HOME
               value: "/tmp/zen-brain-factory"
+            - name: ZEN_SOURCE_REPO
+              value: "/mnt/source-repo"
             # Optional: set to redis://zencontext-redis.zen-context.svc.cluster.local:6379 when ZenContext Redis is deployed (zencontext-in-cluster) to enable ReMe.
             # - name: ZEN_CONTEXT_REDIS_URL
             #   value: "redis://zencontext-redis.zen-context.svc.cluster.local:6379"
@@ -132,10 +134,23 @@ spec:
           volumeMounts:
             - name: config
               mountPath: /home/zenuser/.zen-brain
+            - name: mlq-config
+              mountPath: /tmp/zen-brain1/config/policy
+            - name: source-repo
+              mountPath: /mnt/source-repo
+              readOnly: true
       volumes:
         - name: config
           configMap:
             name: foreman-config
+        - name: mlq-config
+          hostPath:
+            path: /home/neves/zen/zen-brain1/config/policy
+            type: Directory
+        - name: source-repo
+          hostPath:
+            path: /home/neves/zen/zen-brain1
+            type: Directory
 # NOTE: Image reference `zen-registry:5000` assumes k3d registry port 5000 is accessible.
 # Ensure `docker push zen-registry:5000/zen-brain:dev` is possible before deployment updates.
 # If rebuild/push is blocked, `imagePullPolicy: IfNotPresent` will fail.
