@@ -1,0 +1,10 @@
+[Unit]
+Description=zen-brain1 Hourly Scan Timer (every hour)
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+AccuracySec=60
+
+[Install]
+WantedBy=timers.target

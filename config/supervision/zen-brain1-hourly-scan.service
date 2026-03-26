@@ -1,0 +1,18 @@
+[Unit]
+Description=zen-brain1 Hourly Scan Batch (defects, bug-hunting, stub-hunting)
+
+[Service]
+Type=oneshot
+User=neves
+Environment=BATCH_NAME=hourly-scan
+Environment=OUTPUT_ROOT=/var/lib/zen-brain1/runs
+Environment=TASKS=defects,bug_hunting,stub_hunting
+Environment=TIMEOUT=300
+Environment=WORKERS=5
+Environment=L1_ENDPOINT=http://localhost:56227/v1/chat/completions
+Environment=L1_MODEL=Qwen3.5-0.8B-Q4_K_M.gguf
+ExecStart=/home/neves/zen/zen-brain1/cmd/useful-batch/useful-batch
+WorkingDirectory=/home/neves/zen/zen-brain1
+TimeoutStartSec=900
+StandardOutput=append:/var/log/zen-brain1/schedules.log
+StandardError=append:/var/log/zen-brain1/schedules.log

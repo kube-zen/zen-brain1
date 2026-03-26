@@ -1,0 +1,18 @@
+[Unit]
+Description=zen-brain1 Quad-Hourly Summary Batch (dead-code, tech-debt, hotspots, test-gaps, config-drift, roadmap)
+
+[Service]
+Type=oneshot
+User=neves
+Environment=BATCH_NAME=quad-hourly-summary
+Environment=OUTPUT_ROOT=/var/lib/zen-brain1/runs
+Environment=TASKS=dead_code,tech_debt,package_hotspots,test_gaps,config_drift,roadmap
+Environment=TIMEOUT=300
+Environment=WORKERS=5
+Environment=L1_ENDPOINT=http://localhost:56227/v1/chat/completions
+Environment=L1_MODEL=Qwen3.5-0.8B-Q4_K_M.gguf
+ExecStart=/home/neves/zen/zen-brain1/cmd/useful-batch/useful-batch
+WorkingDirectory=/home/neves/zen/zen-brain1
+TimeoutStartSec=1800
+StandardOutput=append:/var/log/zen-brain1/schedules.log
+StandardError=append:/var/log/zen-brain1/schedules.log

@@ -1,0 +1,10 @@
+[Unit]
+Description=zen-brain1 Daily Full Sweep Timer (6 AM daily)
+
+[Timer]
+OnCalendar=0 6 * * *
+Persistent=true
+AccuracySec=300
+
+[Install]
+WantedBy=timers.target
