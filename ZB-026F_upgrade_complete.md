@@ -55,7 +55,7 @@ Applied correct Jira config with `enabled: true`:
 jira:
   enabled: true
   base_url: "https://zen-mesh.atlassian.net"
-  email: "zen@zen-mesh.io"
+  email: "zen@kube-zen.io"
   project_key: "ZB"
   credentials_dir: "/zen-lock/secrets"
   allow_env_fallback: false

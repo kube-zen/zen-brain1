@@ -181,7 +181,7 @@ kubectl exec -n zen-brain deployment/foreman -- cat /zen-lock/secrets/JIRA_PROJE
 cat > /tmp/jira-input.yaml <<EOF
 stringData:
   JIRA_URL: "https://zen-mesh.atlassian.net"
-  JIRA_EMAIL: "zen@zen-mesh.io"
+  JIRA_EMAIL: "zen@kube-zen.io"
   JIRA_API_TOKEN: "NEW_TOKEN_HERE"
   JIRA_PROJECT_KEY: "ZB"
 EOF
