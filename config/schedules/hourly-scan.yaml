@@ -1,0 +1,5 @@
+# Hourly scan: fast triage tasks
+name: hourly-scan
+cadence: hourly
+description: Quick defect, bug, and stub scan every hour
+tasks: [defects, bug_hunting, stub_hunting]

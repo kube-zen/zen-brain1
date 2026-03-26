@@ -1,0 +1,5 @@
+# Quad-hourly summary: broader codebase health
+name: quad-hourly-summary
+cadence: quad-hourly
+description: Comprehensive health scan every 4 hours
+tasks: [dead_code, tech_debt, package_hotspots, test_gaps, config_drift, roadmap]
