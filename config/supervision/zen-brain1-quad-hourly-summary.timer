@@ -1,0 +1,10 @@
+[Unit]
+Description=zen-brain1 Quad-Hourly Summary Timer (every 4 hours)
+
+[Timer]
+OnCalendar=0 */4 * * *
+Persistent=true
+AccuracySec=120
+
+[Install]
+WantedBy=timers.target
