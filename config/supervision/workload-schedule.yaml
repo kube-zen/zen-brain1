@@ -1,0 +1,96 @@
+# zen-brain1 24/7 Workload Schedule
+# Defines recurring useful-task batches for continuous operations.
+#
+# Schedule format:
+#   name: <task batch name>
+#   schedule: <cron expression>
+#   tasks: [<task class ids from usefulness-l1 template>]
+#   output_root: /var/lib/zen-brain1/runs/<name>/<date>
+#   lane: L1  (always L1 first; escalation happens automatically)
+
+schedules:
+  # Hourly: defect/stub/dead-code scans (fast, high-value)
+  - name: hourly-scan
+    schedule: "0 * * * *"  # every hour
+    tasks:
+      - dead_code
+      - defects
+      - stub_hunting
+    timeout_seconds: 300
+    lane: L1
+
+  # Every 4 hours: roadmap/debt/drift summaries
+  - name: quad-hourly-summary
+    schedule: "0 */4 * * *"  # every 4 hours
+    tasks:
+      - tech_debt
+      - roadmap
+      - config_drift
+      - package_hotspots
+    timeout_seconds: 300
+    lane: L1
+
+  # Daily: full sweep + executive summary
+  - name: daily-full-sweep
+    schedule: "0 6 * * *"  # 6 AM local
+    tasks:
+      - dead_code
+      - defects
+      - tech_debt
+      - roadmap
+      - bug_hunting
+      - stub_hunting
+      - package_hotspots
+      - test_gaps
+      - config_drift
+      - executive_summary
+    timeout_seconds: 300
+    lane: L1
+
+# Task class definitions
+task_classes:
+  dead_code:
+    title: "Dead Code Report"
+    prompt: "Scan the codebase for unreferenced exported functions. Produce a markdown report listing each function, its file, reference count, and recommendation. Title: Dead Code Report."
+    output: "dead-code.md"
+  defects:
+    title: "Defects Report"
+    prompt: "Scan the codebase for common defect patterns: nil pointer dereference risk, unchecked error returns, missing mutex locks, hardcoded credentials. Produce a markdown checklist with severity. Title: Defects Report."
+    output: "defects.md"
+  tech_debt:
+    title: "Tech Debt Report"
+    prompt: "Scan the codebase for TODO/FIXME/HACK comments, deprecated API usage, functions over 100 lines, and packages with no tests. Produce a markdown report with severity ratings. Title: Tech Debt Report."
+    output: "tech-debt.md"
+  roadmap:
+    title: "Roadmap Report"
+    prompt: "Read docs/ directory to extract current project status and milestones. Produce a markdown summary with sections: Completed, In Progress, Blocked, Next 30 Days. Title: Roadmap Report."
+    output: "roadmap.md"
+  bug_hunting:
+    title: "Bug Hunting Report"
+    prompt: "Scan cmd/, internal/, pkg/ for suspicious patterns: race conditions (shared state without locks), memory leaks (unclosed resources), and logic errors. Produce a markdown report. Title: Bug Hunting Report."
+    output: "bug-hunting.md"
+  stub_hunting:
+    title: "Stub Hunting Report"
+    prompt: "Scan the codebase for stubs: empty function bodies, panic(not implemented), hardcoded return values, and TODO-only functions. Produce a markdown checklist. Title: Stub Hunting Report."
+    output: "stub-hunting.md"
+  package_hotspots:
+    title: "Package Hotspots Report"
+    prompt: "Scan pkg/ and internal/ to identify packages with the most exported types and functions. Produce a markdown table. Title: Package Hotspots Report."
+    output: "package-hotspots.md"
+  test_gaps:
+    title: "Test Gap Report"
+    prompt: "Scan for _test.go files across the codebase. List packages that have tests and those that do not. Produce a markdown report with coverage estimates. Title: Test Gap Report."
+    output: "test-gaps.md"
+  config_drift:
+    title: "Config Drift Report"
+    prompt: "Compare documented policies in docs/ with actual config in config/policy/. Produce a markdown report identifying gaps. Title: Config Drift Report."
+    output: "config-policy-drift.md"
+  executive_summary:
+    title: "Executive Summary"
+    prompt: "Synthesize findings from the other reports into a concise executive summary with top 5 findings and recommended actions. Title: Executive Summary."
+    output: "executive-summary.md"
+
+# Artifact storage
+artifact_root: /var/lib/zen-brain1/runs
+log_root: /var/log/zen-brain1
+telemetry_root: /var/lib/zen-brain1/telemetry
