@@ -56,7 +56,7 @@ The same **llama.cpp** + OpenAI **`/v1/chat/completions`** pattern as [QWEN_08B_
 
 **Interpretation:** On this harness, **2B is slower** than **0.8B** (roughly **~2×** longer wall and predicted generation time for this subtask), consistent with expectations for a larger model on CPU. Both passed **`go build`** on the same prompt shape; **2B** often wrapped the answer in a **markdown ` ```go` ** fence while **0.8B** tended toward **raw** source—the verifier accepts both.
 
-**Optional operator script (outside this repo):** `run_go_subtasks_suite_2b_cpu.sh` (sets **2B GGUF**, **ONLY_MODEL=1**, same parent suite as 0.8B). Place Unsloth **`Qwen3.5-2B-Q4_K_M.gguf`** next to the 0.8B artifact and run from your `llama-server` + harness checkout.
+**How to run:** see [GO_SUBTASK_LLAMA_CPP_HARNESS.md](GO_SUBTASK_LLAMA_CPP_HARNESS.md) for **`GO_SUBTASK_HARNESS_ROOT`**, the **`scripts/run-go-subtasks-2b-cpu.sh`** wrapper in this repository, and an optional self-contained `run_go_subtasks_suite_2b_cpu.sh` next to `run_go_subtasks_suite.sh` in your harness checkout. Place Unsloth **`Qwen3.5-2B-Q4_K_M.gguf`** beside the harness (or set **`MODEL_GGUF`**).
 
 ## Reproduction
 
@@ -72,6 +72,7 @@ Report output (example): `/tmp/llama_qwen_08b_vs_2b_q4km.md`.
 
 ## See also
 
+- [GO_SUBTASK_LLAMA_CPP_HARNESS.md](GO_SUBTASK_LLAMA_CPP_HARNESS.md) — how to run the Go subtask suite (0.8B / 2B) with `llama-server`.
 - [QWEN_08B_LLAMA_CPP_CODEGEN_GUIDE.md](QWEN_08B_LLAMA_CPP_CODEGEN_GUIDE.md) — inference flags and prompt shape (applies to **2B** as well).
 - [LOCAL_LLM_ESCALATION_LADDER.md](../03-DESIGN/LOCAL_LLM_ESCALATION_LADDER.md) — when to use 2B vs 0.8B vs external.
 - [LLAMA_CPP_VS_OLLAMA_QWEN_0.8B_BENCHMARK.md](./LLAMA_CPP_VS_OLLAMA_QWEN_0.8B_BENCHMARK.md) — 0.8B llama.cpp vs Ollama (2×2 quant matrix).

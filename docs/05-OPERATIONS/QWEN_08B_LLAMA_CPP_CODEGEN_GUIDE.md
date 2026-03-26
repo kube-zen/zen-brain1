@@ -69,10 +69,11 @@ Under the **identical** structured Go subtask and verifier, **2B Q4_K_M** achiev
 ## Relation to zen-brain1 product code
 
 - **L1 routing** and **quickwin-l1** templates encode the same constraints this guide recommends for 0.8B.
-- This repository does **not** ship the external `llama-server` benchmark scripts; teams may keep them in a separate ops or AI workspace. The **patterns** (thinking off, structured packet, verification, avoid misleading dual instructions) are what matter for parity with production.
+- This repository does **not** vendor the full external harness; see [GO_SUBTASK_LLAMA_CPP_HARNESS.md](GO_SUBTASK_LLAMA_CPP_HARNESS.md) for **`GO_SUBTASK_HARNESS_ROOT`**, the **`scripts/run-go-subtasks-2b-cpu.sh`** wrapper, and **0.8B / 2B** run examples. The **patterns** (thinking off, structured packet, verification, avoid misleading dual instructions) are what matter for parity with production.
 
 ## Related
 
+- [GO_SUBTASK_LLAMA_CPP_HARNESS.md](GO_SUBTASK_LLAMA_CPP_HARNESS.md)
 - [SMALL_MODEL_STRATEGY.md](../03-DESIGN/SMALL_MODEL_STRATEGY.md)
 - [QWEN_2B_LOCAL_EVALUATION.md](QWEN_2B_LOCAL_EVALUATION.md) — 0.8B vs 2B tok/s, RAM, Go harness parity
 - [L1_L2_LANE_RUNBOOK.md](L1_L2_LANE_RUNBOOK.md) — “Packet Shaping”, warmup curls

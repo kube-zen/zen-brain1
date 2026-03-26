@@ -55,6 +55,7 @@ As of PHASE 23 (2026-03-25), the following runtime behaviors are now **proven an
 - **2B vs 0.8B local evaluation (llama.cpp Q4_K_M, incl. Go harness parity):** [QWEN_2B_LOCAL_EVALUATION.md](../05-OPERATIONS/QWEN_2B_LOCAL_EVALUATION.md)
 - **0.8B llama.cpp vs Ollama (2×2 matrix):** [LLAMA_CPP_VS_OLLAMA_QWEN_0.8B_BENCHMARK.md](../05-OPERATIONS/LLAMA_CPP_VS_OLLAMA_QWEN_0.8B_BENCHMARK.md)
 - **0.8B llama.cpp codegen, testing, LoRA vs base notes:** [QWEN_08B_LLAMA_CPP_CODEGEN_GUIDE.md](../05-OPERATIONS/QWEN_08B_LLAMA_CPP_CODEGEN_GUIDE.md)
+- **Go subtask harness (llama.cpp, 0.8B / 2B, operator checkout):** [GO_SUBTASK_LLAMA_CPP_HARNESS.md](../05-OPERATIONS/GO_SUBTASK_LLAMA_CPP_HARNESS.md)
 
 ---
 
