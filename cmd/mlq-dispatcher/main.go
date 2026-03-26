@@ -168,6 +168,11 @@ func executeTask(task ReportingTask, logFile *os.File) TaskResult {
 		},
 		"max_tokens": 2048,
 		"temperature": 0.3,
+		// PHASE 23 P003: Disable thinking for llama.cpp useful tasks
+		// Prevents 0.8B model from burning tokens on internal reasoning
+		"chat_template_kwargs": map[string]interface{}{
+			"enable_thinking": false,
+		},
 	}
 	bodyJSON, _ := json.Marshal(reqBody)
 
