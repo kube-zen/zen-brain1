@@ -60,17 +60,19 @@ func main() {
 		ID, Class, Title, Prompt, Filename string
 	}
 
+	// PHASE 24C: Usefulness evidence/reporting tasks (NOT implementation/codegen)
+	// These produce markdown artifacts, not compilable Go code.
 	tasks := []task{
-		{"f24-001", "dead_code", "Dead Code Report", "List unreferenced exported functions in a Go codebase. Use markdown format with function name, file, and why unused.", "dead-code-report.md"},
-		{"f24-002", "defects", "Defects Report", "Analyze Go defect patterns: nil pointer dereference, unchecked errors, missing mutex locks. Markdown checklist.", "defects-report.md"},
-		{"f24-003", "tech_debt", "Tech Debt Report", "Identify technical debt: TODO/FIXME comments, deprecated APIs, large functions, missing tests. Severity ratings.", "tech-debt-report.md"},
-		{"f24-004", "roadmap", "Roadmap Report", "Suggest a 30-day Go project roadmap covering testing, docs, dependencies, and code quality.", "roadmap-report.md"},
-		{"f24-005", "bug_hunting", "Bug Hunting Guide", "Describe Go bug-hunting techniques: race detection, memory profiling, API contract testing.", "bug-hunting-guide.md"},
-		{"f24-006", "stub_hunting", "Stub Hunting Guide", "Define stub identification criteria: empty function bodies, panic(not implemented), hardcoded returns.", "stub-hunting-guide.md"},
-		{"f24-007", "package_hotspot", "Package Hotspot Guide", "Explain Go package hotspot analysis: import frequency, dependency graph metrics, coupling scores.", "package-hotspot-guide.md"},
-		{"f24-008", "test_gap", "Test Gap Analysis", "Describe Go test gap analysis: untested functions, missing edge case coverage, integration test gaps.", "test-gap-analysis.md"},
-		{"f24-009", "config_drift", "Config Drift Guide", "Define config/policy drift detection for Go: schema validation, env var consistency, deployment parity.", "config-drift-guide.md"},
-		{"f24-010", "exec_summary", "Executive Summary", "Write a Go project health summary template: build status, test coverage, dependency health, code quality.", "executive-summary.md"},
+		{"u24c-001", "dead_code", "Dead Code Report", "Scan the codebase for unreferenced exported functions. Use read_file and search_file tools to examine pkg/ and internal/ directories. Produce a markdown report listing each function, its file, reference count, and recommendation. Title: Dead Code Report. Do NOT generate any Go code.", "dead-code.md"},
+		{"u24c-002", "defects", "Defects Report", "Scan the codebase for common defect patterns: nil pointer dereference risk, unchecked error returns, missing mutex locks, hardcoded credentials. Use search_file to find patterns. Produce a markdown checklist with severity. Title: Defects Report. Do NOT generate any Go code.", "defects.md"},
+		{"u24c-003", "tech_debt", "Tech Debt Report", "Scan the codebase for TODO/FIXME/HACK comments, deprecated API usage, functions over 100 lines, and packages with no tests. Use search_file. Produce a markdown report with severity ratings per finding. Title: Tech Debt Report. Do NOT generate any Go code.", "tech-debt.md"},
+		{"u24c-004", "roadmap", "Roadmap Report", "Read docs/ directory to extract current project status and milestones. Produce a markdown summary with sections: Completed, In Progress, Blocked, Next 30 Days. Title: Roadmap Report. Do NOT generate any Go code.", "roadmap.md"},
+		{"u24c-005", "bug_hunting", "Bug Hunting Report", "Scan cmd/, internal/, pkg/ for suspicious patterns: race conditions (shared state without locks), memory leaks (unclosed resources), and logic errors (off-by-one, wrong comparisons). Produce a markdown report with evidence. Title: Bug Hunting Report. Do NOT generate any Go code.", "bug-hunting.md"},
+		{"u24c-006", "stub_hunting", "Stub Hunting Report", "Scan the codebase for stubs: empty function bodies, panic(not implemented), hardcoded return values, and TODO-only functions. Use search_file. Produce a markdown checklist. Title: Stub Hunting Report. Do NOT generate any Go code.", "stub-hunting.md"},
+		{"u24c-007", "package_hotspot", "Package Hotspots Report", "Scan pkg/ and internal/ to identify packages with the most exported types and functions. Use search_file to count package declarations and exports. Produce a markdown table. Title: Package Hotspots Report. Do NOT generate any Go code.", "package-hotspots.md"},
+		{"u24c-008", "test_gap", "Test Gap Report", "Scan for _test.go files across the codebase. List packages that have tests and those that do not. Use search_file. Produce a markdown report with coverage estimates. Title: Test Gap Report. Do NOT generate any Go code.", "test-gaps.md"},
+		{"u24c-009", "config_drift", "Config Drift Report", "Compare documented policies in docs/ with actual config in config/policy/. Use read_file. Produce a markdown report identifying gaps. Title: Config Drift Report. Do NOT generate any Go code.", "config-policy-drift.md"},
+		{"u24c-010", "exec_summary", "Executive Summary", "Synthesize findings from the other 9 reports into a concise executive summary with top 5 findings and recommended actions. Use read_file to review the other reports. Produce a markdown summary. Title: Executive Summary. Do NOT generate any Go code.", "executive-summary.md"},
 	}
 
 	log.Printf("[P24] Dispatching %d tasks through real foreman path (FactoryTaskRunner.Run)...", len(tasks))
