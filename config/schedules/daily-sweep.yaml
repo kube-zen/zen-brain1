@@ -1,0 +1,5 @@
+# Daily full sweep: all task classes
+name: daily-sweep
+cadence: daily
+description: Complete daily analysis across all 10 task classes
+tasks: [dead_code, defects, tech_debt, roadmap, bug_hunting, stub_hunting, package_hotspots, test_gaps, config_drift, executive_summary]
