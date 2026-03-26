@@ -1,20 +1,21 @@
 #!/bin/bash
 # zen-brain1 operator control panel
-# Usage: ./zen-ctl.sh {status|schedule|run|logs|latest|restart|warmup|health}
-#
-# All commands work with systemd services and timers.
-# No need to manually manage llama-server processes.
-
+# Usage: ./scripts/zen-ctl.sh {status|schedule|run|logs|latest|restart|warmup|health}
 set -euo pipefail
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
 NC='\033[0m'
+REPO="/home/neves/zen/zen-brain1"
+SCHEDULER_STATUS="/var/lib/zen-brain1/scheduler/scheduler-status.json"
+SCHEDULER_BIN="$REPO/cmd/scheduler/scheduler"
 
 ok()  { echo -e "${GREEN}✅ $1${NC}"; }
 fail() { echo -e "${RED}❌ $1${NC}"; }
 warn() { echo -e "${YELLOW}⚠️  $1${NC}"; }
+info() { echo -e "${CYAN}ℹ️  $1${NC}"; }
 
 case "${1:-help}" in
     status)
@@ -24,49 +25,81 @@ case "${1:-help}" in
             enabled=$(sudo systemctl is-enabled "$svc" 2>/dev/null || echo "unknown")
             if [[ "$state" == "active" ]]; then ok "$svc: $state (enabled=$enabled)"; else fail "$svc: $state"; fi
         done
+
         echo ""
-        echo "=== Schedule Timers ==="
+        echo "=== Internal Scheduler ==="
+        sched_state=$(sudo systemctl is-active zen-brain1-scheduler 2>/dev/null || echo "unknown")
+        sched_enabled=$(sudo systemctl is-enabled zen-brain1-scheduler 2>/dev/null || echo "unknown")
+        if [[ "$sched_state" == "active" ]]; then
+            ok "zen-brain1-scheduler: $sched_state (enabled=$sched_enabled)"
+        else
+            warn "zen-brain1-scheduler: $sched_state (enabled=$sched_enabled)"
+        fi
+
+        echo ""
+        echo "=== Schedule Status ==="
+        if [[ -f "$SCHEDULER_STATUS" ]]; then
+            python3 -c "
+import json, sys
+d = json.load(open('$SCHEDULER_STATUS'))
+for s in d.get('schedules', []):
+    status_icon = '✅' if s.get('last_status') == 'success' else '⚠️' if s.get('last_status') == 'partial' else '❌' if s.get('last_status') == 'failed' else '⏳'
+    last = s.get('last_run', 'never')
+    next_d = s.get('next_due', 'now')
+    count = s.get('run_count', 0)
+    print(f'  {status_icon} {s[\"name\"]:25s} cadence={s[\"cadence\"]:14s} tasks={len(s[\"tasks\"]):2d} last={last}  next={next_d}  runs={count}')
+"
+        else
+            warn "No scheduler status file. Run: $0 run hourly"
+        fi
+
+        echo ""
+        echo "=== Bootstrap Timers (DEPRECATED) ==="
         for tmr in zen-brain1-hourly-scan zen-brain1-quad-hourly-summary zen-brain1-daily-sweep; do
-            state=$(sudo systemctl is-active "$tmr.timer" 2>/dev/null || echo "inactive")
-            enabled=$(sudo systemctl is-enabled "$tmr.timer" 2>/dev/null || echo "unknown")
-            echo "  $tmr: $state (enabled=$enabled)"
+            state=$(sudo systemctl is-active "$tmr.timer" 2>/dev/null || echo "unknown")
+            if [[ "$state" == "active" ]]; then
+                warn "$tmr.timer: $state (bootstrap-only, should be disabled)"
+            else
+                info "$tmr.timer: $state (disabled — correct)"
+            fi
         done
-        echo ""
-        echo "=== Recent Batch Runs ==="
-        sudo journalctl -u 'zen-brain1-*' --since "6 hours ago" --no-pager -o short-precise 2>/dev/null | grep -E "COMPLETE|FAIL" | tail -5
         ;;
 
     schedule)
-        echo "=== Active Schedule ==="
-        echo "  Hourly (defects, bug-hunting, stub-hunting):"
-        echo "    → OnCalendar=hourly"
-        echo "    → systemctl start zen-brain1-hourly-scan.service"
-        echo ""
-        echo "  Quad-Hourly (dead-code, tech-debt, hotspots, test-gaps, config-drift, roadmap):"
-        echo "    → OnCalendar=0 */4 * * *"
-        echo "    → systemctl start zen-brain1-quad-hourly-summary.service"
-        echo ""
-        echo "  Daily (all 10 tasks):"
-        echo "    → OnCalendar=0 6 * * *"
-        echo "    → systemctl start zen-brain1-daily-sweep.service"
+        echo "=== Active Schedule (source of truth: config/schedules/) ==="
+        for f in "$REPO"/config/schedules/*.yaml; do
+            name=$(grep "^name:" "$f" | sed 's/name: //')
+            cadence=$(grep "^cadence:" "$f" | sed 's/cadence: //')
+            desc=$(grep "^description:" "$f" | sed 's/description: //')
+            tasks=$(grep "^tasks:" "$f" | sed 's/tasks: //; s/^\[//; s/\]$//')
+            echo "  $name ($cadence): $desc"
+            echo "    Tasks: $tasks"
+            echo ""
+        done
+        echo "Owner: zen-brain1 internal scheduler (not systemd timers)"
+        echo "Config: $REPO/config/schedules/"
         ;;
 
     run)
-        # Force an immediate batch run
         BATCH="${2:-hourly-scan}"
         case "$BATCH" in
-            hourly|scan) SVC="zen-brain1-hourly-scan";;
-            quad|summary) SVC="zen-brain1-quad-hourly-summary";;
-            daily|full|all) SVC="zen-brain1-daily-sweep";;
+            hourly|scan) SCHED="hourly-scan";;
+            quad|summary) SCHED="quad-hourly-summary";;
+            daily|full|all) SCHED="daily-sweep";;
             *) echo "Unknown batch: $BATCH"; echo "Usage: $0 run {hourly|quad|daily}"; exit 1;;
         esac
-        echo "Triggering $SVC..."
-        sudo systemctl start "$SVC.service"
-        echo "Started. Monitor with: $0 logs $SVC"
+        echo "Triggering $SCHED via internal scheduler..."
+        SCHEDULE_DIR="$REPO/config/schedules" \
+        STATE_DIR="/var/lib/zen-brain1/scheduler" \
+        ARTIFACT_ROOT="/var/lib/zen-brain1/runs" \
+        BATCH_BIN="$REPO/cmd/useful-batch/useful-batch" \
+        FORCE_RUN=1 "$SCHEDULER_BIN"
+        echo ""
+        echo "Status updated: $SCHEDULER_STATUS"
         ;;
 
     logs)
-        SVC="${2:-zen-brain1-hourly-scan}"
+        SVC="${2:-zen-brain1-scheduler}"
         sudo journalctl -u "$SVC" --since "1 hour ago" --no-pager -f
         ;;
 
@@ -81,17 +114,16 @@ case "${1:-help}" in
                     lines=$(wc -l < "$f")
                     echo "  $(basename $f): $lines lines"
                 done
-                echo "  telemetry: $LATEST/telemetry/batch-index.json"
             fi
         done
         ;;
 
     restart)
-        echo "Restarting workers..."
-        sudo systemctl restart zen-brain1-l1 zen-brain1-l2
+        echo "Restarting all services..."
+        sudo systemctl restart zen-brain1-scheduler zen-brain1-l1 zen-brain1-l2
         sleep 15
         echo ""
-        for svc in zen-brain1-l1 zen-brain1-l2; do
+        for svc in zen-brain1-scheduler zen-brain1-l1 zen-brain1-l2; do
             state=$(sudo systemctl is-active "$svc" 2>/dev/null)
             if [[ "$state" == "active" ]]; then ok "$svc: $state"; else fail "$svc: $state"; fi
         done
@@ -117,13 +149,18 @@ case "${1:-help}" in
         echo "Usage: $0 <command>"
         echo ""
         echo "Commands:"
-        echo "  status    Show worker and timer status"
-        echo "  schedule  Show active schedule configuration"
-        echo "  run       Force an immediate batch (hourly|quad|daily)"
-        echo "  logs      Tail logs for a service (default: hourly-scan)"
+        echo "  status    Show worker, scheduler, and timer status"
+        echo "  schedule  Show active schedule from config/schedules/"
+        echo "  run       Force immediate batch via internal scheduler (hourly|quad|daily)"
+        echo "  logs      Tail logs (default: scheduler)"
         echo "  latest    Show latest artifacts from each batch"
-        echo "  restart   Restart L1 and L2 workers"
+        echo "  restart   Restart scheduler + L1 + L2 workers"
         echo "  warmup    Warmup L1 with a test request"
         echo "  health    Run health checks"
+        echo ""
+        echo "Architecture:"
+        echo "  systemd → supervises processes (l1, l2, scheduler)"
+        echo "  zen-brain scheduler → owns useful-task cadence"
+        echo "  config/schedules/   → schedule definitions"
         ;;
 esac

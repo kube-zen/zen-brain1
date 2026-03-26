@@ -90,6 +90,19 @@ func main() {
 	if len(schedules) == 0 {
 		log.Fatalf("[SCHED] No schedules found in %s", scheduleDir)
 	}
+	// Filter out schedules with no tasks
+	valid := make([]Schedule, 0, len(schedules))
+	for _, s := range schedules {
+		if len(s.Tasks) == 0 {
+			log.Printf("[SCHED] WARNING: %s has no tasks, skipping", s.Name)
+			continue
+		}
+		valid = append(valid, s)
+	}
+	schedules = valid
+	if len(schedules) == 0 {
+		log.Fatalf("[SCHED] No valid schedules (all had empty task lists)")
+	}
 	log.Printf("[SCHED] Loaded %d schedules from %s", len(schedules), scheduleDir)
 	for _, s := range schedules {
 		log.Printf("[SCHED]   %s: %s (%d tasks, cadence=%s)", s.Name, s.Description, len(s.Tasks), s.Cadence)
@@ -114,9 +127,9 @@ func main() {
 		for _, s := range schedules {
 			if isDue(s, stateDir) {
 				runSchedule(s, stateDir, artifactRoot, batchBin)
+				writeStatus(schedules, stateDir, artifactRoot)
 			}
 		}
-		writeStatus(schedules, stateDir, artifactRoot)
 	}
 }
 
@@ -287,12 +300,13 @@ func saveState(stateDir, name string, st ScheduleState) {
 }
 
 func parseRunDir(output string) string {
+	// useful-batch outputs: "[BATCH] === batch-name COMPLETE: N/N OK, wall=... ===\n[BATCH] Run dir: /path"
+	// Look for "Run dir: /" — the path always starts with /
 	for _, line := range splitLines(output) {
-		if contains(line, "Run dir:") {
-			parts := splitString(line, ':')
-			if len(parts) >= 3 {
-				return trimSpace(parts[2])
-			}
+		idx := indexOf(line, "Run dir: /")
+		if idx >= 0 {
+			path := line[idx+9:] // skip "Run dir: "
+			return trimSpace(path)
 		}
 	}
 	return ""
