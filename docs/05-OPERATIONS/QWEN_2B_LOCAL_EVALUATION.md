@@ -43,6 +43,21 @@ Example local paths (dev machine): `/home/neves/git/ai/Qwen3.5-0.8B-Q4_K_M.gguf`
 - Absolute tok/s differ from longer runs (e.g. `max_tokens` 384) and from **Ollama-in-Docker** paths; compare **0.8B vs 2B** here, not to unrelated benchmarks.
 - **Quality** was not scored in this script; escalation value of 2B assumes **higher task success** on harder subtasks (validate with task-class calibration).
 
+## Go codegen harness parity (2026-03-26)
+
+The same **llama.cpp** + OpenAI **`/v1/chat/completions`** pattern as [QWEN_08B_LLAMA_CPP_CODEGEN_GUIDE.md](QWEN_08B_LLAMA_CPP_CODEGEN_GUIDE.md) (thinking off, `chat_template_kwargs.enable_thinking=false`, structured quick-win / autowork-style user prompt, `ATTACH_TOOLS` omitted for pure codegen, `go build` verification) was run against **Qwen3.5-2B-Q4_K_M** on **CPU**.
+
+**Task:** bounded Go subtask 1 (`httpx` / `GetJSON`-style), **temperature 0.1**, **single scored request** after warmup (representative dev host).
+
+| Model | Approx. wall clock (subtask 1) | `predicted_ms` (llama.cpp) | Gen tok/s (reported) | Completion tokens | `go build` |
+|-------|--------------------------------|-----------------------------|------------------------|-------------------|------------|
+| **0.8B Q4_K_M** | ~16–25 s | ~8.3–10.3 s | ~20–25 | ~215 | **OK** |
+| **2B Q4_K_M** | **~32 s** | **~18.0 s** | **~14.3** | **256** | **OK** |
+
+**Interpretation:** On this harness, **2B is slower** than **0.8B** (roughly **~2×** longer wall and predicted generation time for this subtask), consistent with expectations for a larger model on CPU. Both passed **`go build`** on the same prompt shape; **2B** often wrapped the answer in a **markdown ` ```go` ** fence while **0.8B** tended toward **raw** source—the verifier accepts both.
+
+**Optional operator script (outside this repo):** `run_go_subtasks_suite_2b_cpu.sh` (sets **2B GGUF**, **ONLY_MODEL=1**, same parent suite as 0.8B). Place Unsloth **`Qwen3.5-2B-Q4_K_M.gguf`** next to the 0.8B artifact and run from your `llama-server` + harness checkout.
+
 ## Reproduction
 
 Script (example): `/tmp/bench_llama_08b_vs_2b.sh` (or equivalent in repo if checked in).
@@ -57,5 +72,6 @@ Report output (example): `/tmp/llama_qwen_08b_vs_2b_q4km.md`.
 
 ## See also
 
+- [QWEN_08B_LLAMA_CPP_CODEGEN_GUIDE.md](QWEN_08B_LLAMA_CPP_CODEGEN_GUIDE.md) — inference flags and prompt shape (applies to **2B** as well).
 - [LOCAL_LLM_ESCALATION_LADDER.md](../03-DESIGN/LOCAL_LLM_ESCALATION_LADDER.md) — when to use 2B vs 0.8B vs external.
 - [LLAMA_CPP_VS_OLLAMA_QWEN_0.8B_BENCHMARK.md](./LLAMA_CPP_VS_OLLAMA_QWEN_0.8B_BENCHMARK.md) — 0.8B llama.cpp vs Ollama (2×2 quant matrix).
