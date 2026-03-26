@@ -5,7 +5,7 @@
 
 ## Purpose
 
-This document captures **how to get reliable, useful output** from the **certified** small local model class (**`qwen3.5:0.8b`**, GGUF typically **Q4_K_M**) when using **llama.cpp** (`llama-server`) and the OpenAI-compatible **`/v1/chat/completions`** endpoint. It complements:
+This document captures **how to get reliable, useful output** from **Qwen3.5** small checkpoints served by **llama.cpp** — primarily the **certified** local class **`qwen3.5:0.8b`** (GGUF typically **Q4_K_M**). The **same inference and prompt rules** apply to **Qwen3.5-2B** (L2-style / escalation lane); expect **slower** generation and **more RAM** on CPU — see [QWEN_2B_LOCAL_EVALUATION.md](QWEN_2B_LOCAL_EVALUATION.md) for measurements and a **Go harness parity** table. It complements:
 
 - [SMALL_MODEL_STRATEGY.md](../03-DESIGN/SMALL_MODEL_STRATEGY.md) (policy and strategy)
 - [LLAMA_CPP_VS_OLLAMA_QWEN_0.8B_BENCHMARK.md](LLAMA_CPP_VS_OLLAMA_QWEN_0.8B_BENCHMARK.md) (latency / stack matrix)
@@ -62,6 +62,10 @@ Operators ran a **standalone llama.cpp** benchmark (OpenAI API to `llama-server`
 
 **Takeaway:** **0.8B base** remains a **strong baseline** for **well-shaped, bounded** codegen tasks when prompts follow quick-win / packet rules. **LoRA** should be judged on **end-to-end compile** metrics aligned with production output contracts, not chat scores alone.
 
+### Qwen3.5-2B (same harness)
+
+Under the **identical** structured Go subtask and verifier, **2B Q4_K_M** achieved **`go build` OK** with roughly **~2×** longer wall and predicted generation time than **0.8B** on a representative host (details: [QWEN_2B_LOCAL_EVALUATION.md](QWEN_2B_LOCAL_EVALUATION.md) § Go codegen harness parity). Use **2B** when escalation policy calls for higher success odds on harder bounded tasks, accepting throughput cost.
+
 ## Relation to zen-brain1 product code
 
 - **L1 routing** and **quickwin-l1** templates encode the same constraints this guide recommends for 0.8B.
@@ -70,6 +74,7 @@ Operators ran a **standalone llama.cpp** benchmark (OpenAI API to `llama-server`
 ## Related
 
 - [SMALL_MODEL_STRATEGY.md](../03-DESIGN/SMALL_MODEL_STRATEGY.md)
+- [QWEN_2B_LOCAL_EVALUATION.md](QWEN_2B_LOCAL_EVALUATION.md) — 0.8B vs 2B tok/s, RAM, Go harness parity
 - [L1_L2_LANE_RUNBOOK.md](L1_L2_LANE_RUNBOOK.md) — “Packet Shaping”, warmup curls
 - [OLLAMA_08B_OPERATIONS_GUIDE.md](OLLAMA_08B_OPERATIONS_GUIDE.md) — certified Ollama path (ZB-023)
 - [LLAMA_CPP_VS_OLLAMA_QWEN_0.8B_BENCHMARK.md](LLAMA_CPP_VS_OLLAMA_QWEN_0.8B_BENCHMARK.md)
