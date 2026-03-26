@@ -1,0 +1,20 @@
+[
+  {
+    "id": "useful-001",
+    "class": "evidence",
+    "description": "Scan docs/ directory and count total number of markdown files. Output a simple markdown report listing all markdown files with their line counts.",
+    "artifact": "dead-code-report.md"
+  },
+  {
+    "id": "useful-002",
+    "class": "evidence",
+    "description": "Scan cmd/ directory for .go files and count them. Also count packages in pkg/ directory. Output as plain markdown.",
+    "artifact": "file-count-report.md"
+  },
+  {
+    "id": "useful-003",
+    "class": "evidence",
+    "description": "Use search_file tool to find all TODO comments in cmd/, pkg/, internal/ directories. Create a markdown report with sections: TODO Comments, TODO Pattern Analysis.",
+    "artifact": "todo-finding-report.md"
+  }
+]
