@@ -1,5 +1,9 @@
 # Real Jira Integration Report
 
+> ⚠️ **HISTORICAL NOTE**: This document contains commands using `zen@zen-mesh.io`, which is the
+> **WRONG/FORBIDDEN** Jira email. The canonical email is `zen@kube-zen.io` (see AGENTS.md).
+> These commands were run before the email was corrected. Do not reuse them as-is.
+
 **Date:** 2026-03-13
 **Status:** ✅ PARTIAL - Jira Authentication WORKS, JSON Parsing Issue Remains
 

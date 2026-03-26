@@ -18,7 +18,7 @@ This document defines the canonical rules for Jira project key configuration and
 ```yaml
 jira:
   url: "https://zen-mesh.atlassian.net"
-  email: "zen@zen-mesh.io"
+  email: "zen@kube-zen.io"
   project_key: "ZB"
 ```
 

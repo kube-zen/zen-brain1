@@ -76,7 +76,7 @@ def _prompt_credentials() -> dict:
     print()
     
     jira_url = input("Jira Base URL (e.g., https://zen-mesh.atlassian.net): ").strip()
-    jira_email = input("Jira Email (e.g., zen@zen-mesh.io): ").strip()
+    jira_email = input("Jira Email (e.g., zen@kube-zen.io): ").strip()
     jira_token = input("Jira API Token: ").strip()
     jira_project_key = input("Jira Project Key (e.g., ZB): ").strip()
     print()

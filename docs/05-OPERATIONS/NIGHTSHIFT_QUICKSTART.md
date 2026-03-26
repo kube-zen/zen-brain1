@@ -169,7 +169,7 @@ cd /home/neves/zen/zen-brain1
 
 # 1. Verify tickets exist
 export JIRA_URL=https://zen-mesh.atlassian.net
-export JIRA_EMAIL=zen@zen-mesh.io
+export JIRA_EMAIL=zen@kube-zen.io
 export JIRA_TOKEN=$(grep "^token:" ~/.zen-brain1-config/jira.yaml | awk '{print $2}' | tr -d '"')
 ./bin/zen-brain office search 'project = ZB AND labels = "zen-brain-nightshift"'
 

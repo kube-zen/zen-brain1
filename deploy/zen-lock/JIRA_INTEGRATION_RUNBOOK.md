@@ -52,7 +52,7 @@ Jira credentials are managed through **ZenLock** as the source of truth. Access 
 | Field | Description |
 |--------|-------------|
 | JIRA_URL | Base URL (e.g., `https://zen-mesh.atlassian.net`) |
-| JIRA_EMAIL | User email (e.g., `zen@zen-mesh.io`) |
+| JIRA_EMAIL | User email (e.g., `zen@kube-zen.io`) |
 | JIRA_API_TOKEN | API token (user-level `ATATT3...`) |
 | JIRA_PROJECT_KEY | Project key (e.g., `ZB`) |
 
@@ -135,7 +135,7 @@ For local development outside Kubernetes, you may use:
 ```bash
 cat > ~/.zen-brain/jira-credentials.env << 'EOF'
 JIRA_URL="https://zen-mesh.atlassian.net"
-JIRA_EMAIL="zen@zen-mesh.io"
+JIRA_EMAIL="zen@kube-zen.io"
 JIRA_TOKEN="ATATT3..."
 JIRA_PROJECT_KEY="ZB"
 EOF
@@ -201,7 +201,7 @@ Create `~/.zen-brain/jira-credentials.env`:
 
 ```bash
 JIRA_URL="https://zen-mesh.atlassian.net"
-JIRA_EMAIL="zen@zen-mesh.io"
+JIRA_EMAIL="zen@kube-zen.io"
 JIRA_TOKEN="ATATT3..."
 JIRA_PROJECT_KEY="ZB"
 ```

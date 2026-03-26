@@ -76,7 +76,7 @@ func main() {
 
 	// Test both emails
 	emails := []string{
-		"zen@zen-mesh.io",
+		"zen@kube-zen.io",
 		"zen@kube-zen.io",
 	}
 

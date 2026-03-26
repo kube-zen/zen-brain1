@@ -1,12 +1,20 @@
 # CURRENT_STATE.md
 
-**Last Updated**: 2026-03-22 21:49 EDT
-**Status**: PHASE 5 IN PROGRESS
-**Task ID**: ZB-027J
+**Last Updated**: 2026-03-26 19:30 EDT
 
-## Current Blocker
+## CANONICAL JIRA IDENTITY — DO NOT ASK AGAIN
 
-**None** - Ready to proceed with live loop testing
+| Field | Value |
+|-------|-------|
+| **Jira Email** | `zen@kube-zen.io` |
+| **Jira URL** | `https://zen-mesh.atlassian.net` |
+| **Project Key** | `ZB` |
+| **Forbidden Email** | `zen@zen-mesh.io` (causes 401) |
+| **Runtime Source** | `/zen-lock/secrets/` (ZenLock injection) |
+| **Bootstrap Script** | `deploy/zen-lock/bootstrap-jira-zenlock-from-local.sh` |
+| **Preflight Command** | `JIRA_TOKEN=<t> MODE=preflight STRICT=true ./cmd/admission-gate/admission-gate` |
+
+See AGENTS.md for full canonical section with proof commands.
 
 ## Current Proven State
 

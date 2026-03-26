@@ -78,7 +78,7 @@ Zen-Brain is an AI-native orchestration platform coordinating work execution acr
 ```bash
 # Jira Configuration
 JIRA_URL=https://zen-mesh.atlassian.net
-JIRA_EMAIL=zen@zen-mesh.io
+JIRA_EMAIL=zen@kube-zen.io
 JIRA_PROJECT_KEY=ZB  # Secondary to jira-metadata.yaml
 
 # Runtime Profile

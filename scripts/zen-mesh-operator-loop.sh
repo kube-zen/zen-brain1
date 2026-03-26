@@ -9,7 +9,7 @@ ZEN_BRAIN_DIR="$(dirname "$SCRIPT_DIR/..")"
 export ZEN_BRAIN_OFFICE_ALLOW_STUB_KB=1
 export ZEN_BRAIN_OFFICE_ALLOW_STUB_LEDGER=1
 export JIRA_URL=https://zen-mesh.atlassian.net
-export JIRA_EMAIL=zen@zen-mesh.io
+export JIRA_EMAIL=zen@kube-zen.io
 export JIRA_PROJECT_KEY=ZB
 
 echo "=== Zen-Mesh Operational Loop ==="

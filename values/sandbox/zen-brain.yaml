@@ -12,7 +12,7 @@ foreman:
   jira:
     enabled: true
     url: "https://zen-mesh.atlassian.net"
-    email: "zen@zen-mesh.io"
+    email: "zen@kube-zen.io"
     projectKey: "ZB"
     credentialsDir: "/zen-lock/secrets"
     allowEnvFallback: false

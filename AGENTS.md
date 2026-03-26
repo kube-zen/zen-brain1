@@ -75,6 +75,68 @@ See `docs/PROMPT_ENGINEERING_MIGRATION.md` for full details.
 
 ---
 
+## CANONICAL JIRA IDENTITY — DO NOT ASK AGAIN
+
+**Canonical Jira Email**: `zen@kube-zen.io`
+**Canonical Jira URL**: `https://zen-mesh.atlassian.net`
+**Canonical Project Key**: `ZB`
+
+These are final. No future operator or AI should ever ask which Jira email to use.
+If the live secret and this doc are present, follow them. Do not ask the user.
+
+### Forbidden
+- `zen@zen-mesh.io` — **WRONG, causes 401 auth failures** — FORBIDDEN
+- Any other email variant — FORBIDDEN
+
+### Runtime Credential Source (ONLY path)
+All runtime Jira credentials come from ZenLock-injected secrets:
+```
+/zen-lock/secrets/JIRA_URL          → https://zen-mesh.atlassian.net
+/zen-lock/secrets/JIRA_EMAIL        → zen@kube-zen.io
+/zen-lock/secrets/JIRA_API_TOKEN    → (API token, not logged)
+/zen-lock/secrets/JIRA_PROJECT_KEY  → ZB
+```
+
+### Bootstrap / Rotation (ONLY for token changes)
+1. Obtain new API token from Atlassian
+2. Place in `~/zen/DONOTASKMOREFORTHISSHIT.txt` (ONE-TIME USE ONLY)
+3. Run `deploy/zen-lock/bootstrap-jira-zenlock-from-local.sh`
+4. Verify: `zen-brain office doctor` or `zen-brain office smoke-real`
+5. **Delete** `~/zen/DONOTASKMOREFORTHISSHIT.txt`
+6. Runtime uses only ZenLock sources after this
+
+### On 401 / Expired Token
+1. Auth preflight blocks immediately (admission gate)
+2. Mark run as `blocked:jira-auth`
+3. Do NOT dispatch Jira-backed AI work
+4. Follow bootstrap/rotation procedure above to get fresh token
+
+### Proof Command (verify from cluster)
+```bash
+# From live pod
+kubectl exec -n zen-brain deployment/foreman -- cat /zen-lock/secrets/JIRA_EMAIL
+# Expected: zen@kube-zen.io
+
+kubectl exec -n zen-brain deployment/foreman -- zen-brain office doctor
+# Expected: Jira auth OK
+```
+
+### Proof Command (local, with token)
+```bash
+export JIRA_URL=https://zen-mesh.atlassian.net
+export JIRA_EMAIL=zen@kube-zen.io
+export JIRA_TOKEN=<fresh-token>
+curl -sf -u "$JIRA_EMAIL:$JIRA_TOKEN" "$JIRA_URL/rest/api/3/myself" | python3 -c "import json,sys; d=json.load(sys.stdin); print(f'OK: {d[\"displayName\"]}')"
+```
+
+### Mandatory Preflight Before Any Jira-Backed Run
+```bash
+JIRA_TOKEN=<token> MODE=preflight STRICT=true ./cmd/admission-gate/admission-gate
+# If exit != 0, DO NOT proceed with Jira work
+```
+
+---
+
 ## Jira Credential Rails
 
 ### Canonical Email Identity
