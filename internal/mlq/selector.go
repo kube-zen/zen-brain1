@@ -237,3 +237,12 @@ func (m *MLQ) ListLevels() []int {
 	}
 	return levels
 }
+
+// GetLevelOrNil returns level by number, or nil if not found.
+func (m *MLQ) GetLevelOrNil(levelNum int) *Level {
+	level, ok := m.levels[levelNum]
+	if !ok {
+		return nil
+	}
+	return level
+}
