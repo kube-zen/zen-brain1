@@ -1,21 +1,26 @@
 [Unit]
-Description=zen-brain1 L2 Worker (llama.cpp Qwen3.5-2B)
+Description=zen-brain1 L2 Worker (llama.cpp Qwen3.5-2B, 4 slots)
 After=network-online.target
 Wants=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=5
 
 [Service]
 Type=simple
 User=neves
+WorkingDirectory=/home/neves
 ExecStart=/home/neves/git/llama.cpp/build/bin/llama-server \
     -m /home/neves/git/ai/zen-go-q4_k_m-latest.gguf \
     --port 60509 --host 0.0.0.0 \
     --ctx-size 16384 \
     --log-disable
-Restart=always
-RestartSec=5
+ExecStartPost=/bin/sleep 12
+Restart=on-failure
+RestartSec=10
+RuntimeDirectory=zen-brain1
+LogsDirectory=zen-brain1
 StandardOutput=append:/var/log/zen-brain1/l2-worker.log
 StandardError=append:/var/log/zen-brain1/l2-worker.log
-PIDFile=/run/zen-brain1/l2-worker.pid
 
 # Resource limits — 2B needs more memory
 MemoryMax=12G
