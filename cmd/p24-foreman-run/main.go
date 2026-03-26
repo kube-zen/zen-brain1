@@ -40,8 +40,8 @@ func main() {
 		WorkspaceHome:        workspaceHome,
 		PreferRealTemplates:  true,
 		EnableFactoryLLM:     true,
-		LLMBaseURL:          "http://localhost:56227",
-		LLMModel:            "Qwen3.5-0.8B-Q4_K_M.gguf",
+		LLMBaseURL:          "http://localhost:11434",
+		LLMModel:            "qwen3.5:0.8b",
 		LLMTimeoutSeconds:   120,
 		LLMEnableThinking:   false,
 	}

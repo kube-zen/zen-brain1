@@ -512,8 +512,13 @@ func (e *LLMTemplateExecutor) determineTargetPath(spec *FactoryTaskSpec, workspa
 		ext = ".sql"
 	}
 
-	// Create slug from work item ID
-	slug := strings.ToLower(spec.WorkItemID)
+	// Create slug from work item ID; fall back to task ID if empty.
+	// An empty slug produces hidden files (e.g. ".go") which break go build.
+	slugID := spec.WorkItemID
+	if slugID == "" {
+		slugID = spec.ID
+	}
+	slug := strings.ToLower(slugID)
 	slug = strings.ReplaceAll(slug, "-", "_")
 	slug = strings.ReplaceAll(slug, " ", "_")
 
