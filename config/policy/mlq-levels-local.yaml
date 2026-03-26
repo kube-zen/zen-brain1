@@ -1,0 +1,151 @@
+escalation_rules:
+- from_level: 1
+  max_retries: 2
+  timeout_threshold_seconds: 2400
+  to_level: 2
+  trigger: retry_count
+- from_level: 1
+  require_manual_approval: false
+  timeout_threshold_seconds: 2700
+  to_level: 0
+  trigger: timeout_or_error
+- allowed_for_task_class:
+  - rescue
+  - complex-planning
+  from_level: 1
+  require_manual_approval: true
+  to_level: 2
+  trigger: manual
+health_checks:
+  backends:
+  - check_endpoint: /health
+    healthy_threshold: 3
+    level: 1
+    timeout_seconds: 10
+    unhealthy_threshold: 1
+  - check_endpoint: /health
+    healthy_threshold: 3
+    level: 2
+    timeout_seconds: 10
+    unhealthy_threshold: 1
+  - check_endpoint: /api/tags
+    healthy_threshold: 3
+    level: 0
+    timeout_seconds: 10
+    unhealthy_threshold: 1
+  enabled: true
+  interval_seconds: 60
+logging:
+  escalation_format: '[MLQ] Escalating task {task_id} from Level {from_level} to Level
+    {to_level} - reason={reason}'
+  fallback_format: '[MLQ] Fallback task {task_id} to Level 0 (Ollama) - reason={reason}'
+  level: INFO
+  log_escalation: true
+  log_fallback: true
+  log_selection: true
+  selection_format: '[MLQ] Selected Level {level} for task {task_id} (jira={jira_key})
+    - backend={backend} model={model} timeout={timeout}s'
+mlq_levels:
+- backend:
+    api_endpoint: http://localhost:56227
+    model_file: /home/neves/git/ai/Qwen3.5-0.8B-Q4_K_M.gguf
+    name: qwen3.5:0.8b-q4
+    provider: llama-cpp
+    timeout_seconds: 2700
+  capabilities:
+    max_context_tokens: 65536
+    max_output_tokens: 2048
+    supports_functions: false
+    supports_streaming: false
+  concurrency:
+    max_workers: 10
+    min_workers: 2
+  display_name: MLQ Level 1 (Cheap Workers)
+  enabled: true
+  level: 1
+  name: mlq-level-1
+  performance:
+    max_latency_seconds: 1800
+    target_rps: 1.0
+  task_class:
+  - bounded-execution
+  - implementation
+  - bugfix
+  - documentation
+  - test-generation
+- backend:
+    api_endpoint: http://localhost:60509
+    model_file: /home/neves/Downloads/zen-go-q4_k_m.gguf
+    name: 2b-q4
+    provider: llama-cpp
+    timeout_seconds: 3600
+  capabilities:
+    max_context_tokens: 65536
+    max_output_tokens: 4096
+    supports_functions: false
+    supports_streaming: false
+  concurrency:
+    max_workers: 1
+    min_workers: 1
+  display_name: MLQ Level 2 (Stronger Worker)
+  enabled: true
+  level: 2
+  name: mlq-level-2
+  performance:
+    max_latency_seconds: 3600
+    target_rps: 0.5
+  task_class:
+  - complex-planning
+  - rescue
+  - refactor
+  - migration
+  - architecture-design
+- backend:
+    api_endpoint: http://localhost:11434
+    model_file: ''
+    name: qwen3.5:0.8b
+    provider: ollama
+    timeout_seconds: 2700
+  capabilities:
+    max_context_tokens: 32768
+    max_output_tokens: 2048
+    supports_functions: true
+    supports_streaming: true
+  concurrency:
+    max_workers: 5
+    min_workers: 1
+  display_name: Fallback Control (Ollama)
+  enabled: true
+  level: 0
+  name: fallback-control
+  performance:
+    max_latency_seconds: 1800
+    target_rps: 2.0
+  task_class:
+  - chat
+  - quick-test
+selection_policy:
+  default_level_mapping:
+    architecture-design: 2
+    bounded-execution: 1
+    bugfix: 1
+    chat: 0
+    complex-planning: 2
+    documentation: 1
+    implementation: 1
+    migration: 2
+    quick-test: 0
+    refactor: 2
+    rescue: 2
+    test-generation: 1
+  fallback_behavior:
+    fallback_delay_seconds: 30
+    max_fallback_attempts: 3
+    strategy: fallback_on_failure
+  jira_key_overrides:
+    SMOKE-LEVEL1: 1
+    SMOKE-LEVEL2: 2
+    ZB-281: 2
+    ZB-282: 2
+    ZB-283: 2
+    ZB-284: 2
