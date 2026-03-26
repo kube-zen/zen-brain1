@@ -2,7 +2,22 @@
 
 ## Status
 
-**Production** (2026-03-20)
+**Production** (2026-03-25)
+
+## PHASE 23 Update: Runtime Behavior Locked
+
+As of PHASE 23 (2026-03-25), the following runtime behaviors are now **proven and locked**:
+
+1. **Factory routes through TaskExecutor** — all MLQ tasks use `ExecuteWithRetry()` for automatic retry/escalation
+2. **L1 first, always** — regular tasks go to L1 by default; L2 is earned by repeated L1 failure evidence
+3. **Thinking disabled** — llama.cpp requests include `enable_thinking: false` to prevent empty artifacts
+4. **10-way L1 parallelism** — single llama.cpp server with `--parallel 10`, proven with concurrent batch
+5. **Escalation proven** — L1→L2 escalation after 2 failures verified end-to-end (see P004 test)
+
+### Evidence
+- 10 useful reporting tasks: 10/10 L1 success, 71s parallel wall time
+- Escalation test: L1×2 failures → L2 success in 2.3s
+- No-think fix: stub_hunting artifact went from 0 bytes to 1.8KB
 
 ## 🚨 CRITICAL POLICY (ZB-023) - CANONICAL SOURCE OF TRUTH
 

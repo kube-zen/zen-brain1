@@ -1,11 +1,53 @@
 # L1/L2 Lane Operations Runbook
 
-**Version:** 1.0
+**Version:** 2.0
 **Status:** Production
+**Updated:** 2026-03-25 (PHASE 23)
 
 ## Overview
 
-This runbook covers the operational procedure for running tasks on the L1 (0.8B workhorse) and L2 (2B bounded) lanes via llama.cpp. Follow these steps for every task to ensure correct lane usage.
+This runbook covers the operational procedure for running tasks on the L1 (0.8B workhorse) and L2 (2B bounded) lanes via llama.cpp. Factory now routes through TaskExecutor with automatic retry/escalation.
+
+## PHASE 23 Runtime Architecture
+
+### What changed (PHASE 23)
+1. **Factory uses TaskExecutor** — `executeWithLLM()` routes through `TaskExecutor.ExecuteWithRetry()` for all MLQ tasks
+2. **Task-level retry/escalation** — not just step-level; the entire task retries on failure and escalates to L2 after repeated L1 failure
+3. **Thinking disabled by default** — llama.cpp requests include `chat_template_kwargs: {enable_thinking: false}` to prevent empty-artifact bug
+4. **L1 10-slot parallelism** — single llama.cpp server with `--parallel 10` handles 10 concurrent requests
+
+### Execution flow
+```
+Task → Factory.executeTask()
+     → executeWithLLM()
+     → executeWithLLMRetry() [if TaskExecutor available]
+       → TaskExecutor.ExecuteWithRetry()
+         → SelectLevel() → L1 (default)
+         → Create generator for L1 worker endpoint
+         → Execute template
+         → On failure: retry (up to max_retries per escalation_rules)
+         → After repeated failure: escalate to L2
+         → On provider outage: fallback to L0
+         → Record telemetry on every attempt
+```
+
+### Escalation policy (from mlq-levels.yaml)
+- L1 → L2: after 2 consecutive failures (retry_count trigger)
+- L1 → L0: on timeout/error (timeout_or_error trigger)
+- L2 is earned by L1 failure evidence, not guessed in advance
+
+### Worker endpoints
+| Level | Endpoint | Model | Slots |
+|-------|----------|-------|-------|
+| L1 | http://localhost:56227 | Qwen3.5-0.8B-Q4_K_M.gguf | 10 parallel |
+| L2 | http://localhost:60509 | zen-go-q4_k_m.gguf | 1 |
+| L0 | http://localhost:11434 | qwen3.5:0.8b (Ollama) | 1 |
+
+### Proven evidence (2026-03-25)
+- **10-task batch**: 10/10 L1 success, 71s wall time (parallel)
+- **Escalation test**: L1 failed ×2 → escalated to L2 → L2 succeeded (3 attempts, 2.3s total)
+- **No-think fix**: stub_hunting went from 0 bytes to 1826 bytes after enabling thinking=false
+- **Concurrency proof**: 10 requests in 3.4s = true parallel (same as single request time)
 
 ## Quick Reference
 
