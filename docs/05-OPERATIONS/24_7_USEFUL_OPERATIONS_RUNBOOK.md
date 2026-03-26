@@ -33,6 +33,17 @@ zen-brain1 is now running under **real systemd supervision** with **active sched
 ./scripts/zen-ctl.sh warmup          # warmup L1 with test request
 ```
 
+## Platform Architecture
+
+zen-brain1 operates within the zen platform:
+
+- **zen-brain** = planner, router, model selection, task shaping
+- **zen-flow** = execution engine for multi-step cluster jobs (future)
+- **zen-lock** = secret delivery, key custody, credential encryption
+
+See [ZEN_LOCK_ZEN_FLOW_INTEGRATION_DECISION.md](./ZEN_LOCK_ZEN_FLOW_INTEGRATION_DECISION.md) for the full architecture decision.
+See [SECRET_CONTRACT.md](./SECRET_CONTRACT.md) for secret management rules.
+
 | Lane | Model | Inference | Port | Slots | Context/Slot | Service | Status |
 |------|-------|-----------|------|-------|-------------|---------|--------|
 | L1 | Qwen3.5-0.8B Q4_K_M | llama.cpp | 56227 | 10 parallel | 6656 tokens | `zen-brain1-l1.service` | active (enabled) |
