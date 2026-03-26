@@ -1,20 +1,20 @@
 # L1/L2 Lane Operations Runbook
 
-**Version:** 2.0
+**Version:** 3.0
 **Status:** Production
-**Updated:** 2026-03-25 (PHASE 23)
+**Updated:** 2026-03-26 (PHASE 26)
 
 ## Overview
 
-This runbook covers the operational procedure for running tasks on the L1 (0.8B workhorse) and L2 (2B bounded) lanes via llama.cpp. Factory now routes through TaskExecutor with automatic retry/escalation.
+This runbook covers the operational procedure for running tasks on the L1 (0.8B workhorse) and L2 (2B bounded) lanes via llama.cpp. Factory routes through TaskExecutor with automatic retry/escalation.
 
-## PHASE 23 Runtime Architecture
+### Certified Runtime
 
-### What changed (PHASE 23)
-1. **Factory uses TaskExecutor** — `executeWithLLM()` routes through `TaskExecutor.ExecuteWithRetry()` for all MLQ tasks
-2. **Task-level retry/escalation** — not just step-level; the entire task retries on failure and escalates to L2 after repeated L1 failure
-3. **Thinking disabled by default** — llama.cpp requests include `chat_template_kwargs: {enable_thinking: false}` to prevent empty-artifact bug
-4. **L1 10-slot parallelism** — single llama.cpp server with `--parallel 10` handles 10 concurrent requests
+| Lane | Endpoint | Model | Slots | Context/Slot | Role |
+|-------|----------|-------|-------|-------------|------|
+| L1 | http://localhost:56227 | Qwen3.5-0.8B-Q4_K_M.gguf | 10 parallel | 6656 tokens | Default — all regular useful tasks |
+| L2 | http://localhost:60509 | zen-go-q4_k_m-latest.gguf | 4 slots | 16384 tokens | Earned by repeated L1 failure |
+| L0 | http://localhost:11434 | qwen3.5:0.8b (Ollama) | 1 | — | Fallback only (FAIL-CLOSED) |
 
 ### Execution flow
 ```
@@ -119,7 +119,26 @@ kubectl --context k3d-zen-brain-sandbox exec -n zen-brain deploy/foreman -- \
 
 ## 2. Task Routing
 
-Route tasks using the [MLQ Lane Routing Matrix](MLQ_LANE_ROUTING_MATRIX.md).
+### Primary Task Classes for 24/7 Operations
+
+These are the production task classes that define zen-brain1 usefulness:
+
+| Task Class | Description | Template |
+|-----------|-------------|----------|
+| Dead code | Unreferenced exported functions scan | usefulness-l1.yaml |
+| Defects | Common defect patterns: nil, unchecked errors, race conditions | usefulness-l1.yaml |
+| Tech debt | TODO/FIXME/HACK, deprecated APIs, large functions | usefulness-l1.yaml |
+| Roadmap | Milestone extraction from docs | usefulness-l1.yaml |
+| Bug hunting | Suspicious patterns: race conditions, memory leaks, logic errors | usefulness-l1.yaml |
+| Stub hunting | Empty function bodies, panic(not implemented), hardcoded returns | usefulness-l1.yaml |
+| Package hotspots | Export frequency, dependency graph metrics | usefulness-l1.yaml |
+| Test gaps | Untested packages, missing edge case coverage | usefulness-l1.yaml |
+| Config drift | Policy vs actual config comparison | usefulness-l1.yaml |
+| Executive summary | Rollup of other report findings | usefulness-l1.yaml |
+
+**Production success criterion:** zen-brain1 is "working" when it continuously produces useful artifacts for these task classes through the real runtime. Standalone Go codegen is NOT the benchmark.
+
+### Route tasks using the [MLQ Lane Routing Matrix](MLQ_LANE_ROUTING_MATRIX.md).
 
 ### L1 (0.8B workhorse) — Default for bounded tasks
 - Single file, edit-in-place
