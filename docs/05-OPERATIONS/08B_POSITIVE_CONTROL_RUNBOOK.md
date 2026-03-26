@@ -83,3 +83,4 @@ The Phase 14 run confirmed: correct logic, wrong placement due to missing source
 - [L1/L2 Lane Runbook](L1_L2_LANE_RUNBOOK.md)
 - [MLQ Lane Routing Matrix](MLQ_LANE_ROUTING_MATRIX.md)
 - [Small Model Strategy](../03-DESIGN/SMALL_MODEL_STRATEGY.md)
+- [Qwen 0.8B llama.cpp codegen guide](QWEN_08B_LLAMA_CPP_CODEGEN_GUIDE.md) — inference flags, prompt shape, base vs LoRA calibration notes

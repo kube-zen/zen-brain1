@@ -15,6 +15,7 @@
 | **Warmup Runbook** | Warmup/keepalive procedures | [OLLAMA_WARMUP_RUNBOOK.md](OLLAMA_WARMUP_RUNBOOK.md) |
 | **Operator Runbook** | Troubleshooting and verification commands | [ZB_023_LOCAL_CPU_INFERENCE_RULE.md](ZB_023_LOCAL_CPU_INFERENCE_RULE.md) |
 | **Deployment Guide** | Deployment instructions | [deploy/README.md](../../deploy/README.md) |
+| **llama.cpp codegen / calibration** | Thinking off, packet shape, external harness notes | [QWEN_08B_LLAMA_CPP_CODEGEN_GUIDE.md](QWEN_08B_LLAMA_CPP_CODEGEN_GUIDE.md) |
 
 ---
 

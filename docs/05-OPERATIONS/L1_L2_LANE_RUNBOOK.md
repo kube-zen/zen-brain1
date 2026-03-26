@@ -258,3 +258,4 @@ See `docs/05-OPERATIONS/08B_POSITIVE_CONTROL_RUNBOOK.md` for the test script.
 - [Small Model Strategy](../03-DESIGN/SMALL_MODEL_STRATEGY.md)
 - [Warmup Full Report](WARMUP_FULL_REPORT.md)
 - [llama.cpp vs Ollama Benchmark](LLAMA_CPP_VS_OLLAMA_QWEN_0.8B_BENCHMARK.md)
+- [Qwen 0.8B llama.cpp codegen guide](QWEN_08B_LLAMA_CPP_CODEGEN_GUIDE.md)

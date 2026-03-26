@@ -279,6 +279,7 @@ This section ties **local CPU** measurements in this file to **product and ops**
 
 ## See also
 
+- [QWEN_08B_LLAMA_CPP_CODEGEN_GUIDE.md](./QWEN_08B_LLAMA_CPP_CODEGEN_GUIDE.md) — thinking off, structured quick-win prompts, `go build` calibration, base vs LoRA observations.
 - [LOCAL_LLM_ESCALATION_LADDER.md](../03-DESIGN/LOCAL_LLM_ESCALATION_LADDER.md) — 0.8B workhorse → optional local 2B → external models; subtask checkpoints and retries.
 - [QWEN_2B_LOCAL_EVALUATION.md](./QWEN_2B_LOCAL_EVALUATION.md) — llama.cpp **0.8B vs 2B** (same Q4_K_M) for RAM and throughput sizing.
 

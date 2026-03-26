@@ -54,10 +54,9 @@ As of PHASE 23 (2026-03-25), the following runtime behaviors are now **proven an
 - **Escalation design (0.8B → 2B → external, subtask retries):** [LOCAL_LLM_ESCALATION_LADDER.md](./LOCAL_LLM_ESCALATION_LADDER.md)
 - **2B vs 0.8B local evaluation (llama.cpp Q4_K_M):** [QWEN_2B_LOCAL_EVALUATION.md](../05-OPERATIONS/QWEN_2B_LOCAL_EVALUATION.md)
 - **0.8B llama.cpp vs Ollama (2×2 matrix):** [LLAMA_CPP_VS_OLLAMA_QWEN_0.8B_BENCHMARK.md](../05-OPERATIONS/LLAMA_CPP_VS_OLLAMA_QWEN_0.8B_BENCHMARK.md)
+- **0.8B llama.cpp codegen, testing, LoRA vs base notes:** [QWEN_08B_LLAMA_CPP_CODEGEN_GUIDE.md](../05-OPERATIONS/QWEN_08B_LLAMA_CPP_CODEGEN_GUIDE.md)
 
 ---
-
-## Context
 
 ## Context
 
@@ -245,6 +244,12 @@ Different roles require different prompt tuning:
 - Synthetic example generation for training data
 - Role-specific dataset creation and curation
 - ROI evaluation for fine-tuning vs paid API escalation
+
+## 2026-03-26: llama.cpp codegen validation (external harness)
+
+Independent **llama.cpp** runs (OpenAI-compatible API, **Qwen3.5-0.8B Q4_K_M** base GGUF) reproduced what L1 packet design assumes: **structured** autowork / quick-win style prompts (GOAL, files, success criteria, explicit OUTPUT contract) plus **thinking disabled** at the server and template level yield **compiling single-file Go** on bounded tasks when hints are specific (stdlib imports, correct JSON decode usage). A **LoRA-merged** GGUF evaluated under the same harness **did not** beat base on strict `go build` gates—output skewed toward fenced snippets and missing imports—indicating **adapter training data and objectives** must match **full-file, compile-clean** production outputs before LoRA can replace base locally.
+
+**Details and operator knobs:** [QWEN_08B_LLAMA_CPP_CODEGEN_GUIDE.md](../05-OPERATIONS/QWEN_08B_LLAMA_CPP_CODEGEN_GUIDE.md).
 
 ## References
 
