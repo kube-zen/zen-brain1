@@ -1,0 +1,49 @@
+{
+  "batch_id": "hourly-scan-20260326-150852",
+  "batch_name": "hourly-scan",
+  "failed": 0,
+  "lane": "L1",
+  "results": [
+    {
+      "artifact_path": "/var/lib/zen-brain1/runs/hourly-scan/20260326-150852/final/defects.md",
+      "duration_ms": 62494,
+      "end_time": "2026-03-26T15:09:55.007439937-04:00",
+      "endpoint": "http://localhost:56227/v1/chat/completions",
+      "escalated": false,
+      "lane": "L1",
+      "start_time": "2026-03-26T15:08:52.513033822-04:00",
+      "success": true,
+      "task_id": "defects",
+      "title": "Defects Report"
+    },
+    {
+      "artifact_path": "/var/lib/zen-brain1/runs/hourly-scan/20260326-150852/final/bug-hunting.md",
+      "duration_ms": 84485,
+      "end_time": "2026-03-26T15:10:16.99806101-04:00",
+      "endpoint": "http://localhost:56227/v1/chat/completions",
+      "escalated": false,
+      "lane": "L1",
+      "start_time": "2026-03-26T15:08:52.513038528-04:00",
+      "success": true,
+      "task_id": "bug_hunting",
+      "title": "Bug Hunting Report"
+    },
+    {
+      "artifact_path": "/var/lib/zen-brain1/runs/hourly-scan/20260326-150852/final/stub-hunting.md",
+      "duration_ms": 101843,
+      "end_time": "2026-03-26T15:10:34.356611633-04:00",
+      "endpoint": "http://localhost:56227/v1/chat/completions",
+      "escalated": false,
+      "lane": "L1",
+      "start_time": "2026-03-26T15:08:52.512991623-04:00",
+      "success": true,
+      "task_id": "stub_hunting",
+      "title": "Stub Hunting Report"
+    }
+  ],
+  "run_dir": "/var/lib/zen-brain1/runs/hourly-scan/20260326-150852",
+  "succeeded": 3,
+  "timestamp": "2026-03-26T19:08:52Z",
+  "total": 3,
+  "wall_ms": 101843
+}
