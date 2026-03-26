@@ -15,14 +15,24 @@ import (
 	"time"
 )
 
-// PHASE 24C: Usefulness evidence/reporting tasks through direct L1 path.
-// Broken new harness (cmd/p24c-useful-batch) abandoned.
-// cmd/p24-foreman-run reused as canonical execution path, rewritten for direct L1 calls.
+// p24-foreman-run — Diagnostic/comparison harness for usefulness task dispatch.
 //
-// Why direct L1 HTTP instead of FactoryTaskRunner:
-//   - FactoryTaskRunner wraps requests with 5 tool definitions (read_file, search_file,
-//     inspect_file, run_build_test, inspect_diff)
-//   - Qwen3.5 0.8B Q4_K_M cannot parse tool definitions → returns empty response
+// PURPOSE: Proves that usefulness/reporting tasks produce valid markdown artifacts
+// through the L1 runtime path. Used for regression testing and batch evidence collection.
+//
+// This is NOT the canonical production foreman path. It bypasses FactoryTaskRunner
+// to avoid the 5-tool-definition prompt wrapper that 0.8B cannot parse, using
+// direct HTTP calls to L1 instead (same proven pattern as PHASE 22 mlq-dispatcher).
+//
+// The production path will use FactoryTaskRunner once tool-definition handling
+// is resolved for small models. Until then, this harness provides the working
+// evidence baseline.
+//
+// ENV VARS:
+//   SMOKE_TEST_COUNT=N  — run only first N tasks
+//   SKIP_FIRST=N        — skip first N tasks (useful for re-running timed-out tasks)
+//
+// PROVEN: PHASE 22 (10/10 OK, 71s), PHASE 24C (7/10 OK, 3 timed out at 3min)
 //   - PHASE 22 mlq-dispatcher proved 10/10 success with simple system+user messages, no tools
 //   - Usefulness tasks don't need tools — they produce markdown from bounded prompts
 //
@@ -59,11 +69,23 @@ func main() {
 		{"u24c-010", "exec_summary", "Executive Summary", "Synthesize findings from the other 9 reports into a concise executive summary with top 5 findings and recommended actions. Use read_file to review the other reports. Produce a markdown summary. Title: Executive Summary. Do NOT generate any Go code.", "executive-summary.md"},
 	}
 
-	// SMOKE_TEST_COUNT env var limits task count for quick smoke tests (P24C-C6)
+	// SMOKE_TEST_COUNT limits task count; SKIP_FIRST skips N tasks from start
+	smokeCount := -1
 	if n := os.Getenv("SMOKE_TEST_COUNT"); n != "" {
 		if count, err := strconv.Atoi(n); err == nil && count > 0 && count < len(tasks) {
-			tasks = tasks[:count]
+			smokeCount = count
 		}
+	}
+	skipFirst := 0
+	if n := os.Getenv("SKIP_FIRST"); n != "" {
+		if count, err := strconv.Atoi(n); err == nil && count > 0 && count < len(tasks) {
+			skipFirst = count
+		}
+	}
+	if smokeCount > 0 {
+		tasks = tasks[skipFirst : skipFirst+smokeCount]
+	} else if skipFirst > 0 {
+		tasks = tasks[skipFirst:]
 	}
 
 	log.Printf("[P24C] Dispatching %d usefulness tasks through direct L1 path (no tools, system+user messages)...", len(tasks))
@@ -166,7 +188,7 @@ func executeDirectL1(t task, logFile *os.File) (string, error) {
 	}
 	bodyJSON, _ := json.Marshal(reqBody)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(ctx, "POST", L1Endpoint, bytes.NewReader(bodyJSON))
