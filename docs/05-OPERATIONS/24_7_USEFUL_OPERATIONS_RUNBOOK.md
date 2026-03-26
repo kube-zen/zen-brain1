@@ -79,31 +79,34 @@ curl -s http://localhost:60509/health  # L2
 
 ## Active Schedule (LIVE)
 
-| Schedule | Timer | Tasks | Cadence | Proven |
-|----------|-------|-------|---------|--------|
-| Hourly scan | `zen-brain1-hourly-scan.timer` | defects, bug_hunting, stub_hunting | Every hour | ✅ 3/3 OK, 1m41s |
-| Quad-hourly summary | `zen-brain1-quad-hourly-summary.timer` | dead_code, tech_debt, package_hotspots, test_gaps, config_drift, roadmap | Every 4 hours | ✅ 6/6 OK, 2m18s |
-| Daily full sweep | `zen-brain1-daily-sweep.timer` | All 10 task classes | Daily at 6 AM | ✅ 10/10 OK, 4m31s (manual) |
+**Ownership:** zen-brain1 internal scheduler (`cmd/scheduler/scheduler`), NOT systemd timers.
+**Source of truth:** `config/schedules/*.yaml`
+**State:** `/var/lib/zen-brain1/scheduler/`
 
-### systemd Timer Commands
+| Schedule | Config | Tasks | Cadence | Proven |
+|----------|--------|-------|---------|--------|
+| Hourly scan | `config/schedules/hourly-scan.yaml` | defects, bug_hunting, stub_hunting | Every hour | ✅ 3/3 OK via scheduler |
+| Quad-hourly summary | `config/schedules/quad-hourly-summary.yaml` | dead_code, tech_debt, package_hotspots, test_gaps, config_drift, roadmap | Every 4 hours | ✅ 6/6 OK via timer (bootstrap) |
+| Daily full sweep | `config/schedules/daily-sweep.yaml` | All 10 task classes | Daily | ✅ 10/10 OK via scheduler |
+
+### Schedule Commands
 
 ```bash
-# View all timer status
-systemctl list-timers --all zen-brain1-* --no-pager
-
-# Force immediate run (bypassing timer)
+# Force immediate run through internal scheduler
 ./scripts/zen-ctl.sh run hourly
 ./scripts/zen-ctl.sh run quad
 ./scripts/zen-ctl.sh run daily
 
-# Or directly:
-sudo systemctl start zen-brain1-hourly-scan.service
-sudo systemctl start zen-brain1-quad-hourly-summary.service
-sudo systemctl start zen-brain1-daily-sweep.service
+# View scheduler status (last run, next due, run count)
+cat /var/lib/zen-brain1/scheduler/scheduler-status.json
 
-# View schedule logs
-sudo journalctl -u zen-brain1-hourly-scan -f
+# View scheduler logs
+sudo journalctl -u zen-brain1-scheduler -f
+# or: tail -f /var/log/zen-brain1/scheduler.log
 ```
+
+> **Note:** systemd timer units are DEPRECATED and disabled. They were a bootstrap-only path.
+> The internal scheduler now owns all useful-task cadence.
 
 ### Environment Variables
 
