@@ -9,7 +9,7 @@ YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 REPO="/home/neves/zen/zen-brain1"
-SCHEDULER_STATUS="/var/lib/zen-brain1/scheduler/scheduler-status.json"
+SCHEDULER_STATUS="/run/zen-brain1/scheduler/scheduler-status.json"
 SCHEDULER_BIN="$REPO/cmd/scheduler/scheduler"
 
 ok()  { echo -e "${GREEN}✅ $1${NC}"; }

@@ -1,0 +1,27 @@
+[Unit]
+Description=zen-brain1 Internal Scheduler (owns useful-task cadence)
+After=network-online.target zen-brain1-l1.service zen-brain1-l2.service
+Wants=network-online.target
+Requires=zen-brain1-l1.service
+
+[Service]
+Type=simple
+User=neves
+WorkingDirectory=/home/neves/zen/zen-brain1
+Environment=SCHEDULE_DIR=/home/neves/zen/zen-brain1/config/schedules
+Environment=STATE_DIR=/run/zen-brain1/scheduler
+Environment=ARTIFACT_ROOT=/var/lib/zen-brain1/runs
+Environment=BATCH_BIN=/home/neves/zen/zen-brain1/cmd/useful-batch/useful-batch
+Environment=POLL_INTERVAL=60s
+ExecStart=/home/neves/zen/zen-brain1/cmd/scheduler/scheduler
+Restart=on-failure
+RestartSec=10
+StartLimitIntervalSec=300
+StartLimitBurst=5
+RuntimeDirectory=zen-brain1/scheduler
+LogsDirectory=zen-brain1
+StandardOutput=append:/var/log/zen-brain1/scheduler.log
+StandardError=append:/var/log/zen-brain1/scheduler.log
+
+[Install]
+WantedBy=multi-user.target
