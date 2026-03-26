@@ -92,7 +92,7 @@ curl -s http://localhost:60509/health  # L2
 
 **Ownership:** zen-brain1 internal scheduler (`cmd/scheduler/scheduler`), NOT systemd timers.
 **Source of truth:** `config/schedules/*.yaml`
-**State:** `/var/lib/zen-brain1/scheduler/`
+**State:** `/run/zen-brain1/scheduler/`
 
 | Schedule | Config | Tasks | Cadence | Proven |
 |----------|--------|-------|---------|--------|
@@ -109,7 +109,7 @@ curl -s http://localhost:60509/health  # L2
 ./scripts/zen-ctl.sh run daily
 
 # View scheduler status (last run, next due, run count)
-cat /var/lib/zen-brain1/scheduler/scheduler-status.json
+cat /run/zen-brain1/scheduler/scheduler-status.json
 
 # View scheduler logs
 sudo journalctl -u zen-brain1-scheduler -f
