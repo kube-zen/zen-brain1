@@ -1,0 +1,133 @@
+{
+  "batch_id": "op-day-zero-20260326-141948",
+  "batch_name": "op-day-zero",
+  "failed": 0,
+  "lane": "L1",
+  "results": [
+    {
+      "artifact_path": "/tmp/zen-brain1-runs/op-day-zero/20260326-141948/final/dead-code.md",
+      "duration_ms": 101925,
+      "end_time": "2026-03-26T14:21:30.239309495-04:00",
+      "endpoint": "http://localhost:56227/v1/chat/completions",
+      "escalated": false,
+      "lane": "L1",
+      "start_time": "2026-03-26T14:19:48.313759868-04:00",
+      "success": true,
+      "task_id": "dead_code",
+      "title": "Dead Code Report"
+    },
+    {
+      "artifact_path": "/tmp/zen-brain1-runs/op-day-zero/20260326-141948/final/defects.md",
+      "duration_ms": 147293,
+      "end_time": "2026-03-26T14:22:15.607008013-04:00",
+      "endpoint": "http://localhost:56227/v1/chat/completions",
+      "escalated": false,
+      "lane": "L1",
+      "start_time": "2026-03-26T14:19:48.313754232-04:00",
+      "success": true,
+      "task_id": "defects",
+      "title": "Defects Report"
+    },
+    {
+      "artifact_path": "/tmp/zen-brain1-runs/op-day-zero/20260326-141948/final/tech-debt.md",
+      "duration_ms": 215219,
+      "end_time": "2026-03-26T14:23:23.533771579-04:00",
+      "endpoint": "http://localhost:56227/v1/chat/completions",
+      "escalated": false,
+      "lane": "L1",
+      "start_time": "2026-03-26T14:19:48.313867903-04:00",
+      "success": true,
+      "task_id": "tech_debt",
+      "title": "Tech Debt Report"
+    },
+    {
+      "artifact_path": "/tmp/zen-brain1-runs/op-day-zero/20260326-141948/final/roadmap.md",
+      "duration_ms": 61022,
+      "end_time": "2026-03-26T14:20:49.336590186-04:00",
+      "endpoint": "http://localhost:56227/v1/chat/completions",
+      "escalated": false,
+      "lane": "L1",
+      "start_time": "2026-03-26T14:19:48.314031498-04:00",
+      "success": true,
+      "task_id": "roadmap",
+      "title": "Roadmap Report"
+    },
+    {
+      "artifact_path": "/tmp/zen-brain1-runs/op-day-zero/20260326-141948/final/bug-hunting.md",
+      "duration_ms": 153700,
+      "end_time": "2026-03-26T14:22:22.014049811-04:00",
+      "endpoint": "http://localhost:56227/v1/chat/completions",
+      "escalated": false,
+      "lane": "L1",
+      "start_time": "2026-03-26T14:19:48.313750915-04:00",
+      "success": true,
+      "task_id": "bug_hunting",
+      "title": "Bug Hunting Report"
+    },
+    {
+      "artifact_path": "/tmp/zen-brain1-runs/op-day-zero/20260326-141948/final/stub-hunting.md",
+      "duration_ms": 196640,
+      "end_time": "2026-03-26T14:24:05.976892515-04:00",
+      "endpoint": "http://localhost:56227/v1/chat/completions",
+      "escalated": false,
+      "lane": "L1",
+      "start_time": "2026-03-26T14:20:49.336645413-04:00",
+      "success": true,
+      "task_id": "stub_hunting",
+      "title": "Stub Hunting Report"
+    },
+    {
+      "artifact_path": "/tmp/zen-brain1-runs/op-day-zero/20260326-141948/final/package-hotspots.md",
+      "duration_ms": 81274,
+      "end_time": "2026-03-26T14:22:51.514000911-04:00",
+      "endpoint": "http://localhost:56227/v1/chat/completions",
+      "escalated": false,
+      "lane": "L1",
+      "start_time": "2026-03-26T14:21:30.239351646-04:00",
+      "success": true,
+      "task_id": "package_hotspots",
+      "title": "Package Hotspots Report"
+    },
+    {
+      "artifact_path": "/tmp/zen-brain1-runs/op-day-zero/20260326-141948/final/test-gaps.md",
+      "duration_ms": 73109,
+      "end_time": "2026-03-26T14:23:28.716729827-04:00",
+      "endpoint": "http://localhost:56227/v1/chat/completions",
+      "escalated": false,
+      "lane": "L1",
+      "start_time": "2026-03-26T14:22:15.607042013-04:00",
+      "success": true,
+      "task_id": "test_gaps",
+      "title": "Test Gap Report"
+    },
+    {
+      "artifact_path": "/tmp/zen-brain1-runs/op-day-zero/20260326-141948/final/config-policy-drift.md",
+      "duration_ms": 117706,
+      "end_time": "2026-03-26T14:24:19.720192587-04:00",
+      "endpoint": "http://localhost:56227/v1/chat/completions",
+      "escalated": false,
+      "lane": "L1",
+      "start_time": "2026-03-26T14:22:22.014094019-04:00",
+      "success": true,
+      "task_id": "config_drift",
+      "title": "Config Drift Report"
+    },
+    {
+      "artifact_path": "/tmp/zen-brain1-runs/op-day-zero/20260326-141948/final/executive-summary.md",
+      "duration_ms": 60272,
+      "end_time": "2026-03-26T14:23:51.78654167-04:00",
+      "endpoint": "http://localhost:56227/v1/chat/completions",
+      "escalated": false,
+      "lane": "L1",
+      "start_time": "2026-03-26T14:22:51.514108897-04:00",
+      "success": true,
+      "task_id": "executive_summary",
+      "title": "Executive Summary"
+    }
+  ],
+  "run_dir": "/tmp/zen-brain1-runs/op-day-zero/20260326-141948",
+  "succeeded": 10,
+  "timestamp": "2026-03-26T18:19:48Z",
+  "total": 10,
+  "wall_ms": 271406
+}
