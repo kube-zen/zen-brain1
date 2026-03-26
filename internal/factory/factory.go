@@ -60,6 +60,7 @@ type FactoryImpl struct {
 	llmGenerator           *LLMGenerator      // Optional LLM generator for code generation (default fallback)
 	llmEnabled             bool               // Whether LLM templates are enabled
 	mlq                    *mlq.MLQ            // Multi-Level Queue for backend selection
+	taskExecutor           *mlq.TaskExecutor   // Task-level retry/escalation executor
 }
 
 // NewFactory creates a new Factory instance with default configuration.
@@ -185,14 +186,29 @@ func (f *FactoryImpl) EnableLLM(provider interface{}) error {
 	return nil
 }
 
-// EnableMLQ enables Multi-Level Queue for backend selection.
+// EnableMLQ enables Multi-Level Queue for backend selection and task-level retry/escalation.
 func (f *FactoryImpl) EnableMLQ(configPath string) error {
 	m, err := mlq.NewMLQFromConfig(configPath)
 	if err != nil {
 		return fmt.Errorf("load MLQ config: %w", err)
 	}
 	f.mlq = m
-	log.Printf("[Factory] MLQ enabled (config=%s, levels=%v)", configPath, m.ListLevels())
+
+	// Create worker pools for each enabled level
+	pools := make(map[int]*mlq.WorkerPool)
+	for _, levelNum := range m.ListLevels() {
+		level, ok := m.GetLevel(levelNum)
+		if !ok {
+			continue
+		}
+		// Use the configured endpoint as the primary worker
+		endpoints := []string{level.Backend.APIEndpoint}
+		pools[levelNum] = mlq.NewWorkerPool(level, endpoints)
+	}
+
+	f.taskExecutor = mlq.NewTaskExecutor(m, pools)
+	log.Printf("[Factory] MLQ enabled with task-level retry/escalation (config=%s, levels=%v, pools=%d)",
+		configPath, m.ListLevels(), len(pools))
 	return nil
 }
 
@@ -703,124 +719,159 @@ func (f *FactoryImpl) shouldUseLLMTemplate(spec *FactoryTaskSpec) bool {
 }
 
 // executeWithLLM executes a task using LLM-powered code generation.
+// When MLQ is enabled, routes through TaskExecutor for retry/escalation.
 func (f *FactoryImpl) executeWithLLM(ctx context.Context, spec *FactoryTaskSpec, workspacePath string) ([]string, error) {
 	if f.llmGenerator == nil {
 		return nil, fmt.Errorf("LLM generator not configured")
 	}
 
-	// MLQ-based backend selection
-	var generator *LLMGenerator
+	// Determine task class from work type
+	taskClass := string(spec.WorkType)
+	if strings.Contains(taskClass, "implementation") {
+		taskClass = "implementation"
+	}
+
+	// If TaskExecutor is available, use retry/escalation path
+	if f.taskExecutor != nil {
+		return f.executeWithLLMRetry(ctx, spec, workspacePath, taskClass)
+	}
+
+	// Legacy single-shot path (no MLQ or TaskExecutor not initialized)
+	return f.executeWithLLMSingle(ctx, spec, workspacePath, taskClass)
+}
+
+// executeWithLLMSingle is the legacy single-shot MLQ selection path.
+func (f *FactoryImpl) executeWithLLMSingle(ctx context.Context, spec *FactoryTaskSpec, workspacePath, taskClass string) ([]string, error) {
+	generator, selectedProvider, selectedModel, selectedBaseURL, _, err :=
+		f.createGeneratorForLevel(ctx, spec, taskClass, "")
+	if err != nil {
+		return nil, err
+	}
+	log.Printf("[Factory] Single-shot LLM: task_id=%s provider=%s model=%s url=%s",
+		spec.ID, selectedProvider, selectedModel, selectedBaseURL)
+
+	return f.runLLMTemplate(ctx, generator, spec, workspacePath)
+}
+
+// executeWithLLMRetry routes task execution through TaskExecutor for retry/escalation.
+func (f *FactoryImpl) executeWithLLMRetry(ctx context.Context, spec *FactoryTaskSpec, workspacePath, taskClass string) ([]string, error) {
+	var lastFiles []string
+	var lastErr error
+
+	telemetry := f.taskExecutor.ExecuteWithRetry(
+		ctx, spec.ID, taskClass, spec.WorkItemID,
+		func(execCtx context.Context, workerEndpoint string) (string, error) {
+			generator, provider, model, baseURL, _, err :=
+				f.createGeneratorForLevel(execCtx, spec, taskClass, workerEndpoint)
+			if err != nil {
+				return "", err
+			}
+
+			log.Printf("[Factory] LLM attempt: task_id=%s provider=%s model=%s url=%s",
+				spec.ID, provider, model, baseURL)
+
+			files, err := f.runLLMTemplate(execCtx, generator, spec, workspacePath)
+			lastFiles = files
+			lastErr = err
+			if err != nil {
+				return "", err
+			}
+			return workspacePath, nil
+		},
+	)
+
+	// Log telemetry summary
+	log.Printf("[MLQ-Telemetry] task_id=%s class=%s initial=%d final=%d result=%s attempts=%d retries=%d escalated=%v",
+		telemetry.TaskID, telemetry.TaskClass, telemetry.InitialLevel, telemetry.FinalLevel,
+		telemetry.FinalResult, len(telemetry.Attempts), telemetry.TotalRetries, telemetry.Escalated)
+
+	if lastErr != nil {
+		return nil, lastErr
+	}
+	return lastFiles, nil
+}
+
+// createGeneratorForLevel creates an LLM generator for a given worker endpoint.
+// If workerEndpoint is empty, uses the default MLQ-selected level.
+func (f *FactoryImpl) createGeneratorForLevel(ctx context.Context, spec *FactoryTaskSpec, taskClass, workerEndpoint string) (*LLMGenerator, string, string, string, int, error) {
 	var selectedProvider, selectedModel, selectedBaseURL string
 	var selectedTimeout int
 
-	// If MLQ is enabled, select backend for this task
-	if f.mlq != nil {
-		// Determine task class from work type
-		taskClass := string(spec.WorkType)
-		if strings.Contains(taskClass, "implementation") {
-			taskClass = "implementation"
-		}
-
-		// Select MLQ level for this task
+	if f.mlq != nil && workerEndpoint == "" {
+		// Use MLQ selection to determine the initial level
 		level, err := f.mlq.SelectLevel(spec.ID, spec.WorkItemID, taskClass)
 		if err != nil {
 			log.Printf("[Factory] MLQ selection failed, using fallback: task_id=%s error=%v", spec.ID, err)
-			// Use default/fallback generator
-			generator = f.llmGenerator
-			selectedProvider = f.llmGenerator.config.Provider.Name()
-			selectedModel = f.llmGenerator.config.Model
-
-			// FAIL-CLOSED: Check if we're using simulated local-worker provider
-			if selectedProvider == "local-worker" {
-				return nil, fmt.Errorf("FAIL-CLOSED: Local runtime is configured for llama.cpp only; simulated/Ollama fallback reached unexpectedly (MLQ selection failed). Fix provider transport wiring (MLQ config path or provider URL).")
+			return nil, "", "", "", 0, fmt.Errorf("MLQ selection failed: %w", err)
+		}
+		provider, model, baseURL, timeout := level.GetBackend()
+		selectedProvider = provider
+		selectedModel = model
+		selectedBaseURL = baseURL
+		selectedTimeout = timeout
+	} else if workerEndpoint != "" {
+		// Use the provided worker endpoint — determine provider from MLQ levels
+		selectedBaseURL = workerEndpoint
+		selectedTimeout = 2700 // default
+		// Find the matching level
+		if f.mlq != nil {
+			for _, levelNum := range f.mlq.ListLevels() {
+				if level, ok := f.mlq.GetLevel(levelNum); ok {
+					if level.Backend.APIEndpoint == workerEndpoint {
+						selectedProvider = level.Backend.Provider
+						selectedModel = level.Backend.Name
+						selectedTimeout = level.Backend.TimeoutSeconds
+						break
+					}
+				}
 			}
-		} else {
-			// Get backend config from selected level
-			provider, model, baseURL, timeout := level.GetBackend()
-			selectedProvider = provider
-			selectedModel = model
-			selectedBaseURL = baseURL
-			selectedTimeout = timeout
-
-			// Create LLM provider for this backend
-			var providerProvider llmcontracts.Provider
-
-			switch provider {
-			case "ollama":
-				// Ollama uses /api/chat endpoint
-				providerProvider = llm.NewOllamaProvider(
-					selectedBaseURL,
-					selectedModel,
-					selectedTimeout,
-					"45m", // Keep-alive
-				)
-			case "llama-cpp":
-				// llama.cpp uses /v1/chat/completions (OpenAI-compatible)
-				// Use OpenAICompatibleProvider for correct transport
-				// Note: selectedTimeout is in seconds, convert to Duration
-				providerProvider = llm.NewOpenAICompatibleProviderWithTimeout(
-					"llama-cpp",
-					selectedBaseURL,
-					selectedModel,
-					"", // No API key for llama.cpp
-					time.Duration(selectedTimeout)*time.Second,
-				)
-			default:
-				return nil, fmt.Errorf("unsupported MLQ provider: %s", provider)
-			}
-
-			// Provider-level health check (fail fast if endpoint unreachable)
-			// TEMPORARILY DISABLED: llama.cpp can have variable response times
-			// Re-enable after smoke tests pass with appropriate timeout
-			/*
-			log.Printf("[Factory] Checking provider health: backend=%s provider=%s url=%s", selectedProvider, provider, selectedBaseURL)
-			healthCtx, healthCancel := context.WithTimeout(context.Background(), 30*time.Second)
-			defer healthCancel()
-			
-			probeMsg := []llmcontracts.Message{{Role: "user", Content: "ping"}}
-			_, healthErr := providerProvider.Chat(healthCtx, llmcontracts.ChatRequest{Messages: probeMsg})
-			if healthErr != nil {
-				return nil, fmt.Errorf("provider health check failed: backend=%s provider=%s url=%s error=%w",
-					selectedProvider, provider, selectedBaseURL, healthErr)
-			}
-			log.Printf("[Factory] Provider health check passed: backend=%s provider=%s", selectedProvider, provider)
-			*/
-
-			// Create task-specific LLM generator
-			genConfig := &LLMGeneratorConfig{
-				Provider:       providerProvider,
-				Model:          model,
-				Temperature:    0.3,
-				MaxTokens:      4096,
-				EnableThinking: false, // CPU path defaults to no thinking
-				Timeout:        time.Duration(timeout) * time.Second,
-			}
-
-			generator, err = NewLLMGenerator(genConfig)
-			if err != nil {
-				return nil, fmt.Errorf("create task LLM generator: %w", err)
-			}
-
-			// Log MLQ selection
-			log.Printf("[MLQ] Selected: task_id=%s jira=%s level=%d backend=%s model=%s url=%s timeout=%ds",
-				spec.ID, spec.WorkItemID, level.Level, selectedProvider, selectedModel, selectedBaseURL, selectedTimeout)
+		}
+		if selectedProvider == "" {
+			selectedProvider = "llama-cpp"
+			selectedModel = "unknown"
 		}
 	} else {
-		// No MLQ, use default generator
-		generator = f.llmGenerator
+		// No MLQ, use default generator's provider info
 		selectedProvider = f.llmGenerator.config.Provider.Name()
 		selectedModel = f.llmGenerator.config.Model
 		selectedTimeout = int(f.llmGenerator.config.Timeout.Seconds())
-		log.Printf("[Factory] No MLQ, using default: task_id=%s provider=%s model=%s timeout=%ds",
-			spec.ID, selectedProvider, selectedModel, selectedTimeout)
-
-		// FAIL-CLOSED: Check if we're using simulated local-worker provider
-		if selectedProvider == "local-worker" {
-			return nil, fmt.Errorf("FAIL-CLOSED: Local runtime is configured for llama.cpp only; simulated/Ollama fallback reached unexpectedly. Fix provider transport wiring (MLQ config path or provider URL).")
-		}
+		return f.llmGenerator, selectedProvider, selectedModel, "", selectedTimeout, nil
 	}
 
-	// Determine template type
+	// Create provider instance
+	var providerProvider llmcontracts.Provider
+	switch selectedProvider {
+	case "ollama":
+		providerProvider = llm.NewOllamaProvider(selectedBaseURL, selectedModel, selectedTimeout, "45m")
+	case "llama-cpp":
+		providerProvider = llm.NewOpenAICompatibleProviderWithTimeout(
+			"llama-cpp", selectedBaseURL, selectedModel, "",
+			time.Duration(selectedTimeout)*time.Second,
+		)
+	default:
+		return nil, "", "", "", 0, fmt.Errorf("unsupported MLQ provider: %s", selectedProvider)
+	}
+
+	// Create generator
+	genConfig := &LLMGeneratorConfig{
+		Provider:       providerProvider,
+		Model:          selectedModel,
+		Temperature:    0.3,
+		MaxTokens:      4096,
+		EnableThinking: false,
+		Timeout:        time.Duration(selectedTimeout) * time.Second,
+	}
+
+	generator, err := NewLLMGenerator(genConfig)
+	if err != nil {
+		return nil, "", "", "", 0, fmt.Errorf("create generator: %w", err)
+	}
+
+	return generator, selectedProvider, selectedModel, selectedBaseURL, selectedTimeout, nil
+}
+
+// runLLMTemplate executes the LLM template with the given generator.
+func (f *FactoryImpl) runLLMTemplate(ctx context.Context, generator *LLMGenerator, spec *FactoryTaskSpec, workspacePath string) ([]string, error) {
 	templateType := LLMTemplateImplementation
 	switch spec.WorkType {
 	case "bugfix", "debug":
@@ -833,24 +884,21 @@ func (f *FactoryImpl) executeWithLLM(ctx context.Context, spec *FactoryTaskSpec,
 		templateType = LLMTemplateMigration
 	}
 
-	// Create template config
 	config := &LLMTemplateConfig{
-		Type:             templateType,
-		WorkType:         string(spec.WorkType),
-		WorkDomain:       string(spec.WorkDomain),
-		ValidateCode:     true,  // Validate generated code
-		CreateTests:      true,  // Auto-generate tests
-		CreateDocs:       false, // Skip docs for now
+		Type:              templateType,
+		WorkType:          string(spec.WorkType),
+		WorkDomain:        string(spec.WorkDomain),
+		ValidateCode:      true,
+		CreateTests:       true,
+		CreateDocs:        false,
 		GenerationTimeout: 120 * time.Second,
 	}
 
-	// Create executor
 	executor, err := NewLLMTemplateExecutor(generator, config)
 	if err != nil {
 		return nil, fmt.Errorf("create LLM executor: %w", err)
 	}
 
-	// Execute LLM template
 	files, err := executor.Execute(ctx, spec, workspacePath)
 	if err != nil {
 		return nil, fmt.Errorf("LLM execution: %w", err)
