@@ -77,6 +77,8 @@ Standalone Go codegen failures from small models are **narrow task-shape evidenc
 - **2B vs 0.8B local evaluation (llama.cpp Q4_K_M):** [QWEN_2B_LOCAL_EVALUATION.md](../05-OPERATIONS/QWEN_2B_LOCAL_EVALUATION.md)
 - **0.8B llama.cpp vs Ollama benchmark:** [LLAMA_CPP_VS_OLLAMA_QWEN_0.8B_BENCHMARK.md](../05-OPERATIONS/LLAMA_CPP_VS_OLLAMA_QWEN_0.8B_BENCHMARK.md)
 - **0.8B llama.cpp codegen guide:** [QWEN_08B_LLAMA_CPP_CODEGEN_GUIDE.md](../05-OPERATIONS/QWEN_08B_LLAMA_CPP_CODEGEN_GUIDE.md)
+- **Go subtask llama.cpp harness (0.8B / 2B):** [GO_SUBTASK_LLAMA_CPP_HARNESS.md](../05-OPERATIONS/GO_SUBTASK_LLAMA_CPP_HARNESS.md)
+- **Local Go LoRA tuning postmortem:** [QWEN_08B_LORA_TUNING_POSTMORTEM.md](../05-OPERATIONS/QWEN_08B_LORA_TUNING_POSTMORTEM.md)
 
 ---
 

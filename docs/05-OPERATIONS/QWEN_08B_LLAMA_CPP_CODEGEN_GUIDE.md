@@ -60,6 +60,8 @@ Operators ran a **standalone llama.cpp** benchmark (OpenAI API to `llama-server`
 - Often produced **markdown fences**, **preamble text**, and **incomplete imports** inside the fence, leading to **compile failures** under the same verifier.
 - **Interpretation:** the adapter likely shifted the distribution toward **short chat-style answers** and **partial snippets**. Improving LoRA outcomes would require **training on full-file, compile-clean targets**, sufficient **sequence length**, and tokenizer/merge hygiene—not just the same inference flags as base.
 
+**Deep dive (dataset v1/v2, label statistics, train/inference mismatch):** [QWEN_08B_LORA_TUNING_POSTMORTEM.md](QWEN_08B_LORA_TUNING_POSTMORTEM.md).
+
 **Takeaway:** **0.8B base** remains a **strong baseline** for **well-shaped, bounded** codegen tasks when prompts follow quick-win / packet rules. **LoRA** should be judged on **end-to-end compile** metrics aligned with production output contracts, not chat scores alone.
 
 ### Qwen3.5-2B (same harness)
