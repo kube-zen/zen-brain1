@@ -1,8 +1,6 @@
 package factory
 
 import (
-/github.com/kube-zen/zen-brain1/internal/intelligence
-
 	"context"
 	"log"
 	"strings"
