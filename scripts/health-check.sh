@@ -31,10 +31,15 @@ check_slots() {
     local name=$1 port=$2
     local resp
     resp=$(curl -sf --max-time 5 "http://localhost:${port}/slots" 2>/dev/null) || return 1
-    # Extract idle/busy slots
-    local idle=$(echo "$resp" | grep -c '"idle":true' 2>/dev/null || echo "0")
-    local total=$(echo "$resp" | grep -c '"idle":' 2>/dev/null || echo "0")
-    echo "${name}: ${idle}/${total} idle slots"
+    local info=$(echo "$resp" | python3 -c "
+import sys,json
+try:
+    slots=json.load(sys.stdin)
+    idle=sum(1 for s in slots if s.get('idle',False))
+    print(f'{idle}/{len(slots)} idle')
+except: print('parse-error')
+" 2>/dev/null)
+    echo "${name}: ${info} slots"
     return 0
 }
 
