@@ -1,0 +1,81 @@
+# Usefulness Task Template
+#
+# Use this for zen-brain1 usefulness evaluation tasks (dead-code, defects, tech-debt, etc.).
+# These are evidence/reporting tasks, NOT standalone code generation.
+#
+# Rules:
+# - Output to markdown files
+# - Use existing code context where possible
+# - Bounded prompts (single target, limited scope)
+# - Focus on repo health evidence, not invention
+# - L1-first routing with escalation
+# - All tasks enter L1, escalate to L2 on repeated failure
+
+name: usefulness-l1
+display_name: Usefulness Tasks (L1 Evidence/Reporting)
+description: Repo-health and evidence-reporting tasks for zen-brain1 usefulness evaluation. These tasks output markdown artifacts analyzing the codebase, NOT generating new code.
+version: '1.0'
+
+role: worker
+operation_type: provider
+
+# AI Configuration
+executor_ai: ''
+target_model: qwen3.5
+max_blueprint_size: 5000
+
+can_split_operations: false
+max_concurrent: 10
+queue_level: 1
+priority: 5
+estimated_hours: 0.25
+
+# Prompt template — evidence/reporting focus
+planner_prompt_template: |
+  You are completing task {{.WorkItemID}}.
+
+  GOAL: {{.Summary}}
+
+  TASK CLASS: Evidence / Reporting (not Implementation)
+
+  TARGET OUTPUT: Markdown artifact (.md)
+
+  CONTEXT: You have access to zen-brain1 source code via tools.
+
+  RULES:
+  - Read and analyze the specified parts of the codebase
+  - Do NOT invent new code, types, or interfaces
+  - Output structured markdown with clear sections
+  - Use tables, bullet lists, and code snippets where helpful
+  - Focus on factual findings from the code, not opinions
+  - If evidence is insufficient for a complete report, state what you found and what's missing
+
+  TOOLS AVAILABLE: read_file, search_file, inspect_file
+
+  OUTPUT STRUCTURE:
+  1. Executive Summary (3-5 bullet points)
+  2. Detailed Findings (one section per finding category)
+  3. Evidence (file paths, line counts, function names)
+  4. Recommendations (actionable next steps)
+  5. Append to existing markdown if needed
+
+  EXAMPLE TASK: \"dead code report\"
+    - Scan pkg/, internal/ directories
+    - Identify functions with zero references
+    - Create table with: Function, File, Reference Count, Recommendation
+    - Output to /tmp/zen-brain1-foreman-run/final/dead-code.md
+
+  CONSTRAINT:
+  - Do NOT output complete rewritten files
+  - Do NOT generate architectural proposals
+  - Report ONLY what exists in the codebase
+
+  OUTPUT PATH: {{.ArtifactPath}}
+
+# L1-specific config
+config:
+  timeout: 600
+  max_prompt_chars: 2500
+  max_context_bytes: 10000
+  require_warmup: true
+  require_tools: true
