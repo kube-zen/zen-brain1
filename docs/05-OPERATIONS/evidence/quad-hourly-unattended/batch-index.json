@@ -1,0 +1,85 @@
+{
+  "batch_id": "quad-hourly-summary-20260326-155432",
+  "batch_name": "quad-hourly-summary",
+  "failed": 0,
+  "lane": "L1",
+  "results": [
+    {
+      "artifact_path": "/var/lib/zen-brain1/runs/quad-hourly-summary/20260326-155432/final/dead-code.md",
+      "duration_ms": 138788,
+      "end_time": "2026-03-26T15:56:51.3420794-04:00",
+      "endpoint": "http://localhost:56227/v1/chat/completions",
+      "escalated": false,
+      "lane": "L1",
+      "start_time": "2026-03-26T15:54:32.553363984-04:00",
+      "success": true,
+      "task_id": "dead_code",
+      "title": "Dead Code Report"
+    },
+    {
+      "artifact_path": "/var/lib/zen-brain1/runs/quad-hourly-summary/20260326-155432/final/tech-debt.md",
+      "duration_ms": 103468,
+      "end_time": "2026-03-26T15:56:16.022356693-04:00",
+      "endpoint": "http://localhost:56227/v1/chat/completions",
+      "escalated": false,
+      "lane": "L1",
+      "start_time": "2026-03-26T15:54:32.553361484-04:00",
+      "success": true,
+      "task_id": "tech_debt",
+      "title": "Tech Debt Report"
+    },
+    {
+      "artifact_path": "/var/lib/zen-brain1/runs/quad-hourly-summary/20260326-155432/final/package-hotspots.md",
+      "duration_ms": 138788,
+      "end_time": "2026-03-26T15:56:51.341555942-04:00",
+      "endpoint": "http://localhost:56227/v1/chat/completions",
+      "escalated": false,
+      "lane": "L1",
+      "start_time": "2026-03-26T15:54:32.553469479-04:00",
+      "success": true,
+      "task_id": "package_hotspots",
+      "title": "Package Hotspots Report"
+    },
+    {
+      "artifact_path": "/var/lib/zen-brain1/runs/quad-hourly-summary/20260326-155432/final/test-gaps.md",
+      "duration_ms": 45208,
+      "end_time": "2026-03-26T15:55:17.762572859-04:00",
+      "endpoint": "http://localhost:56227/v1/chat/completions",
+      "escalated": false,
+      "lane": "L1",
+      "start_time": "2026-03-26T15:54:32.553596433-04:00",
+      "success": true,
+      "task_id": "test_gaps",
+      "title": "Test Gap Report"
+    },
+    {
+      "artifact_path": "/var/lib/zen-brain1/runs/quad-hourly-summary/20260326-155432/final/config-policy-drift.md",
+      "duration_ms": 98768,
+      "end_time": "2026-03-26T15:56:11.321987313-04:00",
+      "endpoint": "http://localhost:56227/v1/chat/completions",
+      "escalated": false,
+      "lane": "L1",
+      "start_time": "2026-03-26T15:54:32.553355973-04:00",
+      "success": true,
+      "task_id": "config_drift",
+      "title": "Config Drift Report"
+    },
+    {
+      "artifact_path": "/var/lib/zen-brain1/runs/quad-hourly-summary/20260326-155432/final/roadmap.md",
+      "duration_ms": 50092,
+      "end_time": "2026-03-26T15:56:07.855348991-04:00",
+      "endpoint": "http://localhost:56227/v1/chat/completions",
+      "escalated": false,
+      "lane": "L1",
+      "start_time": "2026-03-26T15:55:17.762677114-04:00",
+      "success": true,
+      "task_id": "roadmap",
+      "title": "Roadmap Report"
+    }
+  ],
+  "run_dir": "/var/lib/zen-brain1/runs/quad-hourly-summary/20260326-155432",
+  "succeeded": 6,
+  "timestamp": "2026-03-26T19:54:32Z",
+  "total": 6,
+  "wall_ms": 138788
+}
