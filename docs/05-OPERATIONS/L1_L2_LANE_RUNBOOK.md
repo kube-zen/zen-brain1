@@ -279,3 +279,10 @@ See `docs/05-OPERATIONS/08B_POSITIVE_CONTROL_RUNBOOK.md` for the test script.
 - [llama.cpp vs Ollama Benchmark](LLAMA_CPP_VS_OLLAMA_QWEN_0.8B_BENCHMARK.md)
 - [Qwen 0.8B llama.cpp codegen guide](QWEN_08B_LLAMA_CPP_CODEGEN_GUIDE.md)
 - [Go subtask llama.cpp harness](GO_SUBTASK_LLAMA_CPP_HARNESS.md) — 0.8B / 2B CPU runs with external checkout
+
+## Related Architecture
+
+- [ZEN_LOCK_ZEN_FLOW_INTEGRATION_DECISION.md](./ZEN_LOCK_ZEN_FLOW_INTEGRATION_DECISION.md) — platform integration model
+- [SECRET_CONTRACT.md](./SECRET_CONTRACT.md) — secret management contract
+- [24_7_USEFUL_OPERATIONS_RUNBOOK.md](./24_7_USEFUL_OPERATIONS_RUNBOOK.md) — 24/7 operations runbook
+
