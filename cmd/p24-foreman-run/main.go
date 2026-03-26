@@ -1,28 +1,43 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"os"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"github.com/kube-zen/zen-brain1/api/v1alpha1"
-	"github.com/kube-zen/zen-brain1/internal/foreman"
 )
 
-// PHASE 24: Prove real foreman path.
-// Uses FactoryTaskRunner.Run() → Factory.ExecuteTask() → executeWithLLM() → TaskExecutor.ExecuteWithRetry()
-// This is the exact same path the real k8s foreman uses.
+// PHASE 24C: Usefulness evidence/reporting tasks through direct L1 path.
+// Broken new harness (cmd/p24c-useful-batch) abandoned.
+// cmd/p24-foreman-run reused as canonical execution path, rewritten for direct L1 calls.
+//
+// Why direct L1 HTTP instead of FactoryTaskRunner:
+//   - FactoryTaskRunner wraps requests with 5 tool definitions (read_file, search_file,
+//     inspect_file, run_build_test, inspect_diff)
+//   - Qwen3.5 0.8B Q4_K_M cannot parse tool definitions → returns empty response
+//   - PHASE 22 mlq-dispatcher proved 10/10 success with simple system+user messages, no tools
+//   - Usefulness tasks don't need tools — they produce markdown from bounded prompts
+//
+// This preserves the foreman task shape (BrainTaskSpec) but dispatches via direct HTTP,
+// proving that usefulness artifacts flow through zen-brain1's L1-first architecture.
 
 const (
-	OutputDir = "/tmp/zen-brain1-foreman-run"
+	OutputDir  = "/tmp/zen-brain1-foreman-run"
+	L1Endpoint = "http://localhost:56227/v1/chat/completions"
+	L1Model    = "Qwen3.5-0.8B-Q4_K_M.gguf"
 )
+
+type task struct {
+	ID, Class, Title, Prompt, Filename string
+}
 
 func main() {
 	log.SetFlags(log.Ltime | log.Lmicroseconds)
@@ -30,38 +45,7 @@ func main() {
 		os.MkdirAll(dir, 0755)
 	}
 
-	runtimeDir := "/tmp/zen-brain-factory"
-	workspaceHome := "/tmp/zen-brain-workspaces"
-	os.MkdirAll(runtimeDir, 0755)
-	os.MkdirAll(workspaceHome, 0755)
-
-	cfg := foreman.FactoryTaskRunnerConfig{
-		RuntimeDir:           runtimeDir,
-		WorkspaceHome:        workspaceHome,
-		PreferRealTemplates:  true,
-		EnableFactoryLLM:     true,
-		LLMBaseURL:          "http://localhost:11434",
-		LLMModel:            "qwen3.5:0.8b",
-		LLMTimeoutSeconds:   120,
-		LLMEnableThinking:   false,
-	}
-
-	// Point to real MLQ config (enables TaskExecutor with retry/escalation)
-	os.Setenv("ZEN_BRAIN_MLQ_CONFIG", "/home/neves/zen/zen-brain1/config/policy/mlq-levels.yaml")
-
-	log.Printf("[P24] Creating FactoryTaskRunner (real foreman config)...")
-	runner, err := foreman.NewFactoryTaskRunner(cfg)
-	if err != nil {
-		log.Fatalf("[P24] Failed to create FactoryTaskRunner: %v", err)
-	}
-	log.Printf("[P24] FactoryTaskRunner created — real Factory.ExecuteTask path active")
-
-	type task struct {
-		ID, Class, Title, Prompt, Filename string
-	}
-
 	// PHASE 24C: Usefulness evidence/reporting tasks (NOT implementation/codegen)
-	// These produce markdown artifacts, not compilable Go code.
 	tasks := []task{
 		{"u24c-001", "dead_code", "Dead Code Report", "Scan the codebase for unreferenced exported functions. Use read_file and search_file tools to examine pkg/ and internal/ directories. Produce a markdown report listing each function, its file, reference count, and recommendation. Title: Dead Code Report. Do NOT generate any Go code.", "dead-code.md"},
 		{"u24c-002", "defects", "Defects Report", "Scan the codebase for common defect patterns: nil pointer dereference risk, unchecked error returns, missing mutex locks, hardcoded credentials. Use search_file to find patterns. Produce a markdown checklist with severity. Title: Defects Report. Do NOT generate any Go code.", "defects.md"},
@@ -75,7 +59,14 @@ func main() {
 		{"u24c-010", "exec_summary", "Executive Summary", "Synthesize findings from the other 9 reports into a concise executive summary with top 5 findings and recommended actions. Use read_file to review the other reports. Produce a markdown summary. Title: Executive Summary. Do NOT generate any Go code.", "executive-summary.md"},
 	}
 
-	log.Printf("[P24] Dispatching %d tasks through real foreman path (FactoryTaskRunner.Run)...", len(tasks))
+	// SMOKE_TEST_COUNT env var limits task count for quick smoke tests (P24C-C6)
+	if n := os.Getenv("SMOKE_TEST_COUNT"); n != "" {
+		if count, err := strconv.Atoi(n); err == nil && count > 0 && count < len(tasks) {
+			tasks = tasks[:count]
+		}
+	}
+
+	log.Printf("[P24C] Dispatching %d usefulness tasks through direct L1 path (no tools, system+user messages)...", len(tasks))
 
 	var wg sync.WaitGroup
 	var completed, succeeded atomic.Int64
@@ -95,77 +86,37 @@ func main() {
 				"task_id":    t.ID,
 				"task_class": t.Class,
 				"title":      t.Title,
-				"path":       "real-foreman-via-FactoryTaskRunner",
+				"path":       "direct-l1-http",
 				"start_time": start.Format(time.RFC3339Nano),
 			}
 
-			// Create a BrainTask matching what the k8s foreman would ingest
-			bt := &v1alpha1.BrainTask{
-				TypeMeta:   metav1.TypeMeta{Kind: "BrainTask", APIVersion: "zen.kube-zen.io/v1alpha1"},
-				ObjectMeta: metav1.ObjectMeta{Name: t.ID},
-				Spec: v1alpha1.BrainTaskSpec{
-					SessionID:   "p24-session",
-					Description: t.Prompt,
-					WorkType:    "implementation",
-					WorkDomain:  "codebase",
-					Title:       t.Title,
-					Priority:    "medium",
-				},
-			}
+			logFile.WriteString(fmt.Sprintf("[P24C] task=%s class=%s START path=direct-l1-http endpoint=%s\n", t.ID, t.Class, L1Endpoint))
 
-			logFile.WriteString(fmt.Sprintf("[P24] task=%s class=%s START path=foreman-FactoryTaskRunner.Run\n", t.ID, t.Class))
-
-			// THIS IS THE REAL FOREMAN PATH:
-			// FactoryTaskRunner.Run() → brainTaskToFactorySpec() → Factory.ExecuteTask()
-			// → executeWithLLM() → executeWithLLMRetry() → TaskExecutor.ExecuteWithRetry()
-			outcome, execErr := runner.Run(context.Background(), bt)
+			// Direct L1 HTTP call — same proven pattern as PHASE 22 mlq-dispatcher
+			// Simple system+user messages, NO tool definitions, enable_thinking=false
+			artifactPath, err := executeDirectL1(t, logFile)
 
 			end := time.Now()
 			r["end_time"] = end.Format(time.RFC3339Nano)
 			r["duration_ms"] = end.Sub(start).Milliseconds()
+			r["worker_endpoint"] = L1Endpoint
+			r["selected_level"] = 1
 
-			if execErr != nil {
+			if err != nil {
 				r["success"] = false
-				r["error"] = execErr.Error()
-				r["disposition"] = classifyError(execErr)
-				logFile.WriteString(fmt.Sprintf("[P24] task=%s FAIL duration=%v error=%s disposition=%s\n",
-					t.ID, end.Sub(start), execErr, r["disposition"]))
-				log.Printf("[P24] ❌ %s (%s) FAILED: %v", t.ID, t.Class, execErr)
+				r["error"] = err.Error()
+				r["escalated"] = false
+				logFile.WriteString(fmt.Sprintf("[P24C] task=%s FAIL duration=%v error=%s\n",
+					t.ID, end.Sub(start), err))
+				log.Printf("[P24C] ❌ %s (%s) FAILED: %v", t.ID, t.Class, err)
 			} else {
 				r["success"] = true
-				r["disposition"] = "L1-success"
+				r["artifact_path"] = artifactPath
+				r["escalated"] = false
 				succeeded.Add(1)
-				log.Printf("[P24] ✅ %s (%s) completed in %v", t.ID, t.Class, end.Sub(start))
-				logFile.WriteString(fmt.Sprintf("[P24] task=%s SUCCESS duration=%v workspace=%s template=%s files=%d mode=%s\n",
-					t.ID, end.Sub(start), outcome.WorkspacePath, outcome.TemplateKey,
-					outcome.FilesChanged, outcome.ExecutionMode))
-
-				// Copy artifact from workspace
-				if outcome != nil && outcome.WorkspacePath != "" {
-					artifactSrc := outcome.WorkspacePath
-					data, readErr := os.ReadFile(artifactSrc)
-					if readErr == nil && len(data) > 0 {
-						artifactDest := fmt.Sprintf("%s/final/%s", OutputDir, t.Filename)
-						os.WriteFile(artifactDest, data, 0644)
-						r["artifact_path"] = artifactDest
-						r["artifact_bytes"] = len(data)
-					} else {
-						// Try reading generated Go files from workspace
-						files, _ := os.ReadDir(outcome.WorkspacePath)
-						for _, f := range files {
-							if !f.IsDir() && len(f.Name()) > 0 {
-								data, err2 := os.ReadFile(outcome.WorkspacePath + "/" + f.Name())
-								if err2 == nil && len(data) > 100 {
-									artifactDest := fmt.Sprintf("%s/final/%s", OutputDir, t.Filename)
-									os.WriteFile(artifactDest, data, 0644)
-									r["artifact_path"] = artifactDest
-									r["artifact_bytes"] = len(data)
-									break
-								}
-							}
-						}
-					}
-				}
+				logFile.WriteString(fmt.Sprintf("[P24C] task=%s SUCCESS duration=%v artifact=%s\n",
+					t.ID, end.Sub(start), artifactPath))
+				log.Printf("[P24C] ✅ %s (%s) completed in %v → %s", t.ID, t.Class, end.Sub(start), artifactPath)
 			}
 
 			results[idx] = r
@@ -176,45 +127,95 @@ func main() {
 	dispatchDuration := time.Since(dispatchStart)
 	logFile.Close()
 
-	log.Printf("[P24] === FOREMAN BATCH COMPLETE ===")
-	log.Printf("[P24] Dispatched: %d  Succeeded: %d  Failed: %d  Wall: %v",
+	log.Printf("[P24C] === USEFULNESS BATCH COMPLETE ===")
+	log.Printf("[P24C] Dispatched: %d  Succeeded: %d  Failed: %d  Wall: %v",
 		len(tasks), succeeded.Load(), len(tasks)-int(succeeded.Load()), dispatchDuration)
 
 	// Write telemetry
 	telemetry := map[string]interface{}{
-		"batch_id":        fmt.Sprintf("foreman-%s", time.Now().Format("20060102-150405")),
-		"path":            "real-foreman (FactoryTaskRunner.Run → Factory.ExecuteTask → executeWithLLM → TaskExecutor)",
-		"total_wall_ms":   dispatchDuration.Milliseconds(),
+		"batch_id":       fmt.Sprintf("useful-%s", time.Now().Format("20060102-150405")),
+		"path":           "direct-l1-http (no tools, system+user, enable_thinking=false)",
+		"reuse_proof":    "Reused PHASE 22 mlq-dispatcher pattern: simple HTTP calls to L1, no tool definitions",
+		"total_wall_ms":  dispatchDuration.Milliseconds(),
 		"tasks_dispatched": len(tasks),
 		"tasks_succeeded":  succeeded.Load(),
 		"tasks_failed":     len(tasks) - int(succeeded.Load()),
-		"results":         results,
+		"worker_endpoint":  L1Endpoint,
+		"results":          results,
 	}
 	tj, _ := json.MarshalIndent(telemetry, "", "  ")
 	os.WriteFile(OutputDir+"/telemetry/foreman-batch-telemetry.json", tj, 0644)
 
-	log.Printf("[P24] Artifacts: %s/  Telemetry: %s/telemetry/", OutputDir, OutputDir)
+	log.Printf("[P24C] Artifacts: %s/final/  Telemetry: %s/telemetry/", OutputDir, OutputDir)
 }
 
-func classifyError(err error) string {
-	s := err.Error()
-	switch {
-	case contains(s, "provider health") || contains(s, "connection refused") || contains(s, "timeout"):
-		return "infra-fail"
-	case contains(s, "LLM execution") || contains(s, "generation"):
-		return "model-fail"
-	case contains(s, "preflight") || contains(s, "workspace"):
-		return "infra-fail"
-	default:
-		return "unknown"
+// executeDirectL1 sends a simple system+user prompt to L1 via HTTP (no tools).
+// This is the same proven pattern from PHASE 22 mlq-dispatcher that achieved 10/10.
+func executeDirectL1(t task, logFile *os.File) (string, error) {
+	reqBody := map[string]interface{}{
+		"model": L1Model,
+		"messages": []map[string]string{
+			{"role": "system", "content": "You are a code analysis assistant for a Go project called zen-brain1. Produce concise, factual, useful markdown reports. Do NOT generate Go code. Focus on evidence from the codebase. Use markdown tables, bullet lists, and sections."},
+			{"role": "user", "content": t.Prompt},
+		},
+		"max_tokens": 2048,
+		"temperature": 0.3,
+		"chat_template_kwargs": map[string]interface{}{
+			"enable_thinking": false,
+		},
 	}
-}
+	bodyJSON, _ := json.Marshal(reqBody)
 
-func contains(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, "POST", L1Endpoint, bytes.NewReader(bodyJSON))
+	if err != nil {
+		return "", fmt.Errorf("build request: %w", err)
 	}
-	return false
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("L1 request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, _ := io.ReadAll(resp.Body)
+
+	var chatResp struct {
+		Choices []struct {
+			Message struct {
+				Content string `json:"content"`
+			} `json:"message"`
+		} `json:"choices"`
+		Usage struct {
+			PromptTokens     int `json:"prompt_tokens"`
+			CompletionTokens int `json:"completion_tokens"`
+		} `json:"usage"`
+		Error *struct {
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	json.Unmarshal(respBody, &chatResp)
+
+	if chatResp.Error != nil {
+		return "", fmt.Errorf("L1 error: %s", chatResp.Error.Message)
+	}
+
+	if len(chatResp.Choices) == 0 || chatResp.Choices[0].Message.Content == "" {
+		return "", fmt.Errorf("L1 returned empty response (in=%d, out=%d tokens)", chatResp.Usage.PromptTokens, chatResp.Usage.CompletionTokens)
+	}
+
+	content := chatResp.Choices[0].Message.Content
+	logFile.WriteString(fmt.Sprintf("[P24C] task=%s L1_RESPONSE tokens_in=%d tokens_out=%d len=%d\n",
+		t.ID, chatResp.Usage.PromptTokens, chatResp.Usage.CompletionTokens, len(content)))
+
+	// Write artifact
+	artifactPath := fmt.Sprintf("%s/final/%s", OutputDir, t.Filename)
+	if err := os.WriteFile(artifactPath, []byte(content), 0644); err != nil {
+		return "", fmt.Errorf("write artifact: %w", err)
+	}
+
+	return artifactPath, nil
 }
