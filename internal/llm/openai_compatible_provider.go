@@ -91,12 +91,20 @@ type oaiTool struct {
 }
 
 type oaiRequest struct {
-	Model     string       `json:"model"`
-	Messages  []oaiMessage  `json:"messages"`
-	MaxTokens int           `json:"max_tokens,omitempty"`
-	Stream    bool          `json:"stream"`
+	Model              string       `json:"model"`
+	Messages           []oaiMessage `json:"messages"`
+	MaxTokens          int          `json:"max_tokens,omitempty"`
+	Stream             bool         `json:"stream"`
 	// W031: Add tools field for function calling support
-	Tools     []oaiTool      `json:"tools,omitempty"`
+	Tools              []oaiTool    `json:"tools,omitempty"`
+	// PHASE 23: llama.cpp thinking control via chat_template_kwargs
+	ChatTemplateKwargs *chatTemplateKwargs `json:"chat_template_kwargs,omitempty"`
+}
+
+// chatTemplateKwargs controls llama.cpp chat template behavior.
+type chatTemplateKwargs struct {
+	EnableThinking bool `json:"enable_thinking"`
+	ThinkingBudget int  `json:"thinking_budget,omitempty"`
 }
 
 type oaiChoice struct {
@@ -160,6 +168,15 @@ func (p *OpenAICompatibleProvider) Chat(ctx context.Context, req llm.ChatRequest
 		MaxTokens: maxTokens,
 		Stream:    false,
 		Tools:     tools,
+	}
+
+	// PHASE 23 P003: Disable thinking for llama.cpp useful tasks
+	// llama.cpp uses chat_template_kwargs.enable_thinking to control reasoning mode.
+	// When Thinking=false on the request, we explicitly disable thinking to prevent
+	// the model from burning tokens on internal reasoning (which produces empty content).
+	if !req.Thinking && p.name == "llama-cpp" {
+		body.ChatTemplateKwargs = &chatTemplateKwargs{EnableThinking: false}
+		log.Printf("[llama-cpp] Thinking disabled via chat_template_kwargs for useful-task request")
 	}
 	payload, err := json.Marshal(body)
 	if err != nil {
