@@ -1,56 +1,67 @@
 # 24/7 Useful Operations Runbook
 
-**Version:** 1.0
-**Status:** Production
-**Updated:** 2026-03-26 (PHASE 26)
+**Version:** 2.0
+**Status:** Production — LIVE
+**Updated:** 2026-03-26 (PHASE 27)
 
 ## Overview
 
-zen-brain1 is now capable of continuous 24/7 useful operations. The system produces reporting/triage artifacts (dead-code scans, defect reports, tech-debt summaries, etc.) through the proven L1 runtime path.
+zen-brain1 is now running under **real systemd supervision** with **active scheduled workloads**. The system produces reporting/triage artifacts continuously through the proven L1 runtime path.
 
 **Production success criterion:** zen-brain1 is "working" when it continuously produces useful artifacts through the real runtime on regular tasks. Standalone Go codegen is NOT the benchmark.
 
-## Service Topology
-
-| Lane | Model | Inference | Port | Slots | Context/Slot | Role |
-|------|-------|-----------|------|-------|-------------|------|
-| L1 | Qwen3.5-0.8B Q4_K_M | llama.cpp | 56227 | 10 parallel | 6656 tokens | Default — all regular useful tasks |
-| L2 | Qwen3.5-2B Q4_K_M | llama.cpp | 60509 | 4 slots | 16384 tokens | Earned by repeated L1 failure |
-| L0 | qwen3.5:0.8b | Ollama | 11434 | 1 | — | Fallback only (FAIL-CLOSED) |
-
-## Worker Management
-
-### Quick Start
+## Quick Reference — Operator Controls
 
 ```bash
-# Start all workers
-./scripts/worker-ctl.sh start
+# Status check
+./scripts/zen-ctl.sh status          # worker + timer status
+./scripts/zen-ctl.sh health          # L1/L2/L0 health with slot info
+./scripts/zen-ctl.sh schedule        # show active schedule
 
-# Check health
-./scripts/health-check.sh
+# Force an immediate batch
+./scripts/zen-ctl.sh run hourly      # 3 tasks: defects, bug-hunting, stub-hunting
+./scripts/zen-ctl.sh run quad        # 6 tasks: dead-code, tech-debt, etc.
+./scripts/zen-ctl.sh run daily       # all 10 task classes
 
-# Warmup L1
-./scripts/worker-ctl.sh warmup
+# Monitoring
+./scripts/zen-ctl.sh latest          # show latest artifacts per batch
+./scripts/zen-ctl.sh logs            # tail schedule logs
+./scripts/zen-ctl.sh logs zen-brain1-l1  # tail L1 worker logs
 
-# Stop all
-./scripts/worker-ctl.sh stop
+# Recovery
+./scripts/zen-ctl.sh restart         # restart L1+L2 workers
+./scripts/zen-ctl.sh warmup          # warmup L1 with test request
 ```
 
-### systemd Services (for 24/7)
+| Lane | Model | Inference | Port | Slots | Context/Slot | Service | Status |
+|------|-------|-----------|------|-------|-------------|---------|--------|
+| L1 | Qwen3.5-0.8B Q4_K_M | llama.cpp | 56227 | 10 parallel | 6656 tokens | `zen-brain1-l1.service` | active (enabled) |
+| L2 | Qwen3.5-2B Q4_K_M | llama.cpp | 60509 | 4 slots | 16384 tokens | `zen-brain1-l2.service` | active (enabled) |
+| L0 | qwen3.5:0.8b | Ollama | 11434 | 1 | — | (manual) | fallback only |
+
+### systemd Service Management
 
 ```bash
-# Install services
-sudo cp config/supervision/zen-brain1-l1.service /etc/systemd/system/
-sudo cp config/supervision/zen-brain1-l2.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable --now zen-brain1-l1 zen-brain1-l2
-
-# Check status
+# Check service status
 sudo systemctl status zen-brain1-l1 zen-brain1-l2
 
-# View logs
-journalctl -u zen-brain1-l1 -f
+# Restart workers
+sudo systemctl restart zen-brain1-l1 zen-brain1-l2
+
+# View worker logs
+sudo journalctl -u zen-brain1-l1 -f
+sudo journalctl -u zen-brain1-l2 -f
+
+# Log files
+/var/log/zen-brain1/l1-worker.log
+/var/log/zen-brain1/l2-worker.log
+/var/log/zen-brain1/schedules.log   # all batch schedule output
 ```
+
+### Restart Policy
+- `Restart=on-failure` with 10s delay
+- Burst limit: 5 restarts per 5 minutes
+- Services survive shell exit and system reboots
 
 ## Health Checks
 
@@ -66,30 +77,33 @@ curl -s http://localhost:56227/health  # L1
 curl -s http://localhost:60509/health  # L2
 ```
 
-## Workload Scheduling
+## Active Schedule (LIVE)
 
-### Manual Batch Run
+| Schedule | Timer | Tasks | Cadence | Proven |
+|----------|-------|-------|---------|--------|
+| Hourly scan | `zen-brain1-hourly-scan.timer` | defects, bug_hunting, stub_hunting | Every hour | ✅ 3/3 OK, 1m41s |
+| Quad-hourly summary | `zen-brain1-quad-hourly-summary.timer` | dead_code, tech_debt, package_hotspots, test_gaps, config_drift, roadmap | Every 4 hours | ✅ 6/6 OK, 2m18s |
+| Daily full sweep | `zen-brain1-daily-sweep.timer` | All 10 task classes | Daily at 6 AM | ✅ 10/10 OK, 4m31s (manual) |
+
+### systemd Timer Commands
 
 ```bash
-# All 10 task classes
-BATCH_NAME=adhoc OUTPUT_ROOT=/tmp/zen-brain1-runs /tmp/useful-batch
+# View all timer status
+systemctl list-timers --all zen-brain1-* --no-pager
 
-# Specific tasks
-BATCH_NAME=quick-scan TASKS=dead_code,defects,stub_hunting WORKERS=3 /tmp/useful-batch
+# Force immediate run (bypassing timer)
+./scripts/zen-ctl.sh run hourly
+./scripts/zen-ctl.sh run quad
+./scripts/zen-ctl.sh run daily
 
-# Custom output location
-BATCH_NAME=nightly OUTPUT_ROOT=/var/lib/zen-brain1-runs /tmp/useful-batch
+# Or directly:
+sudo systemctl start zen-brain1-hourly-scan.service
+sudo systemctl start zen-brain1-quad-hourly-summary.service
+sudo systemctl start zen-brain1-daily-sweep.service
+
+# View schedule logs
+sudo journalctl -u zen-brain1-hourly-scan -f
 ```
-
-### Schedule Configuration
-
-See `config/supervision/workload-schedule.yaml` for cron-based schedule:
-
-| Schedule | Tasks | Frequency |
-|----------|-------|-----------|
-| hourly-scan | dead_code, defects, stub_hunting | Every hour |
-| quad-hourly-summary | tech_debt, roadmap, config_drift, package_hotspots | Every 4 hours |
-| daily-full-sweep | All 10 task classes | Daily at 6 AM |
 
 ### Environment Variables
 
@@ -103,19 +117,26 @@ See `config/supervision/workload-schedule.yaml` for cron-based schedule:
 | `L1_ENDPOINT` | http://localhost:56227/v1/chat/completions | L1 chat API |
 | `L1_MODEL` | Qwen3.5-0.8B-Q4_K_M.gguf | L1 model name |
 
-## Artifact Storage
+## Artifact Storage (LIVE)
+
+**Production artifact root:** `/var/lib/zen-brain1/runs/`
 
 ```
-<OUTPUT_ROOT>/<BATCH_NAME>/<timestamp>/
+/var/lib/zen-brain1/runs/<batch-name>/<timestamp>/
 ├── final/               # Markdown report artifacts
 │   ├── dead-code.md
 │   ├── defects.md
-│   ├── tech-debt.md
 │   └── ...
 ├── logs/
 │   └── dispatch.log     # Per-task dispatch log
 └── telemetry/
     └── batch-index.json # Full telemetry with per-task results
+```
+
+**Finding latest artifacts:**
+```bash
+./scripts/zen-ctl.sh latest
+# Or: ls -td /var/lib/zen-brain1/runs/hourly-scan/*/final/*.md | head -3
 ```
 
 ## Telemetry
@@ -133,26 +154,26 @@ Each batch produces `batch-index.json` with:
 3. **Repeated failures → L2** (llama.cpp 2B)
 4. **L0/Ollama = fallback only** (runtime outage)
 
-## Day-Zero Evidence
+## Operational Evidence
 
-**Date:** 2026-03-26
-**Batch:** op-day-zero
-**Result:** 10/10 OK, 4m31s wall time
+### Day-Zero (Manual Batch)
+- **Date:** 2026-03-26 14:19
+- **Result:** 10/10 OK, 4m31s wall time
+- **Artifacts:** `docs/05-OPERATIONS/evidence/op-day-zero/final/`
 
-| Report | Lines | Headings |
-|--------|-------|----------|
-| bug-hunting.md | 105 | 16 |
-| config-policy-drift.md | 87 | 14 |
-| dead-code.md | 91 | 13 |
-| defects.md | 93 | 8 |
-| executive-summary.md | 42 | 9 |
-| package-hotspots.md | 79 | 8 |
-| roadmap.md | 42 | 9 |
-| stub-hunting.md | 60 | 2 |
-| tech-debt.md | 74 | 4 |
-| test-gaps.md | 63 | 12 |
+### Hourly Scan (Unattended Timer)
+- **Date:** 2026-03-26 15:08
+- **Trigger:** `systemctl start zen-brain1-hourly-scan.service` (TriggeredBy: timer)
+- **Result:** 3/3 OK, 1m41s wall time
+- **Artifacts:** `/var/lib/zen-brain1/runs/hourly-scan/20260326-150852/final/`
+- **Evidence:** `docs/05-OPERATIONS/evidence/hourly-scan-unattended/`
 
-Full artifacts: `docs/05-OPERATIONS/evidence/op-day-zero/final/`
+### Quad-Hourly Summary (Unattended Timer)
+- **Date:** 2026-03-26 15:54
+- **Trigger:** `systemctl start zen-brain1-quad-hourly-summary.service` (TriggeredBy: timer)
+- **Result:** 6/6 OK, 2m18s wall time
+- **Artifacts:** `/var/lib/zen-brain1/runs/quad-hourly-summary/20260326-155432/final/`
+- **Evidence:** `docs/05-OPERATIONS/evidence/quad-hourly-unattended/`
 
 ## Failure Classification
 
