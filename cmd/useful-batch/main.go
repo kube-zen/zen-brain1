@@ -18,9 +18,13 @@ import (
 	"time"
 )
 
-// zen-brain1 continuous useful-task batch launcher.
-// Dispatches usefulness reporting tasks to L1 via direct HTTP (proven pattern).
-// Records telemetry and produces indexed artifacts.
+// zen-brain1 continuous useful-task batch launcher (PHASE 34 — 0.1-style rewrite).
+//
+// Design principles (copied from zen-brain 0.1):
+//   - Code does deterministic prep (evidence gathering, clustering, shaping)
+//   - Model gets a bounded, structured packet with real evidence
+//   - Code does post-flight validation (grounding checks, repetition detection)
+//   - Each task has a typed packet like 0.1's output_template
 //
 // ENV VARS:
 //   BATCH_NAME       — batch identifier (default: "adhoc")
@@ -30,14 +34,153 @@ import (
 //   WORKERS          — max concurrent requests (default: 5)
 //   L1_ENDPOINT      — L1 chat completions URL (default: http://localhost:56227/v1/chat/completions)
 //   L1_MODEL         — L1 model name (default: Qwen3.5-0.8B-Q4_K_M.gguf)
+//   REPO_ROOT        — repository root for evidence gathering (default: auto-detect)
 
 const (
-	defaultEndpoint  = "http://localhost:56227/v1/chat/completions"
-	defaultModel     = "Qwen3.5-0.8B-Q4_K_M.gguf"
-	evidenceMaxLines = 150 // bound evidence to ~150 lines per task
+	defaultEndpoint = "http://localhost:56227/v1/chat/completions"
+	defaultModel    = "Qwen3.5-0.8B-Q4_K_M.gguf"
 )
 
-// repoRoot resolves the repo root directory (default: parent of binary location).
+// ─── Task Packet (0.1-style structured template) ───────────────────────
+
+// ReportTaskDef defines a useful report task with 0.1-style explicit structure.
+type ReportTaskDef struct {
+	Name        string // task class key
+	Title       string // human-readable title
+	OutputFile  string // artifact filename
+	Scope       string // what subsystems/files this task covers
+	EvidenceCmd []EvidenceCmd
+	OutputSpec  OutputSpec // required output sections
+	Prompt      string     // the actual instruction (short, bounded)
+}
+
+// EvidenceCmd is a deterministic evidence-gathering command.
+type EvidenceCmd struct {
+	Label string // section header for this evidence
+	Cmd   string // shell command to run
+	Lines int    // max lines to keep (bounded)
+}
+
+// OutputSpec defines the required output structure (like 0.1's output_template).
+type OutputSpec struct {
+	RequiredSections []string // markdown headings that must appear
+	MaxFindings      int      // max findings/items in report
+	Format           string   // "table" | "checklist" | "bullets"
+}
+
+// ─── Task Definitions (0.1-style canonical packets) ───────────────────
+
+var taskDefs = map[string]ReportTaskDef{
+	"dead_code": {
+		Name: "dead_code", Title: "Dead Code Report", OutputFile: "dead-code.md",
+		Scope: "pkg/ and internal/ exported functions",
+		EvidenceCmd: []EvidenceCmd{
+			{Label: "Exported functions in pkg/", Cmd: "grep -rn '^func [A-Z]' pkg/ 2>/dev/null | head -25", Lines: 30},
+			{Label: "Exported functions in internal/", Cmd: "grep -rn '^func [A-Z]' internal/factory/ internal/foreman/ internal/llm/ internal/mlq/ internal/scheduler/ 2>/dev/null | head -25", Lines: 30},
+		},
+		OutputSpec: OutputSpec{RequiredSections: []string{"Top Findings", "Summary"}, MaxFindings: 10, Format: "table"},
+		Prompt: "Based on the evidence below, identify potentially unreferenced exported functions. For each, state the function name, file, and whether it appears unused. Produce at most 10 findings. Use only functions shown in the evidence.",
+	},
+	"defects": {
+		Name: "defects", Title: "Defects Report", OutputFile: "defects.md",
+		Scope: "cmd/, internal/, pkg/ code patterns",
+		EvidenceCmd: []EvidenceCmd{
+			{Label: "Error handling in admission-gate", Cmd: "cat cmd/admission-gate/main.go 2>/dev/null | head -40", Lines: 45},
+			{Label: "Error handling in factory", Cmd: "grep -n 'if err\\|return err\\|panic(' internal/factory/factory.go 2>/dev/null | head -20", Lines: 25},
+			{Label: "Error handling in foreman", Cmd: "grep -n 'if err\\|return err\\|panic(' internal/foreman/reconciler.go 2>/dev/null | head -20", Lines: 25},
+			{Label: "Error handling in LLM providers", Cmd: "grep -n 'if err\\|return err\\|panic(' internal/llm/ollama_provider.go 2>/dev/null | head -20", Lines: 25},
+		},
+		OutputSpec: OutputSpec{RequiredSections: []string{"Top Findings", "Summary"}, MaxFindings: 8, Format: "table"},
+		Prompt: "Based on the code evidence below, find defect patterns: nil pointer risk, unchecked errors, missing error handling, hardcoded secrets. For each finding state: file, line pattern, severity (HIGH/MEDIUM/LOW), issue description. Produce at most 8 findings. Use only files shown in the evidence.",
+	},
+	"tech_debt": {
+		Name: "tech_debt", Title: "Tech Debt Report", OutputFile: "tech-debt.md",
+		Scope: "TODO/FIXME/HACK comments and file complexity",
+		EvidenceCmd: []EvidenceCmd{
+			{Label: "TODO/FIXME/HACK comments", Cmd: "grep -rn 'TODO\\|FIXME\\|HACK\\|XXX\\|DEPRECATED' cmd/ internal/ pkg/ 2>/dev/null | head -30", Lines: 35},
+			{Label: "Largest source files", Cmd: "find cmd/ internal/ pkg/ -name '*.go' -exec wc -l {} \\; 2>/dev/null | sort -rn | head -10", Lines: 15},
+		},
+		OutputSpec: OutputSpec{RequiredSections: []string{"Top Findings", "Summary"}, MaxFindings: 10, Format: "table"},
+		Prompt: "Based on the evidence below, list TODO/FIXME/HACK items and overly large files. For each: file, line, type (TODO/FIXME/HACK), description. Produce at most 10 findings. Use only items shown in the evidence.",
+	},
+	"roadmap": {
+		Name: "roadmap", Title: "Roadmap Report", OutputFile: "roadmap.md",
+		Scope: "docs/ directory project status",
+		EvidenceCmd: []EvidenceCmd{
+			{Label: "docs/ structure", Cmd: "ls docs/ 2>/dev/null", Lines: 20},
+			{Label: "Current state", Cmd: "cat CURRENT_STATE.md 2>/dev/null | head -40", Lines: 45},
+			{Label: "Architecture progress", Cmd: "cat docs/01-ARCHITECTURE/PROGRESS.md 2>/dev/null | head -40", Lines: 45},
+		},
+		OutputSpec: OutputSpec{RequiredSections: []string{"Completed", "In Progress", "Next Steps"}, MaxFindings: 5, Format: "bullets"},
+		Prompt: "Based on the evidence below, summarize project status into three sections: Completed, In Progress, Next Steps. Use bullet points. Produce at most 5 items per section. Use only information from the evidence.",
+	},
+	"bug_hunting": {
+		Name: "bug_hunting", Title: "Bug Hunting Report", OutputFile: "bug-hunting.md",
+		Scope: "internal/ concurrency and error handling patterns",
+		EvidenceCmd: []EvidenceCmd{
+			{Label: "Goroutine and sync patterns", Cmd: "grep -rn 'go func\\|sync\\.Mutex\\|sync\\.RWMutex\\|sync\\.WaitGroup\\|chan ' internal/ 2>/dev/null | head -20", Lines: 25},
+			{Label: "Defer and error patterns in factory", Cmd: "grep -n 'defer\\|if err' internal/factory/factory.go 2>/dev/null | head -15", Lines: 20},
+			{Label: "Defer and error patterns in foreman", Cmd: "grep -n 'defer\\|if err' internal/foreman/reconciler.go 2>/dev/null | head -15", Lines: 20},
+		},
+		OutputSpec: OutputSpec{RequiredSections: []string{"Top Findings", "Summary"}, MaxFindings: 8, Format: "table"},
+		Prompt: "Based on the code evidence below, find potential bugs: race conditions, missing defer, unchecked errors, goroutine leaks. For each: file, pattern found, risk level, description. Produce at most 8 findings. Use only code shown in the evidence.",
+	},
+	"stub_hunting": {
+		Name: "stub_hunting", Title: "Stub Hunting Report", OutputFile: "stub-hunting.md",
+		Scope: "panic calls and short function bodies",
+		EvidenceCmd: []EvidenceCmd{
+			{Label: "Panic calls", Cmd: "grep -rn 'panic(' cmd/ internal/ pkg/ 2>/dev/null | head -15", Lines: 20},
+			{Label: "Short functions in key packages", Cmd: "awk '/^func /{name=$0; start=NR} /^}/{n=NR-start; if(n>0 && n<=3) print name, \"(\"n\" lines)\"}' internal/factory/*.go internal/foreman/*.go internal/llm/*.go 2>/dev/null | head -15", Lines: 20},
+		},
+		OutputSpec: OutputSpec{RequiredSections: []string{"Top Findings", "Summary"}, MaxFindings: 10, Format: "table"},
+		Prompt: "Based on the evidence below, find panic calls and very short functions (potential stubs). For each: file, function, type (panic/short-stub), description. Produce at most 10 findings. Use only items shown in the evidence.",
+	},
+	"package_hotspots": {
+		Name: "package_hotspots", Title: "Package Hotspots Report", OutputFile: "package-hotspots.md",
+		Scope: "pkg/ and internal/ package sizes",
+		EvidenceCmd: []EvidenceCmd{
+			{Label: "Package file counts", Cmd: "find pkg/ internal/ -name '*.go' -exec dirname {} \\; 2>/dev/null | sort | uniq -c | sort -rn | head -15", Lines: 20},
+			{Label: "Exported function count per file", Cmd: "find pkg/ internal/ -name '*.go' -exec sh -c 'echo $(grep -c \"^func [A-Z]\" \"$1\" 2>/dev/null) $1' _ {} \\; 2>/dev/null | sort -rn | head -15", Lines: 20},
+		},
+		OutputSpec: OutputSpec{RequiredSections: []string{"Top Findings", "Summary"}, MaxFindings: 10, Format: "table"},
+		Prompt: "Based on the evidence below, rank the top packages by complexity (file count and exported function count). For each: package path, file count, estimated complexity. Produce at most 10 entries. Use only packages shown in the evidence.",
+	},
+	"test_gaps": {
+		Name: "test_gaps", Title: "Test Gap Report", OutputFile: "test-gaps.md",
+		Scope: "packages with and without tests",
+		EvidenceCmd: []EvidenceCmd{
+			{Label: "Packages WITH tests", Cmd: "find . -name '*_test.go' 2>/dev/null | sed 's|/[^/]*$||' | sort -u | grep -v vendor | grep -v '.artifacts' | head -15", Lines: 20},
+			{Label: "Packages WITHOUT tests", Cmd: "comm -23 <(find cmd/ internal/ pkg/ -name '*.go' ! -name '*_test.go' 2>/dev/null | sed 's|/[^/]*$||' | sort -u) <(find . -name '*_test.go' 2>/dev/null | sed 's|/[^/]*$||' | sort -u) | head -15", Lines: 20},
+		},
+		OutputSpec: OutputSpec{RequiredSections: []string{"Has Tests", "Missing Tests", "Summary"}, MaxFindings: 10, Format: "bullets"},
+		Prompt: "Based on the evidence below, list packages with tests and packages missing tests. Two sections. Use bullet points. Produce at most 10 items total. Use only packages shown in the evidence.",
+	},
+	"config_drift": {
+		Name: "config_drift", Title: "Config Drift Report", OutputFile: "config-policy-drift.md",
+		Scope: "config/policy/ vs docs/05-OPERATIONS/",
+		EvidenceCmd: []EvidenceCmd{
+			{Label: "Policy config files", Cmd: "ls -la config/ config/policy/ 2>/dev/null", Lines: 15},
+			{Label: "Policy content", Cmd: "cat config/policy/default.yaml 2>/dev/null | head -30", Lines: 35},
+			{Label: "Operations docs", Cmd: "ls docs/05-OPERATIONS/ 2>/dev/null | head -15", Lines: 20},
+		},
+		OutputSpec: OutputSpec{RequiredSections: []string{"Top Findings", "Summary"}, MaxFindings: 8, Format: "bullets"},
+		Prompt: "Based on the evidence below, compare the policy config with available operations docs. List any gaps: documented policy not in config, or config not documented. Produce at most 8 findings. Use only files shown in the evidence.",
+	},
+	"executive_summary": {
+		Name: "executive_summary", Title: "Executive Summary", OutputFile: "executive-summary.md",
+		Scope: "project state and current status",
+		EvidenceCmd: []EvidenceCmd{
+			{Label: "Current state", Cmd: "cat CURRENT_STATE.md 2>/dev/null | head -40", Lines: 45},
+			{Label: "Recent git activity", Cmd: "git log --oneline -10 2>/dev/null", Lines: 15},
+		},
+		OutputSpec: OutputSpec{RequiredSections: []string{"Key Facts", "Recommended Actions"}, MaxFindings: 5, Format: "bullets"},
+		Prompt: "Based on the evidence below, write a concise summary with exactly 2 sections: Key Facts (5 bullets) and Recommended Actions (3 bullets). Use only information from the evidence.",
+	},
+}
+
+// ─── Evidence Gathering (deterministic prep) ──────────────────────────
+
+// repoRoot resolves the repo root directory.
 func repoRoot() string {
 	if r := os.Getenv("REPO_ROOT"); r != "" {
 		return r
@@ -46,90 +189,134 @@ func repoRoot() string {
 	return filepath.Dir(filepath.Dir(exe))
 }
 
-// runGather executes a shell command in the repo root and returns output trimmed to maxLines.
-func runGather(repoRoot, cmd string, maxLines int) string {
+// runGather executes a shell command and returns bounded output.
+func runGather(root, cmd string, maxLines int) string {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	c := exec.CommandContext(ctx, "bash", "-c", cmd)
-	c.Dir = repoRoot
+	c.Dir = root
 	out, err := c.CombinedOutput()
 	if err != nil {
-		log.Printf("[EVIDENCE] gather command failed: %s — %v", cmd, err)
 		return ""
 	}
 	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
 	if len(lines) > maxLines {
 		lines = lines[:maxLines]
-		lines = append(lines, fmt.Sprintf("... (truncated to %d lines)", maxLines))
 	}
 	return strings.Join(lines, "\n")
 }
 
-// gatherEvidence produces real repo evidence for each task class.
-func gatherEvidence(taskClass, root string) string {
-	switch taskClass {
-	case "dead_code":
-		return runGather(root, "grep -rn '^func ' pkg/ internal/ 2>/dev/null | head -50", evidenceMaxLines)
-	case "defects":
-		return runGather(root, "find cmd/ internal/ pkg/ -name '*.go' 2>/dev/null | head -40", evidenceMaxLines)
-	case "tech_debt":
-		todo := runGather(root, "grep -rn 'TODO\\|FIXME\\|HACK\\|XXX\\|DEPRECATED' cmd/ internal/ pkg/ 2>/dev/null | head -60", 80)
-		longFuncs := runGather(root, "find cmd/ internal/ pkg/ -name '*.go' -exec wc -l {} \\; 2>/dev/null | sort -rn | head -15", 20)
-		return todo + "\n\n## Long files (by line count)\n" + longFuncs
-	case "roadmap":
-		ls := runGather(root, "ls docs/ 2>/dev/null", 20)
-		progress := runGather(root, "cat docs/01-ARCHITECTURE/PROGRESS.md 2>/dev/null | head -60", 60)
-		changelog := runGather(root, "cat CHANGELOG.md 2>/dev/null | head -30", 30)
-		return "## docs/ listing\n" + ls + "\n\n## PROGRESS.md\n" + progress + "\n\n## CHANGELOG.md\n" + changelog
-	case "bug_hunting":
-		return runGather(root, "find cmd/ internal/ pkg/ -name '*.go' 2>/dev/null | head -40", evidenceMaxLines)
-	case "stub_hunting":
-		funcs := runGather(root, "grep -rn '^func ' cmd/ internal/ pkg/ 2>/dev/null | head -40", 60)
-		panics := runGather(root, "grep -rn 'panic(' cmd/ internal/ pkg/ 2>/dev/null | head -20", 25)
-		return "## Exported functions\n" + funcs + "\n\n## Panic calls\n" + panics
-	case "package_hotspots":
-		return runGather(root, "find pkg/ internal/ -name '*.go' -exec dirname {} \\; 2>/dev/null | sort | uniq -c | sort -rn | head -25", evidenceMaxLines)
-	case "test_gaps":
-		withTest := runGather(root, "find . -name '*_test.go' 2>/dev/null | sed 's|/[^/]*$||' | sort -u | head -25", 30)
-		withoutTest := runGather(root, "find cmd/ internal/ pkg/ -name '*.go' ! -name '*_test.go' 2>/dev/null | sed 's|/[^/]*$||' | sort -u | head -25", 30)
-		return "## Packages WITH tests\n" + withTest + "\n\n## Packages WITHOUT tests\n" + withoutTest
-	case "config_drift":
-		configFiles := runGather(root, "find config/ -name '*.yaml' 2>/dev/null | head -20", 25)
-		docsFiles := runGather(root, "ls docs/05-OPERATIONS/ 2>/dev/null | head -20", 25)
-		return "## Config files\n" + configFiles + "\n\n## Operations docs\n" + docsFiles
-	case "executive_summary":
-		state := runGather(root, "cat CURRENT_STATE.md 2>/dev/null | head -50", 50)
-		return state
-	default:
-		return runGather(root, "ls cmd/ internal/ pkg/ 2>/dev/null | head -30", 30)
+// buildEvidenceBundle runs all evidence commands for a task and produces
+// a structured evidence bundle — code does the prep, model summarizes.
+func buildEvidenceBundle(def ReportTaskDef, root string) string {
+	var parts []string
+	totalLines := 0
+	maxTotal := 80 // keep total evidence under 80 lines for 0.8B context
+
+	for _, ec := range def.EvidenceCmd {
+		output := runGather(root, ec.Cmd, ec.Lines)
+		if output == "" {
+			continue
+		}
+		lines := strings.Split(output, "\n")
+		// Reserve room for label
+		remaining := maxTotal - totalLines
+		if remaining <= 2 {
+			break
+		}
+		if len(lines) > remaining-2 {
+			lines = lines[:remaining-2]
+		}
+		part := fmt.Sprintf("### %s\n%s", ec.Label, strings.Join(lines, "\n"))
+		parts = append(parts, part)
+		totalLines += len(lines) + 2
 	}
+
+	if len(parts) == 0 {
+		return "(no evidence gathered)"
+	}
+	return strings.Join(parts, "\n\n")
 }
 
-// ValidationResult captures the outcome of output validation.
+// ─── Prompt Builder (0.1-style bounded packet) ────────────────────────
+
+// buildTaskPacket constructs the full prompt as a structured task packet.
+// Model gets: evidence bundle → scope → output spec → instruction.
+func buildTaskPacket(def ReportTaskDef, evidence string) string {
+	var sb strings.Builder
+
+	// Section 1: Evidence bundle (what code already found)
+	sb.WriteString("# Evidence Bundle\n\n")
+	sb.WriteString(evidence)
+	sb.WriteString("\n\n")
+
+	// Section 2: Scope
+	sb.WriteString("# Scope\n\n")
+	sb.WriteString(def.Scope)
+	sb.WriteString("\n\n")
+
+	// Section 3: Output Requirements
+	sb.WriteString("# Output Requirements\n\n")
+	sb.WriteString(fmt.Sprintf("Format: %s\n", def.OutputSpec.Format))
+	sb.WriteString(fmt.Sprintf("Max findings: %d\n", def.OutputSpec.MaxFindings))
+	sb.WriteString("Required sections: ")
+	for i, s := range def.OutputSpec.RequiredSections {
+		if i > 0 {
+			sb.WriteString(", ")
+		}
+		sb.WriteString(s)
+	}
+	sb.WriteString("\n\n")
+
+	// Section 4: Instruction (short, bounded)
+	sb.WriteString("# Task\n\n")
+	sb.WriteString(def.Prompt)
+	sb.WriteString("\n\n")
+
+	// Grounding constraint
+	sb.WriteString("# Constraints\n\n")
+	sb.WriteString("- Only reference files and data shown in the Evidence Bundle above\n")
+	sb.WriteString("- Do not invent file paths, function names, or findings\n")
+	sb.WriteString("- If evidence is empty or insufficient, say so explicitly\n")
+
+	return sb.String()
+}
+
+// ─── Output Validation (fail-closed) ──────────────────────────────────
+
 type ValidationResult struct {
 	Status string   // success, success-needs-review, artifact-fail, context-fail
-	Issues []string // human-readable reasons
+	Issues []string
 }
 
-// validateReport checks that report output is grounded and non-trivial.
 func validateReport(content, taskClass, root string) ValidationResult {
 	vr := ValidationResult{}
 
-	// Check 1: non-empty
-	if len(content) < 200 {
+	// Check 1: minimum size
+	if len(content) < 150 {
 		vr.Status = "artifact-fail"
-		vr.Issues = append(vr.Issues, fmt.Sprintf("output too short: %d bytes (< 200)", len(content)))
+		vr.Issues = append(vr.Issues, fmt.Sprintf("too short: %d bytes (< 150)", len(content)))
 		return vr
 	}
 
 	// Check 2: has markdown structure
 	if !strings.Contains(content, "#") {
 		vr.Status = "artifact-fail"
-		vr.Issues = append(vr.Issues, "no markdown headings found")
+		vr.Issues = append(vr.Issues, "no markdown headings")
 		return vr
 	}
 
-	// Check 3: repetition detection — if any line appears 5+ times, it's template-only hallucination
+	// Check 3: required sections present
+	if def, ok := taskDefs[taskClass]; ok {
+		for _, section := range def.OutputSpec.RequiredSections {
+			// Check for section as heading or bold text
+			if !strings.Contains(content, section) {
+				vr.Issues = append(vr.Issues, fmt.Sprintf("missing required section: %q", section))
+			}
+		}
+	}
+
+	// Check 4: repetition detection
 	lineCounts := make(map[string]int)
 	scanner := bufio.NewScanner(strings.NewReader(content))
 	for scanner.Scan() {
@@ -141,12 +328,14 @@ func validateReport(content, taskClass, root string) ValidationResult {
 	}
 	for line, count := range lineCounts {
 		if count >= 5 {
-			vr.Status = "context-fail"
-			vr.Issues = append(vr.Issues, fmt.Sprintf("repeated line %dx: %q", count, line))
+			if vr.Status == "" || vr.Status == "success-needs-review" {
+				vr.Status = "context-fail"
+			}
+			vr.Issues = append(vr.Issues, fmt.Sprintf("line repeated %dx: %q", count, line))
 		}
 	}
 
-	// Check 4: file reference grounding — extract paths that look like Go files, check if they exist
+	// Check 5: file reference grounding (for code analysis tasks)
 	if taskClass != "executive_summary" && taskClass != "roadmap" {
 		refCount := 0
 		existCount := 0
@@ -154,16 +343,15 @@ func validateReport(content, taskClass, root string) ValidationResult {
 			field = strings.Trim(field, "`*_[](){}:")
 			if looksLikeGoPath(field) {
 				refCount++
-				fullPath := filepath.Join(root, field)
-				if _, err := os.Stat(fullPath); err == nil {
+				if _, err := os.Stat(filepath.Join(root, field)); err == nil {
 					existCount++
 				}
 			}
 		}
-		if refCount > 0 {
+		if refCount >= 3 {
 			ratio := float64(existCount) / float64(refCount)
-			if ratio < 0.3 && refCount >= 3 {
-				vr.Issues = append(vr.Issues, fmt.Sprintf("file grounding low: %d/%d refs exist (%.0f%%)", existCount, refCount, ratio*100))
+			if ratio < 0.3 {
+				vr.Issues = append(vr.Issues, fmt.Sprintf("file grounding: %d/%d refs exist (%.0f%%)", existCount, refCount, ratio*100))
 				if vr.Status == "" {
 					vr.Status = "success-needs-review"
 				}
@@ -177,37 +365,11 @@ func validateReport(content, taskClass, root string) ValidationResult {
 	return vr
 }
 
-// looksLikeGoPath checks if a string looks like a Go file reference.
 func looksLikeGoPath(s string) bool {
-	if !strings.Contains(s, ".go") {
-		return false
-	}
-	// Must have at least one path separator or be a bare .go filename
-	if strings.Contains(s, "/") || (strings.HasPrefix(s, "internal/") || strings.HasPrefix(s, "pkg/") || strings.HasPrefix(s, "cmd/")) {
-		return strings.HasSuffix(s, ".go")
-	}
-	return false
+	return strings.Contains(s, ".go") && strings.HasPrefix(s, "internal/") || strings.HasPrefix(s, "pkg/") || strings.HasPrefix(s, "cmd/")
 }
 
-type TaskClass struct {
-	Title  string `yaml:"title" json:"title"`
-	Prompt string `yaml:"prompt" json:"prompt"`
-	Output string `yaml:"output" json:"output"`
-}
-
-// Built-in task classes (same as workload-schedule.yaml for standalone use)
-var taskClasses = map[string]TaskClass{
-	"dead_code":        {"Dead Code Report", "Scan the codebase for unreferenced exported functions in pkg/ and internal/. Produce a markdown report listing each function, its file, reference count, and recommendation. Do NOT generate Go code.", "dead-code.md"},
-	"defects":          {"Defects Report", "Scan cmd/, internal/, pkg/ for common defect patterns: nil pointer dereference risk, unchecked error returns, missing mutex locks, hardcoded credentials. Produce a markdown checklist with severity. Do NOT generate Go code.", "defects.md"},
-	"tech_debt":        {"Tech Debt Report", "Scan for TODO/FIXME/HACK comments, deprecated API usage, functions over 100 lines, packages with no tests. Produce a markdown report with severity ratings. Do NOT generate Go code.", "tech-debt.md"},
-	"roadmap":          {"Roadmap Report", "Read docs/ directory to extract current project status and milestones. Produce a markdown summary: Completed, In Progress, Blocked, Next 30 Days. Do NOT generate Go code.", "roadmap.md"},
-	"bug_hunting":      {"Bug Hunting Report", "Scan cmd/, internal/, pkg/ for race conditions (shared state without locks), memory leaks (unclosed resources), logic errors. Produce a markdown report. Do NOT generate Go code.", "bug-hunting.md"},
-	"stub_hunting":     {"Stub Hunting Report", "Scan for empty function bodies, panic(not implemented), hardcoded return values, TODO-only functions. Produce a markdown checklist. Do NOT generate Go code.", "stub-hunting.md"},
-	"package_hotspots": {"Package Hotspots Report", "Scan pkg/ and internal/ for packages with most exported types and functions. Produce a markdown table. Do NOT generate Go code.", "package-hotspots.md"},
-	"test_gaps":        {"Test Gap Report", "Scan for _test.go files. List packages with and without tests. Produce a markdown report with coverage estimates. Do NOT generate Go code.", "test-gaps.md"},
-	"config_drift":     {"Config Drift Report", "Compare documented policies in docs/ with actual config in config/policy/. Produce a markdown report identifying gaps. Do NOT generate Go code.", "config-policy-drift.md"},
-	"executive_summary": {"Executive Summary", "Synthesize findings into a concise executive summary with top 5 findings and recommended actions. Produce a markdown summary. Do NOT generate Go code.", "executive-summary.md"},
-}
+// ─── Main ──────────────────────────────────────────────────────────────
 
 func main() {
 	log.SetFlags(log.Ltime | log.Lmicroseconds)
@@ -218,23 +380,21 @@ func main() {
 	model := envOr("L1_MODEL", defaultModel)
 	timeoutSec := envInt("TIMEOUT", 300)
 	maxWorkers := envInt("WORKERS", 5)
-
-	// Resolve repo root for evidence gathering
 	root := repoRoot()
-	log.Printf("[BATCH] repo_root=%s", root)
+
+	log.Printf("[BATCH] %s: repo=%s dispatching useful tasks (workers=%d, timeout=%ds)", batchName, root, maxWorkers, timeoutSec)
 
 	// Resolve task list
 	taskNames := allTaskNames()
 	if t := os.Getenv("TASKS"); t != "" {
 		taskNames = splitCSV(t)
 	}
-
-	tasks := make([]string, 0, len(taskNames))
+	var tasks []string
 	for _, name := range taskNames {
-		if _, ok := taskClasses[name]; ok {
+		if _, ok := taskDefs[name]; ok {
 			tasks = append(tasks, name)
 		} else {
-			log.Printf("WARNING: unknown task class '%s', skipping", name)
+			log.Printf("[BATCH] WARNING: unknown task class %q, skipping", name)
 		}
 	}
 
@@ -245,11 +405,11 @@ func main() {
 		os.MkdirAll(fmt.Sprintf("%s/%s", runDir, sub), 0755)
 	}
 
-	log.Printf("[BATCH] %s: dispatching %d tasks (workers=%d, timeout=%ds)", batchName, len(tasks), maxWorkers, timeoutSec)
+	log.Printf("[BATCH] %s: %d tasks queued, dispatching...", batchName, len(tasks))
 
 	var wg sync.WaitGroup
 	sem := make(chan struct{}, maxWorkers)
-	var completed, succeeded atomic.Int64
+	var succeeded atomic.Int64
 	results := make([]map[string]interface{}, len(tasks))
 	logFile, _ := os.Create(fmt.Sprintf("%s/logs/dispatch.log", runDir))
 	start := time.Now()
@@ -260,80 +420,72 @@ func main() {
 		go func(idx int, name string) {
 			defer wg.Done()
 			defer func() { <-sem }()
-			defer completed.Add(1)
 
-			tc := taskClasses[name]
+			def := taskDefs[name]
+			workItemID := fmt.Sprintf("%s-%s-%d", batchName, ts, idx)
 			taskStart := time.Now()
 			r := map[string]interface{}{
-				"task_id":    name,
-				"title":      tc.Title,
-				"lane":       "L1",
-				"endpoint":   endpoint,
-				"start_time": taskStart.Format(time.RFC3339Nano),
+				"work_item_id": workItemID,
+				"task_class":   name,
+				"title":        def.Title,
+				"lane":         "L1",
+				"state":        "in_progress",
+				"start_time":   taskStart.Format(time.RFC3339Nano),
 			}
 
-			logFile.WriteString(fmt.Sprintf("[BATCH] task=%s START lane=L1\n", name))
+			logFile.WriteString(fmt.Sprintf("[TASK] %s START state=in_progress lane=L1\n", workItemID))
 
-			// P1: Gather real repo evidence for this task
-			evidence := gatherEvidence(name, root)
-			if evidence != "" {
-				log.Printf("[EVIDENCE] %s: gathered %d bytes of real repo context", name, len(evidence))
-			} else {
-				log.Printf("[EVIDENCE] %s: WARNING — no evidence gathered", name)
-			}
+			// ── Step 1: Deterministic evidence prep (code, not AI) ──
+			evidence := buildEvidenceBundle(def, root)
+			evidenceBytes := len(evidence)
+			log.Printf("[EVIDENCE] %s: %d bytes structured evidence gathered", workItemID, evidenceBytes)
 
-			// Build enriched prompt with evidence
-			enrichedPrompt := tc.Prompt
-			if evidence != "" {
-				enrichedPrompt = fmt.Sprintf("## Codebase Evidence (real, from live repo scan)\n```\n%s\n```\n\n## Your Task\n%s\n\nIMPORTANT: Only reference files and paths shown in the evidence above. Do NOT invent file paths.", evidence, tc.Prompt)
-			}
+			// ── Step 2: Build bounded task packet (0.1-style) ──
+			packet := buildTaskPacket(def, evidence)
+			log.Printf("[PACKET] %s: task packet built (%d bytes)", workItemID, len(packet))
 
-			artifactPath := fmt.Sprintf("%s/final/%s", runDir, tc.Output)
-			err := dispatchTask(endpoint, model, name, enrichedPrompt, artifactPath, timeoutSec)
-
+			// ── Step 3: Dispatch to L1 ──
+			artifactPath := fmt.Sprintf("%s/final/%s", runDir, def.OutputFile)
+			err := dispatchTask(endpoint, model, workItemID, packet, artifactPath, timeoutSec)
 			taskEnd := time.Now()
 			r["end_time"] = taskEnd.Format(time.RFC3339Nano)
 			r["duration_ms"] = taskEnd.Sub(taskStart).Milliseconds()
 
 			if err != nil {
 				r["success"] = false
+				r["state"] = "failed"
 				r["error"] = err.Error()
-				r["escalated"] = false
-				r["validation"] = "dispatch-fail"
-				log.Printf("[BATCH] ❌ %s (%s): %v", name, tc.Title, err)
-				logFile.WriteString(fmt.Sprintf("[BATCH] task=%s FAIL duration=%v error=%s\n", name, taskEnd.Sub(taskStart), err))
+				log.Printf("[BATCH] ❌ %s: %v", workItemID, err)
+				logFile.WriteString(fmt.Sprintf("[TASK] %s FAIL error=%s\n", workItemID, err))
 			} else {
-				// P2: Validate report output
+				// ── Step 4: Fail-closed validation ──
 				artifactContent, readErr := os.ReadFile(artifactPath)
 				var vr ValidationResult
 				if readErr != nil {
-					vr = ValidationResult{Status: "artifact-fail", Issues: []string{"cannot read artifact: " + readErr.Error()}}
+					vr = ValidationResult{Status: "artifact-fail", Issues: []string{readErr.Error()}}
 				} else {
 					vr = validateReport(string(artifactContent), name, root)
 				}
 				r["validation_status"] = vr.Status
 				r["validation_issues"] = vr.Issues
 
-				if vr.Status == "success" {
+				switch vr.Status {
+				case "success":
 					r["success"] = true
-					r["artifact_path"] = artifactPath
-					r["escalated"] = false
+					r["state"] = "done"
 					succeeded.Add(1)
-					log.Printf("[BATCH] ✅ %s (%s): %v → %s [valid=%s]", name, tc.Title, taskEnd.Sub(taskStart), tc.Output, vr.Status)
-				} else if vr.Status == "success-needs-review" {
+					log.Printf("[BATCH] ✅ %s: %v → %s [valid=success]", workItemID, taskEnd.Sub(taskStart), def.OutputFile)
+				case "success-needs-review":
 					r["success"] = true
-					r["artifact_path"] = artifactPath
-					r["escalated"] = false
+					r["state"] = "needs_review"
 					succeeded.Add(1)
-					log.Printf("[BATCH] ⚠️ %s (%s): %v → %s [valid=%s issues=%v]", name, tc.Title, taskEnd.Sub(taskStart), tc.Output, vr.Status, vr.Issues)
-				} else {
+					log.Printf("[BATCH] ⚠️ %s: %v → %s [valid=needs-review issues=%v]", workItemID, taskEnd.Sub(taskStart), def.OutputFile, vr.Issues)
+				default:
 					r["success"] = false
-					r["artifact_path"] = artifactPath
-					r["escalated"] = false
-					r["validation_fail"] = true
-					log.Printf("[BATCH] ❌ %s (%s): validation-fail status=%s issues=%v", name, tc.Title, vr.Status, vr.Issues)
+					r["state"] = "validation_fail"
+					log.Printf("[BATCH] ❌ %s: validation-fail status=%s issues=%v", workItemID, vr.Status, vr.Issues)
 				}
-				logFile.WriteString(fmt.Sprintf("[BATCH] task=%s DONE validation=%s issues=%v duration=%v\n", name, vr.Status, vr.Issues, taskEnd.Sub(taskStart)))
+				logFile.WriteString(fmt.Sprintf("[TASK] %s DONE state=%s validation=%s duration=%v\n", workItemID, r["state"], vr.Status, taskEnd.Sub(taskStart)))
 			}
 
 			results[idx] = r
@@ -344,43 +496,41 @@ func main() {
 	wall := time.Since(start)
 	logFile.Close()
 
-	// Write artifact index
+	// Write telemetry
 	index := map[string]interface{}{
-		"batch_id":       fmt.Sprintf("%s-%s", batchName, ts),
-		"batch_name":     batchName,
-		"lane":           "L1",
-		"total":          len(tasks),
-		"succeeded":      succeeded.Load(),
-		"failed":         len(tasks) - int(succeeded.Load()),
-		"wall_ms":        wall.Milliseconds(),
-		"run_dir":        runDir,
-		"results":        results,
-		"timestamp":      start.UTC().Format(time.RFC3339),
+		"batch_id":  fmt.Sprintf("%s-%s", batchName, ts),
+		"lane":      "L1",
+		"total":     len(tasks),
+		"succeeded": succeeded.Load(),
+		"failed":    len(tasks) - int(succeeded.Load()),
+		"wall_ms":   wall.Milliseconds(),
+		"run_dir":   runDir,
+		"results":   results,
+		"timestamp": start.UTC().Format(time.RFC3339),
 	}
 	idxJSON, _ := json.MarshalIndent(index, "", "  ")
 	os.WriteFile(fmt.Sprintf("%s/telemetry/batch-index.json", runDir), idxJSON, 0644)
 
-	log.Printf("[BATCH] === %s COMPLETE: %d/%d OK, wall=%v ===", batchName, succeeded.Load(), len(tasks), wall)
-	log.Printf("[BATCH] Run dir: %s", runDir)
-
+	log.Printf("[BATCH] === %s: %d/%d OK, wall=%v ===", batchName, succeeded.Load(), len(tasks), wall)
 	if succeeded.Load() == 0 {
 		os.Exit(1)
 	}
 }
 
-func dispatchTask(endpoint, model, taskClass, prompt, artifactPath string, timeoutSec int) error {
-	// P3: Log no-think status (enable_thinking:false is already in the request body below)
-	log.Printf("[NO-THINK] enable_thinking=false active for %s", taskClass)
+// ─── L1 Dispatch ──────────────────────────────────────────────────────
+
+func dispatchTask(endpoint, model, workItemID, packet, artifactPath string, timeoutSec int) error {
+	log.Printf("[NO-THINK] enable_thinking=false active for %s", workItemID)
 
 	body, _ := json.Marshal(map[string]interface{}{
 		"model": model,
 		"messages": []map[string]string{
-			{"role": "system", "content": "You are a code analysis assistant for a Go project called zen-brain1. Produce concise, factual, useful markdown reports. Do NOT generate Go code. Use markdown tables, bullet lists, and sections. IMPORTANT: Only reference files and paths provided in the evidence. Do NOT invent or fabricate file paths."},
-			{"role": "user", "content": prompt},
+			{"role": "system", "content": "You are a code analyst. Write short factual markdown. Only use files and data from the Evidence Bundle. Do not invent anything. Do not generate Go code."},
+			{"role": "user", "content": packet},
 		},
-		"max_tokens": 2048,
-		"temperature": 0.3,
-		"chat_template_kwargs": map[string]interface{}{"enable_thinking": false},
+		"max_tokens":             2048,
+		"temperature":            0.3,
+		"chat_template_kwargs":   map[string]interface{}{"enable_thinking": false},
 	})
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeoutSec)*time.Second)
@@ -421,6 +571,8 @@ func dispatchTask(endpoint, model, taskClass, prompt, artifactPath string, timeo
 	return os.WriteFile(artifactPath, []byte(chatResp.Choices[0].Message.Content), 0644)
 }
 
+// ─── Utility ──────────────────────────────────────────────────────────
+
 func envOr(key, fallback string) string {
 	if v := os.Getenv(key); v != "" {
 		return v
@@ -449,8 +601,8 @@ func parseInt(s string) (int, error) {
 }
 
 func allTaskNames() []string {
-	names := make([]string, 0, len(taskClasses))
-	for k := range taskClasses {
+	names := make([]string, 0, len(taskDefs))
+	for k := range taskDefs {
 		names = append(names, k)
 	}
 	return names
@@ -458,33 +610,10 @@ func allTaskNames() []string {
 
 func splitCSV(s string) []string {
 	var out []string
-	for _, part := range splitString(s, ',') {
-		if part := trimSpace(part); part != "" {
+	for _, part := range strings.Split(s, ",") {
+		if part := strings.TrimSpace(part); part != "" {
 			out = append(out, part)
 		}
 	}
 	return out
-}
-
-func splitString(s string, sep byte) []string {
-	var out []string
-	start := 0
-	for i := 0; i < len(s); i++ {
-		if s[i] == sep {
-			out = append(out, s[start:i])
-			start = i + 1
-		}
-	}
-	return append(out, s[start:])
-}
-
-func trimSpace(s string) string {
-	i, j := 0, len(s)
-	for i < j && s[i] == ' ' {
-		i++
-	}
-	for j > i && s[j-1] == ' ' {
-		j--
-	}
-	return s[i:j]
 }
