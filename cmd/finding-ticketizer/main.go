@@ -85,6 +85,7 @@ type Config struct {
 	MaxFindings   int           // per source class
 	SourceClasses []string      // which discovery classes to ticketize
 	TimeoutSec    int
+	Mode          string        // "findings" or "roadmap"
 }
 
 // ─── Finding Parser ───────────────────────────────────────────────────
@@ -494,6 +495,223 @@ func jiraSearchOpenFindings(cfg jiraConfig) []map[string]interface{} {
 
 // ─── Main Flow ────────────────────────────────────────────────────────
 
+// RoadmapItem represents one actionable item extracted from ROADMAP_ITEMS.md or PROGRESS.md.
+type RoadmapItem struct {
+	Section    string `json:"section"`
+	ItemID     string `json:"item_id"`
+	Status     string `json:"status"`
+	Title      string `json:"title"`
+	SourcePath string `json:"source_path"`
+}
+
+// parseRoadmapItems extracts actionable items from PROGRESS.md.
+// It looks for lines matching "**X.Y Title**" or "| **X.Y Title** | Status |"
+// and collects those that are not "Done".
+func parseRoadmapItems(progressPath string) []RoadmapItem {
+	f, err := os.Open(progressPath)
+	if err != nil {
+		return nil
+	}
+	defer f.Close()
+
+	var items []RoadmapItem
+	scanner := bufio.NewScanner(f)
+	currentSection := ""
+
+	// Multiple source format support
+	blockRe := regexp.MustCompile(`^## Block \d+`)
+	sectionRe := regexp.MustCompile(`^##+ `)
+	// ROADMAP_ITEMS.md format: "- **ID**: Description"
+	roadmapItemRe := regexp.MustCompile(`^\-\s+\*\*(\w[\w-]*)\*\*:\s*(.+)`)
+	// PROGRESS.md table format: "| **X.Y Title** | Status |"
+	tableItemRe := regexp.MustCompile(`^\|\s*\*\*(\d+\.\d+)\s+(.+?)\*\*\s*\|\s*(.+?)\s*\|`)
+	// Inline bold format
+	itemRe := regexp.MustCompile(`^\|?\s*\*\*(\d+\.\d+)\s+(.+?)\*\*\s*\|?\s*(Done|Added|Complete|Partial|In Progress|TODO|WIP|Implemented)?`)
+
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		if m := blockRe.FindStringSubmatch(line); m != nil {
+			currentSection = m[0]
+			continue
+		}
+		if m := sectionRe.FindStringSubmatch(line); m != nil {
+			currentSection = m[0]
+			continue
+		}
+
+		// Try ROADMAP_ITEMS.md format: "- **IL-1**: Description"
+		if m := roadmapItemRe.FindStringSubmatch(line); m != nil {
+			items = append(items, RoadmapItem{
+				Section:    currentSection,
+				ItemID:     m[1],
+				Status:     "open",
+				Title:      strings.TrimSpace(m[2]),
+				SourcePath: progressPath,
+			})
+			continue
+		}
+
+		// Try table row format
+		if m := tableItemRe.FindStringSubmatch(line); m != nil {
+			status := strings.TrimSpace(m[3])
+			if strings.EqualFold(status, "Done") || strings.EqualFold(status, "Complete") ||
+				strings.EqualFold(status, "Added") || strings.EqualFold(status, "Implemented") {
+				continue
+			}
+			items = append(items, RoadmapItem{
+				Section:    currentSection,
+				ItemID:     m[1],
+				Status:     status,
+				Title:      strings.TrimSpace(m[2]),
+				SourcePath: progressPath,
+			})
+			continue
+		}
+
+		// Try inline bold format
+		if m := itemRe.FindStringSubmatch(line); m != nil {
+			status := strings.TrimSpace(m[3])
+			if status == "" {
+				status = "unknown"
+			}
+			if strings.EqualFold(status, "Done") || strings.EqualFold(status, "Complete") ||
+				strings.EqualFold(status, "Added") || strings.EqualFold(status, "Implemented") {
+				continue
+			}
+			items = append(items, RoadmapItem{
+				Section:    currentSection,
+				ItemID:     m[1],
+				Status:     status,
+				Title:      strings.TrimSpace(m[2]),
+				SourcePath: progressPath,
+			})
+		}
+	}
+
+	return items
+}
+
+func computeRoadmapFingerprint(item RoadmapItem) string {
+	sig := strings.ToLower(item.ItemID) + ":" + strings.ToLower(item.Title[:min(len(item.Title), 60)])
+	h := sha256.Sum256([]byte(sig))
+	return hex.EncodeToString(h[:8])
+}
+
+func runRoadmapTicketization(cfg Config, jcfg jiraConfig) {
+	progressPath := envOr("ROADMAP_SOURCE", "ROADMAP_ITEMS.md")
+	items := parseRoadmapItems(progressPath)
+
+	if len(items) == 0 {
+		log.Printf("[ROADMAP-TICKET] no actionable items found in %s", progressPath)
+		return
+	}
+
+	log.Printf("[ROADMAP-TICKET] found %d actionable items in %s", len(items), progressPath)
+
+	// Load dedup ledger
+	ledger, _ := loadLedger(cfg.LedgerPath)
+	if ledger == nil {
+		ledger = []FindingFingerprint{}
+	}
+
+	// Filter and dedup
+	var actionable []RoadmapItem
+	seen := make(map[string]bool)
+
+	for _, item := range items {
+		fp := computeRoadmapFingerprint(item)
+		if seen[fp] {
+			continue
+		}
+		seen[fp] = true
+
+		existing := findExistingMatch(ledger, "roadmap-"+fp)
+		if existing != nil && existing.LinkedJira != "" {
+			lastSeen, _ := time.Parse(time.RFC3339, existing.LastSeen)
+			if time.Since(lastSeen) < 24*time.Hour {
+				log.Printf("[ROADMAP-TICKET] skip %s: recently ticketed as %s", item.ItemID, existing.LinkedJira)
+				continue
+			}
+		}
+
+		actionable = append(actionable, item)
+		if len(actionable) >= cfg.MaxFindings {
+			break
+		}
+	}
+
+	log.Printf("[ROADMAP-TICKET] actionable: %d (max %d)", len(actionable), cfg.MaxFindings)
+
+	created, updated, skipped := 0, 0, 0
+
+	for _, item := range actionable {
+		fp := computeRoadmapFingerprint(item)
+		fullFp := "roadmap-" + fp
+
+		existing := findExistingMatch(ledger, fullFp)
+		existingMatch := ""
+		if existing != nil && existing.LinkedJira != "" {
+			existingMatch = existing.LinkedJira
+		}
+
+		req := TicketizationRequest{
+			FindingID:    item.ItemID,
+			Type:         "roadmap_item",
+			PriorityHint: "Medium",
+			FilePath:     item.SourcePath,
+			Evidence:     fmt.Sprintf("Section: %s\nStatus: %s\nTitle: %s", item.Section, item.Status, item.Title),
+			WhyItMatters: fmt.Sprintf("Item %s from zen-brain1 roadmap. Status: %s. Source: %s", item.ItemID, item.Status, item.SourcePath),
+			SourceReport: filepath.Base(item.SourcePath),
+			ExistingMatch: existingMatch,
+		}
+
+		out, err := ticketizeViaL1(cfg.L1Endpoint, cfg.L1Model, req, cfg.TimeoutSec)
+		if err != nil {
+			log.Printf("[ROADMAP-TICKET] %s: L1 failed: %v", item.ItemID, err)
+			continue
+		}
+
+		log.Printf("[ROADMAP-TICKET] %s: dedup=%s priority=%s title=%q",
+			item.ItemID, out.DedupDecision, out.Priority, out.Title)
+
+		switch out.DedupDecision {
+		case "ignore_noise":
+			skipped++
+			updateLedgerEntry(&ledger, fullFp, item.SourcePath, "", "ignored")
+
+		case "update_existing":
+			if existingMatch != "" {
+				comment := fmt.Sprintf("[zen-brain1 roadmap] Re-seen: %s\nStatus: %s\n%s",
+					item.Title, item.Status, out.Summary)
+				if jiraAddFindingComment(jcfg, existingMatch, comment) {
+					updated++
+				}
+				updateLedgerEntry(&ledger, fullFp, item.SourcePath, existingMatch, "ticketed")
+			}
+
+		default: // create_new
+			if jcfg.enabled {
+				key := jiraCreateFindingIssue(jcfg, out)
+				if key != "" {
+					created++
+					log.Printf("[ROADMAP-TICKET] %s: created %s — %s", item.ItemID, key, out.Title)
+					updateLedgerEntry(&ledger, fullFp, item.SourcePath, key, "ticketed")
+				} else {
+					log.Printf("[ROADMAP-TICKET] %s: Jira create failed", item.ItemID)
+				}
+			} else {
+				log.Printf("[ROADMAP-TICKET] %s: would create — %s (dry-run)", item.ItemID, out.Title)
+				created++
+				updateLedgerEntry(&ledger, fullFp, item.SourcePath, "DRY-"+fullFp, "ticketed")
+			}
+		}
+	}
+
+	saveLedger(cfg.LedgerPath, ledger)
+	log.Printf("[ROADMAP-TICKET] === done: %d created, %d updated, %d skipped ===", created, updated, skipped)
+}
+
 var (
 	// Source class → artifact file mapping
 	sourceArtifacts = map[string]string{
@@ -538,6 +756,13 @@ func main() {
 		MaxFindings:  envIntOr("MAX_FINDINGS", 5),
 		SourceClasses: strings.Split(envOr("SOURCE_CLASSES", "defects,stub_hunting"), ","),
 		TimeoutSec:   envIntOr("TICKETIZER_TIMEOUT", 120),
+		Mode:         envOr("MODE", "findings"), // "findings" or "roadmap"
+	}
+
+	// ── Roadmap mode ──
+	if cfg.Mode == "roadmap" {
+		runRoadmapTicketization(cfg, jcfg)
+		return
 	}
 
 	if !jcfg.enabled {
