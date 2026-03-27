@@ -123,3 +123,4 @@ create-jira-issues
 
 # Vendored sqlite generated Go files (restore via go mod vendor)
 vendor/modernc.org/sqlite/lib/
+cmd/remediation-worker/remediation-worker
