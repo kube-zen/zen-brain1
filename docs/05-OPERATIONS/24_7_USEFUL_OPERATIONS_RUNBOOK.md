@@ -76,6 +76,23 @@ sudo journalctl -u zen-brain1-l2 -f
 - Burst limit: 5 restarts per 5 minutes
 - Services survive shell exit and system reboots
 
+### Two Execution Paths (IMPORTANT)
+
+**Path A — Live Scheduled Path (canonical, production)**
+- Triggered by: systemd timer → `zen-brain1-scheduler.service`
+- Jira auth: loaded via `EnvironmentFile=/etc/zen-brain1/jira.env` (systemd override.conf)
+- This is the production path. All scheduled runs use this.
+- Jira child issues reflect actual runtime outcomes (ai:completed, ai:needs-review, ai:blocked).
+
+**Path B — Manual Trigger Path**
+- Triggered by: `./scripts/zen-ctl.sh run hourly|quad|daily`
+- Jira auth: sources `/etc/zen-brain1/jira.env` via sudo+eval (same file, same credentials)
+- Behavior is identical to Path A after PHASE 36 fix.
+- Use this for testing or catching up — it is not a separate code path.
+
+> **Rule:** Never evaluate Jira integration proof using a bare binary invocation that
+> does not load `/etc/zen-brain1/jira.env`. Both paths must share the same auth context.
+
 ## Health Checks
 
 ```bash
