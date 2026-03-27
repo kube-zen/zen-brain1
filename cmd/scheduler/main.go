@@ -1,12 +1,17 @@
 package main
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 )
@@ -237,6 +242,12 @@ func runSchedule(s Schedule, stateDir, artifactRoot, batchBin string) {
 		LastDir:    runDir,
 		RunCount:   loadState(stateDir, s.Name).RunCount + 1,
 	})
+
+	// Sync batch results to Jira ledger (non-blocking — failures don't affect batch status)
+	if runDir != "" && (status == "success" || status == "partial") {
+		jiraCfg := loadJiraLedgerConfig()
+		syncBatchToJira(jiraCfg, runDir, s.Name)
+	}
 }
 
 func runAllSchedules(schedules []Schedule, stateDir, artifactRoot, batchBin string) {
@@ -310,6 +321,254 @@ func parseRunDir(output string) string {
 		}
 	}
 	return ""
+}
+
+// --- Jira Ledger Integration ---
+// After each successful batch run, creates a Jira parent issue and child issues
+// for actionable findings. Uses direct HTTP to /rest/api/3/issue — no external deps.
+// If Jira auth fails, logs warning and continues (fail-open for local artifacts).
+
+// jiraLedgerConfig holds Jira connection parameters from env vars.
+type jiraLedgerConfig struct {
+	baseURL    string
+	email      string
+	apiToken   string
+	projectKey string
+	enabled    bool
+}
+
+func loadJiraLedgerConfig() jiraLedgerConfig {
+	baseURL := os.Getenv("JIRA_URL")
+	email := os.Getenv("JIRA_EMAIL")
+	apiToken := os.Getenv("JIRA_API_TOKEN")
+	if apiToken == "" {
+		apiToken = os.Getenv("JIRA_TOKEN")
+	}
+	projectKey := os.Getenv("JIRA_PROJECT_KEY")
+	if projectKey == "" {
+		projectKey = "ZB"
+	}
+	enabled := baseURL != "" && email != "" && apiToken != ""
+	return jiraLedgerConfig{baseURL: baseURL, email: email, apiToken: apiToken, projectKey: projectKey, enabled: enabled}
+}
+
+// jiraCreateIssue creates a single Jira issue and returns the issue key.
+// Returns empty string on any failure (never blocks the batch).
+func jiraCreateIssue(cfg jiraLedgerConfig, summary, description string, labels []string, priority string) string {
+	if !cfg.enabled {
+		return ""
+	}
+
+	type adfContent struct {
+		Type string `json:"type"`
+		Text string `json:"text"`
+	}
+	type adfPara struct {
+		Type    string       `json:"type"`
+		Content []adfContent `json:"content"`
+	}
+	type issueFields struct {
+		Project struct {
+			Key string `json:"key"`
+		} `json:"project"`
+		Summary     string   `json:"summary"`
+		Description struct {
+			Type    string    `json:"type"`
+			Version int       `json:"version"`
+			Content []adfPara `json:"content"`
+		} `json:"description"`
+		IssueType struct {
+			Name string `json:"name"`
+		} `json:"issuetype"`
+		Priority struct {
+			Name string `json:"name"`
+		} `json:"priority"`
+		Labels []string `json:"labels,omitempty"`
+	}
+
+	type adfParagraph struct {
+		Type    string       `json:"type"`
+		Content []adfContent `json:"content"`
+	}
+
+	payload := struct {
+		Fields issueFields `json:"fields"`
+	}{}
+	payload.Fields.Project.Key = cfg.projectKey
+	payload.Fields.Summary = summary
+	payload.Fields.Description.Type = "doc"
+	payload.Fields.Description.Version = 1
+	payload.Fields.Description.Content = []adfPara{{
+		Type: "paragraph",
+		Content: []adfContent{{Type: "text", Text: description}},
+	}}
+	payload.Fields.IssueType.Name = "Task"
+	payload.Fields.Priority.Name = priority
+	if len(labels) > 0 {
+		payload.Fields.Labels = labels
+	}
+
+	bodyBytes, _ := json.Marshal(payload)
+
+	ctx, cancel := contextWithTimeout5s()
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, "POST",
+		cfg.baseURL+"/rest/api/3/issue",
+		bytes.NewReader(bodyBytes))
+	if err != nil {
+		log.Printf("[JIRA] create issue request error: %v", err)
+		return ""
+	}
+	req.SetBasicAuth(cfg.email, cfg.apiToken)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		log.Printf("[JIRA] create issue http error: %v", err)
+		return ""
+	}
+	defer resp.Body.Close()
+
+	respBody, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != 201 {
+		log.Printf("[JIRA] create issue failed (status %d): %s", resp.StatusCode, truncate(respBody, 200))
+		return ""
+	}
+
+	var result struct {
+		Key  string `json:"key"`
+		Self string `json:"self"`
+	}
+	if err := json.Unmarshal(respBody, &result); err != nil || result.Key == "" {
+		log.Printf("[JIRA] create issue response parse error: %v", err)
+		return ""
+	}
+
+	return result.Key
+}
+
+// syncBatchToJira creates Jira parent+child issues for a completed batch.
+// Reads batch-index.json and artifact files, creates issues, writes Jira keys back.
+func syncBatchToJira(jiraCfg jiraLedgerConfig, runDir, batchName string) {
+	if !jiraCfg.enabled {
+		log.Printf("[JIRA] Ledger disabled: JIRA_URL/JIRA_EMAIL/JIRA_API_TOKEN not set")
+		return
+	}
+
+	// Read batch index
+	idxPath := filepath.Join(runDir, "telemetry", "batch-index.json")
+	idxData, err := os.ReadFile(idxPath)
+	if err != nil {
+		log.Printf("[JIRA] Cannot read batch index: %v", err)
+		return
+	}
+
+	var batchIndex struct {
+		BatchID   string `json:"batch_id"`
+		Total     int    `json:"total"`
+		Succeeded int    `json:"succeeded"`
+		Failed    int    `json:"failed"`
+		Results   []struct {
+			TaskID       string `json:"task_id"`
+			Title        string `json:"title"`
+			Success      bool   `json:"success"`
+			ArtifactPath string `json:"artifact_path"`
+		} `json:"results"`
+	}
+	if err := json.Unmarshal(idxData, &batchIndex); err != nil {
+		log.Printf("[JIRA] Cannot parse batch index: %v", err)
+		return
+	}
+
+	// Create parent issue for the batch
+	parentLabels := []string{"zen-brain", "scheduled-batch", batchName}
+	parentSummary := fmt.Sprintf("[%s] %s — %s", strings.ToUpper(batchName), batchIndex.BatchID,
+		time.Now().Format("2006-01-02"))
+	parentDesc := fmt.Sprintf("Scheduled batch run: %s\nBatch ID: %s\nResults: %d/%d succeeded, %d failed\nRun dir: %s\n\nTask breakdown:",
+		batchName, batchIndex.BatchID, batchIndex.Succeeded, batchIndex.Total, batchIndex.Failed, runDir)
+	for _, r := range batchIndex.Results {
+		status := "✅"
+		if !r.Success {
+			status = "❌"
+		}
+		parentDesc += fmt.Sprintf("\n%s %s — %s", status, r.TaskID, r.Title)
+	}
+
+	parentKey := jiraCreateIssue(jiraCfg, parentSummary, parentDesc, parentLabels, "Medium")
+	if parentKey == "" {
+		log.Printf("[JIRA] Failed to create parent issue for batch %s", batchIndex.BatchID)
+		return
+	}
+	log.Printf("[JIRA] Created parent issue: %s for batch %s", parentKey, batchIndex.BatchID)
+
+	// Create child issues for each succeeded task
+	childKeys := make(map[string]string)
+	for _, r := range batchIndex.Results {
+		if !r.Success {
+			continue
+		}
+
+		// Read first few lines of artifact for issue body
+		var artifactSnippet string
+		if data, err := os.ReadFile(r.ArtifactPath); err == nil {
+			lines := strings.Split(string(data), "\n")
+			var contentLines []string
+			for _, l := range lines {
+				trimmed := strings.TrimSpace(l)
+				if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+					continue
+				}
+				contentLines = append(contentLines, trimmed)
+				if len(strings.Join(contentLines, " ")) > 400 {
+					break
+				}
+			}
+			artifactSnippet = strings.Join(contentLines, " ")
+			if len(artifactSnippet) > 500 {
+				artifactSnippet = artifactSnippet[:497] + "..."
+			}
+		}
+
+		taskLabels := []string{"zen-brain", "finding", batchName}
+		taskSummary := fmt.Sprintf("[%s] %s: %s", strings.ToUpper(batchName), r.TaskID, r.Title)
+		taskDesc := fmt.Sprintf("Generated by: %s batch %s\nTask class: %s\nArtifact: %s\n\n%s",
+			batchName, batchIndex.BatchID, r.TaskID, r.ArtifactPath, artifactSnippet)
+
+		childKey := jiraCreateIssue(jiraCfg, taskSummary, taskDesc, taskLabels, "Low")
+		if childKey != "" {
+			childKeys[r.TaskID] = childKey
+			log.Printf("[JIRA] Created child issue: %s — %s", childKey, taskSummary)
+		}
+	}
+
+	// Write Jira keys into run metadata
+	jiraMeta := struct {
+		ParentKey string            `json:"parent_jira_key"`
+		ChildKeys map[string]string `json:"child_jira_keys"`
+		Timestamp string            `json:"timestamp"`
+	}{
+		ParentKey: parentKey,
+		ChildKeys: childKeys,
+		Timestamp: time.Now().UTC().Format(time.RFC3339),
+	}
+	metaBytes, _ := json.MarshalIndent(jiraMeta, "", "  ")
+	metaPath := filepath.Join(runDir, "telemetry", "jira-ledger.json")
+	if err := os.WriteFile(metaPath, metaBytes, 0644); err != nil {
+		log.Printf("[JIRA] Failed to write ledger metadata: %v", err)
+	} else {
+		log.Printf("[JIRA] Wrote ledger metadata: %s (parent=%s, children=%d)", metaPath, parentKey, len(childKeys))
+	}
+
+	// Update batch index with Jira parent key (merge into existing JSON)
+	var idxMap map[string]interface{}
+	if json.Unmarshal(idxData, &idxMap) == nil {
+		idxMap["jira_parent_key"] = parentKey
+		idxMap["jira_child_keys"] = childKeys
+		if merged, err := json.MarshalIndent(idxMap, "", "  "); err == nil {
+			os.WriteFile(idxPath, merged, 0644)
+		}
+	}
 }
 
 // --- Minimal stdlib helpers (no external deps) ---
@@ -422,4 +681,16 @@ func trimSpace(s string) string {
 	for i < j && s[i] == ' ' { i++ }
 	for j > i && s[j-1] == ' ' { j-- }
 	return s[i:j]
+}
+
+func contextWithTimeout5s() (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.Background(), 15*time.Second)
+}
+
+func truncate(b []byte, maxLen int) string {
+	s := string(b)
+	if len(s) > maxLen {
+		return s[:maxLen] + "..."
+	}
+	return s
 }
