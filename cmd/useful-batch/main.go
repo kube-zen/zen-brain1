@@ -118,19 +118,19 @@ var taskDefs = map[string]ReportTaskDef{
 		Name: "bug_hunting", Title: "Bug Hunting Report", OutputFile: "bug-hunting.md",
 		Scope: "internal/ concurrency and error handling patterns",
 		EvidenceCmd: []EvidenceCmd{
-			{Label: "Goroutine and sync patterns", Cmd: "grep -rn 'go func\\|sync\\.Mutex\\|sync\\.RWMutex\\|sync\\.WaitGroup\\|chan ' internal/ 2>/dev/null | head -20", Lines: 25},
-			{Label: "Defer and error patterns in factory", Cmd: "grep -n 'defer\\|if err' internal/factory/factory.go 2>/dev/null | head -15", Lines: 20},
-			{Label: "Defer and error patterns in foreman", Cmd: "grep -n 'defer\\|if err' internal/foreman/reconciler.go 2>/dev/null | head -15", Lines: 20},
+			{Label: "Goroutine patterns with context", Cmd: "grep -B1 -A5 'go func' internal/factory/factory.go internal/foreman/reconciler.go internal/foreman/worker.go 2>/dev/null | head -30", Lines: 35},
+			{Label: "Mutex/sync usage with context", Cmd: "grep -B1 -A3 'sync\\.Mutex\\|sync\\.RWMutex\\|\\.Lock()\\|\\.Unlock()' internal/ 2>/dev/null | head -25", Lines: 30},
+			{Label: "Error handling in foreman dispatch", Cmd: "grep -A3 'if err' internal/foreman/reconciler.go 2>/dev/null | head -20", Lines: 25},
 		},
 		OutputSpec: OutputSpec{RequiredSections: []string{"Top Findings", "Summary"}, MaxFindings: 8, Format: "table"},
-		Prompt: "Based on the code evidence below, find potential bugs: race conditions, missing defer, unchecked errors, goroutine leaks. For each: file, pattern found, risk level, description. Produce at most 8 findings. Use only code shown in the evidence.",
+		Prompt: "Based on the code evidence below, find potential bugs: race conditions, missing defer, unchecked errors, goroutine leaks. For each: file, pattern found, risk level (HIGH/MEDIUM/LOW), description. Produce at most 8 findings. Use only code shown in the evidence.",
 	},
 	"stub_hunting": {
 		Name: "stub_hunting", Title: "Stub Hunting Report", OutputFile: "stub-hunting.md",
 		Scope: "panic calls and short function bodies",
 		EvidenceCmd: []EvidenceCmd{
-			{Label: "Panic calls", Cmd: "grep -rn 'panic(' cmd/ internal/ pkg/ 2>/dev/null | head -15", Lines: 20},
-			{Label: "Short functions in key packages", Cmd: "awk '/^func /{name=$0; start=NR} /^}/{n=NR-start; if(n>0 && n<=3) print name, \"(\"n\" lines)\"}' internal/factory/*.go internal/foreman/*.go internal/llm/*.go 2>/dev/null | head -15", Lines: 20},
+			{Label: "Panic calls with context", Cmd: "grep -B2 -A2 'panic(' cmd/ internal/ 2>/dev/null | head -25", Lines: 30},
+			{Label: "Short exported functions", Cmd: "for f in internal/factory/*.go internal/foreman/*.go internal/llm/*.go; do awk -v f=\"$f\" '/^func [A-Z]/{name=$0; start=NR; body=\"\"} /^}/{n=NR-start; if(n>0 && n<=3) printf \"%s:%d %s (%d lines)\\n\",f,start,name,n}' \"$f\" 2>/dev/null; done | head -15", Lines: 20},
 		},
 		OutputSpec: OutputSpec{RequiredSections: []string{"Top Findings", "Summary"}, MaxFindings: 10, Format: "table"},
 		Prompt: "Based on the evidence below, find panic calls and very short functions (potential stubs). For each: file, function, type (panic/short-stub), description. Produce at most 10 findings. Use only items shown in the evidence.",
@@ -280,6 +280,38 @@ func buildTaskPacket(def ReportTaskDef, evidence string) string {
 	sb.WriteString("- If evidence is empty or insufficient, say so explicitly\n")
 
 	return sb.String()
+}
+
+// ─── MaxFindings Enforcement ──────────────────────────────────────────
+
+// enforceMaxFindings trims a report to keep only the first N findings.
+// Findings are identified by markdown table rows (lines starting with |).
+// The header row and separator row are preserved.
+func enforceMaxFindings(content string, maxFindings int) (string, bool) {
+	lines := strings.Split(content, "\n")
+	var result []string
+	tableRows := 0
+	trimmed := false
+
+	for _, line := range lines {
+		// Count table data rows (skip header and separator)
+		if strings.HasPrefix(line, "|") && !strings.HasPrefix(line, "| ---") && !strings.HasPrefix(line, "|---") && !strings.HasPrefix(line, "| #") {
+			// Check if this looks like a header row (e.g., "| # | File |")
+			cells := strings.Count(line, "|")
+			if cells >= 3 && (strings.Contains(line, "#") || strings.Contains(line, "File") || strings.Contains(line, "Finding")) && tableRows == 0 {
+				result = append(result, line)
+				continue
+			}
+			tableRows++
+			if tableRows > maxFindings {
+				trimmed = true
+				continue
+			}
+		}
+		result = append(result, line)
+	}
+
+	return strings.Join(result, "\n"), trimmed
 }
 
 // ─── Output Validation (fail-closed) ──────────────────────────────────
@@ -458,7 +490,21 @@ func main() {
 				log.Printf("[BATCH] ❌ %s: %v", workItemID, err)
 				logFile.WriteString(fmt.Sprintf("[TASK] %s FAIL error=%s\n", workItemID, err))
 			} else {
-				// ── Step 4: Fail-closed validation ──
+				// ── Step 4: Post-flight MaxFindings enforcement ──
+			if def.OutputSpec.MaxFindings > 0 {
+				artifactContent, readErr := os.ReadFile(artifactPath)
+				if readErr == nil {
+					enforced, wasTrimmed := enforceMaxFindings(string(artifactContent), def.OutputSpec.MaxFindings)
+					if wasTrimmed {
+						if writeErr := os.WriteFile(artifactPath, []byte(enforced), 0644); writeErr == nil {
+							log.Printf("[MAXFINDINGS] %s: trimmed to %d findings", workItemID, def.OutputSpec.MaxFindings)
+							r["maxfindings_trimmed"] = true
+						}
+					}
+				}
+			}
+
+			// ── Step 5: Fail-closed validation ──
 				artifactContent, readErr := os.ReadFile(artifactPath)
 				var vr ValidationResult
 				if readErr != nil {
