@@ -45,13 +45,14 @@ const (
 
 // ReportTaskDef defines a useful report task with 0.1-style explicit structure.
 type ReportTaskDef struct {
-	Name        string // task class key
-	Title       string // human-readable title
-	OutputFile  string // artifact filename
-	Scope       string // what subsystems/files this task covers
-	EvidenceCmd []EvidenceCmd
-	OutputSpec  OutputSpec // required output sections
-	Prompt      string     // the actual instruction (short, bounded)
+	Name                string        // task class key
+	Title               string        // human-readable title
+	OutputFile          string        // artifact filename
+	Scope               string        // what subsystems/files this task covers
+	EvidenceCmd         []EvidenceCmd // deterministic evidence commands
+	OutputSpec          OutputSpec    // required output sections
+	Prompt              string        // the actual instruction (short, bounded)
+	UseCandidateExtractor string       // if set, use deterministic candidate extraction instead of raw evidence
 }
 
 // EvidenceCmd is a deterministic evidence-gathering command.
@@ -83,15 +84,12 @@ var taskDefs = map[string]ReportTaskDef{
 	},
 	"defects": {
 		Name: "defects", Title: "Defects Report", OutputFile: "defects.md",
-		Scope: "cmd/, internal/, pkg/ code patterns",
-		EvidenceCmd: []EvidenceCmd{
-			{Label: "admission-gate code", Cmd: "head -50 cmd/admission-gate/main.go 2>/dev/null", Lines: 55},
-			{Label: "factory ExecuteTask code", Cmd: "grep -A5 'func.*ExecuteTask\\|func.*Dispatch' internal/factory/factory.go 2>/dev/null | head -30", Lines: 35},
-			{Label: "foreman reconciler error handling", Cmd: "grep -A3 'if err' internal/foreman/reconciler.go 2>/dev/null | head -20", Lines: 25},
-			{Label: "ollama provider error handling", Cmd: "grep -A3 'if err' internal/llm/ollama_provider.go 2>/dev/null | head -20", Lines: 25},
-		},
+		Scope: "cmd/, internal/ code defect patterns",
+		// No EvidenceCmd — uses deterministic candidate extraction instead
+		EvidenceCmd: nil,
 		OutputSpec: OutputSpec{RequiredSections: []string{"Top Findings", "Summary"}, MaxFindings: 8, Format: "table"},
-		Prompt: "Based on the code evidence below, find defect patterns: nil pointer risk, unchecked errors, hardcoded secrets, missing error handling. For each finding state: file, line pattern, severity (HIGH/MEDIUM/LOW), issue description. Produce at most 8 findings. Use only code shown in the evidence.",
+		Prompt: "You are given a list of pre-extracted candidate findings from the codebase.\nEach candidate has: ID, file, category, and evidence.\n\nYour job: Rank the most important findings, group similar ones, and write a summary.\n\nProduce two sections:\n1. ## Top Findings — a table with: # | File | Category | Severity | Why It Matters\n2. ## Summary — 3-5 bullets summarizing the overall defect risk\n\nRules:\n- Only use candidates from the list below\n- Each table row must describe a DIFFERENT finding\n- Assign severity: HIGH, MEDIUM, or LOW\n- If fewer than 8 real findings exist, output fewer rows\n- Do not invent file paths or findings",
+		UseCandidateExtractor: "defects",
 	},
 	"tech_debt": {
 		Name: "tech_debt", Title: "Tech Debt Report", OutputFile: "tech-debt.md",
@@ -116,14 +114,12 @@ var taskDefs = map[string]ReportTaskDef{
 	},
 	"bug_hunting": {
 		Name: "bug_hunting", Title: "Bug Hunting Report", OutputFile: "bug-hunting.md",
-		Scope: "internal/ concurrency and error handling patterns",
-		EvidenceCmd: []EvidenceCmd{
-			{Label: "Goroutine patterns with context", Cmd: "grep -B1 -A5 'go func' internal/factory/factory.go internal/foreman/reconciler.go internal/foreman/worker.go 2>/dev/null | head -30", Lines: 35},
-			{Label: "Mutex/sync usage with context", Cmd: "grep -B1 -A3 'sync\\.Mutex\\|sync\\.RWMutex\\|\\.Lock()\\|\\.Unlock()' internal/ 2>/dev/null | head -25", Lines: 30},
-			{Label: "Error handling in foreman dispatch", Cmd: "grep -A3 'if err' internal/foreman/reconciler.go 2>/dev/null | head -20", Lines: 25},
-		},
+		Scope: "internal/ runtime bug patterns",
+		// Uses deterministic candidate extraction instead of raw evidence
+		EvidenceCmd: nil,
 		OutputSpec: OutputSpec{RequiredSections: []string{"Top Findings", "Summary"}, MaxFindings: 8, Format: "table"},
-		Prompt: "Based on the code evidence below, find potential bugs: race conditions, missing defer, unchecked errors, goroutine leaks. For each: file, pattern found, risk level (HIGH/MEDIUM/LOW), description. Produce at most 8 findings. Use only code shown in the evidence.",
+		Prompt: "You are given a list of pre-extracted candidate bug patterns from the codebase.\nEach candidate has: ID, file, category, and evidence.\n\nYour job: Rank the most risky patterns, group similar ones, and write a summary.\n\nProduce two sections:\n1. ## Top Findings — a table with: # | File | Category | Risk | Why It Matters\n2. ## Summary — 3-5 bullets summarizing the overall bug risk\n\nRules:\n- Only use candidates from the list below\n- Each table row must describe a DIFFERENT pattern\n- Assign risk: HIGH, MEDIUM, or LOW\n- If fewer than 8 real patterns exist, output fewer rows\n- Do not invent file paths or patterns",
+		UseCandidateExtractor: "bug_hunting",
 	},
 	"stub_hunting": {
 		Name: "stub_hunting", Title: "Stub Hunting Report", OutputFile: "stub-hunting.md",
@@ -176,6 +172,173 @@ var taskDefs = map[string]ReportTaskDef{
 		OutputSpec: OutputSpec{RequiredSections: []string{"Key Facts", "Recommended Actions"}, MaxFindings: 5, Format: "bullets"},
 		Prompt: "Write a summary with exactly two ## headings: '## Key Facts' and '## Recommended Actions'. Under Key Facts, write 5 bullet points. Under Recommended Actions, write 3 bullet points. Use only information from the evidence. Start with a # heading.",
 	},
+}
+
+// ─── Deterministic Candidate Extraction (code does discovery) ──────────
+
+// CandidateFinding is a pre-extracted candidate defect/bug finding.
+type CandidateFinding struct {
+	ID              int    `json:"id"`
+	File            string `json:"file"`
+	Line            int    `json:"line"`
+	Category        string `json:"category"`
+	EvidenceSummary string `json:"evidence_summary"`
+}
+
+// extractDefectCandidates runs deterministic scanners and returns structured candidates.
+// Deduplicates by (file, category) and prioritizes diverse categories.
+func extractDefectCandidates(root string) []CandidateFinding {
+	var raw []CandidateFinding
+
+	// Scanner 1: unchecked errors (error returned but not handled)
+	for _, line := range strings.Split(runGather(root, "grep -rn 'if err != nil {' cmd/admission-gate/ internal/factory/ internal/foreman/ internal/llm/ internal/mlq/ 2>/dev/null | head -20", 25), "\n") {
+		parts := strings.SplitN(line, ":", 3)
+		if len(parts) >= 3 {
+			raw = append(raw, CandidateFinding{
+				File: parts[0], Category: "unchecked_error",
+				EvidenceSummary: strings.TrimSpace(parts[2]),
+			})
+		}
+	}
+
+	// Scanner 2: hardcoded defaults that look like secrets/endpoints
+	for _, line := range strings.Split(runGather(root, "grep -rn 'default.*=.*\"http\\|default.*=.*\"/var\\|default.*=.*\"/tmp' cmd/ internal/ 2>/dev/null | head -10", 15), "\n") {
+		parts := strings.SplitN(line, ":", 3)
+		if len(parts) >= 3 {
+			raw = append(raw, CandidateFinding{
+				File: parts[0], Category: "hardcoded_default",
+				EvidenceSummary: strings.TrimSpace(parts[2]),
+			})
+		}
+	}
+
+	// Scanner 3: bare panic calls (not in tests)
+	for _, line := range strings.Split(runGather(root, "grep -rn 'panic(' cmd/ internal/ 2>/dev/null | grep -v _test.go | head -10", 15), "\n") {
+		parts := strings.SplitN(line, ":", 3)
+		if len(parts) >= 3 {
+			raw = append(raw, CandidateFinding{
+				File: parts[0], Category: "panic_call",
+				EvidenceSummary: strings.TrimSpace(parts[2]),
+			})
+		}
+	}
+
+	// Scanner 4: empty error returns (return nil, err without context)
+	for _, line := range strings.Split(runGather(root, "grep -rn 'return nil, err\\|return err$' cmd/ internal/ 2>/dev/null | head -10", 15), "\n") {
+		parts := strings.SplitN(line, ":", 3)
+		if len(parts) >= 3 {
+			raw = append(raw, CandidateFinding{
+				File: parts[0], Category: "bare_error_propagation",
+				EvidenceSummary: strings.TrimSpace(parts[2]),
+			})
+		}
+	}
+
+	// Deduplicate: keep one per (file, category), prioritize diversity
+	return deduplicateCandidates(raw, 12)
+}
+
+// extractBugCandidates runs deterministic scanners for runtime bug patterns.
+func extractBugCandidates(root string) []CandidateFinding {
+	var raw []CandidateFinding
+
+	// Scanner 1: goroutine launches without error channel — deduplicate by file
+	for _, line := range strings.Split(runGather(root, "grep -rn 'go func()' cmd/ internal/factory/ internal/foreman/ 2>/dev/null | grep -v _test.go | head -15", 20), "\n") {
+		parts := strings.SplitN(line, ":", 3)
+		if len(parts) >= 2 {
+			raw = append(raw, CandidateFinding{
+				File: parts[0], Category: "goroutine_launch",
+				EvidenceSummary: "goroutine launched with go func() — check for waitgroup/channel sync",
+			})
+		}
+	}
+
+	// Scanner 2: sync primitives usage
+	for _, line := range strings.Split(runGather(root, "grep -rn 'sync\\.Mutex\\|sync\\.RWMutex' internal/ 2>/dev/null | grep -v _test.go | head -10", 15), "\n") {
+		parts := strings.SplitN(line, ":", 3)
+		if len(parts) >= 2 {
+			raw = append(raw, CandidateFinding{
+				File: parts[0], Category: "shared_state_access",
+				EvidenceSummary: strings.TrimSpace(parts[2]),
+			})
+		}
+	}
+
+	// Scanner 3: silent error ignores (blank identifier)
+	for _, line := range strings.Split(runGather(root, "grep -rn '_ =' cmd/ internal/ 2>/dev/null | grep -v _test.go | head -10", 15), "\n") {
+		parts := strings.SplitN(line, ":", 3)
+		if len(parts) >= 3 {
+			raw = append(raw, CandidateFinding{
+				File: parts[0], Category: "silent_error_ignore",
+				EvidenceSummary: strings.TrimSpace(parts[2]),
+			})
+		}
+	}
+
+	// Scanner 4: defer inside loops
+	for _, line := range strings.Split(runGather(root, "grep -B3 'defer ' internal/foreman/ internal/factory/ 2>/dev/null | grep 'for ' | head -5", 10), "\n") {
+		raw = append(raw, CandidateFinding{
+			File: "internal/", Category: "potential_defer_in_loop",
+			EvidenceSummary: strings.TrimSpace(line),
+		})
+	}
+
+	return deduplicateCandidates(raw, 10)
+}
+
+// deduplicateCandidates removes duplicates by (file, category) and re-IDs,
+// keeping at most maxPerCat per category to force diversity.
+func deduplicateCandidates(raw []CandidateFinding, maxTotal int) []CandidateFinding {
+	seen := make(map[string]bool)
+	var deduped []CandidateFinding
+
+	// Pass 1: one per (file, category)
+	for _, c := range raw {
+		key := c.File + "|" + c.Category
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		deduped = append(deduped, c)
+	}
+
+	// Pass 2: cap per category at 3 to force diversity
+	catCount := make(map[string]int)
+	var diverse []CandidateFinding
+	for _, c := range deduped {
+		catCount[c.Category]++
+		if catCount[c.Category] <= 3 {
+			diverse = append(diverse, c)
+		}
+	}
+
+	// Pass 3: cap total
+	if len(diverse) > maxTotal {
+		diverse = diverse[:maxTotal]
+	}
+
+	// Re-ID
+	for i := range diverse {
+		diverse[i].ID = i + 1
+	}
+	return diverse
+}
+
+// formatCandidatesAsText converts candidate findings into a structured text bundle for the model.
+func formatCandidatesAsText(candidates []CandidateFinding, maxFindings int) string {
+	if len(candidates) == 0 {
+		return "(no candidate findings extracted — code found no patterns to report)"
+	}
+
+	if len(candidates) > maxFindings*2 {
+		candidates = candidates[:maxFindings*2] // keep 2x for model to choose from
+	}
+
+	var sb strings.Builder
+	for _, c := range candidates {
+		sb.WriteString(fmt.Sprintf("- [%d] %s | %s | %s: %s\n", c.ID, c.File, c.Category, c.Category, c.EvidenceSummary))
+	}
+	return sb.String()
 }
 
 // ─── Evidence Gathering (deterministic prep) ──────────────────────────
@@ -391,6 +554,46 @@ func validateReport(content, taskClass, root string) ValidationResult {
 		}
 	}
 
+	// Check 6: degenerate table detection (empty findings table or header-only table)
+	// Looks for table headers followed by zero data rows, or identical rows repeated
+	tableLines := 0
+	emptyTableRowCount := 0
+	seenRows := make(map[string]int)
+	for _, line := range strings.Split(content, "\n") {
+		if strings.HasPrefix(line, "|") {
+			tableLines++
+			trimmed := strings.TrimSpace(line)
+			// Skip separator rows like |---|---|
+			if strings.Contains(trimmed, "---") && !strings.Contains(trimmed, " ") {
+				continue
+			}
+			// Check for header rows (contain non-data words)
+			if strings.Contains(trimmed, "# ") || strings.Contains(trimmed, "File ") || strings.Contains(trimmed, "Severity ") || strings.Contains(trimmed, "Category ") || strings.Contains(trimmed, "Risk ") || strings.Contains(trimmed, "Pattern ") || strings.Contains(trimmed, "Description ") || strings.Contains(trimmed, "Why ") {
+				continue // skip header row
+			}
+			// This should be a data row
+			if trimmed == "|" || trimmed == "| |" || trimmed == "| | |" || trimmed == "| | | |" || trimmed == "| | | | |" || trimmed == "| | | | | |" {
+				emptyTableRowCount++
+				continue
+			}
+			seenRows[trimmed]++
+		}
+	}
+	if tableLines > 3 && emptyTableRowCount > 5 {
+		vr.Issues = append(vr.Issues, fmt.Sprintf("degenerate table: %d empty rows out of %d table lines", emptyTableRowCount, tableLines))
+		if vr.Status == "" || vr.Status == "success-needs-review" {
+			vr.Status = "artifact-fail"
+		}
+	}
+	for row, count := range seenRows {
+		if count >= 5 {
+			vr.Issues = append(vr.Issues, fmt.Sprintf("degenerate table: row repeated %dx: %s", count, row))
+			if vr.Status == "" || vr.Status == "success-needs-review" {
+				vr.Status = "artifact-fail"
+			}
+		}
+	}
+
 	if vr.Status == "" {
 		vr.Status = "success"
 	}
@@ -468,7 +671,31 @@ func main() {
 			logFile.WriteString(fmt.Sprintf("[TASK] %s START state=in_progress lane=L1\n", workItemID))
 
 			// ── Step 1: Deterministic evidence prep (code, not AI) ──
-			evidence := buildEvidenceBundle(def, root)
+			var evidence string
+			if def.UseCandidateExtractor != "" {
+				// P35C: Pre-extracted candidate findings (code does discovery)
+				var candidates []CandidateFinding
+				switch def.UseCandidateExtractor {
+				case "defects":
+					candidates = extractDefectCandidates(root)
+				case "bug_hunting":
+					candidates = extractBugCandidates(root)
+				default:
+					log.Printf("[EVIDENCE] %s: unknown candidate extractor %q, falling back to evidence commands", workItemID, def.UseCandidateExtractor)
+					evidence = buildEvidenceBundle(def, root)
+				}
+				if candidates != nil {
+					evidence = formatCandidatesAsText(candidates, def.OutputSpec.MaxFindings)
+					// Save raw candidates for audit
+					candJSON, _ := json.MarshalIndent(candidates, "", "  ")
+					candPath := fmt.Sprintf("%s/telemetry/%s-candidates.json", runDir, name)
+					os.WriteFile(candPath, candJSON, 0644)
+					log.Printf("[EVIDENCE] %s: extracted %d candidate findings (%d bytes)", workItemID, len(candidates), len(evidence))
+				}
+			} else {
+				evidence = buildEvidenceBundle(def, root)
+				log.Printf("[EVIDENCE] %s: %d bytes structured evidence gathered", workItemID, len(evidence))
+			}
 			evidenceBytes := len(evidence)
 			log.Printf("[EVIDENCE] %s: %d bytes structured evidence gathered", workItemID, evidenceBytes)
 
