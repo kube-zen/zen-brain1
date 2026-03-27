@@ -183,20 +183,24 @@ print(f'  {s} {d.get(\"last_schedule_name\",\"?\"):25s} run={d.get(\"last_run_id
         if [[ -f "$HISTORY" ]]; then
             echo ""
             echo "Run History (last 10):"
-            python3 -c "
-import json, sys
-lines = open('$HISTORY').readlines()
+            python3 << 'PYEOF'
+import json
+with open("/var/lib/zen-brain1/metrics/history.jsonl") as f:
+    lines = f.readlines()
 for line in lines[-10:]:
     d = json.loads(line)
-    s = '✅' if d.get('status') == 'success' else '⚠️' if d.get('status') == 'partial' else '❌'
-    t = d.get('wall_time_seconds', 0)
-    ok = d.get('task_count_l1_success', 0)
-    tot = d.get('task_count_total', 0)
-    jk = d.get('jira_parent_issue_key', 'none')
-    jc = d.get('jira_child_issue_count', 0)
-    print(f'  {s} {d.get(\"schedule_name\",\"?\"):25s} {d.get(\"run_id\",\"?\"):20s} {t:>5s}s {ok}/{tot} jira={jk}+{jc}')
-print(f'\n  Total runs: {len(lines)}')
-" 2>/dev/null || echo "  (parse error — history may be empty)"
+    s = "ok" if d.get("status") == "success" else ("partial" if d.get("status") == "partial" else "fail")
+    icon = {"ok":"✅","partial":"⚠️","fail":"❌"}.get(s,"?")
+    t = d.get("wall_time_seconds", 0)
+    ok = d.get("task_count_l1_success", 0)
+    tot = d.get("task_count_total", 0)
+    jk = d.get("jira_parent_issue_key", "none")
+    jc = d.get("jira_child_issue_count", 0)
+    nm = d.get("schedule_name", "?")
+    rid = d.get("run_id", "?")
+    print(f"  {icon} {nm:25s} {rid:20s} {t:>5d}s {ok}/{tot} jira={jk}+{jc}")
+print(f"\n  Total runs: {len(lines)}")
+PYEOF
         fi
         echo ""
         echo "Files:"
