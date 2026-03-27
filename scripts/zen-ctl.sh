@@ -104,6 +104,25 @@ for s in d.get('schedules', []):
         ;;
 
     latest)
+        echo "=== Latest Run Metrics ==="
+        LATEST_METRICS="/var/lib/zen-brain1/metrics/latest-summary.json"
+        if [[ -f "$LATEST_METRICS" ]]; then
+            python3 -c "
+import json, sys
+d = json.load(open('$LATEST_METRICS'))
+print(f'  Run ID:        {d.get(\"last_run_id\",\"?\")}')
+print(f'  Schedule:      {d.get(\"last_schedule_name\",\"?\")}')
+print(f'  Status:        {d.get(\"last_status\",\"?\")}')
+print(f'  Wall Time:     {d.get(\"last_wall_time_seconds\",0)}s')
+print(f'  Tasks:         {d.get(\"last_task_count_total\",0)} total, {d.get(\"last_l1_success_count\",0)} OK, {d.get(\"last_l1_fail_count\",0)} fail')
+print(f'  Jira:          {d.get(\"last_jira_parent_key\",\"none\")} (+{d.get(\"last_jira_child_count\",0)} children)')
+print(f'  Artifact Root: {d.get(\"last_artifact_root\",\"?\")}')
+print(f'  Updated:       {d.get(\"updated_at\",\"?\")}')
+"
+        else
+            warn "No latest metrics found. Run a batch first."
+        fi
+        echo ""
         echo "=== Latest Artifacts ==="
         for batch in hourly-scan quad-hourly-summary daily-sweep; do
             LATEST=$(ls -td /var/lib/zen-brain1/runs/$batch/*/ 2>/dev/null | head -1)
@@ -143,6 +162,48 @@ for s in d.get('schedules', []):
         bash "$(dirname "$0")/health-check.sh"
         ;;
 
+    metrics)
+        echo "=== Rolling Metrics ==="
+        HISTORY="/var/lib/zen-brain1/metrics/history.jsonl"
+        LATEST="/var/lib/zen-brain1/metrics/latest-summary.json"
+
+        if [[ -f "$LATEST" ]]; then
+            echo ""
+            echo "Latest Run:"
+            python3 -c "
+import json, sys
+d = json.load(open('$LATEST'))
+s = '✅' if d.get('last_status') == 'success' else '⚠️' if d.get('last_status') == 'partial' else '❌'
+print(f'  {s} {d.get(\"last_schedule_name\",\"?\"):25s} run={d.get(\"last_run_id\",\"?\")} wall={d.get(\"last_wall_time_seconds\",0)}s tasks={d.get(\"last_l1_success_count\",0)}/{d.get(\"last_task_count_total\",0)} jira={d.get(\"last_jira_parent_key\",\"none\")}+{d.get(\"last_jira_child_count\",0)}')
+"
+        else
+            warn "No latest metrics found."
+        fi
+
+        if [[ -f "$HISTORY" ]]; then
+            echo ""
+            echo "Run History (last 10):"
+            python3 -c "
+import json, sys
+lines = open('$HISTORY').readlines()
+for line in lines[-10:]:
+    d = json.loads(line)
+    s = '✅' if d.get('status') == 'success' else '⚠️' if d.get('status') == 'partial' else '❌'
+    t = d.get('wall_time_seconds', 0)
+    ok = d.get('task_count_l1_success', 0)
+    tot = d.get('task_count_total', 0)
+    jk = d.get('jira_parent_issue_key', 'none')
+    jc = d.get('jira_child_issue_count', 0)
+    print(f'  {s} {d.get(\"schedule_name\",\"?\"):25s} {d.get(\"run_id\",\"?\"):20s} {t:>5s}s {ok}/{tot} jira={jk}+{jc}')
+print(f'\n  Total runs: {len(lines)}')
+" 2>/dev/null || echo "  (parse error — history may be empty)"
+        fi
+        echo ""
+        echo "Files:"
+        echo "  Latest:  $LATEST"
+        echo "  History: $HISTORY"
+        ;;
+
     help|*)
         echo "zen-brain1 operator control panel"
         echo ""
@@ -157,6 +218,13 @@ for s in d.get('schedules', []):
         echo "  restart   Restart scheduler + L1 + L2 workers"
         echo "  warmup    Warmup L1 with a test request"
         echo "  health    Run health checks"
+        echo "  metrics   Show rolling metrics and run history"
+        echo ""
+        echo "Metrics:"
+        echo "  /var/lib/zen-brain1/metrics/latest-summary.json"
+        echo "  /var/lib/zen-brain1/metrics/history.jsonl"
+        echo "  <run-dir>/telemetry/run-metrics.json  (per-run canonical metrics)"
+        echo "  <run-dir>/final/run-summary.md         (per-run human-readable summary)"
         echo ""
         echo "Architecture:"
         echo "  systemd → supervises processes (l1, l2, scheduler)"

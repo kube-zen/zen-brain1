@@ -46,7 +46,7 @@ jira:
   base_url: "https://your-domain.atlassian.net"
   email: "zen-brain@automation.local"
   api_token: ""  # Use canonical source (credentials_dir)
-  project_key: "ZEN"
+  project_key: "ZB"
   # Canonical secret source (ONLY source in production/cluster mode)
   credentials_dir: "/zen-lock/secrets"  # ZenLock mounted directory
   # DEPRECATED: credentials_file is for local debugging only

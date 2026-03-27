@@ -88,6 +88,14 @@ func main() {
 	os.MkdirAll(stateDir, 0755)
 	os.MkdirAll(artifactRoot, 0755)
 
+	// Ensure rolling metrics directory exists at startup
+	metricsDir := envOr("METRICS_DIR", "/var/lib/zen-brain1/metrics")
+	if err := os.MkdirAll(metricsDir, 0755); err != nil {
+		log.Printf("[METRICS] WARNING: cannot create metrics dir %s: %v — rolling metrics disabled", metricsDir, err)
+	} else {
+		log.Printf("[METRICS] Rolling metrics dir: %s", metricsDir)
+	}
+
 	schedules, err := loadSchedules(scheduleDir)
 	if err != nil {
 		log.Fatalf("[SCHED] Failed to load schedules from %s: %v", scheduleDir, err)
@@ -197,6 +205,8 @@ func isDue(s Schedule, stateDir string) bool {
 func runSchedule(s Schedule, stateDir, artifactRoot, batchBin string) {
 	log.Printf("[SCHED] 🚀 Running schedule: %s (%d tasks, cadence=%s)", s.Name, len(s.Tasks), s.Cadence)
 
+	start := time.Now()
+
 	tasks := ""
 	for i, t := range s.Tasks {
 		if i > 0 {
@@ -215,20 +225,29 @@ func runSchedule(s Schedule, stateDir, artifactRoot, batchBin string) {
 	)
 
 	output, err := cmd.CombinedOutput()
+	outputStr := string(output)
+	now := time.Now()
+	runDir := parseRunDir(outputStr)
+
 	if err != nil {
-		log.Printf("[SCHED] ❌ %s FAILED: %v\n%s", s.Name, err, string(output))
+		log.Printf("[SCHED] ❌ %s FAILED: %v", s.Name, err)
 		saveState(stateDir, s.Name, ScheduleState{
-			LastRun:    time.Now(),
+			LastRun:    now,
 			LastStatus: "failed",
+			LastDir:    runDir,
+			NextDue:    now.Add(cadenceDuration(s.Cadence)),
 			RunCount:   loadState(stateDir, s.Name).RunCount + 1,
 		})
+		// Still write metrics on failure — no batch should complete without metrics
+		if runDir != "" {
+			writeRunMetrics(runDir, s.Name, "failed", outputStr, start, "", 0)
+			writeRunSummary(runDir, s.Name, "failed", outputStr, start, "", 0)
+			updateRollingMetrics(runDir, s.Name, "failed", outputStr, start, "", 0)
+		}
 		return
 	}
-
-	// Parse last line for run dir
-	runDir := parseRunDir(string(output))
 	status := "success"
-	for _, line := range splitLines(string(output)) {
+	for _, line := range splitLines(outputStr) {
 		if contains(line, "FAIL") {
 			status = "partial"
 			break
@@ -237,16 +256,26 @@ func runSchedule(s Schedule, stateDir, artifactRoot, batchBin string) {
 
 	log.Printf("[SCHED] ✅ %s completed: %s (dir=%s)", s.Name, status, runDir)
 	saveState(stateDir, s.Name, ScheduleState{
-		LastRun:    time.Now(),
+		LastRun:    now,
 		LastStatus: status,
 		LastDir:    runDir,
+		NextDue:    now.Add(cadenceDuration(s.Cadence)),
 		RunCount:   loadState(stateDir, s.Name).RunCount + 1,
 	})
 
 	// Sync batch results to Jira ledger (non-blocking — failures don't affect batch status)
+	jiraParentKey := ""
+	jiraChildCount := 0
 	if runDir != "" && (status == "success" || status == "partial") {
 		jiraCfg := loadJiraLedgerConfig()
-		syncBatchToJira(jiraCfg, runDir, s.Name)
+		jiraParentKey, jiraChildCount = syncBatchToJira(jiraCfg, runDir, s.Name)
+	}
+
+	// Write canonical run metrics and human-readable summary
+	if runDir != "" {
+		writeRunMetrics(runDir, s.Name, status, outputStr, start, jiraParentKey, jiraChildCount)
+		writeRunSummary(runDir, s.Name, status, outputStr, start, jiraParentKey, jiraChildCount)
+		updateRollingMetrics(runDir, s.Name, status, outputStr, start, jiraParentKey, jiraChildCount)
 	}
 }
 
@@ -450,10 +479,11 @@ func jiraCreateIssue(cfg jiraLedgerConfig, summary, description string, labels [
 
 // syncBatchToJira creates Jira parent+child issues for a completed batch.
 // Reads batch-index.json and artifact files, creates issues, writes Jira keys back.
-func syncBatchToJira(jiraCfg jiraLedgerConfig, runDir, batchName string) {
+// Returns (parentKey, childCount).
+func syncBatchToJira(jiraCfg jiraLedgerConfig, runDir, batchName string) (string, int) {
 	if !jiraCfg.enabled {
 		log.Printf("[JIRA] Ledger disabled: JIRA_URL/JIRA_EMAIL/JIRA_API_TOKEN not set")
-		return
+		return "", 0
 	}
 
 	// Read batch index
@@ -461,7 +491,7 @@ func syncBatchToJira(jiraCfg jiraLedgerConfig, runDir, batchName string) {
 	idxData, err := os.ReadFile(idxPath)
 	if err != nil {
 		log.Printf("[JIRA] Cannot read batch index: %v", err)
-		return
+		return "", 0
 	}
 
 	var batchIndex struct {
@@ -478,7 +508,7 @@ func syncBatchToJira(jiraCfg jiraLedgerConfig, runDir, batchName string) {
 	}
 	if err := json.Unmarshal(idxData, &batchIndex); err != nil {
 		log.Printf("[JIRA] Cannot parse batch index: %v", err)
-		return
+		return "", 0
 	}
 
 	// Create parent issue for the batch
@@ -498,7 +528,7 @@ func syncBatchToJira(jiraCfg jiraLedgerConfig, runDir, batchName string) {
 	parentKey := jiraCreateIssue(jiraCfg, parentSummary, parentDesc, parentLabels, "Medium")
 	if parentKey == "" {
 		log.Printf("[JIRA] Failed to create parent issue for batch %s", batchIndex.BatchID)
-		return
+		return "", 0
 	}
 	log.Printf("[JIRA] Created parent issue: %s for batch %s", parentKey, batchIndex.BatchID)
 
@@ -569,6 +599,239 @@ func syncBatchToJira(jiraCfg jiraLedgerConfig, runDir, batchName string) {
 			os.WriteFile(idxPath, merged, 0644)
 		}
 	}
+	return parentKey, len(childKeys)
+}
+
+// --- Run Metrics and Summary ---
+
+// parseBatchOutput extracts task results from useful-batch output.
+func parseBatchOutput(output string) (succeeded, failed, total int, results []map[string]interface{}) {
+	total = 0
+	for _, line := range splitLines(output) {
+		if contains(line, "✅") && contains(line, "→") {
+			succeeded++
+			total++
+			r := map[string]interface{}{"status": "success"}
+			// Extract task name
+			parts := splitString(trimSpace(line), ' ')
+			if len(parts) >= 2 {
+				r["task_id"] = parts[1]
+			}
+			if len(parts) >= 3 {
+				r["artifact"] = parts[len(parts)-1]
+			}
+			results = append(results, r)
+		} else if contains(line, "❌") {
+			failed++
+			total++
+			r := map[string]interface{}{"status": "failed"}
+			parts := splitString(trimSpace(line), ' ')
+			if len(parts) >= 2 {
+				r["task_id"] = parts[1]
+			}
+			results = append(results, r)
+		}
+	}
+	return
+}
+
+// writeRunMetrics writes the canonical machine-readable metrics file for a run.
+func writeRunMetrics(runDir, scheduleName, status string, output string, start time.Time, jiraParentKey string, jiraChildCount int) {
+	succeeded, failed, total, _ := parseBatchOutput(output)
+	wallSec := time.Since(start).Seconds()
+
+	metrics := map[string]interface{}{
+		"run_id":                  filepath.Base(runDir),
+		"schedule_name":           scheduleName,
+		"started_at":              start.UTC().Format(time.RFC3339),
+		"completed_at":            time.Now().UTC().Format(time.RFC3339),
+		"wall_time_seconds":       int(wallSec),
+		"task_count_total":        total,
+		"task_count_l1_success":   succeeded,
+		"task_count_l1_fail":      failed,
+		"task_count_l1_success_needs_review": 0,
+		"task_count_l1_fail_l2_success":      0,
+		"task_count_l1_fail_l2_fail":         0,
+		"task_count_infra_fail":   0,
+		"task_count_blocked_jira_auth": 0,
+		"escalation_count":        0,
+		"artifact_count":          succeeded,
+		"jira_parent_issue_key":   jiraParentKey,
+		"jira_child_issue_count":  jiraChildCount,
+		"model_lane_summary":      "L1 (qwen3.5:0.8b Q4_K_M)",
+		"status":                  status,
+		"artifact_root":           runDir,
+		"telemetry_root":          filepath.Join(runDir, "telemetry"),
+	}
+
+	data, _ := json.MarshalIndent(metrics, "", "  ")
+	path := filepath.Join(runDir, "telemetry", "run-metrics.json")
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		log.Printf("[METRICS] Failed to write run-metrics.json: %v", err)
+	} else {
+		log.Printf("[METRICS] Wrote %s (%d tasks, %d OK, %d fail, jira=%s+%d)",
+			path, total, succeeded, failed, jiraParentKey, jiraChildCount)
+	}
+}
+
+// writeRunSummary writes a human-readable markdown summary for a run.
+func writeRunSummary(runDir, scheduleName, status string, output string, start time.Time, jiraParentKey string, jiraChildCount int) {
+	succeeded, failed, total, results := parseBatchOutput(output)
+	wallSec := time.Since(start).Seconds()
+
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("# Run Summary: %s\n\n", scheduleName))
+	sb.WriteString(fmt.Sprintf("## Metadata\n"))
+	sb.WriteString(fmt.Sprintf("- **Run ID:** %s\n", filepath.Base(runDir)))
+	sb.WriteString(fmt.Sprintf("- **Schedule:** %s\n", scheduleName))
+	sb.WriteString(fmt.Sprintf("- **Status:** %s\n", status))
+	sb.WriteString(fmt.Sprintf("- **Started:** %s\n", start.Format(time.RFC3339)))
+	sb.WriteString(fmt.Sprintf("- **Completed:** %s\n", time.Now().Format(time.RFC3339)))
+	sb.WriteString(fmt.Sprintf("- **Wall Time:** %.1fs\n\n", wallSec))
+
+	sb.WriteString("## Task Outcomes\n\n")
+	sb.WriteString(fmt.Sprintf("| Outcome | Count |\n|---------|-------|\n"))
+	sb.WriteString(fmt.Sprintf("| ✅ L1 Success | %d |\n", succeeded))
+	sb.WriteString(fmt.Sprintf("| ❌ Failed | %d |\n", failed))
+	sb.WriteString(fmt.Sprintf("| **Total** | **%d** |\n\n", total))
+
+	if len(results) > 0 {
+		sb.WriteString("### Task Breakdown\n\n")
+		for _, r := range results {
+			icon := "✅"
+			if r["status"] == "failed" {
+				icon = "❌"
+			}
+			sb.WriteString(fmt.Sprintf("- %s `%s`", icon, r["task_id"]))
+			if art, ok := r["artifact"].(string); ok && art != "" {
+				sb.WriteString(fmt.Sprintf(" → `%s`", art))
+			}
+			sb.WriteString("\n")
+		}
+		sb.WriteString("\n")
+	}
+
+	sb.WriteString("## Jira Outcomes\n\n")
+	if jiraParentKey != "" {
+		sb.WriteString(fmt.Sprintf("- **Parent Issue:** %s\n", jiraParentKey))
+		sb.WriteString(fmt.Sprintf("- **Child Issues:** %d\n", jiraChildCount))
+	} else {
+		sb.WriteString("- No Jira issues created (ledger disabled or auth failure)\n")
+	}
+	sb.WriteString("\n")
+
+	sb.WriteString("## Artifact Paths\n\n")
+	finalDir := filepath.Join(runDir, "final")
+	if entries, err := os.ReadDir(finalDir); err == nil {
+		for _, e := range entries {
+			if !e.IsDir() {
+				info, _ := e.Info()
+				sb.WriteString(fmt.Sprintf("- `%s` — %d bytes\n", e.Name(), info.Size()))
+			}
+		}
+	}
+	sb.WriteString("\n")
+
+	sb.WriteString(fmt.Sprintf("## Telemetry\n\n"))
+	sb.WriteString(fmt.Sprintf("- `telemetry/batch-index.json` — batch-level results\n"))
+	sb.WriteString(fmt.Sprintf("- `telemetry/run-metrics.json` — canonical metrics\n"))
+	if jiraParentKey != "" {
+		sb.WriteString(fmt.Sprintf("- `telemetry/jira-ledger.json` — Jira keys\n"))
+	}
+	sb.WriteString("\n")
+
+	sb.WriteString("## Escalations\n\n")
+	sb.WriteString("None.\n\n")
+
+	sb.WriteString("## Blockers / Anomalies\n\n")
+	if status == "failed" {
+		sb.WriteString("- All tasks failed — check L1 endpoint health\n")
+	} else if status == "partial" {
+		sb.WriteString("- Some tasks failed — review individual task logs\n")
+	} else if jiraParentKey == "" {
+		sb.WriteString("- Jira ledger did not fire — check JIRA_TOKEN in scheduler env\n")
+	} else {
+		sb.WriteString("None.\n")
+	}
+
+	path := filepath.Join(runDir, "final", "run-summary.md")
+	if err := os.WriteFile(path, []byte(sb.String()), 0644); err != nil {
+		log.Printf("[METRICS] Failed to write run-summary.md: %v", err)
+	} else {
+		log.Printf("[METRICS] Wrote %s", path)
+	}
+}
+
+// updateRollingMetrics appends to history and updates latest summary.
+func updateRollingMetrics(runDir, scheduleName, status string, output string, start time.Time, jiraParentKey string, jiraChildCount int) {
+	succeeded, failed, total, _ := parseBatchOutput(output)
+	wallSec := time.Since(start).Seconds()
+
+	metricsDir := envOr("METRICS_DIR", "/var/lib/zen-brain1/metrics")
+	if err := os.MkdirAll(metricsDir, 0755); err != nil {
+		log.Printf("[METRICS] WARNING: cannot write rolling metrics, dir %s not writable: %v", metricsDir, err)
+		return
+	}
+
+	// Append to history (JSONL — one object per line)
+	historyPath := filepath.Join(metricsDir, "history.jsonl")
+	entry := map[string]interface{}{
+		"run_id":                 filepath.Base(runDir),
+		"schedule_name":          scheduleName,
+		"status":                 status,
+		"started_at":             start.UTC().Format(time.RFC3339),
+		"wall_time_seconds":      int(wallSec),
+		"task_count_total":       total,
+		"task_count_l1_success":  succeeded,
+		"task_count_l1_fail":     failed,
+		"jira_parent_issue_key":  jiraParentKey,
+		"jira_child_issue_count": jiraChildCount,
+		"artifact_root":          runDir,
+		"timestamp":              time.Now().UTC().Format(time.RFC3339),
+	}
+	line, _ := json.Marshal(entry)
+	f, err := os.OpenFile(historyPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	if err != nil {
+		log.Printf("[METRICS] Failed to open history: %v", err)
+	} else {
+		f.Write(line)
+		f.Write([]byte("\n"))
+		f.Close()
+	}
+
+	// Write latest summary
+	latest := map[string]interface{}{
+		"last_run_id":            filepath.Base(runDir),
+		"last_schedule_name":     scheduleName,
+		"last_status":            status,
+		"last_wall_time_seconds": int(wallSec),
+		"last_task_count_total":  total,
+		"last_l1_success_count":  succeeded,
+		"last_l1_fail_count":     failed,
+		"last_escalation_count":  0,
+		"last_jira_parent_key":   jiraParentKey,
+		"last_jira_child_count":  jiraChildCount,
+		"last_artifact_root":     runDir,
+		"updated_at":             time.Now().UTC().Format(time.RFC3339),
+	}
+	latestData, _ := json.MarshalIndent(latest, "", "  ")
+	os.WriteFile(filepath.Join(metricsDir, "latest-summary.json"), latestData, 0644)
+	log.Printf("[METRICS] Updated rolling metrics: %s (%d history entries)", metricsDir, countLines(historyPath))
+}
+
+// countLines counts lines in a file.
+func countLines(path string) int {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return 0
+	}
+	n := 0
+	for _, b := range data {
+		if b == '\n' {
+			n++
+		}
+	}
+	return n
 }
 
 // --- Minimal stdlib helpers (no external deps) ---
