@@ -19,6 +19,9 @@ This directory contains detailed design specifications for Zen‑Brain component
 | [Ops Department](OPS_DEPARTMENT.md) | Jira-centric ops model (incidents, changes, deploys, approvals) | **Draft** |
 | [Agent Sandbox and Evaluation](SANDBOX_AND_EVALUATION.md) | Non-destructive evaluation lane for 1.1 (testing without production risk) | **Draft** |
 | [Model-Facing Files and Skills Policy](MODEL_FACING_FILES_AND_SKILLS_POLICY.md) | Policy for advisory-only AGENTS.md/WORKFLOW.md and bounded skills/subagents | **Draft** |
+| [Operating Model](OPERATING_MODEL.md) | 5-layer architecture (Leonardo → Board → Portfolio Office → Office → Factory) | **Active** |
+| [Portfolio Office Layer](PORTFOLIO_OFFICE_LAYER.md) | Missing layer definition — strategy decomposition and release slicing | **Design** |
+| [Roadmap Governance](ROADMAP_GOVERNANCE.md) | Version model (1.0/1.1/1.2/2.0) and roadmap decision process | **Active** |
 
 ## Upcoming Designs
 
