@@ -49,7 +49,7 @@ func (p *LocalWorkerProvider) Chat(ctx context.Context, req llm.ChatRequest) (*l
 		p.model, len(req.Messages), len(req.Tools))
 
 	// Simulate local model processing with context awareness
-	// In production, this would call Ollama, vLLM, or similar
+	// In production this calls llama.cpp (primary) or Ollama (L0 fallback)
 	select {
 	case <-time.After(50 * time.Millisecond): // Simulate processing delay
 	case <-ctx.Done():

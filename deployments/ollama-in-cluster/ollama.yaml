@@ -1,4 +1,6 @@
-# Ollama in-cluster (Block 5). Optional: enable with deploy.use_ollama in config/clusters.yaml.
+# Ollama in-cluster (Block 5) — **DEPRECATED (2026-03-26)**
+# DO NOT USE. Primary runtime is llama.cpp (L1/L2). Ollama fallback uses host Docker only.
+# Original: Ollama in-cluster (Block 5). Optional: enable with deploy.use_ollama in config/clusters.yaml.
 # Zen-brain workloads use OLLAMA_BASE_URL=http://ollama:11434 to reach this service.
 # Models are stored in the PVC; pull once with e.g. kubectl exec -it deploy/ollama -n zen-brain -- ollama pull qwen3.5:0.8b
 ---

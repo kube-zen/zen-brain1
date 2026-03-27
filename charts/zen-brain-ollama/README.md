@@ -1,4 +1,7 @@
-# zen-brain-ollama
+# zen-brain-ollama — **DISABLED BY DEFAULT**
+# This chart is for optional in-cluster Ollama deployment. It is NOT the active runtime.
+# Primary runtime: llama.cpp (L1/L2). Ollama: L0 fallback via host Docker only.
+# Original: zen-brain-ollama
 
 ## 🚨 LEGACY / UNSUPPORTED for Active Local CPU Path (ZB-023)
 
