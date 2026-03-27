@@ -49,6 +49,11 @@ Parent Issue (batch run / program / epic)
 | `ai:needs-review` | Task produced output requiring human review | Scheduler (validation) |
 | `ai:blocked` | Task failed validation or has blocker | Scheduler (validation) |
 | `ai:finding` | Auto-created from discovery finding | Finding ticketizer |
+| `ai:remediated` | AI performed remediation attempt | Remediation worker |
+| `pilot:phase39` | Part of Phase 39 remediation pilot | Remediation worker |
+| `quality:ready-with-review` | Passed quality gate, needs human ack | Quality gate |
+| `sred:*` | SR&ED uncertainty category | Remediation worker |
+| `irap:*` | IRAP work package | Remediation worker |
 
 ### Future Labels (Portfolio Office / Board)
 
@@ -108,6 +113,28 @@ When the Portfolio Office and Board layers are operational, Jira will also serve
 - **Capacity boards** — sprint/board views per department
 - **Governance dashboards** — filter by approval level, department, release
 - **Compliance evidence** — SR&ED/IRAP work items with evidence pack links
+
+## Ticket Quality Gate (Phase 39)
+
+Every AI-generated ticket must be execution-ready before entering the remediation queue:
+
+**Required fields:** title, problem, evidence, expected outcome, validation, routing recommendation
+
+**Quality rubric (0-25):**
+- Clarity (0-5): Is the problem clear?
+- Evidence Quality (0-5): Is evidence specific?
+- Boundedness (0-5): Is scope bounded?
+- Validation Clarity (0-5): Can success be verified?
+- Governance Completion (0-5): Are SR&ED/IRAP/project fields filled?
+
+**Readiness thresholds:**
+- ≥20/25 → ready_for_execution / ready_with_review
+- 15-19/25 → needs_review
+- <15/25 → blocked (do not proceed)
+
+**Normalization:** 0.8b drafts ticket content; code normalizes (strips fences, fixes YAML, removes spam) and quality-gates before Jira write. Raw L1 output never goes directly to Jira.
+
+**Phase 39 pilot:** 3/3 tickets scored ≥20/25 after normalization.
 
 ## Data Integrity
 
