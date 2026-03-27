@@ -24,7 +24,7 @@ jira:
   base_url: ""
   email: ""
   api_token: ""
-  project_key: "ZEN"
+  project_key: "ZB"
   # Canonical secret source (ONLY source in production/cluster mode)
   credentials_dir: "/zen-lock/secrets"  # ZenLock mounted directory
   # DEPRECATED: credentials_file is for local debugging only
