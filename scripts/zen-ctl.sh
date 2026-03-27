@@ -89,6 +89,16 @@ for s in d.get('schedules', []):
             *) echo "Unknown batch: $BATCH"; echo "Usage: $0 run {hourly|quad|daily}"; exit 1;;
         esac
         echo "Triggering $SCHED via internal scheduler..."
+        echo "  (using canonical env path from /etc/zen-brain1/jira.env)"
+        # Source the same env file the systemd service uses via EnvironmentFile
+        # This ensures manual runs and scheduled runs share the same auth context
+        JIRA_ENV="/etc/zen-brain1/jira.env"
+        if [[ -f "$JIRA_ENV" ]]; then
+            set -a; source "$JIRA_ENV"; set +a
+            info "Jira env loaded from $JIRA_ENV (project=$JIRA_PROJECT_KEY, email=$JIRA_EMAIL)"
+        else
+            warn "No Jira env file at $JIRA_ENV — Jira integration will be disabled"
+        fi
         SCHEDULE_DIR="$REPO/config/schedules" \
         STATE_DIR="/var/lib/zen-brain1/scheduler" \
         ARTIFACT_ROOT="/var/lib/zen-brain1/runs" \
