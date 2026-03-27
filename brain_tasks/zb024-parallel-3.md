@@ -1,3 +1,5 @@
+> **NOTE:** This task references Ollama. The current primary inference runtime is **llama.cpp** (L1/L2 lanes). Ollama (L0) is fallback only.
+
 ---
 apiVersion: v1alpha1
 kind: BrainTask

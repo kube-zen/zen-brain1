@@ -1,3 +1,5 @@
+# NOTE: References Ollama as local path. Current primary: llama.cpp (L1/L2). Ollama is L0 fallback only.
+
 apiVersion: zen.kube-zen.com/v1alpha1
 kind: BrainTask
 metadata:
