@@ -85,13 +85,13 @@ var taskDefs = map[string]ReportTaskDef{
 		Name: "defects", Title: "Defects Report", OutputFile: "defects.md",
 		Scope: "cmd/, internal/, pkg/ code patterns",
 		EvidenceCmd: []EvidenceCmd{
-			{Label: "Error handling in admission-gate", Cmd: "cat cmd/admission-gate/main.go 2>/dev/null | head -40", Lines: 45},
-			{Label: "Error handling in factory", Cmd: "grep -n 'if err\\|return err\\|panic(' internal/factory/factory.go 2>/dev/null | head -20", Lines: 25},
-			{Label: "Error handling in foreman", Cmd: "grep -n 'if err\\|return err\\|panic(' internal/foreman/reconciler.go 2>/dev/null | head -20", Lines: 25},
-			{Label: "Error handling in LLM providers", Cmd: "grep -n 'if err\\|return err\\|panic(' internal/llm/ollama_provider.go 2>/dev/null | head -20", Lines: 25},
+			{Label: "admission-gate code", Cmd: "head -50 cmd/admission-gate/main.go 2>/dev/null", Lines: 55},
+			{Label: "factory ExecuteTask code", Cmd: "grep -A5 'func.*ExecuteTask\\|func.*Dispatch' internal/factory/factory.go 2>/dev/null | head -30", Lines: 35},
+			{Label: "foreman reconciler error handling", Cmd: "grep -A3 'if err' internal/foreman/reconciler.go 2>/dev/null | head -20", Lines: 25},
+			{Label: "ollama provider error handling", Cmd: "grep -A3 'if err' internal/llm/ollama_provider.go 2>/dev/null | head -20", Lines: 25},
 		},
 		OutputSpec: OutputSpec{RequiredSections: []string{"Top Findings", "Summary"}, MaxFindings: 8, Format: "table"},
-		Prompt: "Based on the code evidence below, find defect patterns: nil pointer risk, unchecked errors, missing error handling, hardcoded secrets. For each finding state: file, line pattern, severity (HIGH/MEDIUM/LOW), issue description. Produce at most 8 findings. Use only files shown in the evidence.",
+		Prompt: "Based on the code evidence below, find defect patterns: nil pointer risk, unchecked errors, hardcoded secrets, missing error handling. For each finding state: file, line pattern, severity (HIGH/MEDIUM/LOW), issue description. Produce at most 8 findings. Use only code shown in the evidence.",
 	},
 	"tech_debt": {
 		Name: "tech_debt", Title: "Tech Debt Report", OutputFile: "tech-debt.md",
