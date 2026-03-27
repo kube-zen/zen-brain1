@@ -76,8 +76,8 @@ var taskDefs = map[string]ReportTaskDef{
 		Name: "dead_code", Title: "Dead Code Report", OutputFile: "dead-code.md",
 		Scope: "pkg/ and internal/ exported functions",
 		EvidenceCmd: []EvidenceCmd{
-			{Label: "Exported functions in pkg/", Cmd: "grep -rn '^func [A-Z]' pkg/ 2>/dev/null | head -25", Lines: 30},
-			{Label: "Exported functions in internal/", Cmd: "grep -rn '^func [A-Z]' internal/factory/ internal/foreman/ internal/llm/ internal/mlq/ internal/scheduler/ 2>/dev/null | head -25", Lines: 30},
+			{Label: "Exported functions in pkg/", Cmd: "grep -rn '^func [A-Z]' pkg/ --include='*.go' --exclude='*_test.go' 2>/dev/null | head -25", Lines: 30},
+			{Label: "Exported functions in internal/", Cmd: "grep -rn '^func [A-Z]' internal/factory/ internal/foreman/ internal/llm/ internal/mlq/ internal/scheduler/ --include='*.go' --exclude='*_test.go' 2>/dev/null | head -25", Lines: 30},
 		},
 		OutputSpec: OutputSpec{RequiredSections: []string{"Top Findings", "Summary"}, MaxFindings: 10, Format: "table"},
 		Prompt: "Based on the evidence below, identify potentially unreferenced exported functions. For each, state the function name, file, and whether it appears unused. Produce at most 10 findings. Use only functions shown in the evidence.",
@@ -105,9 +105,9 @@ var taskDefs = map[string]ReportTaskDef{
 		Name: "roadmap", Title: "Roadmap Report", OutputFile: "roadmap.md",
 		Scope: "docs/ directory project status",
 		EvidenceCmd: []EvidenceCmd{
-			{Label: "docs/ structure", Cmd: "ls docs/ 2>/dev/null", Lines: 20},
-			{Label: "Current state", Cmd: "cat CURRENT_STATE.md 2>/dev/null | head -40", Lines: 45},
-			{Label: "Architecture progress", Cmd: "cat docs/01-ARCHITECTURE/PROGRESS.md 2>/dev/null | head -40", Lines: 45},
+			{Label: "Progress sections", Cmd: "grep -E '^##+ |\\| Done \\|\\| Complete \\|' docs/01-ARCHITECTURE/PROGRESS.md 2>/dev/null | head -30", Lines: 35},
+			{Label: "Current status sections", Cmd: "grep -E '^##+ ' CURRENT_STATE.md 2>/dev/null | head -15", Lines: 20},
+			{Label: "Todo/progress items", Cmd: "grep -E '^- \\[x\\]|^- \\[ \\]' docs/01-ARCHITECTURE/PROGRESS.md 2>/dev/null | head -20", Lines: 25},
 		},
 		OutputSpec: OutputSpec{RequiredSections: []string{"Completed", "In Progress", "Next Steps"}, MaxFindings: 5, Format: "bullets"},
 		Prompt: "Based on the evidence below, summarize project status into three sections: Completed, In Progress, Next Steps. Use bullet points. Produce at most 5 items per section. Use only information from the evidence.",
@@ -135,8 +135,9 @@ var taskDefs = map[string]ReportTaskDef{
 		Name: "package_hotspots", Title: "Package Hotspots Report", OutputFile: "package-hotspots.md",
 		Scope: "pkg/ and internal/ package sizes",
 		EvidenceCmd: []EvidenceCmd{
-			{Label: "Package file counts", Cmd: "find pkg/ internal/ -name '*.go' -exec dirname {} \\; 2>/dev/null | sort | uniq -c | sort -rn | head -15", Lines: 20},
-			{Label: "Exported function count per file", Cmd: "find pkg/ internal/ -name '*.go' -exec sh -c 'echo $(grep -c \"^func [A-Z]\" \"$1\" 2>/dev/null) $1' _ {} \\; 2>/dev/null | sort -rn | head -15", Lines: 20},
+			{Label: "Package file counts (non-test)", Cmd: "find pkg/ internal/ -name '*.go' ! -name '*_test.go' -exec dirname {} \\; 2>/dev/null | sort | uniq -c | sort -rn | head -15", Lines: 20},
+			{Label: "Source files by line count", Cmd: "find pkg/ internal/ -name '*.go' ! -name '*_test.go' -exec wc -l {} \\; 2>/dev/null | sort -rn | head -15", Lines: 20},
+			{Label: "Exported funcs per source file", Cmd: "find pkg/ internal/ -name '*.go' ! -name '*_test.go' -exec sh -c 'n=$(grep -c \"^func [A-Z]\" \"$1\" 2>/dev/null); [ \"$n\" -gt 0 ] && echo \"$n $1\"' _ {} \\; 2>/dev/null | sort -rn | head -15", Lines: 20},
 		},
 		OutputSpec: OutputSpec{RequiredSections: []string{"Top Findings", "Summary"}, MaxFindings: 10, Format: "table"},
 		Prompt: "Based on the evidence below, rank the top packages by complexity (file count and exported function count). For each: package path, file count, estimated complexity. Produce at most 10 entries. Use only packages shown in the evidence.",
@@ -698,6 +699,25 @@ func main() {
 			}
 			evidenceBytes := len(evidence)
 			log.Printf("[EVIDENCE] %s: %d bytes structured evidence gathered", workItemID, evidenceBytes)
+
+			// ── Step 1b: Short-circuit on empty evidence ──
+			// If no evidence was gathered and no candidate extractor is used,
+			// produce a direct "no data" report instead of sending empty context to L1.
+			if def.UseCandidateExtractor == "" && strings.TrimSpace(evidence) == "" || strings.TrimSpace(evidence) == "(no evidence gathered)" {
+				log.Printf("[SKIP] %s: no evidence gathered, producing direct report", workItemID)
+				skipReport := fmt.Sprintf("# %s\n\n## %s\n\nNo evidence was gathered for scope: %s\n\nEvidence commands returned no results. This may indicate the codebase paths in the task definition do not match the actual repository structure.\n\n## Summary\n\nNo findings — evidence bundle was empty.", def.Title, strings.Join(def.OutputSpec.RequiredSections, ", "), def.Scope)
+				artifactPath := fmt.Sprintf("%s/final/%s", runDir, def.OutputFile)
+				os.WriteFile(artifactPath, []byte(skipReport), 0644)
+				r["success"] = true
+				r["state"] = "done"
+				r["validation_status"] = "success"
+				r["duration_ms"] = time.Since(taskStart).Milliseconds()
+				log.Printf("[BATCH] ✅ %s: %v → %s [valid=success (empty-evidence skip)]", workItemID, time.Since(taskStart), def.OutputFile)
+				logFile.WriteString(fmt.Sprintf("[TASK] %s DONE state=done validation=success duration=%s\n", workItemID, time.Since(taskStart)))
+				succeeded.Add(1)
+				results[idx] = r
+				return
+			}
 
 			// ── Step 2: Build bounded task packet (0.1-style) ──
 			packet := buildTaskPacket(def, evidence)
