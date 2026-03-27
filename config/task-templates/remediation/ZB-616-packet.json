@@ -1,0 +1,16 @@
+{
+  "jira_key": "ZB-616",
+  "related_project": "zen-brain1",
+  "human_approval_level": 2,
+  "problem_summary": "Missing remediation template for ai:finding tickets marked as bounded_fix_l1. The existing templates (quickwin-l1.yaml, pilot/*) don't define a specific template for the remediation pipeline's bounded L1 fix path. Need a template that defines how bounded_fix_l1 flagged findings get processed.",
+  "target_files": "config/task-templates/remediation-bounded-fix-l1.yaml",
+  "evidence_paths": "config/task-templates/quickwin-l1.yaml, config/task-templates/README.md, config/task-templates/pilot/success-docs.yaml",
+  "success_criteria": "1. A new file config/task-templates/remediation-bounded-fix-l1.yaml exists\n2. It follows the task template schema from README.md\n3. It defines role=worker, queue_level=1, operation_type=provider\n4. It includes acceptance_criteria for bounded fix verification\n5. It includes verification steps that can be automated\n6. It specifies allowed_paths to prevent scope creep\n7. The YAML is valid and parseable",
+  "validation_cmds": "python3 -c \"import yaml; t=yaml.safe_load(open('config/task-templates/remediation-bounded-fix-l1.yaml')); assert t.get('name')=='remediation-bounded-fix-l1'; assert t.get('role')=='worker'; assert t.get('queue_level')==1; print('Template valid')\"",
+  "output_contract": "A single YAML file at config/task-templates/remediation-bounded-fix-l1.yaml. Must include: name, display_name, description, role (worker), operation_type (provider), queue_level (1), planner_prompt_template with remediation-specific instructions, acceptance_criteria, verification steps, allowed_paths, and timeout_profile (normal-45m).",
+  "compliance": {
+    "sred_uncertainty": "SR&ED: Automated remediation template system for AI-driven code fixes",
+    "irap_work_package": "IRAP-WP-003: Automated remediation pipeline infrastructure",
+    "evidence_pack_link": "evidence-2026-03/rem-ZB-616"
+  }
+}

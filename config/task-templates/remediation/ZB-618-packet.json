@@ -1,0 +1,16 @@
+{
+  "jira_key": "ZB-618",
+  "related_project": "zen-brain1",
+  "human_approval_level": 2,
+  "problem_summary": "Retention policy enforcement script exists but is not wired into the scheduler for automatic 24h cleanup. Need to create a schedule config that integrates the retention enforcement into the daily scheduler cycle.",
+  "target_files": "config/schedules/retention-enforcement.yaml",
+  "evidence_paths": "config/schedules/daily-sweep.yaml, config/schedules/hourly-scan.yaml, config/supervision/zen-brain1-daily-sweep.timer, config/supervision/zen-brain1-daily-sweep.service",
+  "success_criteria": "1. A new file config/schedules/retention-enforcement.yaml exists\n2. It defines a daily cadence schedule for retention enforcement\n3. It specifies the tasks or cleanup operations to perform\n4. It references data retention policy (24h cleanup)\n5. The YAML is valid and follows the existing schedule config pattern\n6. A corresponding systemd service file exists at config/supervision/zen-brain1-retention-enforcement.service\n7. A corresponding systemd timer file exists at config/supervision/zen-brain1-retention-enforcement.timer",
+  "validation_cmds": "python3 -c \"import yaml; s=yaml.safe_load(open('config/schedules/retention-enforcement.yaml')); assert s.get('cadence')=='daily'; print('Schedule valid')\"",
+  "output_contract": "Three files: (1) config/schedules/retention-enforcement.yaml — schedule config with daily cadence, retention tasks, 24h cleanup window. (2) config/supervision/zen-brain1-retention-enforcement.service — systemd service unit. (3) config/supervision/zen-brain1-retention-enforcement.timer — systemd timer unit firing daily at 02:00.",
+  "compliance": {
+    "sred_uncertainty": "SR&ED: Automated data retention compliance enforcement",
+    "irap_work_package": "IRAP-WP-004: Data retention and compliance automation",
+    "evidence_pack_link": "evidence-2026-03/rem-ZB-618"
+  }
+}

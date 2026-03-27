@@ -1,0 +1,34 @@
+# Retention Enforcement Schedule
+# Purpose: Automatic 24-hour data retention policy enforcement
+# Related: ZB-618, config/supervision/zen-brain1-retention-enforcement.{service,timer}
+
+name: retention-enforcement
+cadence: daily
+description: >
+  Enforce 24-hour data retention policy by cleaning up stale run artifacts,
+  evidence packs older than retention window, and temporary files before expiration.
+  Prevents data loss and compliance violations from lapsed manual enforcement.
+schedule_time: "02:00"
+tasks:
+  - name: cleanup_stale_runs
+    action: delete_older_than
+    target: /var/lib/zen-brain1/runs/
+    max_age_hours: 168  # 7 days
+    reason: Remove run artifacts older than 7 days
+
+  - name: cleanup_temp_files
+    action: delete_older_than
+    target: /tmp/zen-brain1-*
+    max_age_hours: 24
+    reason: Remove temporary files older than 24 hours
+
+  - name: validate_evidence_packs
+    action: validate
+    target: /var/lib/zen-brain1/evidence/
+    reason: Verify evidence pack integrity after cleanup
+
+  - name: cleanup_old_logs
+    action: rotate
+    target: /var/log/zen-brain1/
+    max_age_days: 30
+    reason: Rotate logs older than 30 days

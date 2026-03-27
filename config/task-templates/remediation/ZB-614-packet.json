@@ -1,0 +1,16 @@
+{
+  "jira_key": "ZB-614",
+  "related_project": "zen-brain1",
+  "human_approval_level": 2,
+  "problem_summary": "L2 quality gate policy mandates L2 grades be applied to L1 output when flagged, but the current implementation allows unbounded synthesis when items are not flagged, violating the L2 quality gate policy. The fix must ensure L2 only performs bounded synthesis when grading L1 output.",
+  "target_files": "config/policy/l2-quality-gate.yaml",
+  "evidence_paths": "config/policy/routing.yaml, config/policy/chains.yaml, config/policy/roles.yaml, internal/intelligence/index.go",
+  "success_criteria": "1. A new file config/policy/l2-quality-gate.yaml exists\n2. It defines L2 grading rules that only apply bounded synthesis when L1 output is flagged\n3. It references the existing routing and chain policies\n4. The YAML is valid and parseable\n5. No Go code changes required — this is a policy config addition",
+  "validation_cmds": "python3 -c \"import yaml; yaml.safe_load(open('config/policy/l2-quality-gate.yaml')); print('YAML valid')\"",
+  "output_contract": "A single YAML file at config/policy/l2-quality-gate.yaml containing L2 quality gate rules. The file must define: (1) when L2 grades L1 output (flagged items only), (2) bounded synthesis rules (max file count, max lines, allowed operations), (3) rejection criteria for unbounded requests.",
+  "compliance": {
+    "sred_uncertainty": "SR&ED: Automated quality gate policy for AI remediation pipeline",
+    "irap_work_package": "IRAP-WP-003: Automated remediation quality assurance",
+    "evidence_pack_link": "evidence-2026-03/rem-ZB-614"
+  }
+}

@@ -1,0 +1,94 @@
+# Remediation Bounded Fix L1 Template
+# Purpose: Process ai:finding tickets flagged as bounded_fix_l1 through the L1 fix path.
+# This is the operational template for the remediation pipeline's bounded L1 lane.
+
+name: remediation-bounded-fix-l1
+display_name: Bounded Fix L1 (Remediation)
+description: Template for processing ai:finding tickets flagged as bounded_fix_l1. This workflow handles the L1 fix path for bounded scope remediation.
+version: '1.0'
+
+role: worker
+operation_type: provider
+
+# AI Configuration
+executor_ai: ''
+target_model: qwen3.5
+max_blueprint_size: 5000
+
+can_split_operations: false
+max_concurrent: 1
+queue_level: 1
+priority: 5
+estimated_hours: 0.1
+
+# Prompt template — remediation-specific, tool-aware
+planner_prompt_template: |
+  You are completing remediation task {{.WorkItemID}}.
+
+  GOAL: {{.Summary}}
+
+  TARGET FILE: {{.TargetFile}}
+  PACKAGE: {{.PackageName}}
+
+  TOOLS AVAILABLE: read_file, search_file, run_command
+
+  EXISTING CODE:
+  {{.ExistingCode}}
+
+  {{if .AdjacentContext}}
+  CONTEXT FILE: {{.AdjacentFileName}}
+  {{.AdjacentContext}}
+  {{end}}
+
+  RULES:
+  - Apply the specific bounded fix identified in the finding.
+  - Modify the target file in place. Package must remain "{{.PackageName}}".
+  - Use ONLY symbols already defined in the existing code or context file.
+  - Do NOT invent new types, interfaces, or imports.
+  - Do NOT create new files unless explicitly asked.
+  - Do NOT perform repo-wide refactors or architecture changes.
+  - After editing, run: go build ./{{.PackagePath}} && go test ./{{.PackagePath}}
+
+  OUTPUT: Return only the complete modified file content. No explanation needed.
+
+# Acceptance criteria for bounded fix remediation
+acceptance_criteria:
+  - Target file has been modified with the specific fix
+  - Fix addresses the finding described in the ticket
+  - No unrelated files are changed
+  - Build passes after the fix (if applicable)
+  - No new lint errors introduced
+
+# Verification steps
+verification:
+  allowed_paths:
+    - config/
+    - internal/
+    - docs/
+    - scripts/
+  steps:
+    - description: Validate target file exists
+      command: "test -f {{.TargetFile}}"
+    - description: Build check (if Go code)
+      command: "go build ./... 2>&1"
+    - description: YAML validity (if config file)
+      command: "python3 -c \"import yaml; yaml.safe_load(open('{{.TargetFile}}'))\""
+
+# L1-specific config
+config:
+  timeout: 600           # 10 min for bounded fixes
+  max_prompt_chars: 2000  # Keep prompt short for 0.8B
+  max_context_bytes: 8000  # Target file + one adjacent file
+  require_warmup: true
+  require_tools: true
+
+# Timeout profile
+timeout_profile: normal-45m
+
+# Task labels
+labels:
+  - ai:remediated
+  - bounded_fix_l1
+
+# Controlled failure flag
+controlled_failure: false
