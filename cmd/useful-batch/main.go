@@ -174,7 +174,7 @@ var taskDefs = map[string]ReportTaskDef{
 			{Label: "Recent git activity", Cmd: "git log --oneline -10 2>/dev/null", Lines: 15},
 		},
 		OutputSpec: OutputSpec{RequiredSections: []string{"Key Facts", "Recommended Actions"}, MaxFindings: 5, Format: "bullets"},
-		Prompt: "Based on the evidence below, write a concise summary with exactly 2 sections: Key Facts (5 bullets) and Recommended Actions (3 bullets). Use only information from the evidence.",
+		Prompt: "Write a summary with exactly two ## headings: '## Key Facts' and '## Recommended Actions'. Under Key Facts, write 5 bullet points. Under Recommended Actions, write 3 bullet points. Use only information from the evidence. Start with a # heading.",
 	},
 }
 
@@ -571,7 +571,7 @@ func dispatchTask(endpoint, model, workItemID, packet, artifactPath string, time
 	body, _ := json.Marshal(map[string]interface{}{
 		"model": model,
 		"messages": []map[string]string{
-			{"role": "system", "content": "You are a code analyst. Write short factual markdown. Only use files and data from the Evidence Bundle. Do not invent anything. Do not generate Go code."},
+			{"role": "system", "content": "You are a code analyst. Write short factual markdown. You MUST start your response with a # heading. Use ## headings for sections. Use only files and data from the Evidence Bundle. Do not invent anything. Do not generate Go code."},
 			{"role": "user", "content": packet},
 		},
 		"max_tokens":             2048,
