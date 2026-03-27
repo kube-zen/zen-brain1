@@ -93,6 +93,27 @@ sudo journalctl -u zen-brain1-l2 -f
 > **Rule:** Never evaluate Jira integration proof using a bare binary invocation that
 > does not load `/etc/zen-brain1/jira.env`. Both paths must share the same auth context.
 
+### Task Class Stability (PHASE 37)
+
+All 10 task classes validated in the PHASE 37 full regression (run 20260327-142209).
+
+| Class | Strategy | Stable? | Notes |
+|-------|----------|---------|-------|
+| defects | Pre-extracted candidates | ✅ | Dedup + diversity cap |
+| bug_hunting | Pre-extracted candidates | ✅ | Same pattern |
+| stub_hunting | Pre-extracted candidates | ✅ | Same pattern |
+| tech_debt | grep TODO/FIXME | ✅ | Simple grep |
+| executive_summary | Direct file content | ✅ | Reads CURRENT_STATE.md |
+| config_drift | grep config patterns | ✅ | Deterministic |
+| test_gaps | find + comm | ⚠️ | Intermittent — 1/10 fail |
+| dead_code | grep exported funcs | ✅ | Fixed: exclude test files |
+| roadmap | grep progress items | ✅ | Fixed: structured evidence |
+| package_hotspots | find + wc -l | ✅ | Fixed: exclude test files |
+
+The 3 blocked classes (dead_code, roadmap, package_hotspots) were fixed in PHASE 37
+by improving evidence bundle quality — excluding test files and using structured grep
+instead of raw file dumps. See `docs/05-OPERATIONS/evidence/phase37-blocked-class-analysis.md`.
+
 ## Health Checks
 
 ```bash
