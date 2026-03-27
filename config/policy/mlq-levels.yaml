@@ -89,7 +89,7 @@ mlq_levels:
       target_rps: 0.5  # 0.5 request per second
       max_latency_seconds: 3600  # 60 minutes max
 
-  # Fallback/Control: Current working backend (Ollama)
+  # Fallback/Control: Ollama (L0) — FALLBACK ONLY. Primary is llama.cpp (L1/L2).
   # Keep existing control path until llama.cpp MLQ is proven
   - level: 0
     name: "fallback-control"

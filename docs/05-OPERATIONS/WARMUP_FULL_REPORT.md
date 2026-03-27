@@ -1,4 +1,6 @@
-# Full Report: How to Warm Up the 0.8B Model (Ollama)
+# Full Report: How to Warm Up the 0.8B Model — **Ollama L0 Fallback**
+
+> **NOTE:** This covers warmup for the Ollama L0 fallback lane. Primary runtime is **llama.cpp** (L1/L2). Model (Ollama)
 
 This document is the single detailed reference for warming up the **qwen3.5:0.8b** model (and other Ollama models) in the zen-brain / zen-brain1 ecosystem. It covers manual steps, curl commands, troubleshooting, and where warmup runs in code.
 

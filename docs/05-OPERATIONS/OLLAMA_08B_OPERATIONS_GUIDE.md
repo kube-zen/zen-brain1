@@ -1,4 +1,6 @@
-# Ollama 0.8B Operations Guide
+# Ollama 0.8B Operations Guide — **L0 FALLBACK ONLY**
+
+> **⚠️ FALLBACK PATH:** This guide covers the Ollama (L0) fallback lane. The **primary** inference runtime is **llama.cpp** (L1/L2 lanes). See `docs/03-DESIGN/LOCAL_LLM_ESCALATION_LADDER.md` for the lane hierarchy. This lane is used only when L1/L2 are unavailable.
 
 **Status:** ✅ **PRODUCTION-VALIDATED**
 **Last Updated:** 2026-03-20 (ZB-023)
