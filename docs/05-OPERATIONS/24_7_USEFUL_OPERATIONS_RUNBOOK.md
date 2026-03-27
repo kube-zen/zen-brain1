@@ -204,3 +204,49 @@ Each batch produces `batch-index.json` with:
 - [Local LLM Escalation Ladder](../03-DESIGN/LOCAL_LLM_ESCALATION_LADDER.md) — escalation architecture
 - [L1/L2 Lane Runbook](L1_L2_LANE_RUNBOOK.md) — operational procedure
 - [Workload Schedule](../../config/supervision/workload-schedule.yaml) — cron schedule config
+
+## Run Metrics (Phase 33)
+
+Every scheduled batch writes three metrics artifacts:
+
+### Per-Run (written to each run directory)
+
+| Artifact | Path | Description |
+|----------|------|-------------|
+| `run-metrics.json` | `<run-root>/telemetry/run-metrics.json` | Machine-readable: task counts, wall time, Jira keys, status |
+| `run-summary.md` | `<run-root>/final/run-summary.md` | Human-readable: task outcomes, artifacts, Jira links, blockers |
+
+### Rolling Aggregates (written after every run)
+
+| Artifact | Path | Description |
+|----------|------|-------------|
+| `latest-summary.json` | `/var/lib/zen-brain1/metrics/latest-summary.json` | Most recent run summary (overwritten) |
+| `history.jsonl` | `/var/lib/zen-brain1/metrics/history.jsonl` | Append-only JSONL, one line per completed run |
+
+### Operator Commands
+
+```bash
+./scripts/zen-ctl.sh latest     # Latest run metrics + artifacts
+./scripts/zen-ctl.sh metrics    # Rolling history + latest summary
+./scripts/zen-ctl.sh status     # Schedule status with next_due
+```
+
+### Recovery
+
+- If rolling metrics path is not writable, scheduler logs `[METRICS] WARNING` and continues
+- Fix: `sudo mkdir -p /var/lib/zen-brain1/metrics && sudo chown neves:neves /var/lib/zen-brain1/metrics`
+- Per-run metrics are never skipped (written even on failed batches)
+
+### State Directories
+
+| Directory | Owner | Purpose |
+|-----------|-------|---------|
+| `/run/zen-brain1/scheduler/` | neves | **Daemon state** (last_run, next_due) — authoritative |
+| `/var/lib/zen-brain1/metrics/` | neves | Rolling metrics (latest-summary, history) |
+| `/var/lib/zen-brain1/runs/` | neves | Per-run artifacts + telemetry |
+
+### next_due Interpretation
+
+- `next_due` in `scheduler-status.json` and per-schedule state files shows when each schedule will fire next
+- Zero-value (`0001-01-01`) indicates stale state from older code — safe to ignore after restart
+- Daemon recomputes `next_due` correctly after each run using `cadenceDuration` (hourly/quad-hourly/daily)
