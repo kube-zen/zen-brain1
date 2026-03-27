@@ -1,4 +1,6 @@
-# llama.cpp vs Ollama: 2×2 matrix (stack × quantization)
+# llama.cpp vs Ollama — **llama.cpp is Primary**
+
+> **NOTE:** This benchmark compares stacks, but the **production runtime is llama.cpp** (L1/L2). Ollama (L0) is fallback only. See `docs/03-DESIGN/SMALL_MODEL_STRATEGY.md` for lane policy.: 2×2 matrix (stack × quantization)
 
 Generated: 2026-03-22T08:10:56-04:00
 

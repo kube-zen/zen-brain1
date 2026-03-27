@@ -1,5 +1,7 @@
 # Known-Good Runtime Profile - Zen-Brain 1.0
 
+> **NOTE:** This documents a proven configuration including the Ollama L0 fallback lane. The **primary** runtime is **llama.cpp** (L1/L2).
+
 **Date:** 2026-03-13
 **Commit:** be3d531
 **Status:** ✅ FROZEN - DO NOT MODIFY WITHOUT EVIDENCE

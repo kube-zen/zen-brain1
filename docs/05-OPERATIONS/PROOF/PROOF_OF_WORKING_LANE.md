@@ -1,4 +1,6 @@
-# Proof of Working Lane - Zen-Brain 1.0
+# Proof of Working Lane — **Ollama L0 Fallback Lane**
+
+> **NOTE:** This document proves the Ollama L0 fallback lane. The **primary** runtime is **llama.cpp** (L1/L2). - Zen-Brain 1.0
 
 **Date:** 2026-03-13
 **Commit:** be3d531 (Ollama deployment model lock)

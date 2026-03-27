@@ -1,5 +1,7 @@
 # Overnight Operations Runbook
 
+> **NOTE:** The primary inference runtime is **llama.cpp** (L1/L2). Ollama (L0) is fallback only. Ollama-related procedures in this runbook are for the fallback lane.
+
 **ZB-024C: 5-Worker CPU-Only Operations**
 
 This runbook describes how to operate zen-brain1 in unattended overnight mode with 5 parallel workers using qwen3.5:0.8b on CPU.

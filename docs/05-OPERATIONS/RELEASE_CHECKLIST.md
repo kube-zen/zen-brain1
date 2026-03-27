@@ -82,7 +82,7 @@
 - [x] Helmfile converges successfully
 - [x] foreman: 1/1 Ready
 - [x] apiserver: 1/1 Ready
-- [x] ollama-0: 1/1 Running
+- ollama-0: L0 fallback only (disabled by default, `use_ollama: false`)
 - [x] Model preload succeeds (qwen3.5:0.8b)
 - [x] Health probes passing
 - [x] Real inference working end-to-end

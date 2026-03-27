@@ -1,5 +1,7 @@
 # Development Environment Setup
 
+> **NOTE:** The primary inference runtime is **llama.cpp** (L1/L2 lanes). Ollama (L0) is a certified fallback path only. See `docs/03-DESIGN/LOCAL_LLM_ESCALATION_LADDER.md` for the lane hierarchy.
+
 This guide walks through setting up a complete Zen‑Brain development environment on a fresh Linux/macOS machine.
 
 ## Prerequisites

@@ -1,4 +1,6 @@
-# Ollama warmup runbook (Block 5 local-worker)
+# Ollama warmup runbook — **L0 FALLBACK ONLY**
+
+> **⚠️ FALLBACK PATH:** This runbook covers warmup for the Ollama (L0) fallback lane. Primary runtime is **llama.cpp** (L1/L2). (Block 5 local-worker)
 
 ## 📌 Source of Truth
 
