@@ -1,4 +1,8 @@
-# Ollama in-cluster (Block 5) – LEGACY / UNSUPPORTED for Active Local CPU Path
+# Ollama in-cluster (Block 5) — **DEPRECATED**
+
+> ⚠️ **DEPRECATED (2026-03-26):** This directory is legacy and no longer maintained. The primary runtime is **llama.cpp** (L1/L2). Ollama (L0) is fallback only via **host Docker**, never in-cluster. See `deploy/README.md` and `docs/03-DESIGN/LOCAL_LLM_ESCALATION_LADDER.md`.
+>
+> **Original warning (ZB-023):** This path is LEGACY and UNSUPPORTED for active local CPU path
 
 > ⚠️ **WARNING: This path is LEGACY and UNSUPPORTED for active local CPU path (ZB-023)**
 >

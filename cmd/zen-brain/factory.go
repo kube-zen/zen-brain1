@@ -52,7 +52,7 @@ func printFactoryUsage() {
 	fmt.Println("  cleanup [--all]     Clean up old workspaces (or all with --all)")
 	fmt.Println()
 	fmt.Println("Options:")
-	fmt.Println("  --llm               Enable LLM-powered code generation (requires OLLAMA_BASE_URL)")
+	fmt.Println("  --llm               Enable LLM-powered code generation (requires OLLAMA_BASE_URL or llama.cpp endpoint)")
 	fmt.Println("  --json              Output as JSON")
 	fmt.Println("  --full              Show complete proof details")
 }
