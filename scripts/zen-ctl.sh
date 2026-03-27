@@ -94,8 +94,14 @@ for s in d.get('schedules', []):
         # This ensures manual runs and scheduled runs share the same auth context
         JIRA_ENV="/etc/zen-brain1/jira.env"
         if [[ -f "$JIRA_ENV" ]]; then
-            set -a; source "$JIRA_ENV"; set +a
-            info "Jira env loaded from $JIRA_ENV (project=$JIRA_PROJECT_KEY, email=$JIRA_EMAIL)"
+            if [[ -r "$JIRA_ENV" ]]; then
+                set -a; source "$JIRA_ENV"; set +a
+                info "Jira env loaded from $JIRA_ENV (project=$JIRA_PROJECT_KEY, email=$JIRA_EMAIL)"
+            else
+                # File exists but not readable — load via sudo (does not expose secrets to shell history)
+                eval "$(sudo cat "$JIRA_ENV" | sed 's/^/export /')"
+                info "Jira env loaded via sudo from $JIRA_ENV (project=$JIRA_PROJECT_KEY, email=$JIRA_EMAIL)"
+            fi
         else
             warn "No Jira env file at $JIRA_ENV — Jira integration will be disabled"
         fi
