@@ -1,5 +1,11 @@
-# Binaries for programs and plugins (root-only; cmd/apiserver and cmd/foreman source are tracked)
+# Binaries for programs and plugins
 bin/
+/useful-batch
+/scheduler
+cmd/useful-batch/useful-batch
+cmd/scheduler/scheduler
+cmd/admission-gate/admission-gate
+cmd/jira-ledger/jira-ledger
 /apiserver
 /foreman
 /zen-brain
