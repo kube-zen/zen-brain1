@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -9,6 +10,9 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -28,9 +32,162 @@ import (
 //   L1_MODEL         — L1 model name (default: Qwen3.5-0.8B-Q4_K_M.gguf)
 
 const (
-	defaultEndpoint = "http://localhost:56227/v1/chat/completions"
-	defaultModel    = "Qwen3.5-0.8B-Q4_K_M.gguf"
+	defaultEndpoint  = "http://localhost:56227/v1/chat/completions"
+	defaultModel     = "Qwen3.5-0.8B-Q4_K_M.gguf"
+	evidenceMaxLines = 150 // bound evidence to ~150 lines per task
 )
+
+// repoRoot resolves the repo root directory (default: parent of binary location).
+func repoRoot() string {
+	if r := os.Getenv("REPO_ROOT"); r != "" {
+		return r
+	}
+	exe, _ := os.Executable()
+	return filepath.Dir(filepath.Dir(exe))
+}
+
+// runGather executes a shell command in the repo root and returns output trimmed to maxLines.
+func runGather(repoRoot, cmd string, maxLines int) string {
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	c := exec.CommandContext(ctx, "bash", "-c", cmd)
+	c.Dir = repoRoot
+	out, err := c.CombinedOutput()
+	if err != nil {
+		log.Printf("[EVIDENCE] gather command failed: %s — %v", cmd, err)
+		return ""
+	}
+	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+	if len(lines) > maxLines {
+		lines = lines[:maxLines]
+		lines = append(lines, fmt.Sprintf("... (truncated to %d lines)", maxLines))
+	}
+	return strings.Join(lines, "\n")
+}
+
+// gatherEvidence produces real repo evidence for each task class.
+func gatherEvidence(taskClass, root string) string {
+	switch taskClass {
+	case "dead_code":
+		return runGather(root, "grep -rn '^func ' pkg/ internal/ 2>/dev/null | head -50", evidenceMaxLines)
+	case "defects":
+		return runGather(root, "find cmd/ internal/ pkg/ -name '*.go' 2>/dev/null | head -40", evidenceMaxLines)
+	case "tech_debt":
+		todo := runGather(root, "grep -rn 'TODO\\|FIXME\\|HACK\\|XXX\\|DEPRECATED' cmd/ internal/ pkg/ 2>/dev/null | head -60", 80)
+		longFuncs := runGather(root, "find cmd/ internal/ pkg/ -name '*.go' -exec wc -l {} \\; 2>/dev/null | sort -rn | head -15", 20)
+		return todo + "\n\n## Long files (by line count)\n" + longFuncs
+	case "roadmap":
+		ls := runGather(root, "ls docs/ 2>/dev/null", 20)
+		progress := runGather(root, "cat docs/01-ARCHITECTURE/PROGRESS.md 2>/dev/null | head -60", 60)
+		changelog := runGather(root, "cat CHANGELOG.md 2>/dev/null | head -30", 30)
+		return "## docs/ listing\n" + ls + "\n\n## PROGRESS.md\n" + progress + "\n\n## CHANGELOG.md\n" + changelog
+	case "bug_hunting":
+		return runGather(root, "find cmd/ internal/ pkg/ -name '*.go' 2>/dev/null | head -40", evidenceMaxLines)
+	case "stub_hunting":
+		funcs := runGather(root, "grep -rn '^func ' cmd/ internal/ pkg/ 2>/dev/null | head -40", 60)
+		panics := runGather(root, "grep -rn 'panic(' cmd/ internal/ pkg/ 2>/dev/null | head -20", 25)
+		return "## Exported functions\n" + funcs + "\n\n## Panic calls\n" + panics
+	case "package_hotspots":
+		return runGather(root, "find pkg/ internal/ -name '*.go' -exec dirname {} \\; 2>/dev/null | sort | uniq -c | sort -rn | head -25", evidenceMaxLines)
+	case "test_gaps":
+		withTest := runGather(root, "find . -name '*_test.go' 2>/dev/null | sed 's|/[^/]*$||' | sort -u | head -25", 30)
+		withoutTest := runGather(root, "find cmd/ internal/ pkg/ -name '*.go' ! -name '*_test.go' 2>/dev/null | sed 's|/[^/]*$||' | sort -u | head -25", 30)
+		return "## Packages WITH tests\n" + withTest + "\n\n## Packages WITHOUT tests\n" + withoutTest
+	case "config_drift":
+		configFiles := runGather(root, "find config/ -name '*.yaml' 2>/dev/null | head -20", 25)
+		docsFiles := runGather(root, "ls docs/05-OPERATIONS/ 2>/dev/null | head -20", 25)
+		return "## Config files\n" + configFiles + "\n\n## Operations docs\n" + docsFiles
+	case "executive_summary":
+		state := runGather(root, "cat CURRENT_STATE.md 2>/dev/null | head -50", 50)
+		return state
+	default:
+		return runGather(root, "ls cmd/ internal/ pkg/ 2>/dev/null | head -30", 30)
+	}
+}
+
+// ValidationResult captures the outcome of output validation.
+type ValidationResult struct {
+	Status string   // success, success-needs-review, artifact-fail, context-fail
+	Issues []string // human-readable reasons
+}
+
+// validateReport checks that report output is grounded and non-trivial.
+func validateReport(content, taskClass, root string) ValidationResult {
+	vr := ValidationResult{}
+
+	// Check 1: non-empty
+	if len(content) < 200 {
+		vr.Status = "artifact-fail"
+		vr.Issues = append(vr.Issues, fmt.Sprintf("output too short: %d bytes (< 200)", len(content)))
+		return vr
+	}
+
+	// Check 2: has markdown structure
+	if !strings.Contains(content, "#") {
+		vr.Status = "artifact-fail"
+		vr.Issues = append(vr.Issues, "no markdown headings found")
+		return vr
+	}
+
+	// Check 3: repetition detection — if any line appears 5+ times, it's template-only hallucination
+	lineCounts := make(map[string]int)
+	scanner := bufio.NewScanner(strings.NewReader(content))
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+		lineCounts[line]++
+	}
+	for line, count := range lineCounts {
+		if count >= 5 {
+			vr.Status = "context-fail"
+			vr.Issues = append(vr.Issues, fmt.Sprintf("repeated line %dx: %q", count, line))
+		}
+	}
+
+	// Check 4: file reference grounding — extract paths that look like Go files, check if they exist
+	if taskClass != "executive_summary" && taskClass != "roadmap" {
+		refCount := 0
+		existCount := 0
+		for _, field := range strings.Fields(content) {
+			field = strings.Trim(field, "`*_[](){}:")
+			if looksLikeGoPath(field) {
+				refCount++
+				fullPath := filepath.Join(root, field)
+				if _, err := os.Stat(fullPath); err == nil {
+					existCount++
+				}
+			}
+		}
+		if refCount > 0 {
+			ratio := float64(existCount) / float64(refCount)
+			if ratio < 0.3 && refCount >= 3 {
+				vr.Issues = append(vr.Issues, fmt.Sprintf("file grounding low: %d/%d refs exist (%.0f%%)", existCount, refCount, ratio*100))
+				if vr.Status == "" {
+					vr.Status = "success-needs-review"
+				}
+			}
+		}
+	}
+
+	if vr.Status == "" {
+		vr.Status = "success"
+	}
+	return vr
+}
+
+// looksLikeGoPath checks if a string looks like a Go file reference.
+func looksLikeGoPath(s string) bool {
+	if !strings.Contains(s, ".go") {
+		return false
+	}
+	// Must have at least one path separator or be a bare .go filename
+	if strings.Contains(s, "/") || (strings.HasPrefix(s, "internal/") || strings.HasPrefix(s, "pkg/") || strings.HasPrefix(s, "cmd/")) {
+		return strings.HasSuffix(s, ".go")
+	}
+	return false
+}
 
 type TaskClass struct {
 	Title  string `yaml:"title" json:"title"`
@@ -61,6 +218,10 @@ func main() {
 	model := envOr("L1_MODEL", defaultModel)
 	timeoutSec := envInt("TIMEOUT", 300)
 	maxWorkers := envInt("WORKERS", 5)
+
+	// Resolve repo root for evidence gathering
+	root := repoRoot()
+	log.Printf("[BATCH] repo_root=%s", root)
 
 	// Resolve task list
 	taskNames := allTaskNames()
@@ -113,8 +274,22 @@ func main() {
 
 			logFile.WriteString(fmt.Sprintf("[BATCH] task=%s START lane=L1\n", name))
 
+			// P1: Gather real repo evidence for this task
+			evidence := gatherEvidence(name, root)
+			if evidence != "" {
+				log.Printf("[EVIDENCE] %s: gathered %d bytes of real repo context", name, len(evidence))
+			} else {
+				log.Printf("[EVIDENCE] %s: WARNING — no evidence gathered", name)
+			}
+
+			// Build enriched prompt with evidence
+			enrichedPrompt := tc.Prompt
+			if evidence != "" {
+				enrichedPrompt = fmt.Sprintf("## Codebase Evidence (real, from live repo scan)\n```\n%s\n```\n\n## Your Task\n%s\n\nIMPORTANT: Only reference files and paths shown in the evidence above. Do NOT invent file paths.", evidence, tc.Prompt)
+			}
+
 			artifactPath := fmt.Sprintf("%s/final/%s", runDir, tc.Output)
-			err := dispatchTask(endpoint, model, tc.Prompt, artifactPath, timeoutSec)
+			err := dispatchTask(endpoint, model, name, enrichedPrompt, artifactPath, timeoutSec)
 
 			taskEnd := time.Now()
 			r["end_time"] = taskEnd.Format(time.RFC3339Nano)
@@ -124,15 +299,41 @@ func main() {
 				r["success"] = false
 				r["error"] = err.Error()
 				r["escalated"] = false
+				r["validation"] = "dispatch-fail"
 				log.Printf("[BATCH] ❌ %s (%s): %v", name, tc.Title, err)
 				logFile.WriteString(fmt.Sprintf("[BATCH] task=%s FAIL duration=%v error=%s\n", name, taskEnd.Sub(taskStart), err))
 			} else {
-				r["success"] = true
-				r["artifact_path"] = artifactPath
-				r["escalated"] = false
-				succeeded.Add(1)
-				log.Printf("[BATCH] ✅ %s (%s): %v → %s", name, tc.Title, taskEnd.Sub(taskStart), tc.Output)
-				logFile.WriteString(fmt.Sprintf("[BATCH] task=%s SUCCESS duration=%v artifact=%s\n", name, taskEnd.Sub(taskStart), tc.Output))
+				// P2: Validate report output
+				artifactContent, readErr := os.ReadFile(artifactPath)
+				var vr ValidationResult
+				if readErr != nil {
+					vr = ValidationResult{Status: "artifact-fail", Issues: []string{"cannot read artifact: " + readErr.Error()}}
+				} else {
+					vr = validateReport(string(artifactContent), name, root)
+				}
+				r["validation_status"] = vr.Status
+				r["validation_issues"] = vr.Issues
+
+				if vr.Status == "success" {
+					r["success"] = true
+					r["artifact_path"] = artifactPath
+					r["escalated"] = false
+					succeeded.Add(1)
+					log.Printf("[BATCH] ✅ %s (%s): %v → %s [valid=%s]", name, tc.Title, taskEnd.Sub(taskStart), tc.Output, vr.Status)
+				} else if vr.Status == "success-needs-review" {
+					r["success"] = true
+					r["artifact_path"] = artifactPath
+					r["escalated"] = false
+					succeeded.Add(1)
+					log.Printf("[BATCH] ⚠️ %s (%s): %v → %s [valid=%s issues=%v]", name, tc.Title, taskEnd.Sub(taskStart), tc.Output, vr.Status, vr.Issues)
+				} else {
+					r["success"] = false
+					r["artifact_path"] = artifactPath
+					r["escalated"] = false
+					r["validation_fail"] = true
+					log.Printf("[BATCH] ❌ %s (%s): validation-fail status=%s issues=%v", name, tc.Title, vr.Status, vr.Issues)
+				}
+				logFile.WriteString(fmt.Sprintf("[BATCH] task=%s DONE validation=%s issues=%v duration=%v\n", name, vr.Status, vr.Issues, taskEnd.Sub(taskStart)))
 			}
 
 			results[idx] = r
@@ -167,11 +368,14 @@ func main() {
 	}
 }
 
-func dispatchTask(endpoint, model, prompt, artifactPath string, timeoutSec int) error {
+func dispatchTask(endpoint, model, taskClass, prompt, artifactPath string, timeoutSec int) error {
+	// P3: Log no-think status (enable_thinking:false is already in the request body below)
+	log.Printf("[NO-THINK] enable_thinking=false active for %s", taskClass)
+
 	body, _ := json.Marshal(map[string]interface{}{
 		"model": model,
 		"messages": []map[string]string{
-			{"role": "system", "content": "You are a code analysis assistant for a Go project called zen-brain1. Produce concise, factual, useful markdown reports. Do NOT generate Go code. Use markdown tables, bullet lists, and sections."},
+			{"role": "system", "content": "You are a code analysis assistant for a Go project called zen-brain1. Produce concise, factual, useful markdown reports. Do NOT generate Go code. Use markdown tables, bullet lists, and sections. IMPORTANT: Only reference files and paths provided in the evidence. Do NOT invent or fabricate file paths."},
 			{"role": "user", "content": prompt},
 		},
 		"max_tokens": 2048,
