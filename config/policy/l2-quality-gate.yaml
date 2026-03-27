@@ -1,0 +1,58 @@
+# L2 Quality Gate Policy
+# Purpose: Enforce L2 quality gates on L1 output only when items are flagged,
+# preventing unbounded synthesis when L1 output is not flagged.
+
+# L2 Grade Condition
+l2_grade_required:
+  - condition:
+      - type: "flagged_item"
+      - key: "is_flagged"
+      - value: true
+  - default: false
+
+# Bounded Synthesis Rules
+bounded_synthesis_rules:
+  - name: max_file_count
+    description: Maximum number of files to synthesize
+    value: 1
+    type: "integer"
+  - name: max_lines
+    description: Maximum number of lines in the synthesized output
+    value: 1000
+    type: "integer"
+  - name: allowed_operations
+    description: Allowed operations for the synthesis
+    value: ["concatenate", "extract", "merge"]
+    type: "array"
+  - name: max_depth
+    description: Maximum nesting depth for the synthesis tree
+    value: 2
+    type: "integer"
+
+# Rejection Criteria for Unbounded Requests
+unbounded_request_rejection:
+  - name: "unbounded_file_count"
+    description: Reject requests exceeding the maximum file count
+    value: 1
+  - name: "unbounded_lines"
+    description: Reject requests exceeding the maximum lines
+    value: 1
+  - name: "unbounded_operations"
+    description: Reject requests exceeding the maximum allowed operations
+    value: 1
+  - name: "unbounded_depth"
+    description: Reject requests exceeding the maximum depth
+    value: 1
+
+# Integration References
+# These references ensure the policy integrates with existing routing and chain policies
+integration:
+  routing_policy:
+    name: routing.yaml
+    path: "config/policy/routing.yaml"
+  chains_policy:
+    name: chains.yaml
+    path: "config/policy/chains.yaml"
+  roles_policy:
+    name: roles.yaml
+    path: "config/policy/roles.yaml"

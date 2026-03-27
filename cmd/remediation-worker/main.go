@@ -221,7 +221,7 @@ func fetchOpenTickets(jcfg jiraConfig, maxApprovalLevel int) ([]RemediationTicke
 	defer cancel()
 
 	req, _ := http.NewRequestWithContext(ctx, "POST",
-		jcfg.url+"/rest/api/3/search",
+		jcfg.url+"/rest/api/3/search/jql",
 		strings.NewReader(string(bodyBytes)))
 	req.SetBasicAuth(jcfg.email, jcfg.token)
 	req.Header.Set("Content-Type", "application/json")
@@ -819,7 +819,7 @@ func generateComplianceReport(jcfg jiraConfig, evidenceRoot string, reportPath s
 	defer cancel()
 
 	req, _ := http.NewRequestWithContext(ctx, "POST",
-		jcfg.url+"/rest/api/3/search",
+		jcfg.url+"/rest/api/3/search/jql",
 		strings.NewReader(string(bodyBytes)))
 	req.SetBasicAuth(jcfg.email, jcfg.token)
 	req.Header.Set("Content-Type", "application/json")

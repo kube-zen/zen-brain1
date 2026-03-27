@@ -1,0 +1,16 @@
+[Unit]
+Description=Zen Brain retention policy enforcement (daily cleanup)
+After=local-fs.target
+PartOf=zen-brain.target
+
+[Service]
+Type=oneshot
+User=neves
+WorkingDirectory=/home/neves/zen/zen-brain1
+ExecStart=/home/neves/zen/zen-brain1/bin/retention-enforcement
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=zen-brain1-retention
+
+[Install]
+WantedBy=timers.target

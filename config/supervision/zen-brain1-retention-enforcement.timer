@@ -1,0 +1,10 @@
+[Unit]
+Description=Zen Brain retention enforcement timer (daily at 02:00)
+
+[Timer]
+Unit=zen-brain1-retention-enforcement.service
+OnCalendar=*-*-* 02:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
