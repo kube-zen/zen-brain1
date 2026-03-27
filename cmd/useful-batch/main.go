@@ -785,6 +785,8 @@ func main() {
 	os.WriteFile(fmt.Sprintf("%s/telemetry/batch-index.json", runDir), idxJSON, 0644)
 
 	log.Printf("[BATCH] === %s: %d/%d OK, wall=%v ===", batchName, succeeded.Load(), len(tasks), wall)
+	// Output run dir for scheduler to parse (must contain "Run dir: /")
+	log.Printf("[BATCH] Run dir: %s", runDir)
 	if succeeded.Load() == 0 {
 		os.Exit(1)
 	}
