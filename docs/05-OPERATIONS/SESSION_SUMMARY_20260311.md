@@ -1,3 +1,5 @@
+> **NOTE:** This document references Ollama. The current primary inference runtime is **llama.cpp** (L1/L2 lanes). Ollama (L0) is fallback only.
+
 # Session Summary - 2026-03-11 20:30 EDT
 
 > **⚠️ HISTORICAL SNAPSHOT** - This document captures status as of 2026-03-11.  

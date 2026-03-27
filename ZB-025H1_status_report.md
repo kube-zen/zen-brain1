@@ -1,3 +1,5 @@
+> **HISTORICAL NOTE:** This report was written when Ollama was the active local inference path. The current primary runtime is **llama.cpp** (L1/L2). Ollama is now L0 fallback only.
+
 Task ZB-025H1 Status Report
 
 ### Current State

@@ -1,3 +1,5 @@
+> **NOTE:** This document references Ollama. The current primary inference runtime is **llama.cpp** (L1/L2 lanes). Ollama (L0) is fallback only.
+
 # Secret Management Contract
 
 **Version:** 1.0

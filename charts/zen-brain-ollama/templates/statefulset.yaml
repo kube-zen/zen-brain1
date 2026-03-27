@@ -1,3 +1,5 @@
+# DEPRECATED (2026-03-26): This chart is for optional in-cluster Ollama. Primary runtime is llama.cpp (L1/L2). Ollama is L0 fallback via host Docker only. See docs/03-DESIGN/LOCAL_LLM_ESCALATION_LADDER.md.
+
 {{- if .Values.enabled }}
 ---
 apiVersion: apps/v1

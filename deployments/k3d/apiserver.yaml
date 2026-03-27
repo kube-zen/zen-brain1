@@ -28,6 +28,7 @@ spec:
           env:
             - name: API_SERVER_PORT
               value: "8080"
+            # FALLBACK ONLY: Ollama L0 lane (primary: llama.cpp L1/L2)
             - name: OLLAMA_BASE_URL
               # Default for dev/sandbox: host Docker Ollama (http://host.k3d.internal:11434)
               # In-cluster Ollama (http://ollama:11434) is optional/legacy/experimental

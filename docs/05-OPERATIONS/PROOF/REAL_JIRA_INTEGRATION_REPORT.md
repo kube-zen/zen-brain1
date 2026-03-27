@@ -1,4 +1,8 @@
-# Real Jira Integration Report
+> **NOTE:** This document references Ollama as it existed during development. The current primary inference runtime is **llama.cpp** (L1/L2 lanes). Ollama (L0) is fallback only. See `docs/03-DESIGN/LOCAL_LLM_ESCALATION_LADDER.md`.
+
+> **NOTE:** This document references Ollama as it existed during development. The current primary inference runtime is **llama.cpp** (L1/L2 lanes). Ollama (L0) is fallback only. See `docs/03-DESIGN/LOCAL_LLM_ESCALATION_LADDER.md`.
+
+
 
 > ⚠️ **HISTORICAL NOTE**: This document contains commands using `zen@zen-mesh.io`, which is the
 > **WRONG/FORBIDDEN** Jira email. The canonical email is `zen@kube-zen.io` (see AGENTS.md).

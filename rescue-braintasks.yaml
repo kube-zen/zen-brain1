@@ -18,7 +18,7 @@ spec:
   description: |
     MLQ owns backend selection (Ollama, llama.cpp, future providers).
     Scope: internal/mlq/*, pkg/llm/types.go for ProviderCapability.
-    Must keep current Ollama/qwen3.5:0.8b path working.
+    Must keep current Ollama/qwen3.5:0.8b L0 fallback path working. Primary runtime is llama.cpp (L1/L2).
   priority: high
   timeoutSeconds: 2700
   sessionID: jira-session-ZB-281

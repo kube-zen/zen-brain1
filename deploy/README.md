@@ -1,3 +1,5 @@
+> **NOTE:** References to Ollama in this file describe the L0 fallback lane. The primary inference runtime is **llama.cpp** (L1/L2). Ollama in-cluster deployment is disabled by default.
+
 # zen-brain Deployment Guide
 
 **Version:** 1.0

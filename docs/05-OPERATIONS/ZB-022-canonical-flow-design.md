@@ -1,3 +1,5 @@
+> **NOTE:** This document references Ollama. The current primary inference runtime is **llama.cpp** (L1/L2 lanes). Ollama (L0) is fallback only.
+
 # ZB-022: Canonical Flow Design and Gap Inventory
 
 **Status:** Architecture Complete

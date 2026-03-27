@@ -1,3 +1,5 @@
+> **NOTE:** References to Ollama in this file describe the L0 fallback lane. The primary inference runtime is **llama.cpp** (L1/L2). Ollama in-cluster deployment is disabled by default.
+
 # K3D Deployment
 
 This directory contains Kubernetes manifests for deploying Zen‑Brain on a local k3d cluster.

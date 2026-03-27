@@ -1,3 +1,5 @@
+> **NOTE:** This document references Ollama. The current primary inference runtime is **llama.cpp** (L1/L2 lanes). Ollama (L0) is fallback only. See `docs/03-DESIGN/LOCAL_LLM_ESCALATION_LADDER.md`.
+
 # ADR 0007: Use qmd for knowledge base search with git as source of truth
 
 ## Status
