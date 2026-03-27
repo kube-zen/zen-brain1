@@ -269,6 +269,16 @@ func runSchedule(s Schedule, stateDir, artifactRoot, batchBin string) {
 	if runDir != "" && (status == "success" || status == "partial") {
 		jiraCfg := loadJiraLedgerConfig()
 		jiraParentKey, jiraChildCount = syncBatchToJira(jiraCfg, runDir, s.Name)
+
+		// Phase 38: Run finding ticketizer for discovery classes
+		// Only for schedules that contain ticketizable findings (defects, bug_hunting, stub_hunting)
+		ticketizableSchedules := map[string]bool{
+			"hourly-scan": true,
+			"daily-sweep": true,
+		}
+		if ticketizableSchedules[s.Name] && jiraCfg.enabled {
+			runFindingTicketizer(runDir, s.Name, jiraCfg)
+		}
 	}
 
 	// Write canonical run metrics and human-readable summary
@@ -1146,4 +1156,46 @@ func truncate(b []byte, maxLen int) string {
 		return s[:maxLen] + "..."
 	}
 	return s
+}
+
+// runFindingTicketizer invokes the finding-ticketizer binary to convert
+// discovery findings into Jira tickets. Runs as a subprocess — failures
+// are logged but never block the batch or scheduler.
+func runFindingTicketizer(runDir, scheduleName string, jiraCfg jiraLedgerConfig) {
+	ticketizerBin := filepath.Join(filepath.Dir(os.Args[0]), "..", "finding-ticketizer", "finding-ticketizer")
+	if _, err := os.Stat(ticketizerBin); err != nil {
+		// Try repo-relative path
+		ticketizerBin = filepath.Join(filepath.Dir(os.Args[0]), "finding-ticketizer", "finding-ticketizer")
+		if _, err := os.Stat(ticketizerBin); err != nil {
+			log.Printf("[TICKETIZER] binary not found at %s — skipping", ticketizerBin)
+			return
+		}
+	}
+
+	log.Printf("[TICKETIZER] running for %s (run=%s)", scheduleName, filepath.Base(runDir))
+
+	cmd := exec.Command(ticketizerBin,
+		"-run-dir", runDir,
+		"-schedule", scheduleName,
+	)
+	cmd.Env = append(os.Environ(),
+		fmt.Sprintf("JIRA_URL=%s", jiraCfg.baseURL),
+		fmt.Sprintf("JIRA_EMAIL=%s", jiraCfg.email),
+		fmt.Sprintf("JIRA_API_TOKEN=%s", jiraCfg.apiToken),
+		fmt.Sprintf("JIRA_PROJECT_KEY=%s", jiraCfg.projectKey),
+	)
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Printf("[TICKETIZER] failed for %s: %v", scheduleName, err)
+	}
+	// Log ticketizer output (last 5 lines for brevity)
+	lines := strings.Split(string(output), "\n")
+	start := len(lines) - 5
+	if start < 0 {
+		start = 0
+	}
+	for _, l := range lines[start:] {
+		log.Printf("[TICKETIZER] %s", l)
+	}
 }

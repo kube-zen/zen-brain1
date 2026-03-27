@@ -4,6 +4,7 @@ bin/
 /scheduler
 cmd/useful-batch/useful-batch
 cmd/scheduler/scheduler
+cmd/finding-ticketizer/finding-ticketizer
 cmd/admission-gate/admission-gate
 cmd/jira-ledger/jira-ledger
 /apiserver
