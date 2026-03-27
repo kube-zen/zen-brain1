@@ -13,7 +13,7 @@ description: |
   
   Requirements:
   - MLQ selects backend based on criteria (provider, model, timeout)
-  - Current Ollama/qwen3.5:0.8b path must remain working
+  - Current Ollama/qwen3.5:0.8b L0 fallback path must remain working (primary: llama.cpp L1/L2)
   - Backend selection is MLQ concern, not ad-hoc factory logic
 
 labels:

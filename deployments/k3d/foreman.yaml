@@ -92,6 +92,7 @@ spec:
             - "-health-probe-bind-address=:8081"
             - "-workers=5"
             - "-factory-enable-llm=true"
+            # FALLBACK ONLY: Ollama L0 lane
             - "-factory-llm-provider=ollama"
             - "-factory-llm-base-url=http://host.k3d.internal:11434"
             - "-factory-llm-model=qwen3.5:0.8b"

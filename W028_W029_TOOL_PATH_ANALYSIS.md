@@ -1,3 +1,5 @@
+> **HISTORICAL NOTE:** This report was written when Ollama was the active local inference path. The current primary runtime is **llama.cpp** (L1/L2). Ollama is now L0 fallback only.
+
 # W028-W029: Tool Path Root Cause Analysis
 
 **Updated:** 2026-03-25 08:45 EDT

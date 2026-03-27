@@ -14,6 +14,6 @@ spec:
     Port MLQ (model/provider selection) architecture from zen-brain 0.1.
     MLQ owns backend selection (Ollama, llama.cpp, future providers).
     Scope: internal/mlq/*, pkg/llm/types.go for ProviderCapability.
-    Must keep current Ollama/qwen3.5:0.8b path working.
+    Must keep current Ollama/qwen3.5:0.8b L0 fallback path working. Primary runtime is llama.cpp (L1/L2).
   timeoutSeconds: 2700
   sessionID: jira-session-ZB-281
