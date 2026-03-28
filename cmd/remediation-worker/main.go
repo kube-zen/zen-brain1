@@ -477,9 +477,25 @@ Produce your remediation output as JSON only.`, packet.JiraKey, packet.ProblemSu
 	content = strings.TrimSuffix(content, "```")
 	content = strings.TrimSpace(content)
 
+	// Extract JSON object from content (0.8b sometimes wraps in prose)
+	jsonStart := strings.Index(content, "{")
+	jsonEnd := strings.LastIndex(content, "}")
+	if jsonStart >= 0 && jsonEnd > jsonStart {
+		content = content[jsonStart : jsonEnd+1]
+	}
+
 	var output RemediationOutput
 	if err := json.Unmarshal([]byte(content), &output); err != nil {
-		return nil, fmt.Errorf("parse L1 JSON output: %w (content: %s)", err, content[:min(len(content), 200)])
+		// 0.8b often produces newlines inside string values — repair and retry
+		repaired := strings.ReplaceAll(content, "\n", " ")
+		repaired = strings.ReplaceAll(repaired, "\t", " ")
+		repaired = strings.ReplaceAll(repaired, "\r", "")
+		repaired = regexp.MustCompile(`,\s*}`).ReplaceAllString(repaired, "}")
+		repaired = regexp.MustCompile(`,\s*]`).ReplaceAllString(repaired, "]")
+		if err2 := json.Unmarshal([]byte(repaired), &output); err2 != nil {
+			return nil, fmt.Errorf("parse L1 JSON output: strict=%w repaired=%w (content: %s)", err, err2, content[:min(len(content), 200)])
+		}
+		log.Printf("[L1-REPAIR] %s: JSON repaired for parse (0.8b formatting)", packet.JiraKey)
 	}
 
 	// Normalize final_status
