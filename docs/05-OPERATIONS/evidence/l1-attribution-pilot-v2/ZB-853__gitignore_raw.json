@@ -1,0 +1,47 @@
+{
+  "jira_key": "ZB-853",
+  "contract_version": "v2-patch-oriented",
+  "task": {
+    "summary": "[L1-v2] Add .gitignore entry for evidence/*.json artifacts",
+    "description": "Add *.json to .gitignore under docs/05-OPERATIONS/evidence/ to prevent large JSON artifacts from being committed.",
+    "target_files": [
+      ".gitignore"
+    ],
+    "task_type": "config_change",
+    "validation": "grep -q 'evidence.*json' .gitignore"
+  },
+  "l1_result": {
+    "raw_response": "{\"choices\":[{\"finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"{\\n  \\\"jira_key\\\": \\\"ZB-853\\\",\\n  \\\"problem_summary\\\": \\\"Add *.json to .gitignore under docs/05-OPERATIONS/evidence/ to prevent large JSON artifacts from being committed.\\\",\\n  \\\"target_files\\\": [\\\".gitignore\\\"],\\n  \\\"edit_description\\\": \\\"Add 'evidence/05-OPERATIONS/evidence/*.json' to the gitignore list to exclude large JSON files from version control.\\\",\\n  \\\"patch_commands\\\": [\\n    \\\"echo >> .gitignore\\\",\\n    \\\"echo 'evidence/05-OPERATIONS/evidence/*.json' >> .gitignore\\\"\\n  ],\\n  \\\"validation_commands\\\": [\\n    \\\"grep -q 'evidence.*json' .gitignore\\\",\\n    \\\"git add .gitignore\\\"\\n  ],\\n  \\\"expected_outcome\\\": \\\"JSON files in evidence/05-OPERATIONS/evidence/ will be excluded from commit and pushed.\\\",\\n  \\\"risk_notes\\\": \\\"Ensure no other JSON files exist in that directory; if they do, they will be committed.\\\",\\n  \\\"follow_up_type\\\": \\\"needs_review\\\"\\n}\"}}],\"created\":1774710037,\"model\":\"Qwen3.5-0.8B-Q4_K_M.gguf\",\"system_fingerprint\":\"b8467-990e4d969\",\"object\":\"chat.completion\",\"usage\":{\"completion_tokens\":243,\"prompt_tokens\":389,\"total_tokens\":632,\"prompt_tokens_details\":{\"cached_tokens\":0}},\"id\":\"chatcmpl-jeiWAMLMOKhRrY9ZsKVDHzG2RiYR8GNd\",\"timings\":{\"cache_n\":0,\"prompt_n\":389,\"prompt_ms\":2484.854,\"prompt_per_token_ms\":6.387799485861182,\"prompt_per_second\":156.54843302664867,\"predicted_n\":243,\"predicted_ms\":7267.396,\"predicted_per_token_ms\":29.90697942386831,\"predicted_per_second\":33.437011000914225}}",
+    "llm_content": "{\n  \"jira_key\": \"ZB-853\",\n  \"problem_summary\": \"Add *.json to .gitignore under docs/05-OPERATIONS/evidence/ to prevent large JSON artifacts from being committed.\",\n  \"target_files\": [\".gitignore\"],\n  \"edit_description\": \"Add 'evidence/05-OPERATIONS/evidence/*.json' to the gitignore list to exclude large JSON files from version control.\",\n  \"patch_commands\": [\n    \"echo >> .gitignore\",\n    \"echo 'evidence/05-OPERATIONS/evidence/*.json' >> .gitignore\"\n  ],\n  \"validation_commands\": [\n    \"grep -q 'evidence.*json' .gitignore\",\n    \"git add .gitignore\"\n  ],\n  \"expected_outcome\": \"JSON files in evidence/05-OPERATIONS/evidence/ will be excluded from commit and pushed.\",\n  \"risk_notes\": \"Ensure no other JSON files exist in that directory; if they do, they will be committed.\",\n  \"follow_up_type\": \"needs_review\"\n}",
+    "json_str": "{\n  \"jira_key\": \"ZB-853\",\n  \"problem_summary\": \"Add *.json to .gitignore under docs/05-OPERATIONS/evidence/ to prevent large JSON artifacts from being committed.\",\n  \"target_files\": [\".gitignore\"],\n  \"edit_description\": \"Add 'evidence/05-OPERATIONS/evidence/*.json' to the gitignore list to exclude large JSON files from version control.\",\n  \"patch_commands\": [\n    \"echo >> .gitignore\",\n    \"echo 'evidence/05-OPERATIONS/evidence/*.json' >> .gitignore\"\n  ],\n  \"validation_commands\": [\n    \"grep -q 'evidence.*json' .gitignore\",\n    \"git add .gitignore\"\n  ],\n  \"expected_outcome\": \"JSON files in evidence/05-OPERATIONS/evidence/ will be excluded from commit and pushed.\",\n  \"risk_notes\": \"Ensure no other JSON files exist in that directory; if they do, they will be committed.\",\n  \"follow_up_type\": \"needs_review\"\n}",
+    "parsed": {
+      "jira_key": "ZB-853",
+      "problem_summary": "Add *.json to .gitignore under docs/05-OPERATIONS/evidence/ to prevent large JSON artifacts from being committed.",
+      "target_files": [
+        ".gitignore"
+      ],
+      "edit_description": "Add 'evidence/05-OPERATIONS/evidence/*.json' to the gitignore list to exclude large JSON files from version control.",
+      "patch_commands": [
+        "echo >> .gitignore",
+        "echo 'evidence/05-OPERATIONS/evidence/*.json' >> .gitignore"
+      ],
+      "validation_commands": [
+        "grep -q 'evidence.*json' .gitignore",
+        "git add .gitignore"
+      ],
+      "expected_outcome": "JSON files in evidence/05-OPERATIONS/evidence/ will be excluded from commit and pushed.",
+      "risk_notes": "Ensure no other JSON files exist in that directory; if they do, they will be committed.",
+      "follow_up_type": "needs_review"
+    },
+    "parse_error": null,
+    "elapsed_sec": 9.8,
+    "token_budget": 2048
+  },
+  "quality_score": 25,
+  "quality_issues": [],
+  "timestamp": "20260328-110025",
+  "attribution": {
+    "produced_by": "l1",
+    "first_pass_model": "Qwen3.5-0.8B-Q4_K_M.gguf"
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "jira_key": "ZB-855",
+  "contract_version": "v2-patch-oriented",
+  "task": {
+    "summary": "[L1-v2] Add doc comment to RemediationPacket struct",
+    "description": "Add a Go doc comment above the RemediationPacket struct in cmd/remediation-worker/main.go.",
+    "target_files": [
+      "cmd/remediation-worker/main.go"
+    ],
+    "task_type": "doc_update",
+    "validation": "grep -q 'RemediationPacket' cmd/remediation-worker/main.go"
+  },
+  "l1_result": {
+    "raw_response": "{\"choices\":[{\"finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"{\\n  \\\"jira_key\\\": \\\"ZB-855\\\",\\n  \\\"problem_summary\\\": \\\"Add Go doc comment above RemediationPacket struct in cmd/remediation-worker/main.go\\\",\\n  \\\"target_files\\\": [\\\"cmd/remediation-worker/main.go\\\"],\\n  \\\"edit_description\\\": \\\"Insert '// +go:generate go doc' before 'RemediationPacket' in main.go to generate documentation.\\\",\\n  \\\"patch_commands\\\": [\\\"sed -i '1i\\\\\\\\t// +\\\\\\\\ngo:generate go doc' cmd/remediation-worker/main.go\\\"],\\n  \\\"validation_commands\\\": [\\\"grep -q 'RemediationPacket' cmd/remediation-worker/main.go\\\", \\\"go doc -all > /dev/null 2>&1\\\"],\\n  \\\"expected_outcome\\\": \\\"Go doc comment generated above RemediationPacket struct\\\",\\n  \\\"risk_notes\\\": \\\"Ensure go generate command runs successfully without errors.\\\",\\n  \\\"follow_up_type\\\": \\\"needs_review\\\"\\n}\"}}],\"created\":1774710114,\"model\":\"Qwen3.5-0.8B-Q4_K_M.gguf\",\"system_fingerprint\":\"b8467-990e4d969\",\"object\":\"chat.completion\",\"usage\":{\"completion_tokens\":205,\"prompt_tokens\":390,\"total_tokens\":595,\"prompt_tokens_details\":{\"cached_tokens\":0}},\"id\":\"chatcmpl-Ieqy9q66F73LHJwxnPPSKErVJCZwNSUb\",\"timings\":{\"cache_n\":0,\"prompt_n\":390,\"prompt_ms\":2703.799,\"prompt_per_token_ms\":6.932817948717949,\"prompt_per_second\":144.2414913238743,\"predicted_n\":205,\"predicted_ms\":6500.97,\"predicted_per_token_ms\":31.712048780487805,\"predicted_per_second\":31.53375573183694}}",
+    "llm_content": "{\n  \"jira_key\": \"ZB-855\",\n  \"problem_summary\": \"Add Go doc comment above RemediationPacket struct in cmd/remediation-worker/main.go\",\n  \"target_files\": [\"cmd/remediation-worker/main.go\"],\n  \"edit_description\": \"Insert '// +go:generate go doc' before 'RemediationPacket' in main.go to generate documentation.\",\n  \"patch_commands\": [\"sed -i '1i\\\\t// +\\\\ngo:generate go doc' cmd/remediation-worker/main.go\"],\n  \"validation_commands\": [\"grep -q 'RemediationPacket' cmd/remediation-worker/main.go\", \"go doc -all > /dev/null 2>&1\"],\n  \"expected_outcome\": \"Go doc comment generated above RemediationPacket struct\",\n  \"risk_notes\": \"Ensure go generate command runs successfully without errors.\",\n  \"follow_up_type\": \"needs_review\"\n}",
+    "json_str": "{\n  \"jira_key\": \"ZB-855\",\n  \"problem_summary\": \"Add Go doc comment above RemediationPacket struct in cmd/remediation-worker/main.go\",\n  \"target_files\": [\"cmd/remediation-worker/main.go\"],\n  \"edit_description\": \"Insert '// +go:generate go doc' before 'RemediationPacket' in main.go to generate documentation.\",\n  \"patch_commands\": [\"sed -i '1i\\\\t// +\\\\ngo:generate go doc' cmd/remediation-worker/main.go\"],\n  \"validation_commands\": [\"grep -q 'RemediationPacket' cmd/remediation-worker/main.go\", \"go doc -all > /dev/null 2>&1\"],\n  \"expected_outcome\": \"Go doc comment generated above RemediationPacket struct\",\n  \"risk_notes\": \"Ensure go generate command runs successfully without errors.\",\n  \"follow_up_type\": \"needs_review\"\n}",
+    "parsed": {
+      "jira_key": "ZB-855",
+      "problem_summary": "Add Go doc comment above RemediationPacket struct in cmd/remediation-worker/main.go",
+      "target_files": [
+        "cmd/remediation-worker/main.go"
+      ],
+      "edit_description": "Insert '// +go:generate go doc' before 'RemediationPacket' in main.go to generate documentation.",
+      "patch_commands": [
+        "sed -i '1i\\t// +\\ngo:generate go doc' cmd/remediation-worker/main.go"
+      ],
+      "validation_commands": [
+        "grep -q 'RemediationPacket' cmd/remediation-worker/main.go",
+        "go doc -all > /dev/null 2>&1"
+      ],
+      "expected_outcome": "Go doc comment generated above RemediationPacket struct",
+      "risk_notes": "Ensure go generate command runs successfully without errors.",
+      "follow_up_type": "needs_review"
+    },
+    "parse_error": null,
+    "elapsed_sec": 9.3,
+    "token_budget": 2048
+  },
+  "quality_score": 25,
+  "quality_issues": [],
+  "timestamp": "20260328-110142",
+  "attribution": {
+    "produced_by": "l1",
+    "first_pass_model": "Qwen3.5-0.8B-Q4_K_M.gguf"
+  }
+}

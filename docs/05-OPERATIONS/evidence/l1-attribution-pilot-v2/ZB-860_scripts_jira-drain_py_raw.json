@@ -1,0 +1,50 @@
+{
+  "jira_key": "ZB-860",
+  "contract_version": "v2-patch-oriented",
+  "task": {
+    "summary": "[L1-v2] Add quickstart comment to jira-drain.py",
+    "description": "Add a comment block at top of jira-drain.py with 3-4 usage examples.",
+    "target_files": [
+      "scripts/jira-drain.py"
+    ],
+    "task_type": "doc_update",
+    "validation": "python3 -c 'import ast; ast.parse(open(\"scripts/jira-drain.py\").read())'"
+  },
+  "l1_result": {
+    "raw_response": "{\"choices\":[{\"finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"{\\n  \\\"jira_key\\\": \\\"ZB-860\\\",\\n  \\\"problem_summary\\\": \\\"Add 3-4 usage examples to top of jira-drain.py for doc_update task.\\\",\\n  \\\"target_files\\\": [\\\"scripts/jira-drain.py\\\"],\\n  \\\"edit_description\\\": \\\"Insert a comment block at the top of jira-drain.py with 3-4 usage examples.\\\",\\n  \\\"patch_commands\\\": [\\n    \\\"echo \\\\\\\"# Usage examples for jira-drain.py\\\\\\\" >> scripts/jira-drain.py\\\",\\n    \\\"echo \\\\\\\"1. jira-drain.py --help\\\\\\\" >> scripts/jira-drain.py\\\",\\n    \\\"echo \\\\\\\"2. jira-drain.py --version\\\\\\\" >> scripts/jira-drain.py\\\",\\n    \\\"echo \\\\\\\"3. jira-drain.py --debug\\\\\\\" >> scripts/jira-drain.py\\\",\\n    \\\"echo \\\\\\\"4. jira-drain.py --test\\\\\\\" >> scripts/jira-drain.py\\\"\\n  ],\\n  \\\"validation_commands\\\": [\\n    \\\"python3 -c 'import ast; ast.parse(open(\\\\\\\"scripts/jira-drain.py\\\\\\\").read())'\\\",\\n    \\\"grep -q \\\\\\\"# Usage examples\\\\\\\" scripts/jira-drain.py && echo \\\\\\\"PASS: Comment block found\\\\\\\" || echo \\\\\\\"FAIL: Comment block missing\\\\\\\"\\\"\\n  ],\\n  \\\"expected_outcome\\\": \\\"jira-drain.py now includes a comment block with 4 usage examples at the top.\\\",\\n  \\\"risk_notes\\\": \\\"Ensure the examples are valid Python syntax and do not break the script's logic.\\\",\\n  \\\"follow_up_type\\\": \\\"needs_review\\\"\\n}\"}}],\"created\":1774710228,\"model\":\"Qwen3.5-0.8B-Q4_K_M.gguf\",\"system_fingerprint\":\"b8467-990e4d969\",\"object\":\"chat.completion\",\"usage\":{\"completion_tokens\":345,\"prompt_tokens\":395,\"total_tokens\":740,\"prompt_tokens_details\":{\"cached_tokens\":0}},\"id\":\"chatcmpl-oBwrC7QRWrINkgY5KHrcNg6zUxF0maRJ\",\"timings\":{\"cache_n\":0,\"prompt_n\":395,\"prompt_ms\":2798.715,\"prompt_per_token_ms\":7.0853544303797475,\"prompt_per_second\":141.1362000060742,\"predicted_n\":345,\"predicted_ms\":16949.198,\"predicted_per_token_ms\":49.12811014492754,\"predicted_per_second\":20.354945408036414}}",
+    "llm_content": "{\n  \"jira_key\": \"ZB-860\",\n  \"problem_summary\": \"Add 3-4 usage examples to top of jira-drain.py for doc_update task.\",\n  \"target_files\": [\"scripts/jira-drain.py\"],\n  \"edit_description\": \"Insert a comment block at the top of jira-drain.py with 3-4 usage examples.\",\n  \"patch_commands\": [\n    \"echo \\\"# Usage examples for jira-drain.py\\\" >> scripts/jira-drain.py\",\n    \"echo \\\"1. jira-drain.py --help\\\" >> scripts/jira-drain.py\",\n    \"echo \\\"2. jira-drain.py --version\\\" >> scripts/jira-drain.py\",\n    \"echo \\\"3. jira-drain.py --debug\\\" >> scripts/jira-drain.py\",\n    \"echo \\\"4. jira-drain.py --test\\\" >> scripts/jira-drain.py\"\n  ],\n  \"validation_commands\": [\n    \"python3 -c 'import ast; ast.parse(open(\\\"scripts/jira-drain.py\\\").read())'\",\n    \"grep -q \\\"# Usage examples\\\" scripts/jira-drain.py && echo \\\"PASS: Comment block found\\\" || echo \\\"FAIL: Comment block missing\\\"\"\n  ],\n  \"expected_outcome\": \"jira-drain.py now includes a comment block with 4 usage examples at the top.\",\n  \"risk_notes\": \"Ensure the examples are valid Python syntax and do not break the script's logic.\",\n  \"follow_up_type\": \"needs_review\"\n}",
+    "json_str": "{\n  \"jira_key\": \"ZB-860\",\n  \"problem_summary\": \"Add 3-4 usage examples to top of jira-drain.py for doc_update task.\",\n  \"target_files\": [\"scripts/jira-drain.py\"],\n  \"edit_description\": \"Insert a comment block at the top of jira-drain.py with 3-4 usage examples.\",\n  \"patch_commands\": [\n    \"echo \\\"# Usage examples for jira-drain.py\\\" >> scripts/jira-drain.py\",\n    \"echo \\\"1. jira-drain.py --help\\\" >> scripts/jira-drain.py\",\n    \"echo \\\"2. jira-drain.py --version\\\" >> scripts/jira-drain.py\",\n    \"echo \\\"3. jira-drain.py --debug\\\" >> scripts/jira-drain.py\",\n    \"echo \\\"4. jira-drain.py --test\\\" >> scripts/jira-drain.py\"\n  ],\n  \"validation_commands\": [\n    \"python3 -c 'import ast; ast.parse(open(\\\"scripts/jira-drain.py\\\").read())'\",\n    \"grep -q \\\"# Usage examples\\\" scripts/jira-drain.py && echo \\\"PASS: Comment block found\\\" || echo \\\"FAIL: Comment block missing\\\"\"\n  ],\n  \"expected_outcome\": \"jira-drain.py now includes a comment block with 4 usage examples at the top.\",\n  \"risk_notes\": \"Ensure the examples are valid Python syntax and do not break the script's logic.\",\n  \"follow_up_type\": \"needs_review\"\n}",
+    "parsed": {
+      "jira_key": "ZB-860",
+      "problem_summary": "Add 3-4 usage examples to top of jira-drain.py for doc_update task.",
+      "target_files": [
+        "scripts/jira-drain.py"
+      ],
+      "edit_description": "Insert a comment block at the top of jira-drain.py with 3-4 usage examples.",
+      "patch_commands": [
+        "echo \"# Usage examples for jira-drain.py\" >> scripts/jira-drain.py",
+        "echo \"1. jira-drain.py --help\" >> scripts/jira-drain.py",
+        "echo \"2. jira-drain.py --version\" >> scripts/jira-drain.py",
+        "echo \"3. jira-drain.py --debug\" >> scripts/jira-drain.py",
+        "echo \"4. jira-drain.py --test\" >> scripts/jira-drain.py"
+      ],
+      "validation_commands": [
+        "python3 -c 'import ast; ast.parse(open(\"scripts/jira-drain.py\").read())'",
+        "grep -q \"# Usage examples\" scripts/jira-drain.py && echo \"PASS: Comment block found\" || echo \"FAIL: Comment block missing\""
+      ],
+      "expected_outcome": "jira-drain.py now includes a comment block with 4 usage examples at the top.",
+      "risk_notes": "Ensure the examples are valid Python syntax and do not break the script's logic.",
+      "follow_up_type": "needs_review"
+    },
+    "parse_error": null,
+    "elapsed_sec": 19.8,
+    "token_budget": 2048
+  },
+  "quality_score": 25,
+  "quality_issues": [],
+  "timestamp": "20260328-110327",
+  "attribution": {
+    "produced_by": "l1",
+    "first_pass_model": "Qwen3.5-0.8B-Q4_K_M.gguf"
+  }
+}

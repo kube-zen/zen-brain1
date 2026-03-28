@@ -1,0 +1,26 @@
+{
+  "jira_key": "ZB-865",
+  "contract_version": "v2-patch-oriented",
+  "normalized_output": {
+    "jira_key": "ZB-865",
+    "problem_summary": "Add produced_by, first_pass_model, and supervisor_intervention fields to evidence-pack-template.json",
+    "target_files": [
+      "docs/05-OPERATIONS/evidence/evidence-pack-template.json"
+    ],
+    "edit_description": "Add three new fields to the JSON object: produced_by, first_pass_model, and supervisor_intervention",
+    "patch_commands": [
+      "echo \".\" >> docs/05-OPERATIONS/evidence/evidence-pack-template.json",
+      "echo \"first_pass_model:\" >> docs/05-OPERATIONS/evidence/evidence-pack-template.json",
+      "echo \"supervisor_intervention:\" >> docs/05-OPERATIONS/evidence/evidence-pack-template.json"
+    ],
+    "validation_commands": [
+      "python3 -c \"import json; data=json.load(open('docs/05-OPERATIONS/evidence/evidence-pack-template.json')); assert 'produced_by' in data; assert 'first_pass_model' in data; assert 'supervisor_intervention' in data; print('Success: All fields present')"
+    ],
+    "expected_outcome": "JSON file contains evidence-pack-template.json with added fields",
+    "risk_notes": "Must ensure no existing fields are accidentally added",
+    "follow_up_type": "needs_review"
+  },
+  "quality_score": 25,
+  "quality_issues": [],
+  "timestamp": "20260328-110407"
+}

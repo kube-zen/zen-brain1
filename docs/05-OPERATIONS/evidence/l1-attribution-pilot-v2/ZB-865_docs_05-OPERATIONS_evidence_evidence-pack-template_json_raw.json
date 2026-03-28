@@ -1,0 +1,47 @@
+{
+  "jira_key": "ZB-865",
+  "contract_version": "v2-patch-oriented",
+  "task": {
+    "summary": "[L1-v2] Add attribution fields to evidence pack template",
+    "description": "Add produced_by, first_pass_model, supervisor_intervention fields to evidence-pack-template.json.",
+    "target_files": [
+      "docs/05-OPERATIONS/evidence/evidence-pack-template.json"
+    ],
+    "task_type": "config_change",
+    "validation": "python3 -c 'import json; json.load(open(\"docs/05-OPERATIONS/evidence/evidence-pack-template.json\"))'"
+  },
+  "l1_result": {
+    "raw_response": "{\"choices\":[{\"finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"{\\n  \\\"jira_key\\\": \\\"ZB-865\\\",\\n  \\\"problem_summary\\\": \\\"Add produced_by, first_pass_model, and supervisor_intervention fields to evidence-pack-template.json\\\",\\n  \\\"target_files\\\": [\\\"docs/05-OPERATIONS/evidence/evidence-pack-template.json\\\"],\\n  \\\"edit_description\\\": \\\"Add three new fields to the JSON object: produced_by, first_pass_model, and supervisor_intervention\\\",\\n  \\\"patch_commands\\\": [\\\"echo \\\\\\\".\\\\\\\" >> docs/05-OPERATIONS/evidence/evidence-pack-template.json\\\", \\\"echo \\\\\\\"first_pass_model:\\\\\\\" >> docs/05-OPERATIONS/evidence/evidence-pack-template.json\\\", \\\"echo \\\\\\\"supervisor_intervention:\\\\\\\" >> docs/05-OPERATIONS/evidence/evidence-pack-template.json\\\"],\\n  \\\"validation_commands\\\": [\\\"python3 -c \\\\\\\"import json; data=json.load(open('docs/05-OPERATIONS/evidence/evidence-pack-template.json')); assert 'produced_by' in data; assert 'first_pass_model' in data; assert 'supervisor_intervention' in data; print('Success: All fields present')\\\"],\\n  \\\"expected_outcome\\\": \\\"JSON file contains evidence-pack-template.json with added fields\\\",\\n  \\\"risk_notes\\\": \\\"Must ensure no existing fields are accidentally added\\\",\\n  \\\"follow_up_type\\\": \\\"needs_review\\\"\\n}\"}}],\"created\":1774710276,\"model\":\"Qwen3.5-0.8B-Q4_K_M.gguf\",\"system_fingerprint\":\"b8467-990e4d969\",\"object\":\"chat.completion\",\"usage\":{\"completion_tokens\":287,\"prompt_tokens\":407,\"total_tokens\":694,\"prompt_tokens_details\":{\"cached_tokens\":0}},\"id\":\"chatcmpl-TflT801UTnn34ueba4g8yJPpxSSmRM4l\",\"timings\":{\"cache_n\":0,\"prompt_n\":407,\"prompt_ms\":5843.48,\"prompt_per_token_ms\":14.357444717444716,\"prompt_per_second\":69.65027688979855,\"predicted_n\":287,\"predicted_ms\":20538.602,\"predicted_per_token_ms\":71.5630731707317,\"predicted_per_second\":13.973687206169144}}",
+    "llm_content": "{\n  \"jira_key\": \"ZB-865\",\n  \"problem_summary\": \"Add produced_by, first_pass_model, and supervisor_intervention fields to evidence-pack-template.json\",\n  \"target_files\": [\"docs/05-OPERATIONS/evidence/evidence-pack-template.json\"],\n  \"edit_description\": \"Add three new fields to the JSON object: produced_by, first_pass_model, and supervisor_intervention\",\n  \"patch_commands\": [\"echo \\\".\\\" >> docs/05-OPERATIONS/evidence/evidence-pack-template.json\", \"echo \\\"first_pass_model:\\\" >> docs/05-OPERATIONS/evidence/evidence-pack-template.json\", \"echo \\\"supervisor_intervention:\\\" >> docs/05-OPERATIONS/evidence/evidence-pack-template.json\"],\n  \"validation_commands\": [\"python3 -c \\\"import json; data=json.load(open('docs/05-OPERATIONS/evidence/evidence-pack-template.json')); assert 'produced_by' in data; assert 'first_pass_model' in data; assert 'supervisor_intervention' in data; print('Success: All fields present')\"],\n  \"expected_outcome\": \"JSON file contains evidence-pack-template.json with added fields\",\n  \"risk_notes\": \"Must ensure no existing fields are accidentally added\",\n  \"follow_up_type\": \"needs_review\"\n}",
+    "json_str": "{\n  \"jira_key\": \"ZB-865\",\n  \"problem_summary\": \"Add produced_by, first_pass_model, and supervisor_intervention fields to evidence-pack-template.json\",\n  \"target_files\": [\"docs/05-OPERATIONS/evidence/evidence-pack-template.json\"],\n  \"edit_description\": \"Add three new fields to the JSON object: produced_by, first_pass_model, and supervisor_intervention\",\n  \"patch_commands\": [\"echo \\\".\\\" >> docs/05-OPERATIONS/evidence/evidence-pack-template.json\", \"echo \\\"first_pass_model:\\\" >> docs/05-OPERATIONS/evidence/evidence-pack-template.json\", \"echo \\\"supervisor_intervention:\\\" >> docs/05-OPERATIONS/evidence/evidence-pack-template.json\"],\n  \"validation_commands\": [\"python3 -c \\\"import json; data=json.load(open('docs/05-OPERATIONS/evidence/evidence-pack-template.json')); assert 'produced_by' in data; assert 'first_pass_model' in data; assert 'supervisor_intervention' in data; print('Success: All fields present')\"],\n  \"expected_outcome\": \"JSON file contains evidence-pack-template.json with added fields\",\n  \"risk_notes\": \"Must ensure no existing fields are accidentally added\",\n  \"follow_up_type\": \"needs_review\"\n}",
+    "parsed": {
+      "jira_key": "ZB-865",
+      "problem_summary": "Add produced_by, first_pass_model, and supervisor_intervention fields to evidence-pack-template.json",
+      "target_files": [
+        "docs/05-OPERATIONS/evidence/evidence-pack-template.json"
+      ],
+      "edit_description": "Add three new fields to the JSON object: produced_by, first_pass_model, and supervisor_intervention",
+      "patch_commands": [
+        "echo \".\" >> docs/05-OPERATIONS/evidence/evidence-pack-template.json",
+        "echo \"first_pass_model:\" >> docs/05-OPERATIONS/evidence/evidence-pack-template.json",
+        "echo \"supervisor_intervention:\" >> docs/05-OPERATIONS/evidence/evidence-pack-template.json"
+      ],
+      "validation_commands": [
+        "python3 -c \"import json; data=json.load(open('docs/05-OPERATIONS/evidence/evidence-pack-template.json')); assert 'produced_by' in data; assert 'first_pass_model' in data; assert 'supervisor_intervention' in data; print('Success: All fields present')"
+      ],
+      "expected_outcome": "JSON file contains evidence-pack-template.json with added fields",
+      "risk_notes": "Must ensure no existing fields are accidentally added",
+      "follow_up_type": "needs_review"
+    },
+    "parse_error": null,
+    "elapsed_sec": 26.5,
+    "token_budget": 2048
+  },
+  "quality_score": 25,
+  "quality_issues": [],
+  "timestamp": "20260328-110407",
+  "attribution": {
+    "produced_by": "l1",
+    "first_pass_model": "Qwen3.5-0.8B-Q4_K_M.gguf"
+  }
+}

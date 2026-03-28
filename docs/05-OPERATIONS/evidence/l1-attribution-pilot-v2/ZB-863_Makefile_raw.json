@@ -1,0 +1,31 @@
+{
+  "jira_key": "ZB-863",
+  "contract_version": "v2-patch-oriented",
+  "task": {
+    "summary": "[L1-v2] Add 'make evidence-clean' target to purge stale JSON",
+    "description": "Add Makefile target that removes evidence/*.json older than 90 days via find -mtime +90 -delete.",
+    "target_files": [
+      "Makefile"
+    ],
+    "task_type": "config_change",
+    "validation": "grep -q 'evidence-clean' Makefile"
+  },
+  "l1_result": {
+    "raw_response": "{\"choices\":[{\"finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"{\\n  \\\"jira_key\\\": \\\"ZB-863\\\",\\n  \\\"problem_summary\\\": \\\"Add Makefile target to remove evidence/*.json files older than 90 days.\\\",\\n  \\\"target_files\\\": [\\\"Makefile\\\"],\\n  \\\"edit_description\\\": \\\"Add 'evidence-clean' target to remove evidence/*.json files older than 90 days using find -mtime +90 -delete.\\\",\\n  \\\"patch_commands\\\": [\\\"echo 'evidence-clean: find -mtime +90 -delete evidence/*.json > /dev/null; echo \\\\\\\"Done\\\\\\\"'\\\", \\\"validation_commands\\\": [\\\"grep -q 'evidence-clean' Makefile\\\", \\\"make evidence-clean\\\"], \\\"expected_outcome\\\": \\\"Makefile now includes 'evidence-clean' target that removes old JSON evidence files.\\\", \\\"risk_notes\\\": \\\"Ensure no other targets conflict with this deletion logic.\\\", \\\"follow_up_type\\\": \\\"needs_review\\\"}\"}}],\"created\":1774710246,\"model\":\"Qwen3.5-0.8B-Q4_K_M.gguf\",\"system_fingerprint\":\"b8467-990e4d969\",\"object\":\"chat.completion\",\"usage\":{\"completion_tokens\":189,\"prompt_tokens\":384,\"total_tokens\":573,\"prompt_tokens_details\":{\"cached_tokens\":0}},\"id\":\"chatcmpl-KWNklcbneGvpes4dmJRIwSALCCPbKILg\",\"timings\":{\"cache_n\":0,\"prompt_n\":384,\"prompt_ms\":2781.533,\"prompt_per_token_ms\":7.243575520833333,\"prompt_per_second\":138.05336841231076,\"predicted_n\":189,\"predicted_ms\":8991.893,\"predicted_per_token_ms\":47.57615343915344,\"predicted_per_second\":21.0189333881086}}",
+    "llm_content": "{\n  \"jira_key\": \"ZB-863\",\n  \"problem_summary\": \"Add Makefile target to remove evidence/*.json files older than 90 days.\",\n  \"target_files\": [\"Makefile\"],\n  \"edit_description\": \"Add 'evidence-clean' target to remove evidence/*.json files older than 90 days using find -mtime +90 -delete.\",\n  \"patch_commands\": [\"echo 'evidence-clean: find -mtime +90 -delete evidence/*.json > /dev/null; echo \\\"Done\\\"'\", \"validation_commands\": [\"grep -q 'evidence-clean' Makefile\", \"make evidence-clean\"], \"expected_outcome\": \"Makefile now includes 'evidence-clean' target that removes old JSON evidence files.\", \"risk_notes\": \"Ensure no other targets conflict with this deletion logic.\", \"follow_up_type\": \"needs_review\"}",
+    "json_str": "{\n  \"jira_key\": \"ZB-863\",\n  \"problem_summary\": \"Add Makefile target to remove evidence/*.json files older than 90 days.\",\n  \"target_files\": [\"Makefile\"],\n  \"edit_description\": \"Add 'evidence-clean' target to remove evidence/*.json files older than 90 days using find -mtime +90 -delete.\",\n  \"patch_commands\": [\"echo 'evidence-clean: find -mtime +90 -delete evidence/*.json > /dev/null; echo \\\"Done\\\"'\", \"validation_commands\": [\"grep -q 'evidence-clean' Makefile\", \"make evidence-clean\"], \"expected_outcome\": \"Makefile now includes 'evidence-clean' target that removes old JSON evidence files.\", \"risk_notes\": \"Ensure no other targets conflict with this deletion logic.\", \"follow_up_type\": \"needs_review\"}",
+    "parsed": null,
+    "parse_error": "Expecting ',' delimiter: line 6 column 136 (char 424)",
+    "elapsed_sec": 14.1,
+    "token_budget": 2048
+  },
+  "quality_score": 0,
+  "quality_issues": [
+    "no_parsed_output"
+  ],
+  "timestamp": "20260328-110350",
+  "attribution": {
+    "produced_by": "l1-failed",
+    "first_pass_model": "Qwen3.5-0.8B-Q4_K_M.gguf"
+  }
+}

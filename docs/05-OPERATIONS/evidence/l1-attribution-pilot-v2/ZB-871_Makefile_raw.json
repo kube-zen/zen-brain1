@@ -1,0 +1,46 @@
+{
+  "jira_key": "ZB-871",
+  "contract_version": "v2-patch-oriented",
+  "task": {
+    "summary": "[L1-v2] Create Makefile target 'drain-status'",
+    "description": "Add a Makefile target 'drain-status' that runs python3 scripts/jira-drain.py status.",
+    "target_files": [
+      "Makefile"
+    ],
+    "task_type": "config_change",
+    "validation": "grep -q 'drain-status' Makefile"
+  },
+  "l1_result": {
+    "raw_response": "{\"choices\":[{\"finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"{\\n  \\\"jira_key\\\": \\\"ZB-871\\\",\\n  \\\"problem_summary\\\": \\\"Add 'drain-status' target to Makefile that executes python3 scripts/jira-drain.py status\\\",\\n  \\\"target_files\\\": [\\\"Makefile\\\"],\\n  \\\"edit_description\\\": \\\"Add 'drain-status' target line to the end of the 'all' section, replacing 'all' with 'all, drain-status'.\\\",\\n  \\\"patch_commands\\\": [\\n    \\\"echo 'all, drain-status' >> Makefile\\\"\\n  ],\\n  \\\"validation_commands\\\": [\\n    \\\"grep -q 'drain-status' Makefile\\\",\\n    \\\"cat Makefile | grep -q 'drain-status'\\\"\\n  ],\\n  \\\"expected_outcome\\\": \\\"Makefile now contains 'drain-status' target that runs the specified python3 script.\\\",\\n  \\\"risk_notes\\\": \\\"Ensure 'all' target still works as before; add 'all, drain-status' only if 'all' is missing.\\\",\\n  \\\"follow_up_type\\\": \\\"needs_review\\\"\\n}\"}}],\"created\":1774710462,\"model\":\"Qwen3.5-0.8B-Q4_K_M.gguf\",\"system_fingerprint\":\"b8467-990e4d969\",\"object\":\"chat.completion\",\"usage\":{\"completion_tokens\":227,\"prompt_tokens\":381,\"total_tokens\":608,\"prompt_tokens_details\":{\"cached_tokens\":0}},\"id\":\"chatcmpl-H5dlbx9ujPHBEgLEhu4IwyxoDQG5tmHN\",\"timings\":{\"cache_n\":0,\"prompt_n\":381,\"prompt_ms\":2911.532,\"prompt_per_token_ms\":7.64181627296588,\"prompt_per_second\":130.85894298946397,\"predicted_n\":227,\"predicted_ms\":56451.708,\"predicted_per_token_ms\":248.68593832599117,\"predicted_per_second\":4.021136083251901}}",
+    "llm_content": "{\n  \"jira_key\": \"ZB-871\",\n  \"problem_summary\": \"Add 'drain-status' target to Makefile that executes python3 scripts/jira-drain.py status\",\n  \"target_files\": [\"Makefile\"],\n  \"edit_description\": \"Add 'drain-status' target line to the end of the 'all' section, replacing 'all' with 'all, drain-status'.\",\n  \"patch_commands\": [\n    \"echo 'all, drain-status' >> Makefile\"\n  ],\n  \"validation_commands\": [\n    \"grep -q 'drain-status' Makefile\",\n    \"cat Makefile | grep -q 'drain-status'\"\n  ],\n  \"expected_outcome\": \"Makefile now contains 'drain-status' target that runs the specified python3 script.\",\n  \"risk_notes\": \"Ensure 'all' target still works as before; add 'all, drain-status' only if 'all' is missing.\",\n  \"follow_up_type\": \"needs_review\"\n}",
+    "json_str": "{\n  \"jira_key\": \"ZB-871\",\n  \"problem_summary\": \"Add 'drain-status' target to Makefile that executes python3 scripts/jira-drain.py status\",\n  \"target_files\": [\"Makefile\"],\n  \"edit_description\": \"Add 'drain-status' target line to the end of the 'all' section, replacing 'all' with 'all, drain-status'.\",\n  \"patch_commands\": [\n    \"echo 'all, drain-status' >> Makefile\"\n  ],\n  \"validation_commands\": [\n    \"grep -q 'drain-status' Makefile\",\n    \"cat Makefile | grep -q 'drain-status'\"\n  ],\n  \"expected_outcome\": \"Makefile now contains 'drain-status' target that runs the specified python3 script.\",\n  \"risk_notes\": \"Ensure 'all' target still works as before; add 'all, drain-status' only if 'all' is missing.\",\n  \"follow_up_type\": \"needs_review\"\n}",
+    "parsed": {
+      "jira_key": "ZB-871",
+      "problem_summary": "Add 'drain-status' target to Makefile that executes python3 scripts/jira-drain.py status",
+      "target_files": [
+        "Makefile"
+      ],
+      "edit_description": "Add 'drain-status' target line to the end of the 'all' section, replacing 'all' with 'all, drain-status'.",
+      "patch_commands": [
+        "echo 'all, drain-status' >> Makefile"
+      ],
+      "validation_commands": [
+        "grep -q 'drain-status' Makefile",
+        "cat Makefile | grep -q 'drain-status'"
+      ],
+      "expected_outcome": "Makefile now contains 'drain-status' target that runs the specified python3 script.",
+      "risk_notes": "Ensure 'all' target still works as before; add 'all, drain-status' only if 'all' is missing.",
+      "follow_up_type": "needs_review"
+    },
+    "parse_error": null,
+    "elapsed_sec": 59.4,
+    "token_budget": 2048
+  },
+  "quality_score": 25,
+  "quality_issues": [],
+  "timestamp": "20260328-110641",
+  "attribution": {
+    "produced_by": "l1",
+    "first_pass_model": "Qwen3.5-0.8B-Q4_K_M.gguf"
+  }
+}

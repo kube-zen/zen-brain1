@@ -1,0 +1,25 @@
+{
+  "jira_key": "ZB-871",
+  "contract_version": "v2-patch-oriented",
+  "normalized_output": {
+    "jira_key": "ZB-871",
+    "problem_summary": "Add 'drain-status' target to Makefile that executes python3 scripts/jira-drain.py status",
+    "target_files": [
+      "Makefile"
+    ],
+    "edit_description": "Add 'drain-status' target line to the end of the 'all' section, replacing 'all' with 'all, drain-status'.",
+    "patch_commands": [
+      "echo 'all, drain-status' >> Makefile"
+    ],
+    "validation_commands": [
+      "grep -q 'drain-status' Makefile",
+      "cat Makefile | grep -q 'drain-status'"
+    ],
+    "expected_outcome": "Makefile now contains 'drain-status' target that runs the specified python3 script.",
+    "risk_notes": "Ensure 'all' target still works as before; add 'all, drain-status' only if 'all' is missing.",
+    "follow_up_type": "needs_review"
+  },
+  "quality_score": 25,
+  "quality_issues": [],
+  "timestamp": "20260328-110641"
+}

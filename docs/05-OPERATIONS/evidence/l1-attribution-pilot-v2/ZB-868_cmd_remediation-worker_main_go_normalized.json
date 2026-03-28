@@ -1,0 +1,24 @@
+{
+  "jira_key": "ZB-868",
+  "contract_version": "v2-patch-oriented",
+  "normalized_output": {
+    "jira_key": "ZB-868",
+    "problem_summary": "Add Go doc comment above RemediationPacket struct in cmd/remediation-worker/main.go",
+    "target_files": [
+      "cmd/remediation-worker/main.go"
+    ],
+    "edit_description": "Add 'package main' and 'package github.com/...' doc comments above the struct block to document the package and its imports.",
+    "patch_commands": [
+      "sed -i '1,/^package main/ { /^package main/ !d; /^package github.com/.../.../main\\.go$/ { /^package github.com/.../.../main\\.go$/ !d; /^package main/ { /^package main/ !d; /^package github.com/.../.../main\\.go$/ { /^package main/ !d; /^package github.com/.../.../main\\.go$/ } } }' cmd/remediation-worker/main.go",
+      "echo >> cmd/remediation-worker/main.go"
+    ],
+    "expected_outcome": "Go doc comments added above the struct block, documenting the package and imports.",
+    "risk_notes": "Ensure no syntax errors occur during sed substitution.",
+    "follow_up_type": "needs_review"
+  },
+  "quality_score": 20,
+  "quality_issues": [
+    "no_validation_commands"
+  ],
+  "timestamp": "20260328-110453"
+}

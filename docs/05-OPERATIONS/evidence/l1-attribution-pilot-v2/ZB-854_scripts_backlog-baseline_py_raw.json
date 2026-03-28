@@ -1,0 +1,31 @@
+{
+  "jira_key": "ZB-854",
+  "contract_version": "v2-patch-oriented",
+  "task": {
+    "summary": "[L1-v2] Add error handling to backlog-baseline.py HTTP calls",
+    "description": "The backlog-baseline.py script does not handle HTTP errors. Add try/except around subprocess calls.",
+    "target_files": [
+      "scripts/backlog-baseline.py"
+    ],
+    "task_type": "code_edit",
+    "validation": "python3 -c 'import ast; ast.parse(open(\"scripts/backlog-baseline.py\").read())'"
+  },
+  "l1_result": {
+    "raw_response": "",
+    "llm_content": "",
+    "json_str": "",
+    "parsed": null,
+    "parse_error": "Expecting value: line 1 column 1 (char 0)",
+    "elapsed_sec": 60.0,
+    "token_budget": 2048
+  },
+  "quality_score": 0,
+  "quality_issues": [
+    "no_parsed_output"
+  ],
+  "timestamp": "20260328-110039",
+  "attribution": {
+    "produced_by": "l1-failed",
+    "first_pass_model": "Qwen3.5-0.8B-Q4_K_M.gguf"
+  }
+}
