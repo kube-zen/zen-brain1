@@ -484,6 +484,53 @@ Return JSON only.`, packet.JiraKey, packet.TargetFiles, packet.EvidencePaths, tr
 	return &output, nil
 }
 
+// executeRemediationViaL1WithTelemetry wraps executeRemediationViaL1 with per-task metrics collection.
+// Returns the L1 output, timing info, and emits a telemetry record.
+func executeRemediationViaL1WithTelemetry(endpoint, model string, packet RemediationPacket, timeoutSec int, runID, scheduleName string) (*RemediationOutput, error) {
+	start := time.Now()
+	promptChars := len(packet.TargetFiles) + len(packet.EvidencePaths) + len(packet.SuccessCriteria) + len(packet.ValidationCmds) + len(packet.Constraints)
+
+	result, execErr := executeRemediationViaL1(endpoint, model, packet, timeoutSec)
+
+	wallMs := time.Since(start).Milliseconds()
+
+	// Build telemetry record
+	builder := metrics.NewTaskRecord(runID, packet.JiraKey).
+		JiraKey(packet.JiraKey).
+		Schedule(scheduleName).
+		Model(model).
+		Lane("l1-local").
+		Provider("llama-cpp").
+		PromptSize(promptChars).
+		Timing(start, wallMs).
+		Attempt(1).
+		TaskClass("remediation")
+
+	if execErr != nil {
+		// L1 call failed entirely (timeout, network, etc.)
+		builder.CompletionClass(metrics.ClassTimeout).
+			ProducedBy(metrics.ProducedByL1Failed).
+			OutputSize(0)
+	} else {
+		outputChars := len(result.Explanation) + len(result.EditDescription)
+		if result.Fields != nil {
+			if b, err := json.Marshal(result.Fields); err == nil {
+				outputChars += len(b)
+			}
+		}
+		builder.OutputSize(outputChars).
+			RemediationType(result.RemediationType).
+			FinalStatus(result.FinalStatus)
+
+		// Classify completion
+		builder.CompletionClass(metrics.ClassifyCompletion(wallMs, outputChars, false, 0, 15))
+		builder.ProducedBy(metrics.ClassifyProducedBy(outputChars, true, 0, 15, ""))
+	}
+
+	recordTelemetry(builder.Build())
+	return result, execErr
+}
+
 // ─── Phase 3: Jira Outcome Update ─────────────────────────────────────
 
 func updateJiraOutcome(jcfg jiraConfig, key string, result *RemediationOutput, epLink string) bool {
@@ -923,9 +970,47 @@ func generateComplianceReport(jcfg jiraConfig, evidenceRoot string, reportPath s
 	return os.WriteFile(reportPath, []byte(sb.String()), 0644)
 }
 
+// ─── Metrics Collector (global) ───────────────────────────────────────
+
+var (
+	metricsCollector *metrics.Collector
+	metricsDir       = envOr("METRICS_DIR", metrics.DefaultMetricsDir)
+)
+
+func initMetrics() {
+	var err error
+	metricsCollector, err = metrics.NewCollector(metricsDir)
+	if err != nil {
+		log.Printf("[METRICS] Warning: failed to init metrics collector: %v (continuing without metrics)", err)
+	}
+}
+
+func recordTelemetry(rec metrics.TaskTelemetryRecord) {
+	if metricsCollector == nil {
+		return
+	}
+	if err := metricsCollector.Record(rec); err != nil {
+		log.Printf("[METRICS] Warning: failed to record telemetry: %v", err)
+	}
+}
+
+func flushMetrics() {
+	if metricsCollector != nil {
+		metricsCollector.Close()
+		// Compute and save summary from all records
+		records, err := metrics.LoadRecordsFromDir(metricsDir)
+		if err == nil && len(records) > 0 {
+			_ = metrics.ComputeAndSave(metricsDir, records, "latest_run")
+		}
+	}
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────
 
 func main() {
+	initMetrics()
+	defer flushMetrics()
+
 	jcfg := loadJiraConfig()
 
 	mode := envOr("MODE", "remediate") // remediate, report, pilot
@@ -1004,9 +1089,9 @@ func runPilot(cfg remediationConfig, jcfg jiraConfig, pilotKeys []string) {
 		// Build remediation packet
 		packet := buildRemediationPacket(*ticket, cfg.RepoRoot)
 
-		// Execute via L1
+		// Execute via L1 (with telemetry)
 		log.Printf("[REMEDIATION-PILOT] %s: dispatching to L1...", key)
-		result, err := executeRemediationViaL1(cfg.L1Endpoint, cfg.L1Model, packet, cfg.TimeoutSec)
+		result, err := executeRemediationViaL1WithTelemetry(cfg.L1Endpoint, cfg.L1Model, packet, cfg.TimeoutSec, "pilot-"+time.Now().Format("20060102-150405"), "pilot")
 		if err != nil {
 			log.Printf("[REMEDIATION-PILOT] %s: L1 failed: %v", key, err)
 			continue
@@ -1119,7 +1204,7 @@ func runRemediationCycle(cfg remediationConfig, jcfg jiraConfig) {
 		log.Printf("[REMEDIATION] %s: processing (priority=%s)", ticket.Key, ticket.Priority)
 
 		packet := buildRemediationPacket(ticket, cfg.RepoRoot)
-		result, err := executeRemediationViaL1(cfg.L1Endpoint, cfg.L1Model, packet, cfg.TimeoutSec)
+		result, err := executeRemediationViaL1WithTelemetry(cfg.L1Endpoint, cfg.L1Model, packet, cfg.TimeoutSec, "cycle-"+time.Now().Format("20060102-150405"), "remediation-cycle")
 		if err != nil {
 			log.Printf("[REMEDIATION] %s: L1 failed: %v", ticket.Key, err)
 			failed++
