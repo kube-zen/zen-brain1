@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"regexp"
 	"strings"
 )
@@ -166,6 +167,7 @@ func buildNormalizedPayload(ticket RemediationTicket, result *RemediationOutput,
 	// If L1 didn't provide validation, use the packet's validation commands
 	if payload.Validation == "" || len(payload.Validation) < 10 {
 		if packet.ValidationCmds != "" {
+			log.Printf("[NORMALIZE] %s: replacing short validation %q with packet validation (len=%d)", payload.JiraKey, payload.Validation, len(packet.ValidationCmds))
 			payload.Validation = packet.ValidationCmds
 		}
 	}
