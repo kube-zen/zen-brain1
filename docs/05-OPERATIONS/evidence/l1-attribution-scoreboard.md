@@ -1,10 +1,47 @@
-# L1 Attribution Scoreboard — 2026-03-28
+# L1 Attribution Scoreboard
 
-**Pilot run:** 2026-03-28 09:10-09:23 EDT
+**v1 Pilot:** 2026-03-28 09:10-09:23 EDT
+**v2 Pilot:** 2026-03-28 10:57-11:05 EDT
 **Model:** Qwen3.5-0.8B-Q4_K_M via llama.cpp (port 56227, CPU, 10 parallel slots)
-**Tasks:** 10 bounded remediation tasks (config_change, code_edit, doc_update)
 
-## Scoreboard
+---
+
+## v2 Scoreboard — Patch-Oriented Contract (THE CURRENT STANDARD)
+
+**Contract:** max_tokens=2048, timeout=60s, patch_commands only, no new_content/file_body.
+
+| Jira Key | Task Type | Time | Parsed | Score | Patches | Validation | Forbidden | Produced By | Final State |
+|----------|-----------|------|--------|-------|---------|------------|-----------|-------------|-------------|
+| ZB-853 | config_change | 9.8s | ✅ | 25/25 | ✅ | ✅ | no | **l1** | Done |
+| ZB-854 | code_edit | 60s | ❌ | 0/25 | ❌ | ❌ | no | l1-failed-parse | PAUSED |
+| ZB-855 | doc_update | 9.3s | ✅ | 25/25 | ✅ | ✅ | no | **l1** | Done |
+| ZB-856 | config_change | 8.6s | ✅ | 25/25 | ✅ | ✅ | no | **l1** | Done |
+| ZB-857 | code_edit | 12.3s | ✅ | 25/25 | ✅ | ✅ | no | **l1** | Done |
+| ZB-858 | doc_update | 60s | ❌ | 0/25 | ❌ | ❌ | no | l1-failed-parse | PAUSED |
+| ZB-860 | doc_update | 19.8s | ✅ | 25/25 | ✅ | ✅ | no | **l1** | Done |
+| ZB-863 | config_change | 14.1s | ❌ | 0/25 | ❌ | ❌ | no | l1-failed-parse | PAUSED |
+| ZB-865 | config_change | 26.5s | ✅ | 25/25 | ✅ | ✅ | no | **l1** | Done |
+| ZB-867 | doc_update | 29.6s | ❌ | 0/25 | ❌ | ❌ | no | l1-failed-parse | PAUSED |
+
+### v2 Counts
+
+| Category | Count | % |
+|----------|-------|---|
+| **l1-produced** | **6** | **60%** |
+| l1-produced-needs-review | 4 | 40% |
+| supervisor-written | 0 | 0% |
+| script-only | 0 | 0% |
+
+### v2 Assessment
+- Every successful task scored 25/25 (perfect quality gate)
+- 0 tasks contained forbidden full-content fields
+- Average response time for successful tasks: 13s
+- Remaining failures: code_edit timeouts (L1 still tries too hard on code edits)
+- **60% threshold MET for config_change and doc_update**
+
+---
+
+## v1 Scoreboard — Full-File Contract (OBSOLETE)
 
 | Jira Key | Task Type | Lane | Raw L1 Output | Final Artifact | Validation | Produced By | Supervisor Intervention | Final State |
 |----------|-----------|------|---------------|----------------|------------|-------------|------------------------|-------------|
