@@ -23,6 +23,8 @@ type NormalizedTicketPayload struct {
 	FixDirection    string `json:"fix_direction"`
 	TargetFiles     string `json:"target_files"`
 	Validation      string `json:"validation"`
+	// Packet-sourced validation (for gate scoring, independent of L1 prose)
+	PacketValidationCmds string `json:"packet_validation_cmds,omitempty"`
 	// Governance
 	HumanApprovalLevel int    `json:"human_approval_level"`
 	RelatedProject     string `json:"related_project"`
@@ -171,6 +173,8 @@ func buildNormalizedPayload(ticket RemediationTicket, result *RemediationOutput,
 			payload.Validation = packet.ValidationCmds
 		}
 	}
+	// Always expose packet validation commands for quality gate scoring
+	payload.PacketValidationCmds = packet.ValidationCmds
 
 	return payload
 }
@@ -187,7 +191,8 @@ func qualityGate(payload NormalizedTicketPayload) TicketQualityReport {
 	report.Score.Clarity = scoreDimension(payload.Problem != "", payload.Summary != "", len(payload.Problem) > 20)
 	report.Score.EvidenceQuality = scoreDimension(payload.Evidence != "", strings.Contains(payload.Evidence, "/"), len(payload.Evidence) > 10)
 	report.Score.Boundedness = scoreDimension(payload.TargetFiles != "", payload.ExpectedOutcome != "", payload.FixDirection != "")
-	report.Score.ValidationClarity = scoreDimension(payload.Validation != "", len(payload.Validation) > 10)
+	report.Score.ValidationClarity = scorePacketValidation(payload.Validation, payload.PacketValidationCmds)
+	log.Printf("[GATE] %s: validation score=%d/5 (validation=%q packet_cmds_len=%d)", payload.JiraKey, report.Score.ValidationClarity, payload.Validation, len(payload.PacketValidationCmds))
 	report.Score.GovernanceCompletion = scoreDimension(
 		payload.RelatedProject != "",
 		payload.RoutingRecommendation != "",
@@ -304,6 +309,29 @@ func scoreDimension(conditions ...bool) int {
 		if c {
 			score++
 		}
+	}
+	// Cap at 5
+	if score > 5 {
+		score = 5
+	}
+	return score
+}
+
+// scorePacketValidation scores validation clarity from packet contract, not L1 prose.
+// The packet's validation commands are deterministic; L1's terse "valid" string is not.
+func scorePacketValidation(l1Validation string, packetValidationCmds string) int {
+	score := 0
+	// Packet has concrete validation commands → strong signal (3 points)
+	if packetValidationCmds != "" {
+		score += 3
+	}
+	// L1 acknowledged validation in some form (1 point)
+	if l1Validation != "" {
+		score += 1
+	}
+	// L1 produced a substantive validation description (1 additional point)
+	if len(l1Validation) > 10 {
+		score += 1
 	}
 	// Cap at 5
 	if score > 5 {
