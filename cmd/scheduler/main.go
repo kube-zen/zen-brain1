@@ -299,7 +299,7 @@ func runSchedule(s Schedule, stateDir, artifactRoot, batchBin string) {
 			"daily-sweep": true,
 		}
 		if ticketizableSchedules[s.Name] && jiraCfg.enabled {
-			backlogReady, backlogTotal := countBacklogTickets(jiraCfg)
+			backlogReady, _ := countBacklogTickets(jiraCfg)
 			// Discovery throttle: if backlog has > 10 ready tickets, skip discovery
 			// Policy: 70% remediation, 20% roadmap, 10% discovery
 			// Do not create more work faster than the factory can close it
@@ -418,7 +418,7 @@ func countBacklogTickets(jiraCfg jiraLedgerConfig) (int, int) {
 	}
 	// Count total backlog bug tickets
 	body := map[string]interface{}{
-		"jql":        fmt.Sprintf(`project="%s" AND status=Backlog AND labels=bug AND labels=ai:finding`, jiraCfg.project),
+		"jql":        fmt.Sprintf(`project="%s" AND status=Backlog AND labels=bug AND labels=ai:finding`, jiraCfg.projectKey),
 		"maxResults": 0, // just need total
 		"fields":     []string{},
 	}
