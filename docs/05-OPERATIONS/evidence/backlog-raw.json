@@ -1,0 +1,1029 @@
+{
+  "state_counts": {
+    "Backlog": 524,
+    "Selected for Development": 0,
+    "In Progress": 0,
+    "PAUSED": 0,
+    "RETRYING": 0,
+    "TO_ESCALATE": 0,
+    "Done": 0
+  },
+  "backlog_types": {
+    "Task": 100
+  },
+  "backlog_labels": {
+    "daily-sweep": 57,
+    "discovery": 1,
+    "zen-brain": 100,
+    "defect": 5,
+    "finding": 82,
+    "scheduled-batch": 17,
+    "hourly-scan": 19,
+    "quad-hourly-summary": 19
+  },
+  "ai_executable_count": 0,
+  "evidence_label_count": 0,
+  "governance_label_count": 0,
+  "backlog_issues": [
+    {
+      "key": "ZB-285",
+      "summary": "[zen-brain] daily-sweep \u2014 2026-03-26",
+      "type": "Task",
+      "labels": [
+        "daily-sweep",
+        "discovery",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-286",
+      "summary": "[defect] bug-hunting.md: **Location:** `cmd/main.go` (Main Entry Point)",
+      "type": "Task",
+      "labels": [
+        "defect",
+        "finding",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-287",
+      "summary": "[defect] bug-hunting.md: The main entry point (`main.go`) does not acquire the necessary synchronization primitives to ensure thread safety when ...",
+      "type": "Task",
+      "labels": [
+        "defect",
+        "finding",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-288",
+      "summary": "[defect] bug-hunting.md: *   **Unlocked `sync.WaitGroup`**: The `WaitGroup` is passed directly to `main()`, allowing it to run concurrently with ...",
+      "type": "Task",
+      "labels": [
+        "defect",
+        "finding",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-289",
+      "summary": "[defect] bug-hunting.md: *   **Unlocked `sync.Mutex`**: The `sync.Mutex` is not held across the call stack when the `main` function is entered.",
+      "type": "Task",
+      "labels": [
+        "defect",
+        "finding",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-290",
+      "summary": "[defect] bug-hunting.md: *   **Unlocked `sync.RWMutex`**: The `sync.RWMutex` is not held when the `main` function is entered.",
+      "type": "Task",
+      "labels": [
+        "defect",
+        "finding",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-291",
+      "summary": "[DAILY-SWEEP] daily-sweep-20260326-211444 \u2014 2026-03-26",
+      "type": "Task",
+      "labels": [
+        "daily-sweep",
+        "scheduled-batch",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-292",
+      "summary": "[DAILY-SWEEP] defects: Defects Report",
+      "type": "Task",
+      "labels": [
+        "daily-sweep",
+        "finding",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-293",
+      "summary": "[DAILY-SWEEP] tech_debt: Tech Debt Report",
+      "type": "Task",
+      "labels": [
+        "daily-sweep",
+        "finding",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-294",
+      "summary": "[DAILY-SWEEP] roadmap: Roadmap Report",
+      "type": "Task",
+      "labels": [
+        "daily-sweep",
+        "finding",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-295",
+      "summary": "[DAILY-SWEEP] bug_hunting: Bug Hunting Report",
+      "type": "Task",
+      "labels": [
+        "daily-sweep",
+        "finding",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-296",
+      "summary": "[DAILY-SWEEP] stub_hunting: Stub Hunting Report",
+      "type": "Task",
+      "labels": [
+        "daily-sweep",
+        "finding",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-297",
+      "summary": "[DAILY-SWEEP] config_drift: Config Drift Report",
+      "type": "Task",
+      "labels": [
+        "daily-sweep",
+        "finding",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-298",
+      "summary": "[DAILY-SWEEP] executive_summary: Executive Summary",
+      "type": "Task",
+      "labels": [
+        "daily-sweep",
+        "finding",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-299",
+      "summary": "[HOURLY-SCAN] hourly-scan-20260326-212243 \u2014 2026-03-26",
+      "type": "Task",
+      "labels": [
+        "hourly-scan",
+        "scheduled-batch",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-300",
+      "summary": "[HOURLY-SCAN] defects: Defects Report",
+      "type": "Task",
+      "labels": [
+        "finding",
+        "hourly-scan",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-301",
+      "summary": "[HOURLY-SCAN] bug_hunting: Bug Hunting Report",
+      "type": "Task",
+      "labels": [
+        "finding",
+        "hourly-scan",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-302",
+      "summary": "[HOURLY-SCAN] stub_hunting: Stub Hunting Report",
+      "type": "Task",
+      "labels": [
+        "finding",
+        "hourly-scan",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-303",
+      "summary": "[QUAD-HOURLY-SUMMARY] quad-hourly-summary-20260326-212606 \u2014 2026-03-26",
+      "type": "Task",
+      "labels": [
+        "quad-hourly-summary",
+        "scheduled-batch",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-304",
+      "summary": "[QUAD-HOURLY-SUMMARY] dead_code: Dead Code Report",
+      "type": "Task",
+      "labels": [
+        "finding",
+        "quad-hourly-summary",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-305",
+      "summary": "[QUAD-HOURLY-SUMMARY] tech_debt: Tech Debt Report",
+      "type": "Task",
+      "labels": [
+        "finding",
+        "quad-hourly-summary",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-306",
+      "summary": "[QUAD-HOURLY-SUMMARY] package_hotspots: Package Hotspots Report",
+      "type": "Task",
+      "labels": [
+        "finding",
+        "quad-hourly-summary",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-307",
+      "summary": "[QUAD-HOURLY-SUMMARY] test_gaps: Test Gap Report",
+      "type": "Task",
+      "labels": [
+        "finding",
+        "quad-hourly-summary",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-308",
+      "summary": "[QUAD-HOURLY-SUMMARY] config_drift: Config Drift Report",
+      "type": "Task",
+      "labels": [
+        "finding",
+        "quad-hourly-summary",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-309",
+      "summary": "[QUAD-HOURLY-SUMMARY] roadmap: Roadmap Report",
+      "type": "Task",
+      "labels": [
+        "finding",
+        "quad-hourly-summary",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-310",
+      "summary": "[HOURLY-SCAN] hourly-scan-20260326-215324 \u2014 2026-03-26",
+      "type": "Task",
+      "labels": [
+        "hourly-scan",
+        "scheduled-batch",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-311",
+      "summary": "[HOURLY-SCAN] defects: Defects Report",
+      "type": "Task",
+      "labels": [
+        "finding",
+        "hourly-scan",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-312",
+      "summary": "[HOURLY-SCAN] bug_hunting: Bug Hunting Report",
+      "type": "Task",
+      "labels": [
+        "finding",
+        "hourly-scan",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-313",
+      "summary": "[QUAD-HOURLY-SUMMARY] quad-hourly-summary-20260326-215324 \u2014 2026-03-26",
+      "type": "Task",
+      "labels": [
+        "quad-hourly-summary",
+        "scheduled-batch",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-314",
+      "summary": "[QUAD-HOURLY-SUMMARY] package_hotspots: Package Hotspots Report",
+      "type": "Task",
+      "labels": [
+        "finding",
+        "quad-hourly-summary",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-315",
+      "summary": "[QUAD-HOURLY-SUMMARY] test_gaps: Test Gap Report",
+      "type": "Task",
+      "labels": [
+        "finding",
+        "quad-hourly-summary",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-316",
+      "summary": "[QUAD-HOURLY-SUMMARY] roadmap: Roadmap Report",
+      "type": "Task",
+      "labels": [
+        "finding",
+        "quad-hourly-summary",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-317",
+      "summary": "[DAILY-SWEEP] daily-sweep-20260326-215220 \u2014 2026-03-26",
+      "type": "Task",
+      "labels": [
+        "daily-sweep",
+        "scheduled-batch",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-318",
+      "summary": "[DAILY-SWEEP] daily-sweep-20260326-215324 \u2014 2026-03-26",
+      "type": "Task",
+      "labels": [
+        "daily-sweep",
+        "scheduled-batch",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-319",
+      "summary": "[DAILY-SWEEP] dead_code: Dead Code Report",
+      "type": "Task",
+      "labels": [
+        "daily-sweep",
+        "finding",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-320",
+      "summary": "[DAILY-SWEEP] dead_code: Dead Code Report",
+      "type": "Task",
+      "labels": [
+        "daily-sweep",
+        "finding",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-321",
+      "summary": "[DAILY-SWEEP] tech_debt: Tech Debt Report",
+      "type": "Task",
+      "labels": [
+        "daily-sweep",
+        "finding",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-322",
+      "summary": "[DAILY-SWEEP] tech_debt: Tech Debt Report",
+      "type": "Task",
+      "labels": [
+        "daily-sweep",
+        "finding",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-323",
+      "summary": "[DAILY-SWEEP] roadmap: Roadmap Report",
+      "type": "Task",
+      "labels": [
+        "daily-sweep",
+        "finding",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-324",
+      "summary": "[DAILY-SWEEP] roadmap: Roadmap Report",
+      "type": "Task",
+      "labels": [
+        "daily-sweep",
+        "finding",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-325",
+      "summary": "[DAILY-SWEEP] bug_hunting: Bug Hunting Report",
+      "type": "Task",
+      "labels": [
+        "daily-sweep",
+        "finding",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-326",
+      "summary": "[DAILY-SWEEP] package_hotspots: Package Hotspots Report",
+      "type": "Task",
+      "labels": [
+        "daily-sweep",
+        "finding",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-327",
+      "summary": "[DAILY-SWEEP] test_gaps: Test Gap Report",
+      "type": "Task",
+      "labels": [
+        "daily-sweep",
+        "finding",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-328",
+      "summary": "[DAILY-SWEEP] test_gaps: Test Gap Report",
+      "type": "Task",
+      "labels": [
+        "daily-sweep",
+        "finding",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-329",
+      "summary": "[DAILY-SWEEP] config_drift: Config Drift Report",
+      "type": "Task",
+      "labels": [
+        "daily-sweep",
+        "finding",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-330",
+      "summary": "[DAILY-SWEEP] config_drift: Config Drift Report",
+      "type": "Task",
+      "labels": [
+        "daily-sweep",
+        "finding",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-331",
+      "summary": "[DAILY-SWEEP] executive_summary: Executive Summary",
+      "type": "Task",
+      "labels": [
+        "daily-sweep",
+        "finding",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-332",
+      "summary": "[DAILY-SWEEP] executive_summary: Executive Summary",
+      "type": "Task",
+      "labels": [
+        "daily-sweep",
+        "finding",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-333",
+      "summary": "[QUAD-HOURLY-SUMMARY] quad-hourly-summary-20260326-220508 \u2014 2026-03-26",
+      "type": "Task",
+      "labels": [
+        "quad-hourly-summary",
+        "scheduled-batch",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-334",
+      "summary": "[QUAD-HOURLY-SUMMARY] roadmap: Roadmap Report",
+      "type": "Task",
+      "labels": [
+        "finding",
+        "quad-hourly-summary",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-335",
+      "summary": "[DAILY-SWEEP] daily-sweep-20260326-220501 \u2014 2026-03-26",
+      "type": "Task",
+      "labels": [
+        "daily-sweep",
+        "scheduled-batch",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-336",
+      "summary": "[DAILY-SWEEP] dead_code: Dead Code Report",
+      "type": "Task",
+      "labels": [
+        "daily-sweep",
+        "finding",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-337",
+      "summary": "[DAILY-SWEEP] roadmap: Roadmap Report",
+      "type": "Task",
+      "labels": [
+        "daily-sweep",
+        "finding",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-338",
+      "summary": "[DAILY-SWEEP] stub_hunting: Stub Hunting Report",
+      "type": "Task",
+      "labels": [
+        "daily-sweep",
+        "finding",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-339",
+      "summary": "[DAILY-SWEEP] config_drift: Config Drift Report",
+      "type": "Task",
+      "labels": [
+        "daily-sweep",
+        "finding",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-340",
+      "summary": "[DAILY-SWEEP] executive_summary: Executive Summary",
+      "type": "Task",
+      "labels": [
+        "daily-sweep",
+        "finding",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-341",
+      "summary": "[DAILY-SWEEP] daily-sweep-20260326-220508 \u2014 2026-03-26",
+      "type": "Task",
+      "labels": [
+        "daily-sweep",
+        "scheduled-batch",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-342",
+      "summary": "[DAILY-SWEEP] tech_debt: Tech Debt Report",
+      "type": "Task",
+      "labels": [
+        "daily-sweep",
+        "finding",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-343",
+      "summary": "[DAILY-SWEEP] package_hotspots: Package Hotspots Report",
+      "type": "Task",
+      "labels": [
+        "daily-sweep",
+        "finding",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-344",
+      "summary": "[DAILY-SWEEP] config_drift: Config Drift Report",
+      "type": "Task",
+      "labels": [
+        "daily-sweep",
+        "finding",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-345",
+      "summary": "[DAILY-SWEEP] executive_summary: Executive Summary",
+      "type": "Task",
+      "labels": [
+        "daily-sweep",
+        "finding",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-346",
+      "summary": "[HOURLY-SCAN] hourly-scan-20260326-221506 \u2014 2026-03-26",
+      "type": "Task",
+      "labels": [
+        "hourly-scan",
+        "scheduled-batch",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-347",
+      "summary": "[HOURLY-SCAN] defects: Defects Report",
+      "type": "Task",
+      "labels": [
+        "finding",
+        "hourly-scan",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-348",
+      "summary": "[HOURLY-SCAN] bug_hunting: Bug Hunting Report",
+      "type": "Task",
+      "labels": [
+        "finding",
+        "hourly-scan",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-349",
+      "summary": "[HOURLY-SCAN] stub_hunting: Stub Hunting Report",
+      "type": "Task",
+      "labels": [
+        "finding",
+        "hourly-scan",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-350",
+      "summary": "[QUAD-HOURLY-SUMMARY] quad-hourly-summary-20260326-221828 \u2014 2026-03-26",
+      "type": "Task",
+      "labels": [
+        "quad-hourly-summary",
+        "scheduled-batch",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-351",
+      "summary": "[QUAD-HOURLY-SUMMARY] tech_debt: Tech Debt Report",
+      "type": "Task",
+      "labels": [
+        "finding",
+        "quad-hourly-summary",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-352",
+      "summary": "[QUAD-HOURLY-SUMMARY] config_drift: Config Drift Report",
+      "type": "Task",
+      "labels": [
+        "finding",
+        "quad-hourly-summary",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-353",
+      "summary": "[QUAD-HOURLY-SUMMARY] roadmap: Roadmap Report",
+      "type": "Task",
+      "labels": [
+        "finding",
+        "quad-hourly-summary",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-354",
+      "summary": "[DAILY-SWEEP] daily-sweep-20260326-223226 \u2014 2026-03-26",
+      "type": "Task",
+      "labels": [
+        "daily-sweep",
+        "scheduled-batch",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-355",
+      "summary": "[DAILY-SWEEP] dead_code: Dead Code Report",
+      "type": "Task",
+      "labels": [
+        "daily-sweep",
+        "finding",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-356",
+      "summary": "[DAILY-SWEEP] defects: Defects Report",
+      "type": "Task",
+      "labels": [
+        "daily-sweep",
+        "finding",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-357",
+      "summary": "[DAILY-SWEEP] tech_debt: Tech Debt Report",
+      "type": "Task",
+      "labels": [
+        "daily-sweep",
+        "finding",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-358",
+      "summary": "[DAILY-SWEEP] roadmap: Roadmap Report",
+      "type": "Task",
+      "labels": [
+        "daily-sweep",
+        "finding",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-359",
+      "summary": "[DAILY-SWEEP] bug_hunting: Bug Hunting Report",
+      "type": "Task",
+      "labels": [
+        "daily-sweep",
+        "finding",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-360",
+      "summary": "[DAILY-SWEEP] stub_hunting: Stub Hunting Report",
+      "type": "Task",
+      "labels": [
+        "daily-sweep",
+        "finding",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-361",
+      "summary": "[DAILY-SWEEP] package_hotspots: Package Hotspots Report",
+      "type": "Task",
+      "labels": [
+        "daily-sweep",
+        "finding",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-362",
+      "summary": "[DAILY-SWEEP] test_gaps: Test Gap Report",
+      "type": "Task",
+      "labels": [
+        "daily-sweep",
+        "finding",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-363",
+      "summary": "[DAILY-SWEEP] config_drift: Config Drift Report",
+      "type": "Task",
+      "labels": [
+        "daily-sweep",
+        "finding",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-364",
+      "summary": "[DAILY-SWEEP] executive_summary: Executive Summary",
+      "type": "Task",
+      "labels": [
+        "daily-sweep",
+        "finding",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-365",
+      "summary": "[HOURLY-SCAN] hourly-scan-20260326-223716 \u2014 2026-03-26",
+      "type": "Task",
+      "labels": [
+        "hourly-scan",
+        "scheduled-batch",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-366",
+      "summary": "[HOURLY-SCAN] defects: Defects Report",
+      "type": "Task",
+      "labels": [
+        "finding",
+        "hourly-scan",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-367",
+      "summary": "[HOURLY-SCAN] bug_hunting: Bug Hunting Report",
+      "type": "Task",
+      "labels": [
+        "finding",
+        "hourly-scan",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-368",
+      "summary": "[HOURLY-SCAN] stub_hunting: Stub Hunting Report",
+      "type": "Task",
+      "labels": [
+        "finding",
+        "hourly-scan",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-369",
+      "summary": "[DAILY-SWEEP] daily-sweep-20260326-224544 \u2014 2026-03-26",
+      "type": "Task",
+      "labels": [
+        "daily-sweep",
+        "scheduled-batch",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-370",
+      "summary": "[DAILY-SWEEP] defects: Defects Report",
+      "type": "Task",
+      "labels": [
+        "daily-sweep",
+        "finding",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-371",
+      "summary": "[DAILY-SWEEP] tech_debt: Tech Debt Report",
+      "type": "Task",
+      "labels": [
+        "daily-sweep",
+        "finding",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-372",
+      "summary": "[DAILY-SWEEP] roadmap: Roadmap Report",
+      "type": "Task",
+      "labels": [
+        "daily-sweep",
+        "finding",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-373",
+      "summary": "[DAILY-SWEEP] bug_hunting: Bug Hunting Report",
+      "type": "Task",
+      "labels": [
+        "daily-sweep",
+        "finding",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-374",
+      "summary": "[DAILY-SWEEP] stub_hunting: Stub Hunting Report",
+      "type": "Task",
+      "labels": [
+        "daily-sweep",
+        "finding",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-375",
+      "summary": "[DAILY-SWEEP] package_hotspots: Package Hotspots Report",
+      "type": "Task",
+      "labels": [
+        "daily-sweep",
+        "finding",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-376",
+      "summary": "[DAILY-SWEEP] test_gaps: Test Gap Report",
+      "type": "Task",
+      "labels": [
+        "daily-sweep",
+        "finding",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-377",
+      "summary": "[DAILY-SWEEP] config_drift: Config Drift Report",
+      "type": "Task",
+      "labels": [
+        "daily-sweep",
+        "finding",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-378",
+      "summary": "[DAILY-SWEEP] executive_summary: Executive Summary",
+      "type": "Task",
+      "labels": [
+        "daily-sweep",
+        "finding",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-379",
+      "summary": "[HOURLY-SCAN] hourly-scan-20260326-225255 \u2014 2026-03-26",
+      "type": "Task",
+      "labels": [
+        "hourly-scan",
+        "scheduled-batch",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-380",
+      "summary": "[HOURLY-SCAN] defects: Defects Report",
+      "type": "Task",
+      "labels": [
+        "finding",
+        "hourly-scan",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-381",
+      "summary": "[HOURLY-SCAN] bug_hunting: Bug Hunting Report",
+      "type": "Task",
+      "labels": [
+        "finding",
+        "hourly-scan",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-382",
+      "summary": "[HOURLY-SCAN] stub_hunting: Stub Hunting Report",
+      "type": "Task",
+      "labels": [
+        "finding",
+        "hourly-scan",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-383",
+      "summary": "[QUAD-HOURLY-SUMMARY] quad-hourly-summary-20260326-225541 \u2014 2026-03-26",
+      "type": "Task",
+      "labels": [
+        "quad-hourly-summary",
+        "scheduled-batch",
+        "zen-brain"
+      ]
+    },
+    {
+      "key": "ZB-384",
+      "summary": "[QUAD-HOURLY-SUMMARY] dead_code: Dead Code Report",
+      "type": "Task",
+      "labels": [
+        "finding",
+        "quad-hourly-summary",
+        "zen-brain"
+      ]
+    }
+  ]
+}
