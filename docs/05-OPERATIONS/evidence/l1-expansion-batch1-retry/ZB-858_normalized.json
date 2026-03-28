@@ -1,0 +1,19 @@
+{
+  "jira_key": "ZB-858",
+  "output": {
+    "edit_description": "Update evidence-pack-template.json to add 'retention_period' and 'created_at' fields using sed/echo commands.",
+    "target_files": [
+      "docs/05-OPERATIONS/evidence/evidence-pack-template.json"
+    ],
+    "patch_commands": [
+      "sed -i 's/retention_period: null/retention_period: 0/' docs/05-OPERATIONS/evidence/evidence-pack-template.json",
+      "sed -i 's/created_at: null/created_at: 0/' docs/05-OPERATIONS/evidence/evidence-pack-template.json",
+      "sed -i 's/created_at: null/created_at: \"2024-01-01T00:00:00Z\"/' docs/05-OPERATIONS/evidence/evidence-pack-template.json"
+    ],
+    "expected_outcome": "Evidence pack template now includes required metadata fields (retention_period, created_at) with default values.",
+    "risk_notes": "Ensure Python script updates the JSON file correctly. Verify the new fields are valid JSON and not null.",
+    "follow_up_type": "needs_review"
+  },
+  "score": 20,
+  "ts": "20260328-115428"
+}

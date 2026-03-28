@@ -1,0 +1,23 @@
+{
+  "jira_key": "ZB-886",
+  "output": {
+    "edit_description": "Add 'validate' target to Makefile that runs python3 -m py_compile on all Python scripts.",
+    "target_files": [
+      "Makefile"
+    ],
+    "patch_commands": [
+      "echo 'validate: python3 -m py_compile' >> Makefile",
+      "echo '    python3 -m py_compile' >> Makefile",
+      "echo '    python3 -m py_compile' >> Makefile"
+    ],
+    "validation_commands": [
+      "grep -q 'validate' Makefile",
+      "grep -q 'py_compile' Makefile"
+    ],
+    "expected_outcome": "Makefile now contains 'validate' target that executes python3 -m py_compile on all Python scripts.",
+    "risk_notes": "Ensure no unintended side effects on other targets or variables.",
+    "follow_up_type": "none|needs_review"
+  },
+  "score": 25,
+  "ts": "20260328-114844"
+}

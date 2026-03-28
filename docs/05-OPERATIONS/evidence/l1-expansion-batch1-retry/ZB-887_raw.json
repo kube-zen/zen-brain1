@@ -1,0 +1,22 @@
+{
+  "jira_key": "ZB-887",
+  "task": {
+    "jira_key": "ZB-887",
+    "target_files": [
+      "scripts/jira-drain.py"
+    ],
+    "task_type": "doc_update",
+    "description": "Add a comment near the transition IDs dict documenting what each transition does.",
+    "validation": "python3 -c 'import ast; ast.parse(open(\"scripts/jira-drain.py\").read())'"
+  },
+  "l1": {
+    "raw": "",
+    "content": "",
+    "parsed": null,
+    "parse_error": "Expecting value: line 1 column 1 (char 0)",
+    "elapsed": 60.0
+  },
+  "score": 0,
+  "issues": [],
+  "ts": "20260328-114947"
+}

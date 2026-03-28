@@ -1,0 +1,22 @@
+{
+  "jira_key": "ZB-883",
+  "task": {
+    "jira_key": "ZB-883",
+    "target_files": [
+      "cmd/remediation-worker/main.go"
+    ],
+    "task_type": "code_edit",
+    "description": "Add logic to apply 'l1-produced' or 'supervisor-written' label to Jira update comment based on attribution fields.",
+    "validation": "grep -q 'produced_by' cmd/remediation-worker/main.go"
+  },
+  "l1": {
+    "raw": "",
+    "content": "",
+    "parsed": null,
+    "parse_error": "Expecting value: line 1 column 1 (char 0)",
+    "elapsed": 60.0
+  },
+  "score": 0,
+  "issues": [],
+  "ts": "20260328-114748"
+}

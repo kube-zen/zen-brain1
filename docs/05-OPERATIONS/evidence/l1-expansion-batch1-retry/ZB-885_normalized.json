@@ -1,0 +1,22 @@
+{
+  "jira_key": "ZB-885",
+  "output": {
+    "edit_description": "Add .gitignore entries for *.egg-info and __pycache__ to prevent build artifacts from being tracked.",
+    "target_files": [
+      ".gitignore"
+    ],
+    "patch_commands": [
+      "echo '.egg-info' >> .gitignore",
+      "echo '__pycache__' >> .gitignore"
+    ],
+    "validation_commands": [
+      "grep -q 'egg-info' .gitignore",
+      "grep -q 'pycache' .gitignore"
+    ],
+    "expected_outcome": "Build artifacts (*.egg-info, __pycache__) are no longer tracked in .gitignore.",
+    "risk_notes": "Potential security risk if these files are accidentally committed to version control.",
+    "follow_up_type": "none|needs_review"
+  },
+  "score": 25,
+  "ts": "20260328-114829"
+}

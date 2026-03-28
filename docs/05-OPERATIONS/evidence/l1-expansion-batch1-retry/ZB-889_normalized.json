@@ -1,0 +1,22 @@
+{
+  "jira_key": "ZB-889",
+  "output": {
+    "edit_description": "Add 'L1 Attribution Tracking Requirements' section to GOVERNANCE.md",
+    "target_files": [
+      "GOVERNANCE.md"
+    ],
+    "patch_commands": [
+      "sed -i '/^## L1 Attribution Tracking Requirements$/a\\n\\n### L1 Attribution Tracking Requirements\\n\\n- Implement L1 attribution tracking for all LLM outputs\\n- Log attribution metrics per user session\\n- Audit model performance against L1 standards'",
+      "echo 'Added L1 Attribution Tracking Requirements section to GOVERNANCE.md'"
+    ],
+    "validation_commands": [
+      "test -f GOVERNANCE.md && grep -q 'L1 Attribution Tracking Requirements' GOVERNANCE.md",
+      "grep -q 'attribution' GOVERNANCE.md"
+    ],
+    "expected_outcome": "GOVERNANCE.md now contains a section titled 'L1 Attribution Tracking Requirements' with concrete requirements for LLM output attribution.",
+    "risk_notes": "No security risks. Requires careful review of L1 standards compliance.",
+    "follow_up_type": "needs_review"
+  },
+  "score": 25,
+  "ts": "20260328-115100"
+}
