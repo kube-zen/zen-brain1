@@ -291,14 +291,26 @@ func runSchedule(s Schedule, stateDir, artifactRoot, batchBin string) {
 		jiraCfg := loadJiraLedgerConfig()
 		jiraParentKey, jiraChildCount = syncBatchToJira(jiraCfg, runDir, s.Name)
 
-		// Phase 38: Run finding ticketizer for discovery classes
+		// Phase 38 + Phase D: Run finding ticketizer for discovery classes
 		// Only for schedules that contain ticketizable findings (defects, bug_hunting, stub_hunting)
+		// Phase D: Discovery throttle — skip ticket creation when backlog drain is the priority
 		ticketizableSchedules := map[string]bool{
 			"hourly-scan": true,
 			"daily-sweep": true,
 		}
 		if ticketizableSchedules[s.Name] && jiraCfg.enabled {
-			runFindingTicketizer(runDir, s.Name, jiraCfg)
+			backlogReady, backlogTotal := countBacklogTickets(jiraCfg)
+			// Discovery throttle: if backlog has > 10 ready tickets, skip discovery
+			// Policy: 70% remediation, 20% roadmap, 10% discovery
+			// Do not create more work faster than the factory can close it
+			if backlogReady > 10 {
+				log.Printf("[SCHED] %s: DISCOVERY THROTTLED — backlog has %d ready tickets (> 10 threshold). Skipping ticketizer.",
+					s.Name, backlogReady)
+			} else {
+				log.Printf("[SCHED] %s: discovery allowed — backlog has %d ready tickets (<= 10 threshold). Running ticketizer.",
+					s.Name, backlogReady)
+				runFindingTicketizer(runDir, s.Name, jiraCfg)
+			}
 		}
 	}
 
@@ -395,6 +407,37 @@ type jiraLedgerConfig struct {
 	apiToken   string
 	projectKey string
 	enabled    bool
+}
+
+// countBacklogTickets returns (ready backlog count, total backlog count) for discovery throttle.
+// Ready = bug + ai:finding + status=Backlog (actionable remediation work).
+// Phase D: Discovery throttle — do not create more work faster than the factory can close it.
+func countBacklogTickets(jiraCfg jiraLedgerConfig) (int, int) {
+	if !jiraCfg.enabled {
+		return 0, 0
+	}
+	// Count total backlog bug tickets
+	body := map[string]interface{}{
+		"jql":        fmt.Sprintf(`project="%s" AND status=Backlog AND labels=bug AND labels=ai:finding`, jiraCfg.project),
+		"maxResults": 0, // just need total
+		"fields":     []string{},
+	}
+	data, _ := json.Marshal(body)
+	req, _ := http.NewRequest("POST", jiraCfg.baseURL+"/rest/api/3/search/jql", bytes.NewReader(data))
+	req.SetBasicAuth(jiraCfg.email, jiraCfg.apiToken)
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil || resp.StatusCode != 200 {
+		resp.Body.Close()
+		return 0, 0
+	}
+	var result struct {
+		Total int `json:"total"`
+	}
+	json.NewDecoder(resp.Body).Decode(&result)
+	resp.Body.Close()
+	// All backlog bug+ai:finding tickets are considered "ready" for throttle purposes
+	return result.Total, result.Total
 }
 
 func loadJiraLedgerConfig() jiraLedgerConfig {
