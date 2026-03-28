@@ -78,9 +78,11 @@ type RemediationPacket struct {
 type RemediationOutput struct {
 	RemediationType string `json:"remediation_type"` // code_edit, config_change, doc_update, cannot_fix
 	FileToEdit      string `json:"file_to_edit"`
+	ChangeType      string `json:"change_type,omitempty"` // create, modify, delete
 	EditDescription string `json:"edit_description"`
-	NewContent      string `json:"new_content,omitempty"`
+	NewContent      string `json:"new_content,omitempty"`   // kept for compat, but 0.8b no longer fills this
 	ConfigChanges   string `json:"config_changes,omitempty"`
+	Fields          map[string]string `json:"fields,omitempty"` // structured key-value changes
 	Explanation     string `json:"explanation"`
 	FinalStatus     string `json:"final_status"`     // success, needs_review, blocked, to_escalate
 	BlockerReason   string `json:"blocker_reason,omitempty"`
@@ -377,9 +379,9 @@ func buildRemediationPacket(ticket RemediationTicket, repoRoot string) Remediati
 
 // executeRemediationViaL1 sends a bounded remediation task to L1.
 func executeRemediationViaL1(endpoint, model string, packet RemediationPacket, timeoutSec int) (*RemediationOutput, error) {
-	systemPrompt := `You are a remediation worker for zen-brain1. Produce a bounded fix for the target files.
-Return ONLY valid JSON: {"remediation_type":"code_edit|config_change|doc_update|cannot_fix","file_to_edit":"path","edit_description":"what","new_content":"content or null","config_changes":null,"explanation":"why","final_status":"success|needs_review|blocked|to_escalate","blocker_reason":null,"validation_result":null,"compliance_note":null}
-No markdown. No prose. Just the JSON object.`
+	systemPrompt := `You are a remediation worker for zen-brain1. Produce a bounded change description for the target files.
+Return ONLY valid JSON: {"remediation_type":"code_edit|config_change|doc_update|cannot_fix","file_to_edit":"path","change_type":"create|modify|delete","edit_description":"what to change and why","fields":{"key":"value"},"explanation":"why","final_status":"success|needs_review|blocked|to_escalate","blocker_reason":null,"validation_result":null}
+No new_content field. No markdown. No prose. Just the JSON object.`
 
 	userPrompt := fmt.Sprintf(`Ticket: %s
 Target: %s
@@ -396,7 +398,7 @@ Return JSON only.`, packet.JiraKey, packet.TargetFiles, packet.EvidencePaths, tr
 			{"role": "user", "content": userPrompt},
 		},
 		"temperature":      0.3,
-		"max_tokens":       2048,
+		"max_tokens":       4096,
 		"chat_template_kwargs": map[string]interface{}{"enable_thinking": false},
 	}
 
