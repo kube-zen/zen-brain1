@@ -164,7 +164,7 @@ func buildNormalizedPayload(ticket RemediationTicket, result *RemediationOutput,
 		}
 	}
 	// If L1 didn't provide validation, use the packet's validation commands
-	if payload.Validation == "" {
+	if payload.Validation == "" || len(payload.Validation) < 10 {
 		if packet.ValidationCmds != "" {
 			payload.Validation = packet.ValidationCmds
 		}
