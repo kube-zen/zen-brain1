@@ -1,0 +1,24 @@
+{
+  "jira_key": "ZB-835",
+  "task": {
+    "summary": "[L1-PILOT] Write a quickstart comment block at top of jira-drain.py",
+    "description": "Add a clear comment block at the top of jira-drain.py showing 3-4 common usage examples so new developers can use it immediately.",
+    "target_files": "scripts/jira-drain.py",
+    "task_type": "doc_update",
+    "validation": "python3 -c 'import ast; ast.parse(open(\"scripts/jira-drain.py\").read())'",
+    "lane": "l1"
+  },
+  "l1_result": {
+    "raw_response": "{\"choices\":[{\"finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"{\\\"remediation_type\\\":\\\"doc_update\\\",\\\"file_to_edit\\\":\\\"scripts/jira-drain.py\\\",\\\"change_type\\\":\\\"modify\\\",\\\"edit_description\\\":\\\"Add a comment block at the top of the file containing 3-4 common usage examples for the jira-drain.py script.\\\",\\\"new_content\\\":\\\"\\\"\\\"\\\"\\njira-drain.py - A utility for draining Jira instances.\\n\\nCommon usage examples:\\n1. Drain a specific Jira instance:\\n   python jira-drain.py -i <instance_id>\\n2. Drain all instances:\\n   python jira-drain.py\\n3. Drain all instances with timeout:\\n   python jira-drain.py --timeout 30\\n4. Drain with specific parameters:\\n   python jira-drain.py -n <num> -t <timeout>\\n\\\"\\\"\\\"\\n\\\",\\\"explanation\\\":\\\"This change adds documentation with usage examples to help new developers quickly understand how to use the jira-drain.py script.\\\",\\\"final_status\\\":\\\"success\\\",\\\"validation_command\\\":\\\"python3 -c 'import ast; ast.parse(open(\\\\\\\"scripts/jira-drain.py\\\\\\\").read())''\\\"\"}}],\"created\":1774704127,\"model\":\"Qwen3.5-0.8B-Q4_K_M.gguf\",\"system_fingerprint\":\"b8467-990e4d969\",\"object\":\"chat.completion\",\"usage\":{\"completion_tokens\":230,\"prompt_tokens\":239,\"total_tokens\":469,\"prompt_tokens_details\":{\"cached_tokens\":0}},\"id\":\"chatcmpl-wbRfKzqvTG3HNOtzD4Qlk2DT7CxgMwMr\",\"timings\":{\"cache_n\":0,\"prompt_n\":239,\"prompt_ms\":1787.595,\"prompt_per_token_ms\":7.479476987447699,\"prompt_per_second\":133.69918801518241,\"predicted_n\":230,\"predicted_ms\":14011.343,\"predicted_per_token_ms\":60.918882608695654,\"predicted_per_second\":16.41527154106498}}",
+    "llm_content": "{\"remediation_type\":\"doc_update\",\"file_to_edit\":\"scripts/jira-drain.py\",\"change_type\":\"modify\",\"edit_description\":\"Add a comment block at the top of the file containing 3-4 common usage examples for the jira-drain.py script.\",\"new_content\":\"\"\"\"\njira-drain.py - A utility for draining Jira instances.\n\nCommon usage examples:\n1. Drain a specific Jira instance:\n   python jira-drain.py -i <instance_id>\n2. Drain all instances:\n   python jira-drain.py\n3. Drain all instances with timeout:\n   python jira-drain.py --timeout 30\n4. Drain with specific parameters:\n   python jira-drain.py -n <num> -t <timeout>\n\"\"\"\n\",\"explanation\":\"This change adds documentation with usage examples to help new developers quickly understand how to use the jira-drain.py script.\",\"final_status\":\"success\",\"validation_command\":\"python3 -c 'import ast; ast.parse(open(\\\"scripts/jira-drain.py\\\").read())''\"",
+    "json_str": "{\"remediation_type\":\"doc_update\",\"file_to_edit\":\"scripts/jira-drain.py\",\"change_type\":\"modify\",\"edit_description\":\"Add a comment block at the top of the file containing 3-4 common usage examples for the jira-drain.py script.\",\"new_content\":\"\"\"\"\njira-drain.py - A utility for draining Jira instances.\n\nCommon usage examples:\n1. Drain a specific Jira instance:\n   python jira-drain.py -i <instance_id>\n2. Drain all instances:\n   python jira-drain.py\n3. Drain all instances with timeout:\n   python jira-drain.py --timeout 30\n4. Drain with specific parameters:\n   python jira-drain.py -n <num> -t <timeout>\n\"\"\"\n\",\"explanation\":\"This change adds documentation with usage examples to help new developers quickly understand how to use the jira-drain.py script.\",\"final_status\":\"success\",\"validation_command\":\"python3 -c 'import ast; ast.parse(open(\\\"scripts/jira-drain.py\\\").read())''\"",
+    "parsed": null,
+    "parse_error": "Expecting ',' delimiter: line 1 column 243 (char 242)",
+    "elapsed_sec": 15.9
+  },
+  "timestamp": "20260328-092149",
+  "attribution": {
+    "produced_by": "l1",
+    "first_pass_model": "Qwen3.5-0.8B-Q4_K_M.gguf"
+  }
+}

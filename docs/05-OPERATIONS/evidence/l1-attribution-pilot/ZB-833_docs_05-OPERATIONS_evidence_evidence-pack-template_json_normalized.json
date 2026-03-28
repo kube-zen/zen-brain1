@@ -1,0 +1,19 @@
+{
+  "jira_key": "ZB-833",
+  "normalized_output": {
+    "remediation_type": "doc_update",
+    "file_to_edit": "docs/05-OPERATIONS/evidence/evidence-pack-template.json",
+    "change_type": "modify",
+    "edit_description": "Update the template to include a 'retention_period' field (default 90 days) and a 'created_at' timestamp in the root object to ensure all evidence pack JSON files adhere to the required metadata format.",
+    "new_content": "{\n  \"retention_period\": 90,\n  \"created_at\": \"2024-01-01T00:00:00Z\",\n  \"metadata\": {\n    \"project_id\": \"ZB-833\",\n    \"template_version\": \"1.0\"\n  }\n}",
+    "explanation": "The template must start with a comment or metadata field stating the retention period (90 days) and creation date to meet the validation requirement for all evidence pack JSON files.",
+    "final_status": "success",
+    "validation_command": "test -f docs/05-OPERATIONS/evidence/evidence-pack-template.json"
+  },
+  "timestamp": "20260328-092131",
+  "attribution": {
+    "produced_by": "l1",
+    "first_pass_model": "Qwen3.5-0.8B-Q4_K_M.gguf",
+    "supervisor_intervention": "none"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "jira_key": "ZB-817",
+  "normalized_output": {
+    "remediation_type": "config_change",
+    "file_to_edit": ".gitignore",
+    "change_type": "modify",
+    "edit_description": "Add *.json to .gitignore under docs/05-OPERATIONS/evidence/ to prevent large JSON artifacts from being committed to the repo.",
+    "new_content": "[\"evidence/05-OPERATIONS/evidence/*.json\"]",
+    "explanation": "To prevent large JSON artifacts from being committed to the repo, *.json files must be excluded from the tracked files list.",
+    "final_status": "success",
+    "validation_command": "grep -q 'evidence/.*json' .gitignore"
+  },
+  "timestamp": "20260328-091009",
+  "attribution": {
+    "produced_by": "l1",
+    "first_pass_model": "Qwen3.5-0.8B-Q4_K_M.gguf",
+    "supervisor_intervention": "none"
+  }
+}

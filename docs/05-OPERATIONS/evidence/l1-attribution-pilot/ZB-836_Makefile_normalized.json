@@ -1,0 +1,19 @@
+{
+  "jira_key": "ZB-836",
+  "normalized_output": {
+    "remediation_type": "config_change",
+    "file_to_edit": "Makefile",
+    "change_type": "modify",
+    "edit_description": "Add a Makefile target 'evidence-clean' that uses find -mtime +90 -delete to remove evidence/*.json files older than 90 days.",
+    "new_content": "# Add evidence-clean target to remove old evidence files\n# This target uses find -mtime +90 -delete to remove evidence/*.json files older than 90 days\n\n.PHONY: evidence-clean\n\nevidence-clean: \\\n\tfind -type f -name '*.json' -mtime +90 -delete 2>/dev/null || true\n\n.PHONY: evidence-clean\n\n",
+    "explanation": "The Makefile currently lacks a 'evidence-clean' target. This change adds a new target that uses find -mtime +90 -delete to remove evidence/*.json files older than 90 days, as specified in the ticket.",
+    "final_status": "success",
+    "validation_command": "grep -q 'evidence-clean' Makefile"
+  },
+  "timestamp": "20260328-092209",
+  "attribution": {
+    "produced_by": "l1",
+    "first_pass_model": "Qwen3.5-0.8B-Q4_K_M.gguf",
+    "supervisor_intervention": "none"
+  }
+}

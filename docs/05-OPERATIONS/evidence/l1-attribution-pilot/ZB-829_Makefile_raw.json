@@ -1,0 +1,24 @@
+{
+  "jira_key": "ZB-829",
+  "task": {
+    "summary": "[L1-PILOT] Add 'make evidence-clean' target to purge stale evidence JSON files",
+    "description": "Add a Makefile target that removes evidence/*.json files older than 90 days using find -mtime +90 -delete.",
+    "target_files": "Makefile",
+    "task_type": "config_change",
+    "validation": "grep -q 'evidence-clean' Makefile",
+    "lane": "l1"
+  },
+  "l1_result": {
+    "raw_response": "",
+    "llm_content": "",
+    "json_str": "",
+    "parsed": null,
+    "parse_error": "Expecting value: line 1 column 1 (char 0)",
+    "elapsed_sec": 120.0
+  },
+  "timestamp": "20260328-091913",
+  "attribution": {
+    "produced_by": "l1",
+    "first_pass_model": "Qwen3.5-0.8B-Q4_K_M.gguf"
+  }
+}

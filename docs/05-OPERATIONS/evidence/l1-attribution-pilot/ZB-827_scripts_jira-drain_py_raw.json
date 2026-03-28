@@ -1,0 +1,24 @@
+{
+  "jira_key": "ZB-827",
+  "task": {
+    "summary": "[L1-PILOT] Write a quickstart comment block at top of jira-drain.py",
+    "description": "Add a clear comment block at the top of jira-drain.py showing 3-4 common usage examples so new developers can use it immediately.",
+    "target_files": "scripts/jira-drain.py",
+    "task_type": "doc_update",
+    "validation": "python3 -c 'import ast; ast.parse(open(\"scripts/jira-drain.py\").read())'",
+    "lane": "l1"
+  },
+  "l1_result": {
+    "raw_response": "",
+    "llm_content": "",
+    "json_str": "",
+    "parsed": null,
+    "parse_error": "Expecting value: line 1 column 1 (char 0)",
+    "elapsed_sec": 120.0
+  },
+  "timestamp": "20260328-091708",
+  "attribution": {
+    "produced_by": "l1",
+    "first_pass_model": "Qwen3.5-0.8B-Q4_K_M.gguf"
+  }
+}
