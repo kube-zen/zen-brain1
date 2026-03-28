@@ -667,6 +667,75 @@ func writeDashboard(cfg factoryConfig, state *FactoryState) {
 
 // ─── Main ────────────────────────────────────────────────────────────
 
+// reconcileStuckInProgress checks all In Progress tickets and fixes terminal states.
+// This runs at the start of every cycle, even when no ready backlog tickets exist.
+func reconcileStuckInProgress(jcfg jiraConfig) {
+	if !jcfg.enabled {
+		return
+	}
+
+	issues, _, err := jiraSearch(jcfg,
+		fmt.Sprintf("project=%s AND status=\"In Progress\" ORDER BY updated ASC", jcfg.project),
+		50)
+	if err != nil || len(issues) == 0 {
+		return
+	}
+
+	fixed := 0
+	for _, issue := range issues {
+		key := issue.Key
+		labels := issue.Fields.Labels
+
+		hasRemediated := false
+		hasQualityBlocked := false
+		hasQualityReady := false
+		for _, l := range labels {
+			switch l {
+			case "ai:remediated":
+				hasRemediated = true
+			case "quality:blocked-invalid-payload":
+				hasQualityBlocked = true
+			case "quality:ready-for-execution", "quality:ready-with-review":
+				hasQualityReady = true
+			}
+		}
+
+		switch {
+		case hasRemediated && hasQualityBlocked:
+			// Worker ran, quality gate rejected — move to PAUSED
+			log.Printf("[RECONCILE] %s: remediated but quality-blocked, stuck In Progress → PAUSED", key)
+			if jiraTransition(jcfg, key, "PAUSED") {
+				fixed++
+			}
+
+		case hasRemediated && hasQualityReady:
+			// Worker ran, quality passed, but didn't get to Done — try Done
+			log.Printf("[RECONCILE] %s: remediated and quality-passed, stuck In Progress → Done", key)
+			if jiraTransition(jcfg, key, "Done") {
+				fixed++
+			}
+
+		case hasRemediated && !hasQualityBlocked && !hasQualityReady:
+			// Remediated but no quality label at all — likely gate didn't fire. Move to Done.
+			log.Printf("[RECONCILE] %s: remediated but no quality label, stuck In Progress → Done", key)
+			if jiraTransition(jcfg, key, "Done") {
+				fixed++
+			}
+
+		case !hasRemediated:
+			// Dispatched but worker didn't process (env issue, L1 fail, etc.) — move to RETRYING
+			log.Printf("[RECONCILE] %s: no remediation, stuck In Progress → RETRYING", key)
+			if jiraTransition(jcfg, key, "RETRYING") {
+				fixed++
+			}
+		}
+	}
+
+	if fixed > 0 {
+		log.Printf("[RECONCILE] Fixed %d/%d stuck In Progress tickets", fixed, len(issues))
+	}
+}
+
 func main() {
 	log.SetFlags(log.Ltime | log.Lmicroseconds)
 	log.Printf("[FACTORY-FILL] === Backlog-aware factory fill starting ===")
@@ -684,6 +753,10 @@ func main() {
 
 	log.Printf("[FACTORY-FILL] Config: safe_target=%d, poll=%v, l1=%s",
 		cfg.SafeConcurrency, cfg.PollInterval, cfg.L1Endpoint)
+
+	// State reconciliation: always run before fill cycle to fix any tickets stuck In Progress
+	// from previous cycles where the worker exited clean but quality gate rejected.
+	reconcileStuckInProgress(cfg.Jcfg)
 
 	forceRun := os.Getenv("FORCE_RUN") != "" || os.Getenv("ONCE") != ""
 	if forceRun {
