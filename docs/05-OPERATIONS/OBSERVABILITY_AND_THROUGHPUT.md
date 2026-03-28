@@ -65,6 +65,53 @@ To go beyond 3 useful workers, options are:
 3. **GPU inference** (not available on current machine)
 4. **Smaller context window** (`--ctx-size 32768`) to reduce memory pressure
 
+## Per-Task Telemetry (Phase 39+)
+
+Every L1 call now emits a `TaskTelemetryRecord` to `/var/lib/zen-brain1/metrics/per-task.jsonl`:
+
+```json
+{
+  "timestamp": "2026-03-28T17:00:00Z",
+  "run_id": "cycle-20260328-170000",
+  "task_id": "ZB-931",
+  "jira_key": "ZB-931",
+  "model": "qwen3.5:0.8b",
+  "lane": "l1-local",
+  "provider": "llama-cpp",
+  "prompt_size_chars": 1200,
+  "output_size_chars": 800,
+  "wall_time_ms": 45000,
+  "completion_class": "slow-but-productive",
+  "produced_by": "l1",
+  "quality_score": 22.5,
+  "task_class": "remediation",
+  "final_status": "success"
+}
+```
+
+### Querying Metrics
+
+```bash
+# Human-readable summary (last 24h)
+go run ./cmd/metrics-report --window last_24h --human
+
+# JSON output for dashboards
+go run ./cmd/metrics-report --window last_hour --json
+
+# All-time baseline
+go run ./cmd/metrics-report --window all --human
+```
+
+### Computed Metrics Available
+
+- Tasks/hour, Done/hour, Done/day
+- L1-produced rate
+- Avg / P50 / P95 latency
+- Timeout rate, truncation rate, repair rate
+- Chars/sec throughput
+- Per-model and per-lane breakdowns
+- Quality score averages
+
 ## Worker Allocation
 
 | Work Type | % | Notes |
