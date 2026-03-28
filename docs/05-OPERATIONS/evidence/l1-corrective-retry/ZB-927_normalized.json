@@ -1,0 +1,12 @@
+{
+  "jira_key": "ZB-927",
+  "output": {
+    "edit_description": "Add 'python_validate' target to Makefile that runs all Python validation scripts",
+    "target_files": [
+      "/path/to/Makefile"
+    ]
+  },
+  "repaired_from": "truncation_repaired_comma_trim",
+  "score": 15,
+  "ts": "20260328-121806"
+}

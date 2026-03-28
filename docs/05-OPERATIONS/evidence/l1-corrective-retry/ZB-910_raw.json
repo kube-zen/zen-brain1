@@ -1,0 +1,49 @@
+{
+  "jira_key": "ZB-910",
+  "task": {
+    "jira_key": "ZB-910",
+    "target_files": [
+      "README.md"
+    ],
+    "task_type": "doc_update",
+    "description": "Add a Quick Start section to README.md with 3 example commands.",
+    "validation": "grep -q 'Quick Start' README.md",
+    "prior_failure": "l1-truncated-json"
+  },
+  "l1": {
+    "raw": "{\"choices\":[{\"finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"{\\n  \\\"edit_description\\\": \\\"Add a 'Quick Start' section to README.md with 3 example commands\\\",\\n  \\\"target_files\\\": [\\n    \\\"README.md\\\"\\n  ],\\n  \\\"patch_commands\\\": [\\n    \\\"echo \\\\\\\"# Quick Start\\\\\\\\n\\\\\\\\n\\\\\\\" >> README.md\\\",\\n    \\\"echo \\\\\\\"1. Install dependencies...\\\\\\\" >> README.md\\\",\\n    \\\"echo \\\\\\\"2. Run the application...\\\\\\\" >> README.md\\\",\\n    \\\"echo \\\\\\\"3. View documentation...\\\\\\\" >> README.md\\\"\\n  ],\\n  \\\"validation_commands\\\": [\\n    \\\"grep -q 'Quick Start' README.md\\\",\\n    \\\"grep -q '1\\\\\\\\.' README.md\\\",\\n    \\\"grep -q '2\\\\\\\\.' README.md\\\",\\n    \\\"grep -q '3\\\\\\\\.' README.md\\\"\\n  ],\\n  \\\"expected_outcome\\\": \\\"success looks like\\\",\\n  \\\"risk_notes\\\": \\\"Ensure the commands are valid and do not conflict with existing code\\\",\\n  \\\"follow_up_type\\\": \\\"none|needs_review\\\"\\n}\"}}],\"created\":1774714535,\"model\":\"Qwen3.5-0.8B-Q4_K_M.gguf\",\"system_fingerprint\":\"b8467-990e4d969\",\"object\":\"chat.completion\",\"usage\":{\"completion_tokens\":223,\"prompt_tokens\":186,\"total_tokens\":409,\"prompt_tokens_details\":{\"cached_tokens\":0}},\"id\":\"chatcmpl-7U464pzEGKQM8xtRZLxgt3GKSt8lYOT8\",\"timings\":{\"cache_n\":0,\"prompt_n\":186,\"prompt_ms\":1324.445,\"prompt_per_token_ms\":7.120672043010752,\"prompt_per_second\":140.4361827029435,\"predicted_n\":223,\"predicted_ms\":6635.849,\"predicted_per_token_ms\":29.757170403587445,\"predicted_per_second\":33.605345751538344}}",
+    "llm_content": "{\n  \"edit_description\": \"Add a 'Quick Start' section to README.md with 3 example commands\",\n  \"target_files\": [\n    \"README.md\"\n  ],\n  \"patch_commands\": [\n    \"echo \\\"# Quick Start\\\\n\\\\n\\\" >> README.md\",\n    \"echo \\\"1. Install dependencies...\\\" >> README.md\",\n    \"echo \\\"2. Run the application...\\\" >> README.md\",\n    \"echo \\\"3. View documentation...\\\" >> README.md\"\n  ],\n  \"validation_commands\": [\n    \"grep -q 'Quick Start' README.md\",\n    \"grep -q '1\\\\.' README.md\",\n    \"grep -q '2\\\\.' README.md\",\n    \"grep -q '3\\\\.' README.md\"\n  ],\n  \"expected_outcome\": \"success looks like\",\n  \"risk_notes\": \"Ensure the commands are valid and do not conflict with existing code\",\n  \"follow_up_type\": \"none|needs_review\"\n}",
+    "repaired": "{\n  \"edit_description\": \"Add a 'Quick Start' section to README.md with 3 example commands\",\n  \"target_files\": [\n    \"README.md\"\n  ],\n  \"patch_commands\": [\n    \"echo \\\"# Quick Start\\\\n\\\\n\\\" >> README.md\",\n    \"echo \\\"1. Install dependencies...\\\" >> README.md\",\n    \"echo \\\"2. Run the application...\\\" >> README.md\",\n    \"echo \\\"3. View documentation...\\\" >> README.md\"\n  ],\n  \"validation_commands\": [\n    \"grep -q 'Quick Start' README.md\",\n    \"grep -q '1\\\\.' README.md\",\n    \"grep -q '2\\\\.' README.md\",\n    \"grep -q '3\\\\.' README.md\"\n  ],\n  \"expected_outcome\": \"success looks like\",\n  \"risk_notes\": \"Ensure the commands are valid and do not conflict with existing code\",\n  \"follow_up_type\": \"none|needs_review\"\n}",
+    "repair_type": "no_repair_needed",
+    "parsed": {
+      "edit_description": "Add a 'Quick Start' section to README.md with 3 example commands",
+      "target_files": [
+        "README.md"
+      ],
+      "patch_commands": [
+        "echo \"# Quick Start\\n\\n\" >> README.md",
+        "echo \"1. Install dependencies...\" >> README.md",
+        "echo \"2. Run the application...\" >> README.md",
+        "echo \"3. View documentation...\" >> README.md"
+      ],
+      "validation_commands": [
+        "grep -q 'Quick Start' README.md",
+        "grep -q '1\\.' README.md",
+        "grep -q '2\\.' README.md",
+        "grep -q '3\\.' README.md"
+      ],
+      "expected_outcome": "success looks like",
+      "risk_notes": "Ensure the commands are valid and do not conflict with existing code",
+      "follow_up_type": "none|needs_review"
+    },
+    "elapsed": 8.0,
+    "prompt_size": 917,
+    "output_size": 1444,
+    "adaptive_timeout": 120,
+    "output_class": "fast-productive"
+  },
+  "score": 25,
+  "issues": [],
+  "ts": "20260328-121535",
+  "policy": "adaptive-timeout-v1"
+}

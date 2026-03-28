@@ -1,0 +1,43 @@
+{
+  "jira_key": "ZB-887",
+  "task": {
+    "jira_key": "ZB-887",
+    "target_files": [
+      "scripts/jira-drain.py"
+    ],
+    "task_type": "doc_update",
+    "description": "Add a comment near the transition IDs dict documenting what each transition does.",
+    "validation": "python3 -c 'import ast; ast.parse(open(\"scripts/jira-drain.py\").read())'",
+    "prior_failure": "l1-truncated-json"
+  },
+  "l1": {
+    "raw": "{\"choices\":[{\"finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"{\\n  \\\"edit_description\\\": \\\"Add comment near transition IDs dict documenting what each transition does.\\\",\\n  \\\"target_files\\\": [\\\"scripts/jira-drain.py\\\"],\\n  \\\"patch_commands\\\": [\\n    \\\"sed -i 's/transition_ids\\\\\\\\s*\\\\\\\\{[^}]*\\\\\\\\}/transition_ids\\\\\\\\s*\\\\\\\\{\\\\\\\\n  comment: \\\\\\\"Each transition is documented below.\\\\\\\\n\\\\\\\\n  - \\\\\\\\1\\\\\\\\n\\\\\\\\}/' scripts/jira-drain.py\\\",\\n    \\\"sed -i 's/transition_ids\\\\\\\\s*\\\\\\\\}\\\\\\\\ntransition_ids\\\\\\\\s*\\\\\\\\{[^}]*\\\\\\\\}/transition_ids\\\\\\\\s*\\\\\\\\}\\\\\\\\n  comment: \\\\\\\"Each transition is documented below.\\\\\\\\n\\\\\\\\n  - \\\\\\\\1\\\\\\\\n\\\\\\\\}/' scripts/jira-drain.py\\\"\\n  ],\\n  \\\"expected_outcome\\\": \\\"success looks like\\\",\\n  \\\"risk_notes\\\": \\\"Ensure no syntax errors in the existing transition_ids dict.\\\",\\n  \\\"follow_up_type\\\": \\\"none|needs_review\\\"\\n}\"}}],\"created\":1774714497,\"model\":\"Qwen3.5-0.8B-Q4_K_M.gguf\",\"system_fingerprint\":\"b8467-990e4d969\",\"object\":\"chat.completion\",\"usage\":{\"completion_tokens\":217,\"prompt_tokens\":203,\"total_tokens\":420,\"prompt_tokens_details\":{\"cached_tokens\":0}},\"id\":\"chatcmpl-oNmszMROZZE2Lh0aV5W53EFg9YRgHQkB\",\"timings\":{\"cache_n\":0,\"prompt_n\":203,\"prompt_ms\":1833.078,\"prompt_per_token_ms\":9.029940886699507,\"prompt_per_second\":110.74269616459311,\"predicted_n\":217,\"predicted_ms\":9575.183,\"predicted_per_token_ms\":44.125267281106,\"predicted_per_second\":22.662752241915374}}",
+    "llm_content": "{\n  \"edit_description\": \"Add comment near transition IDs dict documenting what each transition does.\",\n  \"target_files\": [\"scripts/jira-drain.py\"],\n  \"patch_commands\": [\n    \"sed -i 's/transition_ids\\\\s*\\\\{[^}]*\\\\}/transition_ids\\\\s*\\\\{\\\\n  comment: \\\"Each transition is documented below.\\\\n\\\\n  - \\\\1\\\\n\\\\}/' scripts/jira-drain.py\",\n    \"sed -i 's/transition_ids\\\\s*\\\\}\\\\ntransition_ids\\\\s*\\\\{[^}]*\\\\}/transition_ids\\\\s*\\\\}\\\\n  comment: \\\"Each transition is documented below.\\\\n\\\\n  - \\\\1\\\\n\\\\}/' scripts/jira-drain.py\"\n  ],\n  \"expected_outcome\": \"success looks like\",\n  \"risk_notes\": \"Ensure no syntax errors in the existing transition_ids dict.\",\n  \"follow_up_type\": \"none|needs_review\"\n}",
+    "repaired": "{\n  \"edit_description\": \"Add comment near transition IDs dict documenting what each transition does.\",\n  \"target_files\": [\"scripts/jira-drain.py\"],\n  \"patch_commands\": [\n    \"sed -i 's/transition_ids\\\\s*\\\\{[^}]*\\\\}/transition_ids\\\\s*\\\\{\\\\n  comment: \\\"Each transition is documented below.\\\\n\\\\n  - \\\\1\\\\n\\\\}/' scripts/jira-drain.py\",\n    \"sed -i 's/transition_ids\\\\s*\\\\}\\\\ntransition_ids\\\\s*\\\\{[^}]*\\\\}/transition_ids\\\\s*\\\\}\\\\n  comment: \\\"Each transition is documented below.\\\\n\\\\n  - \\\\1\\\\n\\\\}/' scripts/jira-drain.py\"\n  ],\n  \"expected_outcome\": \"success looks like\",\n  \"risk_notes\": \"Ensure no syntax errors in the existing transition_ids dict.\",\n  \"follow_up_type\": \"none|needs_review\"\n}",
+    "repair_type": "no_repair_needed",
+    "parsed": {
+      "edit_description": "Add comment near transition IDs dict documenting what each transition does.",
+      "target_files": [
+        "scripts/jira-drain.py"
+      ],
+      "patch_commands": [
+        "sed -i 's/transition_ids\\s*\\{[^}]*\\}/transition_ids\\s*\\{\\n  comment: \"Each transition is documented below.\\n\\n  - \\1\\n\\}/' scripts/jira-drain.py",
+        "sed -i 's/transition_ids\\s*\\}\\ntransition_ids\\s*\\{[^}]*\\}/transition_ids\\s*\\}\\n  comment: \"Each transition is documented below.\\n\\n  - \\1\\n\\}/' scripts/jira-drain.py"
+      ],
+      "expected_outcome": "success looks like",
+      "risk_notes": "Ensure no syntax errors in the existing transition_ids dict.",
+      "follow_up_type": "none|needs_review"
+    },
+    "elapsed": 11.5,
+    "prompt_size": 990,
+    "output_size": 1425,
+    "adaptive_timeout": 120,
+    "output_class": "fast-productive"
+  },
+  "score": 20,
+  "issues": [
+    "no_validation"
+  ],
+  "ts": "20260328-121457",
+  "policy": "adaptive-timeout-v1"
+}

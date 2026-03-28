@@ -1,0 +1,43 @@
+{
+  "jira_key": "ZB-901",
+  "task": {
+    "jira_key": "ZB-901",
+    "target_files": [
+      ".gitignore"
+    ],
+    "task_type": "config_change",
+    "description": "Add l1-*.json to .gitignore to prevent L1 raw output artifacts from being committed.",
+    "validation": "grep -q 'l1' .gitignore",
+    "prior_failure": "l1-truncated-json"
+  },
+  "l1": {
+    "raw": "{\"choices\":[{\"finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"{\\n  \\\"edit_description\\\": \\\"Add l1-*.json to .gitignore to prevent L1 raw output artifacts from being committed.\\\",\\n  \\\"target_files\\\": [\\\".gitignore\\\"],\\n  \\\"patch_commands\\\": [\\n    \\\"echo 'l1-*.json' >> .gitignore\\\"\\n  ],\\n  \\\"validation_commands\\\": [\\n    \\\"grep -q 'l1' .gitignore\\\"\\n  ],\\n  \\\"expected_outcome\\\": \\\"success looks like\\\",\\n  \\\"risk_notes\\\": \\\"Ensure l1-*.json exists in the repository before adding to .gitignore.\\\",\\n  \\\"follow_up_type\\\": \\\"none|needs_review\\\"\\n}\"}}],\"created\":1774714517,\"model\":\"Qwen3.5-0.8B-Q4_K_M.gguf\",\"system_fingerprint\":\"b8467-990e4d969\",\"object\":\"chat.completion\",\"usage\":{\"completion_tokens\":142,\"prompt_tokens\":195,\"total_tokens\":337,\"prompt_tokens_details\":{\"cached_tokens\":0}},\"id\":\"chatcmpl-BPh1mTM4zzjojryRsoXENgtVgZ4Wlnoc\",\"timings\":{\"cache_n\":0,\"prompt_n\":195,\"prompt_ms\":1719.888,\"prompt_per_token_ms\":8.819938461538461,\"prompt_per_second\":113.37947587284754,\"predicted_n\":142,\"predicted_ms\":4968.305,\"predicted_per_token_ms\":34.988063380281694,\"predicted_per_second\":28.581176075140313}}",
+    "llm_content": "{\n  \"edit_description\": \"Add l1-*.json to .gitignore to prevent L1 raw output artifacts from being committed.\",\n  \"target_files\": [\".gitignore\"],\n  \"patch_commands\": [\n    \"echo 'l1-*.json' >> .gitignore\"\n  ],\n  \"validation_commands\": [\n    \"grep -q 'l1' .gitignore\"\n  ],\n  \"expected_outcome\": \"success looks like\",\n  \"risk_notes\": \"Ensure l1-*.json exists in the repository before adding to .gitignore.\",\n  \"follow_up_type\": \"none|needs_review\"\n}",
+    "repaired": "{\n  \"edit_description\": \"Add l1-*.json to .gitignore to prevent L1 raw output artifacts from being committed.\",\n  \"target_files\": [\".gitignore\"],\n  \"patch_commands\": [\n    \"echo 'l1-*.json' >> .gitignore\"\n  ],\n  \"validation_commands\": [\n    \"grep -q 'l1' .gitignore\"\n  ],\n  \"expected_outcome\": \"success looks like\",\n  \"risk_notes\": \"Ensure l1-*.json exists in the repository before adding to .gitignore.\",\n  \"follow_up_type\": \"none|needs_review\"\n}",
+    "repair_type": "no_repair_needed",
+    "parsed": {
+      "edit_description": "Add l1-*.json to .gitignore to prevent L1 raw output artifacts from being committed.",
+      "target_files": [
+        ".gitignore"
+      ],
+      "patch_commands": [
+        "echo 'l1-*.json' >> .gitignore"
+      ],
+      "validation_commands": [
+        "grep -q 'l1' .gitignore"
+      ],
+      "expected_outcome": "success looks like",
+      "risk_notes": "Ensure l1-*.json exists in the repository before adding to .gitignore.",
+      "follow_up_type": "none|needs_review"
+    },
+    "elapsed": 6.7,
+    "prompt_size": 934,
+    "output_size": 1134,
+    "adaptive_timeout": 90,
+    "output_class": "fast-productive"
+  },
+  "score": 25,
+  "issues": [],
+  "ts": "20260328-121517",
+  "policy": "adaptive-timeout-v1"
+}
