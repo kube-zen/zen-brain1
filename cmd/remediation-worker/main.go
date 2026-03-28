@@ -965,6 +965,11 @@ func main() {
 		runPilot(cfg, jcfg, pilotKeys)
 		return
 
+	case "drain-backlog":
+		// Backlog drain: close informational batch reports
+		drainBatchReports(jcfg, cfg)
+		return
+
 	default:
 		// Normal remediation cycle
 		runRemediationCycle(cfg, jcfg)
@@ -1060,6 +1065,9 @@ func runPilot(cfg remediationConfig, jcfg jiraConfig, pilotKeys []string) {
 
 		// Update Jira with quality-gated normalized payload
 		if jcfg.enabled {
+			// Step 1: Move to In Progress
+			transitionJiraStatus(jcfg, key, "in_progress")
+
 			commentBody := buildJiraCommentBody(normalizedPayload, gateReport, epPath)
 			if postJiraComment(jcfg, key, commentBody) {
 				log.Printf("[REMEDIATION-PILOT] %s: Jira updated with quality-gated outcome", key)
@@ -1068,6 +1076,9 @@ func runPilot(cfg remediationConfig, jcfg jiraConfig, pilotKeys []string) {
 			}
 			allLabels := append([]string{"ai:remediated"}, qualityLabels...)
 			addLabelsToIssue(jcfg, key, allLabels)
+
+			// Step 2: Move to terminal state based on final status
+			transitionToTerminal(jcfg, key, result.FinalStatus)
 		}
 	}
 
@@ -1130,6 +1141,9 @@ func runRemediationCycle(cfg remediationConfig, jcfg jiraConfig) {
 			log.Printf("[QUALITY-GATE] %s: REJECTED (score %d < 15). Blocked.", ticket.Key, gateReport.Score.Total)
 			rejected++
 			if jcfg.enabled {
+				// Move to In Progress first
+				transitionJiraStatus(jcfg, ticket.Key, "in_progress")
+
 				blockedResult := &RemediationOutput{
 					RemediationType: result.RemediationType,
 					FileToEdit:      result.FileToEdit,
@@ -1140,6 +1154,9 @@ func runRemediationCycle(cfg remediationConfig, jcfg jiraConfig) {
 				}
 				updateJiraOutcome(jcfg, ticket.Key, blockedResult, epPath)
 				addLabelsToIssue(jcfg, ticket.Key, []string{"quality:blocked-invalid-payload"})
+
+				// Move to PAUSED terminal state
+				transitionJiraStatus(jcfg, ticket.Key, "paused")
 			}
 			continue
 		}
@@ -1148,6 +1165,9 @@ func runRemediationCycle(cfg remediationConfig, jcfg jiraConfig) {
 		passed++
 
 		if jcfg.enabled {
+			// Move to In Progress
+			transitionJiraStatus(jcfg, ticket.Key, "in_progress")
+
 			commentBody := buildJiraCommentBody(normalizedPayload, gateReport, epPath)
 			if postJiraComment(jcfg, ticket.Key, commentBody) {
 				log.Printf("[REMEDIATION] %s: Jira updated with gated outcome", ticket.Key)
@@ -1164,6 +1184,9 @@ func runRemediationCycle(cfg remediationConfig, jcfg jiraConfig) {
 				qualityLabels = []string{"quality:needs-review"}
 			}
 			addLabelsToIssue(jcfg, ticket.Key, append([]string{"ai:remediated"}, qualityLabels...))
+
+			// Move to terminal state
+			transitionToTerminal(jcfg, ticket.Key, result.FinalStatus)
 		}
 	}
 
@@ -1217,6 +1240,158 @@ func postJiraComment(jcfg jiraConfig, key string, bodyText string) bool {
 		return false
 	}
 	return true
+}
+
+// writeGateLog writes a quality gate decision to the gate log directory.
+// ─── Jira State Machine ──────────────────────────────────────────────
+// Transitions Jira issue status using the project's workflow.
+// Transition IDs are global (same from any state) for the ZB project:
+//   Backlog=11, Selected for Development=21, In Progress=31,
+//   Done=41, PAUSED=51, RETRYING=61, TO_ESCALATE=71
+
+// jiraStatusName maps internal final-status to Jira transition name.
+func jiraStatusName(finalStatus string) string {
+	switch strings.ToLower(finalStatus) {
+	case "success", "done":
+		return "Done"
+	case "needs_review":
+		return "Done" // moves to Done with review label
+	case "paused":
+		return "PAUSED"
+	case "retrying":
+		return "RETRYING"
+	case "to_escalate":
+		return "TO_ESCALATE"
+	case "selected":
+		return "Selected for Development"
+	case "in_progress":
+		return "In Progress"
+	default:
+		return ""
+	}
+}
+
+// transitionJiraStatus moves a Jira issue to the specified status.
+func transitionJiraStatus(jcfg jiraConfig, key string, targetStatus string) bool {
+	if !jcfg.enabled {
+		log.Printf("[TRANSITION] %s: skipped (Jira not configured)", key)
+		return false
+	}
+
+	targetName := jiraStatusName(targetStatus)
+	if targetName == "" {
+		log.Printf("[TRANSITION] %s: unknown target status %q", key, targetStatus)
+		return false
+	}
+
+	// Get available transitions
+	ctx, cancel := contextWithTimeout(10)
+	defer cancel()
+
+	req, _ := http.NewRequestWithContext(ctx, "GET",
+		jcfg.url+"/rest/api/3/issue/"+key+"/transitions", nil)
+	req.SetBasicAuth(jcfg.email, jcfg.token)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		log.Printf("[TRANSITION] %s: get transitions failed: %v", key, err)
+		return false
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		body, _ := io.ReadAll(resp.Body)
+		log.Printf("[TRANSITION] %s: get transitions returned %d: %s", key, resp.StatusCode, string(body))
+		return false
+	}
+
+	var transResult struct {
+		Transitions []struct {
+			ID   string `json:"id"`
+			Name string `json:"name"`
+		} `json:"transitions"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&transResult); err != nil {
+		log.Printf("[TRANSITION] %s: decode transitions failed: %v", key, err)
+		return false
+	}
+
+	// Find matching transition
+	var transitionID string
+	for _, t := range transResult.Transitions {
+		if strings.EqualFold(t.Name, targetName) {
+			transitionID = t.ID
+			break
+		}
+	}
+	if transitionID == "" {
+		log.Printf("[TRANSITION] %s: no transition found for %q among %v", key, targetName,
+			func() []string {
+				var names []string
+				for _, t := range transResult.Transitions {
+					names = append(names, t.Name)
+				}
+				return names
+			}())
+		return false
+	}
+
+	// Execute transition
+	payload := map[string]interface{}{
+		"transition": map[string]interface{}{
+			"id": transitionID,
+		},
+	}
+	bodyBytes, _ := json.Marshal(payload)
+
+	ctx2, cancel2 := contextWithTimeout(10)
+	defer cancel2()
+
+	req2, _ := http.NewRequestWithContext(ctx2, "POST",
+		jcfg.url+"/rest/api/3/issue/"+key+"/transitions",
+		strings.NewReader(string(bodyBytes)))
+	req2.SetBasicAuth(jcfg.email, jcfg.token)
+	req2.Header.Set("Content-Type", "application/json")
+
+	resp2, err := http.DefaultClient.Do(req2)
+	if err != nil {
+		log.Printf("[TRANSITION] %s: execute failed: %v", key, err)
+		return false
+	}
+	defer resp2.Body.Close()
+
+	if resp2.StatusCode != 204 && resp2.StatusCode != 200 {
+		body, _ := io.ReadAll(resp2.Body)
+		log.Printf("[TRANSITION] %s: execute returned %d: %s", key, resp2.StatusCode, string(body))
+		return false
+	}
+
+	log.Printf("[TRANSITION] %s: moved to %s (transition ID %s)", key, targetName, transitionID)
+	return true
+}
+
+// transitionToTerminal moves a ticket to its correct terminal state based on
+// the remediation outcome. Called after all Jira updates (comment, labels) are done.
+func transitionToTerminal(jcfg jiraConfig, key string, finalStatus string) bool {
+	switch strings.ToLower(finalStatus) {
+	case "success":
+		return transitionJiraStatus(jcfg, key, "done")
+	case "needs_review":
+		// Needs review stays in-progress-like state — move to Done with review label
+		return transitionJiraStatus(jcfg, key, "done")
+	case "blocked":
+		return transitionJiraStatus(jcfg, key, "paused")
+	case "to_escalate":
+		return transitionJiraStatus(jcfg, key, "to_escalate")
+	default:
+		log.Printf("[TRANSITION] %s: no terminal mapping for %q", key, finalStatus)
+		return false
+	}
+}
+
+// closeBatchReport moves an informational batch report ticket directly to Done.
+func closeBatchReport(jcfg jiraConfig, key string) bool {
+	return transitionJiraStatus(jcfg, key, "done")
 }
 
 // writeGateLog writes a quality gate decision to the gate log directory.
@@ -1324,4 +1499,149 @@ func fetchSingleTicket(jcfg jiraConfig, key string) (*RemediationTicket, error) 
 		Labels:      issue.Fields.Labels,
 		Status:      issue.Fields.Status.Name,
 	}, nil
+}
+
+// ─── Backlog Drain ──────────────────────────────────────────────────
+
+// drainBatchReports closes informational batch report tickets that are
+// stuck in Backlog. These are telemetry artifacts labeled ai:completed
+// that were never transitioned to Done.
+func drainBatchReports(jcfg jiraConfig, cfg remediationConfig) {
+	if !jcfg.enabled {
+		log.Printf("[DRAIN] Jira not configured, cannot drain")
+		return
+	}
+
+	batchLabels := []string{"daily-sweep", "hourly-scan", "quad-hourly-summary"}
+	maxPerLabel := envIntOr("DRAIN_MAX_PER_LABEL", 200)
+	dryRun := os.Getenv("DRY_RUN") != ""
+
+	if dryRun {
+		log.Printf("[DRAIN] DRY RUN — no transitions will execute")
+	}
+
+	totalClosed := 0
+	totalFailed := 0
+
+	for _, label := range batchLabels {
+		// Search for Backlog tickets with this label
+		jql := fmt.Sprintf(`project = "%s" AND status = "Backlog" AND labels = "%s" ORDER BY key ASC`, jcfg.project, label)
+
+		// Paginated search
+		nextToken := ""
+		page := 0
+		closed := 0
+
+		for closed < maxPerLabel {
+			page++
+			body := map[string]interface{}{
+				"jql":        jql,
+				"maxResults": 100,
+				"fields":     []string{"summary", "labels"},
+			}
+			if nextToken != "" {
+				body["nextPageToken"] = nextToken
+			}
+
+			bodyBytes, _ := json.Marshal(body)
+			ctx, cancel := contextWithTimeout(30)
+			req, _ := http.NewRequestWithContext(ctx, "POST",
+				jcfg.url+"/rest/api/3/search/jql",
+				strings.NewReader(string(bodyBytes)))
+			req.SetBasicAuth(jcfg.email, jcfg.token)
+			req.Header.Set("Content-Type", "application/json")
+
+			resp, err := http.DefaultClient.Do(req)
+			cancel()
+			if err != nil {
+				log.Printf("[DRAIN] search failed for %s: %v", label, err)
+				break
+			}
+
+			var searchResult struct {
+				Issues []struct {
+					Key    string `json:"key"`
+					Fields struct {
+						Summary string   `json:"summary"`
+						Labels  []string `json:"labels"`
+					} `json:"fields"`
+				} `json:"issues"`
+				IsLast        bool   `json:"isLast"`
+				NextPageToken string `json:"nextPageToken"`
+			}
+
+			if err := json.NewDecoder(resp.Body).Decode(&searchResult); err != nil {
+				resp.Body.Close()
+				log.Printf("[DRAIN] decode failed for %s: %v", label, err)
+				break
+			}
+			resp.Body.Close()
+
+			if len(searchResult.Issues) == 0 {
+				break
+			}
+
+			for _, issue := range searchResult.Issues {
+				if closed >= maxPerLabel {
+					break
+				}
+				if dryRun {
+					log.Printf("[DRAIN] DRY RUN: would close %s: %s", issue.Key, issue.Fields.Summary[:min(60, len(issue.Fields.Summary))])
+					closed++
+					continue
+				}
+
+				if closeBatchReport(jcfg, issue.Key) {
+					closed++
+					totalClosed++
+					log.Printf("[DRAIN] closed %s (%s): %d/%d for %s",
+						issue.Key, label, closed, maxPerLabel, label)
+				} else {
+					totalFailed++
+					log.Printf("[DRAIN] failed to close %s", issue.Key)
+				}
+
+				// Rate limit: 1 transition per second
+				time.Sleep(1 * time.Second)
+			}
+
+			if searchResult.IsLast {
+				break
+			}
+			nextToken = searchResult.NextPageToken
+			if nextToken == "" {
+				break
+			}
+		}
+
+		log.Printf("[DRAIN] %s: closed %d tickets", label, closed)
+	}
+
+	log.Printf("[DRAIN] === complete: %d closed, %d failed ===", totalClosed, totalFailed)
+
+	// Write drain report
+	reportDir := filepath.Join(cfg.EvidenceRoot, "drain-reports")
+	os.MkdirAll(reportDir, 0755)
+
+	report := fmt.Sprintf("# Backlog Drain Report\n\n**Date:** %s\n**Mode:** %s\n\n"+
+		"- Total closed: %d\n- Total failed: %d\n- Labels processed: %v\n",
+		time.Now().Format(time.RFC3339),
+		func() string {
+			if dryRun {
+				return "dry-run"
+			}
+			return "live"
+		}(),
+		totalClosed, totalFailed, batchLabels)
+
+	reportPath := filepath.Join(reportDir, fmt.Sprintf("drain-%s.md", time.Now().Format("20060102-150405")))
+	os.WriteFile(reportPath, []byte(report), 0644)
+	log.Printf("[DRAIN] report written to %s", reportPath)
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
