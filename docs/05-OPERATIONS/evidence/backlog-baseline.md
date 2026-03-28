@@ -1,119 +1,175 @@
 # Backlog Baseline — 2026-03-28
 
-**Captured:** 2026-03-28 08:40 EDT
-**Source:** Jira API `/rest/api/3/search/jql`
+**Captured:** 2026-03-28T08:37:00-04:00
+**Source:** Jira REST API v3 /search/jql against project ZB
 
 ## 1. State Counts
 
 | Status | Count |
 |--------|-------|
-| Backlog | 524 |
+| Backlog | 517 |
 | Selected for Development | 0 |
 | In Progress | 0 |
 | PAUSED | 0 |
 | RETRYING | 0 |
 | TO_ESCALATE | 0 |
 | Done | 0 |
-| **Total** | **524** |
+| **Total** | **517** |
 
-**Critical finding:** 524/524 in Backlog. Zero drain. Zero Done. The factory creates tickets but has never closed one.
+**Key range:** ZB-285 to ZB-801
+
+**All 517 issues are Task type. All are in Backlog. Zero have ever been transitioned.**
 
 ## 2. Ticket Composition
 
-### By Source/Label
+### By Source Label
 
-| Category | Count | Notes |
-|----------|-------|-------|
-| `scheduled-batch` (batch parents) | ~77 | Container tickets for scan runs |
-| `daily-sweep` findings | ~57 | Repeated daily scan outputs |
-| `hourly-scan` findings | ~19 | Repeated hourly scan outputs |
-| `quad-hourly-summary` findings | ~19 | Repeated quad-hourly outputs |
-| `finding` (all) | ~400+ | Auto-generated reports |
-| `defect` | 5 | Genuine defect tickets from bug-hunting |
-| `discovery` | 1 | Single discovery ticket |
+| Source | Count | Description |
+|--------|-------|-------------|
+| hourly-scan | 167 | Hourly automated batch reports |
+| daily-sweep | 145 | Daily automated batch reports |
+| quad-hourly-summary | 122 | 4-hour summary batches |
+| ai:finding (other) | 67 | Security/code findings from discovery |
+| other | 16 | Miscellaneous |
 
-### By Finding Report Type (duplicates across runs)
+### By Label
 
-| Report Type | Count | Most Recent |
-|-------------|-------|-------------|
-| bug_hunting | 20 | Many duplicates, same stubs |
-| defects | 19 | Mostly same findings repeated |
-| stub_hunting | 19 | Same stubs reported repeatedly |
-| roadmap | 13 | Near-identical roadmaps |
-| config_drift | 12 | Similar drift each time |
-| tech_debt | 11 | Same debts re-reported |
-| package_hotspots | 9 | Duplicate hotspots |
-| test_gaps | 9 | Same gaps, different timestamps |
-| dead_code | 8 | Often "zero dead code found" |
-| executive_summary | 7 | Variations on same summary |
-| bug-hunting.md (defect) | 5 | Specific defect extractions |
+| Label | Count | Meaning |
+|-------|-------|---------|
+| zen-brain | 439 | Created by zen-brain1 |
+| finding | 347 | Discovery finding |
+| ai:completed | 214 | Batch completed (but never transitioned to Done!) |
+| hourly-scan | 167 | Hourly scan batch |
+| daily-sweep | 145 | Daily sweep batch |
+| quad-hourly-summary | 122 | Quad-hourly summary |
+| scheduled-batch | 76 | Part of a scheduled batch run |
+| bug | 70 | Bug finding |
+| ai:finding | 67 | AI-generated finding ticket |
+| security | 28 | Security-related finding |
+| ai:blocked | 18 | Previously blocked |
+| defect | 5 | Defect finding |
+| high-priority | 5 | High priority |
+| ai:remediated | 3 | Already remediated (Phase 39 pilot) |
+| pilot:phase39 | 3 | Phase 39 remediation pilot |
+| quality:ready-with-review | 3 | Quality gate passed, needs review |
+| irap:* | 3 | IRAP work package tagged |
+| sred:* | 3 | SR&ED uncertainty tagged |
+| quality:blocked-invalid-payload | 2 | Quality gate blocked |
 
-### Issue Types
+### By Issue Type
 
-- **Task:** 524/524 (100%)
-- No epics, no stories, no subtasks
+| Type | Count |
+|------|-------|
+| Task | 517 |
+
+All 517 are Task type. No epics, no sub-tasks, no stories.
 
 ## 3. Bounded vs Unbounded Estimate
 
-| Category | Bounded? | Count | Rationale |
-|----------|----------|-------|-----------|
-| Defect tickets (ZB-286..290) | **Yes** | 5 | Specific files, specific bugs |
-| Latest batch of each report type | **Partially** | ~10-15 | Have artifact paths, could be triaged |
-| Older duplicate reports | **No — stale** | ~400+ | Superseded by newer runs |
-| Batch parent containers | **No — metadata** | ~77 | Just containers, not actionable work |
+### Batch Reports (434 tickets)
+- **daily-sweep:** 145 — These are batch run parent/child reports. Most are informational ("here's what ran").
+- **hourly-scan:** 167 — Same pattern. Each batch creates 3 child findings + 1 parent.
+- **quad-hourly-summary:** 122 — Summary roll-ups of hourly scans.
+- **Assessment:** These are **not remediation candidates**. They are telemetry artifacts that should have been closed (moved to Done) after creation. Many are labeled `ai:completed` already — they just never got transitioned.
 
-**Bounded estimate:** ~20 tickets max (5 defects + 15 latest findings)
-**Unbounded/stale:** ~504 (bulk close candidates)
+### AI Findings (67 tickets)
+- 47 are `bug` labeled
+- 19 are `security` labeled
+- 3 are already `ai:remediated` (Phase 39 pilot)
+- 2 are `ai:blocked`
+- **Assessment:** These are the **real work items**. ~62 are unremediated findings that could potentially be drained.
+
+### Other (16 tickets)
+- Mixed: audit, discovery, misc
+- **Assessment:** Small set, needs individual triage.
+
+### Summary
+
+| Category | Count | Bounded? | Actionable? |
+|----------|-------|----------|-------------|
+| Batch reports (daily-scan/hourly/quad) | 434 | Yes (informational) | Close to Done immediately |
+| AI findings (bug/security) | 62 | Mostly bounded | Drain through L1 remediation |
+| Already remediated (Phase 39) | 3 | Bounded | Close or move to review |
+| Other/misc | 16 | Unknown | Triage individually |
 
 ## 4. Execution-Ready Estimate
 
-| Criterion | Count | Notes |
-|-----------|-------|-------|
-| Has target file(s) in description | 5 | Defect tickets only |
-| Has artifact path | ~400 | But most are stale duplicates |
-| Has validation command | 0 | None have validation commands |
-| Has governance/compliance labels | 0 | Zero `sred:*`, `irap:*`, `governance:*` |
-| Has `ai:*` labels | 0 | Zero `ai:finding`, `ai:remediated`, etc. |
-| Has evidence links | 0 | None |
+### Immediate Close Candidates (434 batch reports)
+- Already labeled `ai:completed`
+- Informational only — no code changes needed
+- Should have been Done from the start
+- **Estimated effort:** API transition only, no L1 work needed
 
-**Execution-ready estimate: 5 tickets** (the 5 defect tickets)
-**Near-ready after dedup: ~10-15** (latest unique findings)
+### L1 Execution-Ready (40-50 findings)
+- Bounded single-target bug/security findings
+- Have problem descriptions
+- Some have evidence paths in descriptions
+- Need: target file extraction, validation command definition
+- **Estimated effort:** L1 remediation + validation per ticket
+
+### Needs Triage (12-16)
+- Missing context or ambiguous
+- May need human review before L1
+
+### Blocked (2)
+- ZB-614, ZB-618 already labeled ai:blocked
+- Quality gate failures from Phase 39
 
 ## 5. Immediate Drain Candidates
 
-### Tier 1 — Directly Actionable (5 tickets)
+### Tier 1: Batch Report Closure (434 tickets)
+Move all `ai:completed` + `daily-sweep`/`hourly-scan`/`quad-hourly-summary` labeled tickets directly to Done.
 
-| Key | Summary | Target | Bounded |
-|-----|---------|--------|---------|
-| ZB-286 | defect: cmd/main.go location | `cmd/main.go` | Yes |
-| ZB-287 | defect: sync primitives in main.go | `cmd/main.go` | Yes |
-| ZB-288 | defect: unlocked sync.WaitGroup | `cmd/main.go` | Yes |
-| ZB-289 | defect: unlocked sync.Mutex | `cmd/main.go` | Yes |
-| ZB-290 | defect: unlocked sync.RWMutex | `cmd/main.go` | Yes |
+**Rationale:** These are telemetry artifacts. They served their purpose at creation time. The `ai:completed` label proves they ran successfully. Keeping them in Backlog inflates the count and obscures real work.
 
-### Tier 2 — Bulk Action (close as stale/duplicate)
+### Tier 2: Already-Remediated Closure (3 tickets)
+- ZB-614 (ai:remediated, quality:ready-with-review)
+- ZB-616 (ai:remediated, quality:ready-with-review)
+- ZB-618 (ai:remediated, quality:ready-with-review)
 
-- ~77 batch parent tickets → close to Done (these are metadata containers)
-- ~400+ duplicate finding reports → keep only latest per type, close rest to Done
+Move to Done or Selected for Development → In Progress → Done.
 
-### Tier 3 — Needs Triaging (latest unique findings)
+### Tier 3: Fresh Finding Drain (10 bounded tickets for pilot)
+Select 10 fresh ai:finding tickets that are:
+- Single-target (bug or security)
+- Have descriptive summaries
+- Can be dispatched to L1
 
-- Latest test_gaps, config_drift, stub_hunting reports — need human triage to determine if actionable
-- Most other reports (roadmap, executive_summary, tech_debt) are informational, not executable work
+**Priority candidates:**
+1. ZB-586: Debugging tools not integrated with main CLI
+2. ZB-615: Test_gaps report stability
+3. ZB-570: Sensitive data access control logic missing
+4. ZB-572: Input validation for user inputs absent
+5. ZB-575: Session Management Incomplete
+6. ZB-576: Comprehensive logging for error events
+7. ZB-580: Incomplete Session Management in cmd/
+8. ZB-587: Resource allocation not dynamically optimized
+9. ZB-599: Untrusted Input Bypass via Exec/Env
+10. ZB-606: Weak input validation leading to data corruption
 
-## 6. Key Operational Problems
+## 6. Jira Transition IDs
 
-1. **No drain at all** — 524/524 in Backlog, 0 in any other state
-2. **Scanner spam** — scheduled scans create tickets but nothing consumes them
-3. **No deduplication** — same findings reported dozens of times across runs
-4. **No governance labels** — zero SR&ED/IRAP/governance metadata
-5. **No `ai:*` workflow labels** — findings never entered the remediation pipeline
-6. **Success metric inversion** — ticket creation rate >> ticket closure rate (infinite)
+All transitions are globally available from any state:
 
-## 7. Recommended Immediate Actions
+| Transition | ID | Status Category |
+|-----------|-----|----------------|
+| Backlog | 11 | To Do |
+| Selected for Development | 21 | To Do |
+| In Progress | 31 | In Progress |
+| Done | 41 | Done |
+| PAUSED | 51 | In Progress |
+| RETRYING | 61 | In Progress |
+| TO_ESCALATE | 71 | In Progress |
 
-1. **Bulk-close stale batch parents and duplicate findings** — move ~480+ tickets to Done with comment "bulk close: stale/duplicate scanner output"
-2. **Keep latest of each report type** for reference (1 each of ~10 types = ~10 tickets)
-3. **Drain the 5 defect tickets** through L1 → validate → Done
-4. **Add deduplication to the ticket creation pipeline** — don't create tickets for identical findings
-5. **Throttle scanner ticket creation** — only create when new findings differ from previous run
+## 7. Root Cause
+
+**Why 517 tickets are stuck in Backlog:**
+
+1. **No transition code in remediation-worker:** The `updateJiraOutcome()` function only adds comments and labels. It never calls the Jira transitions API.
+2. **Batch reports auto-created but never closed:** The scheduler/ledger creates tickets with `ai:completed` labels but never transitions them to Done.
+3. **No drain loop exists:** There is no scheduled process that picks tickets from Backlog and moves them through the workflow.
+
+**Fix required:**
+1. Add `transitionJiraStatus()` to the remediation worker
+2. Add batch-closure for informational tickets
+3. Wire state machine transitions into the remediation pipeline
