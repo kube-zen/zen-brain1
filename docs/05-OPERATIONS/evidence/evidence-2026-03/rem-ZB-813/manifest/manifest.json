@@ -1,0 +1,12 @@
+{
+  "jira_key": "ZB-813",
+  "related_project": "",
+  "approval_level": 0,
+  "sred_code": "",
+  "irap_work_pkg": "",
+  "source_report": "",
+  "created_at": "2026-03-28T09:02:59.554322385-04:00",
+  "run_id": "rem-ZB-813-20260328-090259",
+  "remediation_result": "blocked: No specific target files were identified in the provided evidence. The ticket indicates the issue should be resolved or documented as blocked, but no specific files were mentioned.",
+  "evidence_path": "docs/05-OPERATIONS/evidence/evidence-2026-03/rem-ZB-813"
+}

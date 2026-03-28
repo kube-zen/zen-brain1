@@ -1,0 +1,15 @@
+{
+  "decision": "passed",
+  "issues": [],
+  "jira_key": "ZB-816",
+  "readiness": "ready_with_review",
+  "score": {
+    "clarity": 3,
+    "evidence_quality": 2,
+    "boundedness": 3,
+    "validation_clarity": 5,
+    "governance_completion": 3,
+    "total": 16
+  },
+  "timestamp": "2026-03-28T09:03:29-04:00"
+}
