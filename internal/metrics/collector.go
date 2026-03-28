@@ -209,8 +209,8 @@ func ComputeMetrics(records []TaskTelemetryRecord, windowName string) *ComputedM
 	}
 
 	// Per-model and per-lane accumulators
-	modelAccum := make(map[string]*modelAccum)
-	laneAccum := make(map[string]*laneAccum)
+	modelBuckets := make(map[string]*modelAccum)
+	laneBuckets := make(map[string]*laneAccum)
 	var latencies []float64
 	var totalWallMs float64
 	var qualitySum float64
@@ -243,10 +243,10 @@ func ComputeMetrics(records []TaskTelemetryRecord, windowName string) *ComputedM
 		totalWallMs += wallMs
 
 		// Per-model
-		ma := modelAccum[r.Model]
+		ma := modelBuckets[r.Model]
 		if ma == nil {
 			ma = &modelAccum{}
-			modelAccum[r.Model] = ma
+			modelBuckets[r.Model] = ma
 		}
 		ma.count++
 		ma.totalMs += wallMs
@@ -272,10 +272,10 @@ func ComputeMetrics(records []TaskTelemetryRecord, windowName string) *ComputedM
 		}
 
 		// Per-lane
-		la := laneAccum[r.Lane]
+		la := laneBuckets[r.Lane]
 		if la == nil {
 			la = &laneAccum{}
-			laneAccum[r.Lane] = la
+			laneBuckets[r.Lane] = la
 		}
 		la.count++
 		la.totalMs += wallMs
@@ -357,7 +357,7 @@ func ComputeMetrics(records []TaskTelemetryRecord, windowName string) *ComputedM
 	}
 
 	// Build per-model map
-	for model, ma := range modelAccum {
+	for model, ma := range modelBuckets {
 		mm := ModelMetrics{
 			Count:        ma.count,
 			SuccessCount: ma.successCount,
@@ -379,7 +379,7 @@ func ComputeMetrics(records []TaskTelemetryRecord, windowName string) *ComputedM
 	}
 
 	// Build per-lane map
-	for lane, la := range laneAccum {
+	for lane, la := range laneBuckets {
 		lm := LaneMetrics{
 			Count:        la.count,
 			SuccessCount: la.successCount,
