@@ -299,8 +299,33 @@ func selectTickets(tickets []RemediationTicket, maxTickets int, allowedApprovalL
 // ─── Phase 1: Remediation Template ────────────────────────────────────
 
 // buildRemediationPacket creates a structured L1 packet from a Jira ticket.
+// Phase 39C: Try loading pre-built packet JSON first for rich context.
 func buildRemediationPacket(ticket RemediationTicket, repoRoot string) RemediationPacket {
-	// Extract target files from ticket description if available
+	// Try loading pre-built packet JSON (from config/task-templates/remediation/{KEY}-packet.json)
+	packetPath := filepath.Join(repoRoot, "config", "task-templates", "remediation", ticket.Key+"-packet.json")
+	if data, err := os.ReadFile(packetPath); err == nil {
+		var prebuilt struct {
+			TargetFiles     string `json:"target_files"`
+			EvidencePaths   string `json:"evidence_paths"`
+			SuccessCriteria string `json:"success_criteria"`
+			ValidationCmds  string `json:"validation_cmds"`
+			OutputContract  string `json:"output_contract"`
+		}
+		if json.Unmarshal(data, &prebuilt) == nil {
+			log.Printf("[PACKET] %s: loaded pre-built packet from %s", ticket.Key, packetPath)
+			return RemediationPacket{
+				JiraKey:         ticket.Key,
+				ProblemSummary:  ticket.Summary + "\n\n" + ticket.Description,
+				TargetFiles:     prebuilt.TargetFiles,
+				EvidencePaths:   prebuilt.EvidencePaths,
+				SuccessCriteria: prebuilt.SuccessCriteria,
+				ValidationCmds:  prebuilt.ValidationCmds,
+				Constraints:     "Edit only the specific target files identified. If you cannot determine what to edit, return final_status: blocked. Output contract: " + prebuilt.OutputContract,
+			}
+		}
+	}
+
+	// Fallback: extract target files from ticket description
 	targetFiles := "no specific target files identified"
 	evidencePaths := ""
 
