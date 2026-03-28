@@ -381,27 +381,13 @@ func executeRemediationViaL1(endpoint, model string, packet RemediationPacket, t
 Return ONLY valid JSON: {"remediation_type":"code_edit|config_change|doc_update|cannot_fix","file_to_edit":"path","edit_description":"what","new_content":"content or null","config_changes":null,"explanation":"why","final_status":"success|needs_review|blocked|to_escalate","blocker_reason":null,"validation_result":null,"compliance_note":null}
 No markdown. No prose. Just the JSON object.`
 
-	userPrompt := fmt.Sprintf(`## Remediation Task for %s
-
-### Problem
-%s
-
-### Target Files
-%s
-
-### Evidence Paths
-%s
-
-### Success Criteria
-%s
-
-### Validation Commands
-%s
-
-### Constraints
-%s
-
-Produce your remediation output as JSON only.`, packet.JiraKey, packet.ProblemSummary, packet.TargetFiles, packet.EvidencePaths, packet.SuccessCriteria, packet.ValidationCmds, packet.Constraints)
+	userPrompt := fmt.Sprintf(`Ticket: %s
+Target: %s
+Evidence: %s
+Criteria: %s
+Validate: %s
+Constraints: %s
+Return JSON only.`, packet.JiraKey, packet.TargetFiles, packet.EvidencePaths, truncate(packet.SuccessCriteria, 200), packet.ValidationCmds, truncate(packet.Constraints, 200))
 
 	payload := map[string]interface{}{
 		"model": model,
