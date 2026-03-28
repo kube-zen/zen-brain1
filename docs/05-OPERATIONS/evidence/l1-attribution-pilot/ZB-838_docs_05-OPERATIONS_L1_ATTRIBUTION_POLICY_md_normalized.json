@@ -1,0 +1,19 @@
+{
+  "jira_key": "ZB-838",
+  "normalized_output": {
+    "remediation_type": "doc_update",
+    "file_to_edit": "docs/05-OPERATIONS/L1_ATTRIBUTION_POLICY.md",
+    "change_type": "modify",
+    "edit_description": "Add section on 'Supervisor vs L1 Distinction' and 'Artifact Saving Rule' to clarify the requirements for claiming L1 did useful work",
+    "new_content": "# L1 ATTRIBUTION POLICY\n\n## Supervisor vs L1 Distinction\n\nWhen determining if an artifact was created by the supervisor or the L1, verify that:\n1. The artifact is saved by the supervisor and not the L1.\n2. The artifact trace is linked to the L1 output.\n3. The artifact was saved by the supervisor and the L1 did not perform the actual saving action.\n\n## Artifact Saving Rule\n\nArtifacts must be saved by the supervisor. If the L1 performs the saving action, the artifact belongs to the L1. The supervisor must ensure the artifact is saved by the supervisor and that the L1 did not perform the saving action. If the artifact is saved by the supervisor, the artifact belongs to the supervisor. If the artifact is saved by the L1, the artifact belongs to the L1. If the artifact is saved by both, the artifact belongs to the supervisor. If the artifact is not saved by the supervisor, the artifact belongs to the L1.",
+    "explanation": "This change adds the specific rules for claiming L1 did useful work, requiring the artifact to be saved by the supervisor and traceable to L1 output, while also clarifying the supervisor vs L1 distinction regarding saving actions.",
+    "final_status": "success",
+    "validation_command": "grep -q \"Supervisor vs L1 Distinction\" docs/05-OPERATIONS/L1_ATTRIBUTION_POLICY.md && grep -q \"Artifact Saving Rule\" docs/05-OPERATIONS/L1_ATTRIBUTION_POLICY.md"
+  },
+  "timestamp": "20260328-092259",
+  "attribution": {
+    "produced_by": "l1",
+    "first_pass_model": "Qwen3.5-0.8B-Q4_K_M.gguf",
+    "supervisor_intervention": "none"
+  }
+}

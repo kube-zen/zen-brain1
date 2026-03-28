@@ -1,0 +1,24 @@
+{
+  "jira_key": "ZB-820",
+  "task": {
+    "summary": "[L1-PILOT] Create a Makefile target 'make drain-status' that runs jira-drain.py status",
+    "description": "Add a Makefile target 'drain-status' that runs 'python3 scripts/jira-drain.py status' and prints the current Jira state counts.",
+    "target_files": "Makefile",
+    "task_type": "config_change",
+    "validation": "grep -q 'drain-status' Makefile",
+    "lane": "l1"
+  },
+  "l1_result": {
+    "raw_response": "",
+    "llm_content": "",
+    "json_str": "",
+    "parsed": null,
+    "parse_error": "Expecting value: line 1 column 1 (char 0)",
+    "elapsed_sec": 120.0
+  },
+  "timestamp": "20260328-091426",
+  "attribution": {
+    "produced_by": "l1",
+    "first_pass_model": "Qwen3.5-0.8B-Q4_K_M.gguf"
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "jira_key": "ZB-817",
+  "task": {
+    "summary": "[L1-PILOT] Add .gitignore entry for evidence/*.json artifacts",
+    "description": "Add *.json to .gitignore under docs/05-OPERATIONS/evidence/ to prevent large JSON artifacts from being committed to the repo.",
+    "target_files": ".gitignore",
+    "task_type": "config_change",
+    "validation": "grep -q 'evidence/.*json' .gitignore",
+    "lane": "l1"
+  },
+  "l1_result": {
+    "raw_response": "{\"choices\":[{\"finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"{\\\"remediation_type\\\":\\\"config_change\\\",\\\"file_to_edit\\\":\\\".gitignore\\\",\\\"change_type\\\":\\\"modify\\\",\\\"edit_description\\\":\\\"Add *.json to .gitignore under docs/05-OPERATIONS/evidence/ to prevent large JSON artifacts from being committed to the repo.\\\",\\\"new_content\\\":\\\"[\\\\\\\"evidence/05-OPERATIONS/evidence/*.json\\\\\\\"]\\\",\\\"explanation\\\":\\\"To prevent large JSON artifacts from being committed to the repo, *.json files must be excluded from the tracked files list.\\\",\\\"final_status\\\":\\\"success\\\",\\\"validation_command\\\":\\\"grep -q 'evidence/.*json' .gitignore\\\"}\"}}],\"created\":1774703416,\"model\":\"Qwen3.5-0.8B-Q4_K_M.gguf\",\"system_fingerprint\":\"b8467-990e4d969\",\"object\":\"chat.completion\",\"usage\":{\"completion_tokens\":124,\"prompt_tokens\":227,\"total_tokens\":351,\"prompt_tokens_details\":{\"cached_tokens\":0}},\"id\":\"chatcmpl-1OhkPtz7aTf4gt8aXO3CuzZ6bYmkRWUm\",\"timings\":{\"cache_n\":0,\"prompt_n\":227,\"prompt_ms\":1337.101,\"prompt_per_token_ms\":5.890312775330397,\"prompt_per_second\":169.77027165487124,\"predicted_n\":124,\"predicted_ms\":3302.418,\"predicted_per_token_ms\":26.632403225806453,\"predicted_per_second\":37.54824495263773}}",
+    "llm_content": "{\"remediation_type\":\"config_change\",\"file_to_edit\":\".gitignore\",\"change_type\":\"modify\",\"edit_description\":\"Add *.json to .gitignore under docs/05-OPERATIONS/evidence/ to prevent large JSON artifacts from being committed to the repo.\",\"new_content\":\"[\\\"evidence/05-OPERATIONS/evidence/*.json\\\"]\",\"explanation\":\"To prevent large JSON artifacts from being committed to the repo, *.json files must be excluded from the tracked files list.\",\"final_status\":\"success\",\"validation_command\":\"grep -q 'evidence/.*json' .gitignore\"}",
+    "json_str": "{\"remediation_type\":\"config_change\",\"file_to_edit\":\".gitignore\",\"change_type\":\"modify\",\"edit_description\":\"Add *.json to .gitignore under docs/05-OPERATIONS/evidence/ to prevent large JSON artifacts from being committed to the repo.\",\"new_content\":\"[\\\"evidence/05-OPERATIONS/evidence/*.json\\\"]\",\"explanation\":\"To prevent large JSON artifacts from being committed to the repo, *.json files must be excluded from the tracked files list.\",\"final_status\":\"success\",\"validation_command\":\"grep -q 'evidence/.*json' .gitignore\"}",
+    "parsed": {
+      "remediation_type": "config_change",
+      "file_to_edit": ".gitignore",
+      "change_type": "modify",
+      "edit_description": "Add *.json to .gitignore under docs/05-OPERATIONS/evidence/ to prevent large JSON artifacts from being committed to the repo.",
+      "new_content": "[\"evidence/05-OPERATIONS/evidence/*.json\"]",
+      "explanation": "To prevent large JSON artifacts from being committed to the repo, *.json files must be excluded from the tracked files list.",
+      "final_status": "success",
+      "validation_command": "grep -q 'evidence/.*json' .gitignore"
+    },
+    "parse_error": null,
+    "elapsed_sec": 4.7
+  },
+  "timestamp": "20260328-091009",
+  "attribution": {
+    "produced_by": "l1",
+    "first_pass_model": "Qwen3.5-0.8B-Q4_K_M.gguf"
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "jira_key": "ZB-834",
+  "task": {
+    "summary": "[L1-PILOT] Document L1 attribution policy in a markdown file",
+    "description": "Create docs/05-OPERATIONS/L1_ATTRIBUTION_POLICY.md explaining the rules for claiming L1 did useful work: must have saved artifact, must trace to L1 output, supervisor vs L1 distinction.",
+    "target_files": "docs/05-OPERATIONS/L1_ATTRIBUTION_POLICY.md",
+    "task_type": "doc_update",
+    "validation": "test -f docs/05-OPERATIONS/L1_ATTRIBUTION_POLICY.md && grep -q attribution docs/05-OPERATIONS/L1_ATTRIBUTION_POLICY.md",
+    "lane": "l1"
+  },
+  "l1_result": {
+    "raw_response": "",
+    "llm_content": "",
+    "json_str": "",
+    "parsed": null,
+    "parse_error": "Expecting value: line 1 column 1 (char 0)",
+    "elapsed_sec": 120.0
+  },
+  "timestamp": "20260328-092141",
+  "attribution": {
+    "produced_by": "l1",
+    "first_pass_model": "Qwen3.5-0.8B-Q4_K_M.gguf"
+  }
+}

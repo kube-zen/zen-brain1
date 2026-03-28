@@ -1,0 +1,19 @@
+{
+  "jira_key": "ZB-826",
+  "normalized_output": {
+    "remediation_type": "doc_update",
+    "file_to_edit": "docs/05-OPERATIONS/evidence/evidence-pack-template.json",
+    "change_type": "create",
+    "edit_description": "Add a comment field at the top of the JSON file to specify the retention period (90 days) and creation date for all evidence pack files.",
+    "new_content": "{\n  \"metadata\": {\n    \"retention_period_days\": 90,\n    \"creation_date\": \"2024-01-01\"\n  },\n  \"evidence_packs\": []\n}\n",
+    "explanation": "All evidence pack JSON files should start with a comment or metadata field stating the retention period (90 days) and creation date. The new content adds the required metadata structure to the template.",
+    "final_status": "success",
+    "validation_command": "python -c \"import json; f=open('docs/05-OPERATIONS/evidence/evidence-pack-template.json'); data=json.load(f); assert data.get('metadata') and 'retention_period_days' in data['metadata'] and 'creation_date' in data['metadata']; f.close()\""
+  },
+  "timestamp": "20260328-091646",
+  "attribution": {
+    "produced_by": "l1",
+    "first_pass_model": "Qwen3.5-0.8B-Q4_K_M.gguf",
+    "supervisor_intervention": "none"
+  }
+}
