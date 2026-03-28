@@ -1,0 +1,19 @@
+{
+  "key": "ZB-907",
+  "parsed": {
+    "edit_description": "Add 'evidence-dir' target to Makefile",
+    "target_files": [
+      "Makefile"
+    ],
+    "patch_commands": [
+      "sed -i \"s/^#.*evidence-dir$/evidence-dir: docs/05-OPERATIONS/evidence/;\" Makefile"
+    ],
+    "validation_commands": [
+      "grep -q 'evidence-dir' Makefile"
+    ],
+    "expected_outcome": "Makefile now has 'evidence-dir' target that creates docs/05-OPERATIONS/evidence/ directory if missing",
+    "risk_notes": "No specific risks identified",
+    "follow_up_type": "none|needs_review"
+  },
+  "quality": 25
+}

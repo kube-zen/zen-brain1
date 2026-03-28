@@ -1,0 +1,19 @@
+{
+  "key": "ZB-903",
+  "task": {
+    "target": "scripts/backlog-baseline.py",
+    "desc": "Add a --project flag to backlog-baseline.py that allows specifying a different Jira project key than the default ZB",
+    "type": "code_edit",
+    "validation": "python3 -c 'import ast; ast.parse(open(\"scripts/backlog-baseline.py\").read())'",
+    "key": "ZB-903"
+  },
+  "l1": {
+    "elapsed": 45.0,
+    "content": "",
+    "parsed": null,
+    "error": "Expecting value: line 1 column 1 (char 0)"
+  },
+  "quality": 0,
+  "issues": [],
+  "ts": "2026-03-28T11:45:29.055744"
+}

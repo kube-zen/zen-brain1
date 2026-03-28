@@ -1,0 +1,29 @@
+{
+  "key": "ZB-925",
+  "task": {
+    "target": "docs/05-OPERATIONS/evidence/evidence-pack-template.json",
+    "desc": "Add a created_at field to evidence-pack-template.json with placeholder value REPLACE_WITH_TIMESTAMP",
+    "type": "config_change",
+    "validation": "grep -q 'created_at' docs/05-OPERATIONS/evidence/evidence-pack-template.json",
+    "key": "ZB-925"
+  },
+  "l1": {
+    "elapsed": 8.2,
+    "content": "{\"edit_description\":\"Add 'created_at' field with placeholder 'REPLACE_WITH_TIMESTAMP' to evidence-pack-template.json\",\"target_files\":[\"docs/05-OPERATIONS/evidence/evidence-pack-template.json\"],\"patch_commands\":\"sed -i \\\"s/created_at/created_at='REPLACE_WITH_TIMESTAMP'/g\\\" docs/05-OPERATIONS/evidence/evidence-pack-template.json\",\"validation_commands\":\"grep -q 'created_at' docs/05-OPERATIONS/evidence/evidence-pack-template.json\",\"expected_outcome\":\"Evidence-pack-template now includes a timestamp field for audit purposes\",\"risk_notes\":\"No security risks\",\"follow_up_type\":\"none|needs_review\"}",
+    "parsed": {
+      "edit_description": "Add 'created_at' field with placeholder 'REPLACE_WITH_TIMESTAMP' to evidence-pack-template.json",
+      "target_files": [
+        "docs/05-OPERATIONS/evidence/evidence-pack-template.json"
+      ],
+      "patch_commands": "sed -i \"s/created_at/created_at='REPLACE_WITH_TIMESTAMP'/g\" docs/05-OPERATIONS/evidence/evidence-pack-template.json",
+      "validation_commands": "grep -q 'created_at' docs/05-OPERATIONS/evidence/evidence-pack-template.json",
+      "expected_outcome": "Evidence-pack-template now includes a timestamp field for audit purposes",
+      "risk_notes": "No security risks",
+      "follow_up_type": "none|needs_review"
+    },
+    "error": null
+  },
+  "quality": 20,
+  "issues": [],
+  "ts": "2026-03-28T11:47:27.791935"
+}

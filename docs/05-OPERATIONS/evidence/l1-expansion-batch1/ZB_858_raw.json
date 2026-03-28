@@ -1,0 +1,25 @@
+{
+  "jira_key": "ZB-858",
+  "contract": "v2-patch",
+  "task": {
+    "key": "ZB-858",
+    "target_files": [
+      "docs/05-OPERATIONS/evidence/evidence-pack-template.json"
+    ],
+    "task_type": "doc_update",
+    "summary": "[L1-v2] Add retention metadata to evidence pack template",
+    "description": "Create evidence-pack-template.json with retention_period and created_at fields.",
+    "validation": "test -f docs/05-OPERATIONS/evidence/evidence-pack-template.json",
+    "is_new": false
+  },
+  "l1_result": {
+    "llm_content": "",
+    "parsed": null,
+    "parse_error": "Expecting value: line 1 column 1 (char 0)",
+    "elapsed_sec": 60.0
+  },
+  "quality_score": 0,
+  "quality_issues": [],
+  "timestamp": "20260328-114224",
+  "disposition": "l1-failed-parse"
+}

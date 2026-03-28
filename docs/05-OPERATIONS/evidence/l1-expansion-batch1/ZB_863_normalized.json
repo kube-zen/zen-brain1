@@ -1,0 +1,22 @@
+{
+  "jira_key": "ZB-863",
+  "normalized_output": {
+    "edit_description": "Add 'evidence-clean' target and set 'evidence-clean' to 'remove' in Makefile to enforce 90-day cleanup.",
+    "target_files": [
+      "Makefile"
+    ],
+    "patch_commands": [
+      "echo \"evidence-clean: remove\" >> Makefile",
+      "echo \"evidence-clean: remove\" >> Makefile"
+    ],
+    "validation_commands": [
+      "grep -q 'evidence-clean' Makefile",
+      "grep -q 'evidence-clean' Makefile"
+    ],
+    "expected_outcome": "Makefile now contains 'evidence-clean' target with 'remove' action, matching grep validation.",
+    "risk_notes": "No new content or file body fields to include.",
+    "follow_up_type": "none"
+  },
+  "quality_score": 25,
+  "timestamp": "20260328-114326"
+}

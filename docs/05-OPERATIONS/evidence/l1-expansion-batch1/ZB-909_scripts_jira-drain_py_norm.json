@@ -1,0 +1,19 @@
+{
+  "key": "ZB-909",
+  "parsed": {
+    "edit_description": "Add --dry-run flag to jira-drain.py",
+    "target_files": [
+      "scripts/jira-drain.py"
+    ],
+    "patch_commands": [
+      "sed -i 's/--dry-run/--dry-run/g' scripts/jira-drain.py"
+    ],
+    "validation_commands": [
+      "python3 -c \"import ast; ast.parse(open('scripts/jira-drain.py').read())\""
+    ],
+    "expected_outcome": "Jira-drain.py now accepts --dry-run flag to simulate transitions without making API calls",
+    "risk_notes": "No risk",
+    "follow_up_type": "none|needs_review"
+  },
+  "quality": 25
+}

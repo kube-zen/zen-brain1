@@ -1,0 +1,25 @@
+{
+  "jira_key": "ZB-886",
+  "contract": "v2-patch",
+  "task": {
+    "summary": "[EXP-04] Add Makefile target 'make validate' to run Python syntax checks",
+    "description": "Add a Makefile target 'validate' that runs python3 -m py_compile on all Python scripts in scripts/.",
+    "target_files": [
+      "Makefile"
+    ],
+    "task_type": "config_change",
+    "validation": "grep -q 'validate' Makefile",
+    "key": "ZB-886",
+    "is_new": true
+  },
+  "l1_result": {
+    "llm_content": "",
+    "parsed": null,
+    "parse_error": "Expecting value: line 1 column 1 (char 0)",
+    "elapsed_sec": 0.6
+  },
+  "quality_score": 0,
+  "quality_issues": [],
+  "timestamp": "20260328-113845",
+  "disposition": "l1-failed-parse"
+}

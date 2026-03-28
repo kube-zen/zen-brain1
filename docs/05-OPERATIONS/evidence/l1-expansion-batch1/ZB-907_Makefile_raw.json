@@ -1,0 +1,33 @@
+{
+  "key": "ZB-907",
+  "task": {
+    "target": "Makefile",
+    "desc": "Add a Makefile target named evidence-dir that creates the docs/05-OPERATIONS/evidence/ directory if it does not exist",
+    "type": "config_change",
+    "validation": "grep -q 'evidence-dir' Makefile",
+    "key": "ZB-907"
+  },
+  "l1": {
+    "elapsed": 8.7,
+    "content": "{\"edit_description\":\"Add 'evidence-dir' target to Makefile\",\"target_files\":[\"Makefile\"],\"patch_commands\":[\"sed -i \\\"s/^#.*evidence-dir$/evidence-dir: docs/05-OPERATIONS/evidence/;\\\" Makefile\"],\"validation_commands\":[\"grep -q 'evidence-dir' Makefile\"],\"expected_outcome\":\"Makefile now has 'evidence-dir' target that creates docs/05-OPERATIONS/evidence/ directory if missing\",\"risk_notes\":\"No specific risks identified\",\"follow_up_type\":\"none|needs_review\"}",
+    "parsed": {
+      "edit_description": "Add 'evidence-dir' target to Makefile",
+      "target_files": [
+        "Makefile"
+      ],
+      "patch_commands": [
+        "sed -i \"s/^#.*evidence-dir$/evidence-dir: docs/05-OPERATIONS/evidence/;\" Makefile"
+      ],
+      "validation_commands": [
+        "grep -q 'evidence-dir' Makefile"
+      ],
+      "expected_outcome": "Makefile now has 'evidence-dir' target that creates docs/05-OPERATIONS/evidence/ directory if missing",
+      "risk_notes": "No specific risks identified",
+      "follow_up_type": "none|needs_review"
+    },
+    "error": null
+  },
+  "quality": 25,
+  "issues": [],
+  "ts": "2026-03-28T11:45:40.854449"
+}

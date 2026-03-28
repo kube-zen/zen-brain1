@@ -1,0 +1,25 @@
+{
+  "jira_key": "ZB-889",
+  "contract": "v2-patch",
+  "task": {
+    "summary": "[EXP-07] Add GOVERNANCE.md section on L1 attribution tracking",
+    "description": "Add a section to docs/05-OPERATIONS/BACKLOG_DRAIN_MODE.md about governance requirements for L1-executed tickets.",
+    "target_files": [
+      "docs/05-OPERATIONS/BACKLOG_DRAIN_MODE.md"
+    ],
+    "task_type": "doc_update",
+    "validation": "grep -q 'governance' docs/05-OPERATIONS/BACKLOG_DRAIN_MODE.md",
+    "key": "ZB-889",
+    "is_new": true
+  },
+  "l1_result": {
+    "llm_content": "",
+    "parsed": null,
+    "parse_error": "Expecting value: line 1 column 1 (char 0)",
+    "elapsed_sec": 0.0
+  },
+  "quality_score": 0,
+  "quality_issues": [],
+  "timestamp": "20260328-113851",
+  "disposition": "l1-failed-parse"
+}

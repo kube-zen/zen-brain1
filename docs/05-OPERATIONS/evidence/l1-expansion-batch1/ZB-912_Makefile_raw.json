@@ -1,0 +1,29 @@
+{
+  "key": "ZB-912",
+  "task": {
+    "target": "Makefile",
+    "desc": "Add a Makefile target named format that runs python3 -m black on all Python files in scripts/",
+    "type": "config_change",
+    "validation": "grep -q 'format' Makefile",
+    "key": "ZB-912"
+  },
+  "l1": {
+    "elapsed": 10.2,
+    "content": "{\"edit_description\":\"Add 'format' target to Makefile\",\"target_files\":[\"Makefile\"],\"patch_commands\":\"sed -i '/^target:.*^python3 -m black/,/^^[^ ]*$/a\\\\tformat:\\\\tpython3 -m black --line-length 79 scripts/\",\"validation_commands\":\"grep -q 'format' Makefile\",\"expected_outcome\":\"Makefile now contains 'format' target that runs black on scripts/\",\"risk_notes\":\"No risk\",\"follow_up_type\":\"none|needs_review\"}",
+    "parsed": {
+      "edit_description": "Add 'format' target to Makefile",
+      "target_files": [
+        "Makefile"
+      ],
+      "patch_commands": "sed -i '/^target:.*^python3 -m black/,/^^[^ ]*$/a\\tformat:\\tpython3 -m black --line-length 79 scripts/",
+      "validation_commands": "grep -q 'format' Makefile",
+      "expected_outcome": "Makefile now contains 'format' target that runs black on scripts/",
+      "risk_notes": "No risk",
+      "follow_up_type": "none|needs_review"
+    },
+    "error": null
+  },
+  "quality": 20,
+  "issues": [],
+  "ts": "2026-03-28T11:46:22.723002"
+}

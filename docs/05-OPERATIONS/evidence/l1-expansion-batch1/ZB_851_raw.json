@@ -1,0 +1,41 @@
+{
+  "jira_key": "ZB-851",
+  "contract": "v2-patch",
+  "task": {
+    "key": "ZB-851",
+    "target_files": [
+      "cmd/commands/parse.go"
+    ],
+    "task_type": "code_edit",
+    "summary": "CLI Tool: parse() returns bool instead of exit code",
+    "description": "Change parse() return type from bool to error in cmd/commands/parse.go.",
+    "validation": "grep -q 'return' cmd/commands/parse.go",
+    "is_new": false
+  },
+  "l1_result": {
+    "llm_content": "{\n  \"edit_description\": \"Change parse() return type from bool to error in cmd/commands/parse.go\",\n  \"target_files\": [\"cmd/commands/parse.go\"],\n  \"patch_commands\": [\n    \"sed -i 's/return bool/return error/' cmd/commands/parse.go\",\n    \"sed -i 's/return error/return bool/' cmd/commands/parse.go\"\n  ],\n  \"validation_commands\": [\n    \"grep -q 'return' cmd/commands/parse.go\",\n    \"grep -q 'return error' cmd/commands/parse.go\"\n  ],\n  \"expected_outcome\": \"parse() function now returns error type instead of bool\",\n  \"risk_notes\": \"Potential type mismatch if caller expects bool\",\n  \"follow_up_type\": \"needs_review\"\n}",
+    "parsed": {
+      "edit_description": "Change parse() return type from bool to error in cmd/commands/parse.go",
+      "target_files": [
+        "cmd/commands/parse.go"
+      ],
+      "patch_commands": [
+        "sed -i 's/return bool/return error/' cmd/commands/parse.go",
+        "sed -i 's/return error/return bool/' cmd/commands/parse.go"
+      ],
+      "validation_commands": [
+        "grep -q 'return' cmd/commands/parse.go",
+        "grep -q 'return error' cmd/commands/parse.go"
+      ],
+      "expected_outcome": "parse() function now returns error type instead of bool",
+      "risk_notes": "Potential type mismatch if caller expects bool",
+      "follow_up_type": "needs_review"
+    },
+    "parse_error": null,
+    "elapsed_sec": 9.5
+  },
+  "quality_score": 25,
+  "quality_issues": [],
+  "timestamp": "20260328-113909",
+  "disposition": "l1-produced"
+}

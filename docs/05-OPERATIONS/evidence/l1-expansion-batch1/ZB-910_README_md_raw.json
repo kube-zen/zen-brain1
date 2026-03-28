@@ -1,0 +1,19 @@
+{
+  "key": "ZB-910",
+  "task": {
+    "target": "README.md",
+    "desc": "Add a section to README.md titled Quick Start that shows 3 commands to get started with the project",
+    "type": "doc_update",
+    "validation": "test -f README.md && grep -q 'Quick Start' README.md",
+    "key": "ZB-910"
+  },
+  "l1": {
+    "elapsed": 10.7,
+    "content": "{\"edit_description\":\"Add 'Quick Start' section with 3 commands to README.md\",\"target_files\":[\"README.md\"],\"patch_commands\":[\"sed -i '/^# README.md$/a\\\\n\\\\nQuick Start\\\\n\\\\n\\\\n  cd /path/to/project\\\\n\\\\n  npm install\\\\n\\\\n  npm run start']\",\"validation_commands\":[\"grep -q 'Quick Start' README.md\",\"verify commands\":\"grep -q 'Quick Start' README.md\",\"expected_outcome\":\"README.md now contains a 'Quick Start' section with 3 commands\",\"risk_notes\":\"No new dependencies or code changes\",\"follow_up_type\":\"none|needs_review\"}",
+    "parsed": null,
+    "error": "Expecting ',' delimiter: line 1 column 262 (char 261)"
+  },
+  "quality": 0,
+  "issues": [],
+  "ts": "2026-03-28T11:46:09.191060"
+}

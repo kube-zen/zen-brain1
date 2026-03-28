@@ -1,0 +1,19 @@
+{
+  "key": "ZB-883",
+  "parsed": {
+    "edit_description": "Add 'produced_by' field to Jira comment generation function",
+    "target_files": [
+      "cmd/remediation-worker/main.go"
+    ],
+    "patch_commands": [
+      "sed -i \"s/produced_by/produced_by/\" cmd/remediation-worker/main.go"
+    ],
+    "validation_commands": [
+      "grep -q 'produced_by' cmd/remediation-worker/main.go"
+    ],
+    "expected_outcome": "Jira comments now include 'produced_by' field",
+    "risk_notes": "No new dependencies",
+    "follow_up_type": "none|needs_review"
+  },
+  "quality": 25
+}

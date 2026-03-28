@@ -1,0 +1,19 @@
+{
+  "key": "ZB-929",
+  "task": {
+    "target": "GOVERNANCE.md",
+    "desc": "Add a section to GOVERNANCE.md about patch-oriented remediation contract rules for L1 workers",
+    "type": "doc_update",
+    "validation": "test -f GOVERNANCE.md && grep -q 'patch' GOVERNANCE.md",
+    "key": "ZB-929"
+  },
+  "l1": {
+    "elapsed": 14.3,
+    "content": "{\"edit_description\":\"Add 'patch-oriented remediation contract rules' section to GOVERNANCE.md\",\"target_files\":[\"GOVERNANCE.md\"],\"patch_commands\":[\"sed -i '/^## Remediation Contracts/,/^##$/a\\\\n\\n## Patch-oriented remediation contract rules\\\\n\\\\nL1 workers must adhere to the following rules when creating or modifying patch-oriented remediation contracts:\\\\n\\\\n1. Use the 'patch' command to generate the contract.\\\\n\\\\n2. Ensure the contract includes a 'patch' section with specific rules for L1 workers.\\\\n\\\\n3. Document the 'patch' section clearly in the 'Remediation Contracts' section.\\\\n\\\\n4. Verify that the generated contract is valid before using it.\\\\n\\\\n5. Update the 'Remediation Contracts' section to reflect the new patch-oriented rules.'],\"validation_commands\":[\"grep -q 'patch' GOVERNANCE.md && grep -q 'patch' GOVERNANCE.md\",\"expected_outcome\":\"GOVERNANCE.md now includes a dedicated section for patch-oriented remediation contract rules for L1 workers\",\"risk_notes\":\"None\",\"follow_up_type\":\"none|needs_review\"}",
+    "parsed": null,
+    "error": "Expecting ',' delimiter: line 1 column 755 (char 754)"
+  },
+  "quality": 0,
+  "issues": [],
+  "ts": "2026-03-28T11:49:34.064540"
+}

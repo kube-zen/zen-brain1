@@ -1,0 +1,19 @@
+{
+  "key": "ZB-928",
+  "task": {
+    "target": "scripts/backlog-baseline.py",
+    "desc": "Add a --format flag to backlog-baseline.py that accepts json or table output format",
+    "type": "code_edit",
+    "validation": "python3 -c 'import ast; ast.parse(open(\"scripts/backlog-baseline.py\").read())'",
+    "key": "ZB-928"
+  },
+  "l1": {
+    "elapsed": 45.0,
+    "content": "",
+    "parsed": null,
+    "error": "Expecting value: line 1 column 1 (char 0)"
+  },
+  "quality": 0,
+  "issues": [],
+  "ts": "2026-03-28T11:49:16.412484"
+}

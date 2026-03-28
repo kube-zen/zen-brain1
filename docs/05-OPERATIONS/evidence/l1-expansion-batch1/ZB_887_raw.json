@@ -1,0 +1,25 @@
+{
+  "jira_key": "ZB-887",
+  "contract": "v2-patch",
+  "task": {
+    "summary": "[EXP-05] Add comment to jira-drain.py documenting transition IDs",
+    "description": "Add a comment block listing all Jira transition IDs (11=Backlog, 21=Selected, 31=InProgress, 41=Done, 51=Paused, 61=Retrying, 71=ToEscalate) at the top of the TRANSITIONS dict in jira-drain.py.",
+    "target_files": [
+      "scripts/jira-drain.py"
+    ],
+    "task_type": "doc_update",
+    "validation": "python3 -c 'import ast; ast.parse(open(\"scripts/jira-drain.py\").read())'",
+    "key": "ZB-887",
+    "is_new": true
+  },
+  "l1_result": {
+    "llm_content": "",
+    "parsed": null,
+    "parse_error": "Expecting value: line 1 column 1 (char 0)",
+    "elapsed_sec": 0.0
+  },
+  "quality_score": 0,
+  "quality_issues": [],
+  "timestamp": "20260328-113847",
+  "disposition": "l1-failed-parse"
+}

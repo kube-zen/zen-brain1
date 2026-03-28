@@ -1,0 +1,29 @@
+{
+  "jira_key": "ZB-883",
+  "batch": "expansion-batch1",
+  "initial_state": "RETRYING",
+  "task": {
+    "summary": "[EXP-01] Add l1-produced label to Jira update workflow",
+    "jira_key": "ZB-883",
+    "description": "Add a 'produced-by:l1' label option to the Jira update workflow in jira-drain.py so L1-attributed tickets get labeled automatically.",
+    "target_files": [
+      "scripts/jira-drain.py"
+    ],
+    "task_type": "code_edit",
+    "validation": "grep -q 'produced-by' scripts/jira-drain.py"
+  },
+  "l1_result": {
+    "raw": "",
+    "content": "",
+    "parsed": null,
+    "parse_error": "Expecting value: line 1 column 1 (char 0)",
+    "elapsed": 60.0
+  },
+  "quality_score": 0,
+  "quality_issues": [],
+  "timestamp": "20260328-114116",
+  "attribution": {
+    "produced_by": "l1-failed",
+    "first_pass_model": "Qwen3.5-0.8B-Q4_K_M.gguf"
+  }
+}

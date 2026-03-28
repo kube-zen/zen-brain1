@@ -1,0 +1,25 @@
+{
+  "jira_key": "ZB-884",
+  "contract": "v2-patch",
+  "task": {
+    "summary": "[EXP-02] Add version header to all evidence pack templates",
+    "description": "Add a 'schema_version' field set to '2.0' to evidence-pack-template.json.",
+    "target_files": [
+      "docs/05-OPERATIONS/evidence/evidence-pack-template.json"
+    ],
+    "task_type": "config_change",
+    "validation": "python3 -c 'import json; json.load(open(\"docs/05-OPERATIONS/evidence/evidence-pack-template.json\"))'",
+    "key": "ZB-884",
+    "is_new": true
+  },
+  "l1_result": {
+    "llm_content": "",
+    "parsed": null,
+    "parse_error": "Expecting value: line 1 column 1 (char 0)",
+    "elapsed_sec": 60.0
+  },
+  "quality_score": 0,
+  "quality_issues": [],
+  "timestamp": "20260328-113641",
+  "disposition": "l1-failed-parse"
+}

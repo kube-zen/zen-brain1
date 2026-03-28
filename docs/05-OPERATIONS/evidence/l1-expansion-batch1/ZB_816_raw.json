@@ -1,0 +1,41 @@
+{
+  "jira_key": "ZB-816",
+  "contract": "v2-patch",
+  "task": {
+    "key": "ZB-816",
+    "target_files": [
+      "cmd/main.go"
+    ],
+    "task_type": "code_edit",
+    "summary": "Missing input validation for UserAgent parameter (CSRF)",
+    "description": "Add CSRF token validation for UserAgent requests. Target cmd/main.go.",
+    "validation": "grep -q 'csrf\\|token\\|validate' cmd/main.go",
+    "is_new": false
+  },
+  "l1_result": {
+    "llm_content": "{\n  \"edit_description\": \"Add CSRF token validation logic to check if the UserAgent contains a valid token before proceeding with requests.\",\n  \"target_files\": [\"cmd/main.go\"],\n  \"patch_commands\": [\n    \"sed -i 's/validateUserAgent()/{validateUserAgent() && (\\\\1)}/' cmd/main.go\",\n    \"sed -i 's/validateUserAgent()/{validateUserAgent() && (\\\\1)}/' cmd/main.go\"\n  ],\n  \"validation_commands\": [\n    \"grep -q 'csrf\\\\|token\\\\|validate' cmd/main.go\",\n    \"cat cmd/main.go | grep -c 'csrf'\"\n  ],\n  \"expected_outcome\": \"Cmd/main.go now contains CSRF token validation logic for UserAgent requests.\",\n  \"risk_notes\": \"Ensure the token format is consistent across all code files.\",\n  \"follow_up_type\": \"needs_review\"\n}",
+    "parsed": {
+      "edit_description": "Add CSRF token validation logic to check if the UserAgent contains a valid token before proceeding with requests.",
+      "target_files": [
+        "cmd/main.go"
+      ],
+      "patch_commands": [
+        "sed -i 's/validateUserAgent()/{validateUserAgent() && (\\1)}/' cmd/main.go",
+        "sed -i 's/validateUserAgent()/{validateUserAgent() && (\\1)}/' cmd/main.go"
+      ],
+      "validation_commands": [
+        "grep -q 'csrf\\|token\\|validate' cmd/main.go",
+        "cat cmd/main.go | grep -c 'csrf'"
+      ],
+      "expected_outcome": "Cmd/main.go now contains CSRF token validation logic for UserAgent requests.",
+      "risk_notes": "Ensure the token format is consistent across all code files.",
+      "follow_up_type": "needs_review"
+    },
+    "parse_error": null,
+    "elapsed_sec": 18.7
+  },
+  "quality_score": 25,
+  "quality_issues": [],
+  "timestamp": "20260328-114102",
+  "disposition": "l1-produced"
+}

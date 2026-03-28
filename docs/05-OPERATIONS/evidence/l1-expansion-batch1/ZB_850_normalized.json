@@ -1,0 +1,21 @@
+{
+  "jira_key": "ZB-850",
+  "normalized_output": {
+    "edit_description": "Add missing return statement to parse function in cmd/commands/parse.go",
+    "target_files": [
+      "cmd/commands/parse.go"
+    ],
+    "patch_commands": [
+      "sed -i 's/return nil/return nil/' cmd/commands/parse.go"
+    ],
+    "validation_commands": [
+      "grep -q 'return' cmd/commands/parse.go",
+      "grep -q 'return nil' cmd/commands/parse.go"
+    ],
+    "expected_outcome": "Function parse() returns nil, indicating the return statement was added correctly",
+    "risk_notes": "No new content or file body changes",
+    "follow_up_type": "none | needs_review | needs_testing"
+  },
+  "quality_score": 25,
+  "timestamp": "20260328-113859"
+}

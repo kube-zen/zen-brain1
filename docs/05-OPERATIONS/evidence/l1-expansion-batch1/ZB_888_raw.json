@@ -1,0 +1,25 @@
+{
+  "jira_key": "ZB-888",
+  "contract": "v2-patch",
+  "task": {
+    "summary": "[EXP-06] Add scripts/validate.sh for pre-commit Python checking",
+    "description": "Create scripts/validate.sh that runs python3 -m py_compile on scripts/*.py and reports pass/fail.",
+    "target_files": [
+      "scripts/validate.sh"
+    ],
+    "task_type": "config_change",
+    "validation": "test -x scripts/validate.sh",
+    "key": "ZB-888",
+    "is_new": true
+  },
+  "l1_result": {
+    "llm_content": "",
+    "parsed": null,
+    "parse_error": "Expecting value: line 1 column 1 (char 0)",
+    "elapsed_sec": 0.0
+  },
+  "quality_score": 0,
+  "quality_issues": [],
+  "timestamp": "20260328-113849",
+  "disposition": "l1-failed-parse"
+}

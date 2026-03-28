@@ -1,0 +1,20 @@
+{
+  "key": "ZB-887",
+  "task": {
+    "key": "ZB-887",
+    "target": "scripts/jira-drain.py",
+    "desc": "Add a comment near the TRANSITION_IDS dict documenting the mapping of state names to transition IDs",
+    "type": "doc_update",
+    "validation": "grep -q 'TRANSITION_IDS' scripts/jira-drain.py",
+    "is_retry": true
+  },
+  "l1": {
+    "elapsed": 11.1,
+    "content": "{\"edit_description\":\"Add comment near TRANSITION_IDS dict documenting mapping of state names to transition IDs\",\"target_files\":[\"scripts/jira-drain.py\"],\"patch_commands\":[\"sed -i '/TRANSITION_IDS/,/TRANSITION_IDS/' scripts/jira-drain.py\",\"validation_commands\":[\"grep -q 'TRANSITION_IDS' scripts/jira-drain.py\",\"expected_outcome\":\"Comment added near TRANSITION_IDS dict\",\"risk_notes\":\"No risk\",\"follow_up_type\":\"none|needs_review\"}",
+    "parsed": null,
+    "error": "Expecting ',' delimiter: line 1 column 260 (char 259)"
+  },
+  "quality": 0,
+  "issues": [],
+  "ts": "2026-03-28T11:42:48.244953"
+}
