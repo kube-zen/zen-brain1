@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """
-Controlled Expansion — 20-ticket bounded backlog-drain batch.
-Uses v2 patch-oriented contract. Honest attribution throughout.
+Controlled Expansion — 20-ticket backlog-drain batch.
+
+Patch-oriented v2 contract. Sequential L1 calls to avoid overload.
+Retries EXP-01..EXP-07 from prior failed batch, then creates+runs 13 more.
 """
 import json, subprocess, sys, os, time, re
 from datetime import datetime
@@ -9,143 +11,188 @@ from datetime import datetime
 TOKEN = open(os.path.expanduser("~/zen/DONOTASKMOREFORTHISSHIT.txt")).read().strip()
 JIRA_URL = "https://zen-mesh.atlassian.net"
 JIRA_EMAIL = "zen@kube-zen.io"
+JIRA_PROJECT = "ZB"
 L1_ENDPOINT = "http://localhost:56227"
 L1_MODEL = "Qwen3.5-0.8B-Q4_K_M.gguf"
 EVIDENCE_DIR = os.path.expanduser("~/zen/zen-brain1/docs/05-OPERATIONS/evidence/l1-expansion-batch1")
+BATCH_ID = "expansion-batch1"
+
+TRANSITIONS = {
+    "Selected for Development": "21", "In Progress": "31", "Done": "41",
+    "PAUSED": "51", "RETRYING": "61", "TO_ESCALATE": "71",
+}
 
 os.makedirs(EVIDENCE_DIR, exist_ok=True)
 
-SYSTEM_PROMPT = """You are a remediation planner for zen-brain1. You produce BOUNDED EDIT PLANS only.
-You do NOT rewrite entire files. You do NOT produce full file content.
-
+SYSTEM_PROMPT = """You are a remediation planner for zen-brain1. Produce BOUNDED EDIT PLANS only.
 Return ONLY valid JSON:
-{
-  "edit_description": "what to change and why (1-3 sentences)",
-  "target_files": ["path/to/file"],
-  "patch_commands": ["exact sed/awk/echo commands"],
-  "validation_commands": ["commands to verify"],
-  "expected_outcome": "what success looks like",
-  "risk_notes": "any risks",
-  "follow_up_type": "none | needs_review | needs_testing"
-}
-Rules: patch_commands must be concrete shell commands. No new_content or file_body fields. Keep output under 500 tokens. Return JSON only."""
+{"problem_summary":"...","target_files":["..."],"edit_description":"...","patch_commands":["sed/echo commands"],"validation_commands":["commands"],"expected_outcome":"...","risk_notes":"...","follow_up_type":"none|needs_review"}
+Rules: concrete sed/echo commands in patch_commands. No new_content. No full files. JSON only."""
 
-# ─── Existing tickets to re-process ────────────────────────────────────
-EXISTING_TICKETS = [
-    {"key": "ZB-843", "target_files": ["cmd/main.go"], "task_type": "code_edit",
-     "summary": "Remote Code Execution via exec Command",
-     "description": "Add input sanitization to exec command to prevent RCE. Target cmd/main.go where exec is called.",
-     "validation": "grep -q 'sanitize\\|validate\\|whitelist' cmd/main.go"},
-    {"key": "ZB-844", "target_files": ["cmd/main.go"], "task_type": "code_edit",
-     "summary": "Unrestricted Shell Access via Shell Command",
-     "description": "Add shell command whitelist/sanitization. Target cmd/main.go.",
-     "validation": "grep -q 'whitelist\\|sanitize\\|allowlist' cmd/main.go"},
-    {"key": "ZB-849", "target_files": ["cmd/commands/parse.go"], "task_type": "code_edit",
-     "summary": "SyntaxError: --json flag not handled in parse.go",
-     "description": "Add --json flag handling to parse function. Target cmd/commands/parse.go.",
-     "validation": "grep -q 'json' cmd/commands/parse.go"},
-    {"key": "ZB-850", "target_files": ["cmd/commands/parse.go"], "task_type": "code_edit",
-     "summary": "SyntaxError in parse function causing exit failure",
-     "description": "Add missing return statement to parse function in cmd/commands/parse.go.",
-     "validation": "grep -q 'return' cmd/commands/parse.go"},
-    {"key": "ZB-851", "target_files": ["cmd/commands/parse.go"], "task_type": "code_edit",
-     "summary": "CLI Tool: parse() returns bool instead of exit code",
-     "description": "Change parse() return type from bool to error in cmd/commands/parse.go.",
-     "validation": "grep -q 'return' cmd/commands/parse.go"},
-    {"key": "ZB-852", "target_files": ["cmd/commands/parse.go"], "task_type": "code_edit",
-     "summary": "CLI Tool: parse function returns string instead of int",
-     "description": "Fix parse function return type in cmd/commands/parse.go to use proper exit codes.",
-     "validation": "grep -q 'return' cmd/commands/parse.go"},
-    {"key": "ZB-813", "target_files": ["cmd/main.go"], "task_type": "code_edit",
-     "summary": "Missing input validation for UserAgent parameter (injection)",
-     "description": "Add UserAgent input validation to prevent injection attacks. Target cmd/main.go.",
-     "validation": "grep -q 'UserAgent' cmd/main.go"},
-    {"key": "ZB-814", "target_files": ["cmd/main.go"], "task_type": "code_edit",
-     "summary": "Missing input validation for UserAgent parameter (XSS)",
-     "description": "Add UserAgent sanitization to prevent XSS. Target cmd/main.go.",
-     "validation": "grep -q 'sanitize\\|escape\\|validate' cmd/main.go"},
-    {"key": "ZB-816", "target_files": ["cmd/main.go"], "task_type": "code_edit",
-     "summary": "Missing input validation for UserAgent parameter (CSRF)",
-     "description": "Add CSRF token validation for UserAgent requests. Target cmd/main.go.",
-     "validation": "grep -q 'csrf\\|token\\|validate' cmd/main.go"},
-    {"key": "ZB-854", "target_files": ["scripts/backlog-baseline.py"], "task_type": "code_edit",
-     "summary": "[L1-v2] Add error handling to backlog-baseline.py HTTP calls",
-     "description": "Add try/except around subprocess calls in scripts/backlog-baseline.py.",
-     "validation": "python3 -c 'import ast; ast.parse(open(\"scripts/backlog-baseline.py\").read())'"},
-    {"key": "ZB-858", "target_files": ["docs/05-OPERATIONS/evidence/evidence-pack-template.json"], "task_type": "doc_update",
-     "summary": "[L1-v2] Add retention metadata to evidence pack template",
-     "description": "Create evidence-pack-template.json with retention_period and created_at fields.",
-     "validation": "test -f docs/05-OPERATIONS/evidence/evidence-pack-template.json"},
-    {"key": "ZB-863", "target_files": ["Makefile"], "task_type": "config_change",
-     "summary": "[L1-v2] Add 'make evidence-clean' target",
-     "description": "Add Makefile target that removes evidence/*.json older than 90 days.",
-     "validation": "grep -q 'evidence-clean' Makefile"},
-    {"key": "ZB-867", "target_files": ["docs/05-OPERATIONS/L1_ATTRIBUTION_POLICY_v2.md"], "task_type": "doc_update",
-     "summary": "[L1-v2] Document L1 attribution policy in markdown",
-     "description": "Create L1_ATTRIBUTION_POLICY_v2.md with rules for claiming L1 did useful work.",
-     "validation": "test -f docs/05-OPERATIONS/L1_ATTRIBUTION_POLICY_v2.md"},
+# ─── 13 new bounded tasks (after 7 retries from EXP-01..07) ───────────
+
+NEW_TASKS = [
+    {
+        "summary": "[EXP-08] Add TODO.md to track open remediation items",
+        "description": "Create a TODO.md at repo root listing current open items: L1 attribution expansion, evidence pack standardization, worker allocation rebalancing.",
+        "target_files": ["TODO.md"],
+        "task_type": "doc_update",
+        "validation": "test -f TODO.md && grep -q 'attribution' TODO.md",
+    },
+    {
+        "summary": "[EXP-09] Add scripts/lint.sh for Go vet and gofmt checking",
+        "description": "Create scripts/lint.sh that runs go vet ./... and gofmt -l . in the repo. Make it executable.",
+        "target_files": ["scripts/lint.sh"],
+        "task_type": "config_change",
+        "validation": "test -f scripts/lint.sh && test -x scripts/lint.sh",
+    },
+    {
+        "summary": "[EXP-10] Add .editorconfig for consistent formatting",
+        "description": "Create .editorconfig at repo root with standard Go/Python/JSON formatting rules (2-space indent for Python/JSON, tabs for Go, UTF-8, LF line endings).",
+        "target_files": [".editorconfig"],
+        "task_type": "config_change",
+        "validation": "test -f .editorconfig && grep -q 'root' .editorconfig",
+    },
+    {
+        "summary": "[EXP-11] Add CLAUDE.md project conventions doc",
+        "description": "Create CLAUDE.md at repo root with project conventions: Go toolchain, test commands, commit message format, L1 contract rules.",
+        "target_files": ["CLAUDE.md"],
+        "task_type": "doc_update",
+        "validation": "test -f CLAUDE.md && grep -q 'contract' CLAUDE.md",
+    },
+    {
+        "summary": "[EXP-12] Add Makefile target 'make fmt' for Go formatting",
+        "description": "Add a Makefile target 'fmt' that runs gofmt -w . on Go source files.",
+        "target_files": ["Makefile"],
+        "task_type": "config_change",
+        "validation": "grep -q 'fmt' Makefile",
+    },
+    {
+        "summary": "[EXP-13] Add Makefile target 'make lint' for lint checks",
+        "description": "Add a Makefile target 'lint' that runs scripts/lint.sh.",
+        "target_files": ["Makefile"],
+        "task_type": "config_change",
+        "validation": "grep -q 'lint' Makefile",
+    },
+    {
+        "summary": "[EXP-14] Add scripts/clean.sh to remove build artifacts",
+        "description": "Create scripts/clean.sh that removes remediation-worker binary, __pycache__ dirs, and .egg-info dirs. Make executable.",
+        "target_files": ["scripts/clean.sh"],
+        "task_type": "config_change",
+        "validation": "test -f scripts/clean.sh && test -x scripts/clean.sh",
+    },
+    {
+        "summary": "[EXP-15] Add comment header to scripts/jira-drain.py",
+        "description": "Add a shebang line (#!/usr/bin/env python3) and docstring header to scripts/jira-drain.py if missing.",
+        "target_files": ["scripts/jira-drain.py"],
+        "task_type": "doc_update",
+        "validation": "head -1 scripts/jira-drain.py | grep -q 'python3'",
+    },
+    {
+        "summary": "[EXP-16] Add scripts/backlog-status.sh quick Jira status check",
+        "description": "Create scripts/backlog-status.sh that runs python3 scripts/jira-drain.py status and shows only Backlog+Done counts. Make executable.",
+        "target_files": ["scripts/backlog-status.sh"],
+        "task_type": "config_change",
+        "validation": "test -f scripts/backlog-status.sh",
+    },
+    {
+        "summary": "[EXP-17] Add Makefile target 'make clean' for artifact cleanup",
+        "description": "Add a Makefile target 'clean' that runs scripts/clean.sh.",
+        "target_files": ["Makefile"],
+        "task_type": "config_change",
+        "validation": "grep -q 'clean' Makefile",
+    },
+    {
+        "summary": "[EXP-18] Add .gitignore entries for Go build artifacts",
+        "description": "Add remediation-worker and *.exe to .gitignore to prevent Go binaries from being committed.",
+        "target_files": [".gitignore"],
+        "task_type": "config_change",
+        "validation": "grep -q 'remediation-worker' .gitignore",
+    },
+    {
+        "summary": "[EXP-19] Add scripts/run-pilot.sh for L1 attribution pilot runs",
+        "description": "Create scripts/run-pilot.sh that runs python3 scripts/l1-attribution-pilot-v2.py with the v2 contract. Make executable.",
+        "target_files": ["scripts/run-pilot.sh"],
+        "task_type": "config_change",
+        "validation": "test -f scripts/run-pilot.sh",
+    },
+    {
+        "summary": "[EXP-20] Add README section on L1 attribution pilot",
+        "description": "Add a section to README.md (or create one if missing) explaining how to run the L1 attribution pilot and interpret the scoreboard.",
+        "target_files": ["README.md"],
+        "task_type": "doc_update",
+        "validation": "test -f README.md && grep -q 'attribution' README.md",
+    },
 ]
 
-# ─── New bounded tasks to create ───────────────────────────────────────
-NEW_TASKS = [
-    {"summary": "[EXP-01] Add l1-produced label to Jira update workflow",
-     "description": "Add 'produced-by:l1' label to Jira comment template in jira-drain.py for L1-executed tickets.",
+# ─── Retry tasks from prior failed batch ──────────────────────────────
+
+RETRY_TASKS = [
+    {"summary": "[EXP-01] Add l1-produced label to Jira update workflow", "jira_key": "ZB-883",
+     "description": "Add a 'produced-by:l1' label option to the Jira update workflow in jira-drain.py so L1-attributed tickets get labeled automatically.",
      "target_files": ["scripts/jira-drain.py"], "task_type": "code_edit",
-     "validation": "python3 -c 'import ast; ast.parse(open(\"scripts/jira-drain.py\").read())'"},
-    {"summary": "[EXP-02] Add version header to all evidence pack templates",
-     "description": "Add a 'schema_version' field set to '2.0' to evidence-pack-template.json.",
+     "validation": "grep -q 'produced-by' scripts/jira-drain.py"},
+    {"summary": "[EXP-02] Add version header to evidence pack templates", "jira_key": "ZB-884",
+     "description": "Add a version: 2.0 field to all evidence pack JSON templates for tracking.",
      "target_files": ["docs/05-OPERATIONS/evidence/evidence-pack-template.json"], "task_type": "config_change",
-     "validation": "python3 -c 'import json; json.load(open(\"docs/05-OPERATIONS/evidence/evidence-pack-template.json\"))'"},
-    {"summary": "[EXP-03] Add .gitignore for *.egg-info and __pycache__",
-     "description": "Add *.egg-info and __pycache__/ to .gitignore in repo root.",
+     "validation": "grep -q 'version' docs/05-OPERATIONS/evidence/evidence-pack-template.json"},
+    {"summary": "[EXP-03] Add .gitignore for *.egg-info and __pycache__", "jira_key": "ZB-885",
+     "description": "Add *.egg-info and __pycache__/ to .gitignore.",
      "target_files": [".gitignore"], "task_type": "config_change",
-     "validation": "grep -q 'egg-info\\|pycache' .gitignore"},
-    {"summary": "[EXP-04] Add Makefile target 'make validate' to run Python syntax checks",
+     "validation": "grep -q 'egg-info' .gitignore"},
+    {"summary": "[EXP-04] Add Makefile target 'make validate'", "jira_key": "ZB-886",
      "description": "Add a Makefile target 'validate' that runs python3 -m py_compile on all Python scripts in scripts/.",
      "target_files": ["Makefile"], "task_type": "config_change",
      "validation": "grep -q 'validate' Makefile"},
-    {"summary": "[EXP-05] Add comment to jira-drain.py documenting transition IDs",
-     "description": "Add a comment block listing all Jira transition IDs (11=Backlog, 21=Selected, 31=InProgress, 41=Done, 51=Paused, 61=Retrying, 71=ToEscalate) at the top of the TRANSITIONS dict in jira-drain.py.",
+    {"summary": "[EXP-05] Add comment to jira-drain.py documenting transition IDs", "jira_key": "ZB-887",
+     "description": "Add a comment block in jira-drain.py listing the Jira transition IDs: Done=41, PAUSED=51, RETRYING=61, TO_ESCALATE=71.",
      "target_files": ["scripts/jira-drain.py"], "task_type": "doc_update",
-     "validation": "python3 -c 'import ast; ast.parse(open(\"scripts/jira-drain.py\").read())'"},
-    {"summary": "[EXP-06] Add scripts/validate.sh for pre-commit Python checking",
-     "description": "Create scripts/validate.sh that runs python3 -m py_compile on scripts/*.py and reports pass/fail.",
+     "validation": "grep -q 'transition' scripts/jira-drain.py"},
+    {"summary": "[EXP-06] Add scripts/validate.sh for pre-commit Python checking", "jira_key": "ZB-888",
+     "description": "Create scripts/validate.sh that runs python3 -m py_compile on all .py files under scripts/. Make executable.",
      "target_files": ["scripts/validate.sh"], "task_type": "config_change",
-     "validation": "test -x scripts/validate.sh"},
-    {"summary": "[EXP-07] Add GOVERNANCE.md section on L1 attribution tracking",
-     "description": "Add a section to docs/05-OPERATIONS/BACKLOG_DRAIN_MODE.md about governance requirements for L1-executed tickets.",
-     "target_files": ["docs/05-OPERATIONS/BACKLOG_DRAIN_MODE.md"], "task_type": "doc_update",
-     "validation": "grep -q 'governance' docs/05-OPERATIONS/BACKLOG_DRAIN_MODE.md"},
+     "validation": "test -f scripts/validate.sh"},
+    {"summary": "[EXP-07] Add GOVERNANCE.md section on L1 attribution tracking", "jira_key": "ZB-889",
+     "description": "Add a section to GOVERNANCE.md (or create if missing) documenting L1 attribution tracking requirements.",
+     "target_files": ["GOVERNANCE.md"], "task_type": "doc_update",
+     "validation": "test -f GOVERNANCE.md && grep -q 'attribution' GOVERNANCE.md"},
 ]
 
-# ─── Helpers ───────────────────────────────────────────────────────────
+# ─── Jira helpers ─────────────────────────────────────────────────────
 
 def jira_post(path, body):
     r = subprocess.run(["curl","-s","-o","/dev/null","-w","%{http_code}","-X","POST",
         "-u",f"{JIRA_EMAIL}:{TOKEN}","-H","Content-Type: application/json",
         "-d",json.dumps(body),f"{JIRA_URL}/rest/api/3{path}"],
         capture_output=True, text=True, timeout=15)
-    return r.stdout.strip() == "204" or r.stdout.strip() == "201"
+    return r.stdout.strip()
 
-def transition_ticket(key, tid):
-    return jira_post(f"/issue/{key}/transitions", {"transition": {"id": tid}})
+def transition(key, state):
+    tid = TRANSITIONS.get(state)
+    if not tid: return False
+    code = jira_post(f"/issue/{key}/transitions", {"transition":{"id":tid}})
+    return code == "204"
 
 def add_comment(key, text):
-    jira_post(f"/issue/{key}/comment", {"body": {"type": "doc", "version": 1,
-        "content": [{"type": "paragraph", "content": [{"type": "text", "text": text}]}]}})
+    jira_post(f"/issue/{key}/comment", {"body":{"type":"doc","version":1,
+        "content":[{"type":"paragraph","content":[{"type":"text","text":text}]}]}})
 
-def create_ticket(summary, desc, labels):
-    body = {"fields": {"project": {"key": "ZB"}, "issuetype": {"name": "Task"},
-        "summary": summary, "labels": labels,
-        "description": {"type": "doc", "version": 1,
-            "content": [{"type": "paragraph", "content": [{"type": "text", "text": desc}]}]}}}
+def create_ticket(summary, description, labels=None):
     r = subprocess.run(["curl","-s","-X","POST","-u",f"{JIRA_EMAIL}:{TOKEN}",
-        "-H","Content-Type: application/json","-d",json.dumps(body),
+        "-H","Content-Type: application/json",
+        "-d",json.dumps({"fields":{"project":{"key":JIRA_PROJECT},"issuetype":{"name":"Task"},
+            "summary":summary,
+            "description":{"type":"doc","version":1,"content":[{"type":"paragraph",
+                "content":[{"type":"text","text":description}]}]},
+            "labels":labels or [BATCH_ID,"lane:l1","contract:patch-v2"]}}),
         f"{JIRA_URL}/rest/api/3/issue"], capture_output=True, text=True, timeout=15)
     try:
-        return json.loads(r.stdout).get("key")
+        d = json.loads(r.stdout)
+        return d.get("key")
     except:
         return None
+
+# ─── L1 call ──────────────────────────────────────────────────────────
 
 def call_l1(task, jira_key):
     user_prompt = f"""Ticket: {jira_key}
@@ -153,200 +200,251 @@ Target: {', '.join(task['target_files'])}
 Problem: {task['description']}
 Type: {task['task_type']}
 Validation: {task['validation']}
-Produce a bounded edit plan with sed/echo patch_commands. Return JSON only."""
-    payload = {"model": L1_MODEL, "messages": [
-        {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": user_prompt}], "temperature": 0.2, "max_tokens": 2048,
-        "chat_template_kwargs": {"enable_thinking": False}}
+
+Produce a bounded edit plan. Use sed/echo/printf commands.
+Return JSON only. No markdown. No prose."""
+
+    payload = {
+        "model": L1_MODEL,
+        "messages": [
+            {"role":"system","content":SYSTEM_PROMPT},
+            {"role":"user","content":user_prompt},
+        ],
+        "temperature": 0.2,
+        "max_tokens": 2048,
+        "chat_template_kwargs": {"enable_thinking": False},
+    }
+
     start = time.time()
-    r = subprocess.run(["curl","-s","--max-time","60","-H","Content-Type: application/json",
-        "-d",json.dumps(payload),f"{L1_ENDPOINT}/v1/chat/completions"],
+    r = subprocess.run(
+        ["curl","-s","--max-time","60","-H","Content-Type: application/json",
+         "-d",json.dumps(payload),f"{L1_ENDPOINT}/v1/chat/completions"],
         capture_output=True, text=True, timeout=90)
     elapsed = time.time() - start
-    llm_content = ""
+
+    raw = r.stdout
+    content = ""
     try:
-        d = json.loads(r.stdout)
-        llm_content = d.get("choices",[{}])[0].get("message",{}).get("content","")
+        d = json.loads(raw)
+        content = d.get("choices",[{}])[0].get("message",{}).get("content","")
     except:
-        llm_content = r.stdout
-    json_str = llm_content.strip()
-    for pat in [r'^```json\s*', r'^```\s*', r'\s*```$']:
-        json_str = re.sub(pat, '', json_str)
-    si, ei = json_str.find('{'), json_str.rfind('}')
-    if si >= 0 and ei > si: json_str = json_str[si:ei+1]
+        content = raw
+
+    # Extract JSON
+    js = content.strip()
+    js = re.sub(r'^```json\s*','', js)
+    js = re.sub(r'^```\s*','', js)
+    js = re.sub(r'\s*```$','', js)
+    si, ei = js.find('{'), js.rfind('}')
+    if si >= 0 and ei > si:
+        js = js[si:ei+1]
+
     parsed, parse_error = None, None
-    for attempt in [json_str, re.sub(r',\s*}', '}', json_str), re.sub(r',\s*]', ']', json_str)]:
-        try:
-            parsed = json.loads(attempt)
-            break
-        except Exception as e:
+    try:
+        parsed = json.loads(js)
+    except Exception as e:
+        for attempt in [js, re.sub(r',\s*}','}',js), re.sub(r',\s*]',']',js),
+                        js.replace('\n',' ').replace('\r','')]:
+            try:
+                parsed = json.loads(attempt); break
+            except: continue
+        if not parsed:
             parse_error = str(e)
-    return {"llm_content": llm_content[:2000], "parsed": parsed, "parse_error": parse_error,
-            "elapsed_sec": round(elapsed, 1)}
 
-def score_output(parsed, task):
+    return {"raw":raw[:2000],"content":content[:2000],"parsed":parsed,
+            "parse_error":parse_error,"elapsed":round(elapsed,1)}
+
+# ─── Quality gate ─────────────────────────────────────────────────────
+
+def score(parsed, task):
     if not parsed: return 0, []
-    scores, issues = {}, []
-    files_str = str(parsed.get("target_files",[])) + str(parsed.get("patch_commands",[]))
-    target_hit = any(tf in files_str for tf in task["target_files"])
-    scores["target"] = 5 if target_hit else 2
-    if not target_hit: issues.append("target_missing")
+    issues = []
+    s = {}
+    files_mentioned = str(parsed.get("target_files",[])) + str(parsed.get("patch_commands",[]))
+    s["target"] = 5 if any(t in files_mentioned for t in task["target_files"]) else 2
+    if s["target"] < 5: issues.append("target_missing")
     desc = parsed.get("edit_description","")
-    scores["desc"] = 5 if len(desc) > 20 else (3 if len(desc) > 5 else 0)
+    s["desc"] = 5 if len(desc)>20 else (3 if len(desc)>5 else 0)
+    if len(desc)<=5: issues.append("desc_short")
     patches = parsed.get("patch_commands",[])
-    has_concrete = any(any(c in str(p) for c in ["sed","echo","awk","printf","cat","mkdir","touch","cp","mv"]) for p in (patches if isinstance(patches,list) else [patches]))
-    scores["patches"] = 5 if has_concrete else (3 if patches else 0)
-    if not has_concrete and not patches: issues.append("no_patches")
+    has_cmd = any(any(c in str(p) for c in ["sed","echo","awk","printf","cat","mkdir","touch","cp","mv","grep","write","create"]) for p in (patches if isinstance(patches,list) else [patches]))
+    s["patches"] = 5 if has_cmd else (3 if len(patches)>0 else 0)
+    if not has_cmd: issues.append("no_concrete_patches")
     vals = parsed.get("validation_commands",[])
-    scores["validation"] = 5 if vals else 0
-    if not vals: issues.append("no_validation")
+    s["validation"] = 5 if (isinstance(vals,list) and len(vals)>0) else 0
+    if not (isinstance(vals,list) and len(vals)>0): issues.append("no_validation")
     serial = json.dumps(parsed)
-    has_forbidden = any(f in serial for f in ["new_content","file_body","full_content"])
-    scores["no_forbidden"] = 0 if has_forbidden else 5
-    if has_forbidden: issues.append("forbidden_field")
-    return sum(scores.values()), issues
+    s["no_forbidden"] = 0 if any(f in serial for f in ["new_content","file_body"]) else 5
+    if s["no_forbidden"]==0: issues.append("forbidden_field")
+    return sum(s.values()), issues
 
-# ─── Main ──────────────────────────────────────────────────────────────
+# ─── Process one ticket ───────────────────────────────────────────────
 
-def run():
-    print("=== CONTROLLED EXPANSION — 20-TICKET BATCH ===")
-    print(f"L1: {L1_MODEL} | max_tokens=2048 | timeout=60s")
-    print()
+def process_task(task, jira_key, initial_state, is_retry=False):
+    ts = datetime.now().strftime("%Y%m%d-%H%M%S")
+    safe = task['target_files'][0].replace('/','_').replace('.','_')
+
+    print(f"\n{'[RETRY]' if is_retry else '[NEW]   '} {jira_key}: {task['summary'][:60]}")
+    print(f"  Initial: {initial_state}")
+
+    # Transition to In Progress
+    transition(jira_key, "Selected for Development")
+    transition(jira_key, "In Progress")
+    print(f"  -> In Progress")
+
+    # Call L1
+    print(f"  Calling L1...")
+    l1 = call_l1(task, jira_key)
+    print(f"  L1: {l1['elapsed']}s, parse={'ok' if l1['parsed'] else l1['parse_error'] or 'empty'}")
+
+    # Score
+    q_score, q_issues = score(l1['parsed'], task)
+    print(f"  Quality: {q_score}/25 {q_issues if q_issues else ''}")
+
+    # Save evidence
+    raw_path = os.path.join(EVIDENCE_DIR, f"{jira_key}_{safe}_raw.json")
+    with open(raw_path, "w") as f:
+        json.dump({"jira_key":jira_key,"batch":BATCH_ID,"initial_state":initial_state,
+            "task":task,"l1_result":l1,"quality_score":q_score,"quality_issues":q_issues,
+            "timestamp":ts,"attribution":{"produced_by":"l1" if q_score>=15 else "l1-failed",
+            "first_pass_model":L1_MODEL}}, f, indent=2)
+
+    # Determine attribution
+    if not l1['parsed'] or l1['parse_error']:
+        disposition, final_state = "l1-produced-needs-review", "RETRYING"
+        produced_by, intervention = "l1-failed-parse", "normalization_only"
+    elif q_score < 15:
+        disposition, final_state = "l1-produced-needs-review", "PAUSED"
+        produced_by, intervention = "l1-low-quality", "quality_gate_rejected"
+    elif q_score < 20:
+        norm_path = os.path.join(EVIDENCE_DIR, f"{jira_key}_{safe}_normalized.json")
+        with open(norm_path, "w") as f:
+            json.dump({"jira_key":jira_key,"batch":BATCH_ID,"normalized":l1['parsed'],
+                "quality_score":q_score,"timestamp":ts}, f, indent=2)
+        disposition, final_state = "l1-produced-needs-review", "PAUSED"
+        produced_by, intervention = "l1", "none"
+    else:
+        norm_path = os.path.join(EVIDENCE_DIR, f"{jira_key}_{safe}_normalized.json")
+        with open(norm_path, "w") as f:
+            json.dump({"jira_key":jira_key,"batch":BATCH_ID,"normalized":l1['parsed'],
+                "quality_score":q_score,"timestamp":ts}, f, indent=2)
+        disposition, final_state = "l1-produced", "Done"
+        produced_by, intervention = "l1", "none"
+
+    # Check forbidden
+    if l1['parsed'] and any(f in json.dumps(l1['parsed']) for f in ["new_content","file_body"]):
+        intervention = "contains_forbidden"
+        if disposition == "l1-produced":
+            disposition, final_state = "l1-produced-needs-review", "PAUSED"
+
+    # Jira update
+    comment = f"""[{Batch_ID.upper()}] Patch-oriented v2 contract
+Initial: {initial_state} | Final: {final_state}
+Produced by: {produced_by} | Model: {L1_MODEL}
+Elapsed: {l1['elapsed']}s | Quality: {q_score}/25
+Issues: {', '.join(q_issues) if q_issues else 'none'}
+Disposition: {disposition} | Supervisor: {intervention}
+Artifact: {raw_path}"""
+    add_comment(jira_key, comment)
+    transition(jira_key, final_state)
+    print(f"  -> {final_state} ({disposition}, {produced_by})")
+
+    return {"jira_key":jira_key,"summary":task["summary"],"task_type":task["task_type"],
+        "initial_state":initial_state,"l1_elapsed":l1['elapsed'],"parsed":"yes" if l1['parsed'] else "no",
+        "quality_score":q_score,"quality_issues":q_issues,
+        "has_patches":bool(l1['parsed'] and l1['parsed'].get("patch_commands")),
+        "has_validation":bool(l1['parsed'] and l1['parsed'].get("validation_commands")),
+        "produced_by":produced_by,"supervisor_intervention":intervention,
+        "final_disposition":disposition,"final_state":final_state,
+        "artifact_path":raw_path,"evidence_pack":f"{safe}_evidence.json"}
+
+# ─── Main ─────────────────────────────────────────────────────────────
+
+def main():
+    print("="*70)
+    print(f"CONTROLLED EXPANSION — 20-ticket batch")
+    print(f"Contract: v2 patch-oriented | max_tokens: 2048 | timeout: 60s")
+    print(f"Evidence: {EVIDENCE_DIR}")
+    print("="*70)
 
     results = []
-    all_tasks = []
 
-    # Phase 1: Create new tickets
-    print("Phase 1: Creating 7 new tickets...")
+    # Phase 1: Retry EXP-01..07
+    print(f"\n{'='*70}")
+    print("PHASE 1: Retrying 7 failed tickets from prior batch")
+    print("="*70)
+    for task in RETRY_TASKS:
+        result = process_task(task, task["jira_key"], "RETRYING", is_retry=True)
+        results.append(result)
+        time.sleep(1)
+
+    # Phase 2: Create + run EXP-08..20
+    print(f"\n{'='*70}")
+    print("PHASE 2: Creating and running 13 new tickets")
+    print("="*70)
     for task in NEW_TASKS:
         key = create_ticket(task["summary"],
-            f"{task['description']}\n\nTarget: {', '.join(task['target_files'])}\nType: {task['task_type']}\nValidation: {task['validation']}",
-            labels=["expansion-batch1", "lane:l1", "contract:patch-v2"])
-        if key:
-            print(f"  Created: {key} — {task['summary'][:60]}")
-            t = dict(task)
-            t["key"] = key
-            t["is_new"] = True
-            all_tasks.append(t)
-        else:
-            print(f"  FAILED to create: {task['summary'][:60]}")
-
-    # Phase 2: Add existing tickets
-    print(f"\nPhase 2: Adding {len(EXISTING_TICKETS)} existing tickets...")
-    for t in EXISTING_TICKETS:
-        t["is_new"] = False
-        all_tasks.append(t)
-
-    print(f"\nTotal batch: {len(all_tasks)} tickets")
-    print()
-
-    # Phase 3: Process through L1
-    print("Phase 3: Processing through L1...")
-    for i, task in enumerate(all_tasks):
-        key = task["key"]
-        ts = datetime.now().strftime("%Y%m%d-%H%M%S")
-        safe = key.replace("-","_")
-        new_marker = " [NEW]" if task.get("is_new") else ""
-        print(f"\n[{i+1}/{len(all_tasks)}] {key}{new_marker}: {task['task_type']} — {task['summary'][:60]}")
-
-        # Transition
-        transition_ticket(key, "31")  # In Progress
-
-        # Call L1
-        print(f"  Calling L1...", end="", flush=True)
-        l1 = call_l1(task, key)
-        print(f" {l1['elapsed_sec']}s")
-
-        # Score
-        quality, issues = score_output(l1["parsed"], task)
-        print(f"  Score: {quality}/25 issues={issues}")
-
-        # Determine disposition
-        if l1["parse_error"] or not l1["parsed"]:
-            disposition = "l1-failed-parse"
-            final_state = "RETRYING" if task.get("is_new") else "PAUSED"
-        elif quality < 15:
-            disposition = "l1-low-quality"
-            final_state = "PAUSED"
-        elif quality < 20:
-            disposition = "l1-produced-needs-review"
-            final_state = "PAUSED"
-        else:
-            disposition = "l1-produced"
-            final_state = "Done"
-
-        # Check forbidden fields
-        if l1["parsed"] and any(f in json.dumps(l1["parsed"]) for f in ["new_content","file_body"]):
-            disposition = "l1-forbidden-fields"
-            final_state = "PAUSED"
-
-        # Save artifact
-        raw_path = os.path.join(EVIDENCE_DIR, f"{safe}_raw.json")
-        with open(raw_path, "w") as f:
-            json.dump({"jira_key": key, "contract": "v2-patch", "task": task,
-                "l1_result": l1, "quality_score": quality, "quality_issues": issues,
-                "timestamp": ts, "disposition": disposition}, f, indent=2)
-
-        if l1["parsed"] and quality >= 15:
-            norm_path = os.path.join(EVIDENCE_DIR, f"{safe}_normalized.json")
-            with open(norm_path, "w") as f:
-                json.dump({"jira_key": key, "normalized_output": l1["parsed"],
-                    "quality_score": quality, "timestamp": ts}, f, indent=2)
-
-        # Update Jira
-        comment = f"""[EXPANSION-BATCH1] Patch-oriented v2 contract
-Produced by: {disposition}
-Model: {L1_MODEL}
-Elapsed: {l1['elapsed_sec']}s
-Quality: {quality}/25
-Issues: {', '.join(issues) if issues else 'none'}
-Artifact: {raw_path}"""
-        add_comment(key, comment)
-        transition_ticket(key, {"Done":"41","PAUSED":"51","RETRYING":"61"}.get(final_state, "51"))
-        print(f"  -> {final_state} ({disposition})")
-
-        results.append({
-            "jira_key": key, "is_new": task.get("is_new", False),
-            "task_type": task["task_type"], "l1_elapsed_sec": l1["elapsed_sec"],
-            "parsed": bool(l1["parsed"]), "quality_score": quality, "quality_issues": issues,
-            "has_patches": bool(l1["parsed"] and l1["parsed"].get("patch_commands")),
-            "has_validation": bool(l1["parsed"] and l1["parsed"].get("validation_commands")),
-            "has_forbidden": bool(l1["parsed"] and any(f in json.dumps(l1["parsed"]) for f in ["new_content","file_body"])),
-            "disposition": disposition, "final_state": final_state,
-        })
-        time.sleep(0.5)
+            f"{task['description']}\n\nTarget: {', '.join(task['target_files'])}\n"
+            f"Type: {task['task_type']}\nValidation: {task['validation']}\n\n"
+            f"[Controlled expansion batch1 — patch-oriented v2 contract]")
+        if not key:
+            print(f"  FAILED to create ticket for: {task['summary'][:50]}")
+            results.append({"jira_key":"FAILED","summary":task["summary"],"task_type":task["task_type"],
+                "initial_state":"Backlog","l1_elapsed":0,"parsed":"no","quality_score":0,
+                "produced_by":"none","final_disposition":"failed","final_state":"failed"})
+            continue
+        result = process_task(task, key, "Backlog")
+        results.append(result)
+        time.sleep(1)
 
     # ─── Scoreboard ────────────────────────────────────────────────────
     counts = {
-        "l1_produced": sum(1 for r in results if r["disposition"] == "l1-produced"),
-        "l1_produced_needs_review": sum(1 for r in results if r["disposition"] == "l1-produced-needs-review"),
-        "l1_failed_parse": sum(1 for r in results if "failed" in r["disposition"]),
-        "l1_low_quality": sum(1 for r in results if "low-quality" in r["disposition"]),
-        "l1_forbidden_fields": sum(1 for r in results if "forbidden" in r["disposition"]),
+        "l1_produced": sum(1 for r in results if r["final_disposition"]=="l1-produced"),
+        "l1_produced_needs_review": sum(1 for r in results if r["final_disposition"]=="l1-produced-needs-review"),
+        "supervisor_written": 0, "script_only": 0, "failed": sum(1 for r in results if r["final_disposition"]=="failed"),
     }
-    total = len(results)
-    l1_prod = counts["l1_produced"]
-    l1_prod_pct = round(l1_prod / total * 100) if total else 0
+    total_done = sum(1 for r in results if r["final_state"]=="Done")
 
-    scoreboard = {"timestamp": datetime.now().isoformat(), "batch": "expansion-batch1",
-        "total": total, "counts": counts, "l1_produced_pct": l1_prod_pct, "results": results}
-    with open(os.path.join(EVIDENCE_DIR, "expansion-scoreboard.json"), "w") as f:
+    scoreboard = {"timestamp":datetime.now().isoformat(),"batch":BATCH_ID,
+        "contract":"v2-patch-oriented","total_tasks":len(results),"results":results,"counts":counts,
+        "metrics":{"l1_produced_rate":round(counts["l1_produced"]/max(len(results),1)*100),
+            "done_count":total_done,"avg_cycle_time":round(sum(r["l1_elapsed"] for r in results)/max(len(results),1),1)}}
+
+    sb_path = os.path.join(EVIDENCE_DIR, "expansion-scoreboard.json")
+    with open(sb_path, "w") as f:
         json.dump(scoreboard, f, indent=2)
 
-    print("\n" + "="*100)
-    print("=== EXPANSION BATCH 1 SCOREBOARD ===")
-    print(f"{'Key':<8} {'New':<5} {'Type':<14} {'Time':>6} {'Parse':<6} {'Score':>6} {'Patch':<6} {'Valid':<6} {'Forbidden':<10} {'Disposition':<30} {'State'}")
+    # Print results
+    print(f"\n{'='*70}")
+    print("EXPANSION SCOREBOARD")
+    print("="*70)
+    print(f"{'Key':<10} {'Initial':<12} {'Type':<16} {'Time':>6} {'Parse':<6} {'Score':>6} {'Patches':<9} {'Produced':<18} {'Final':<12}")
     print("-"*110)
     for r in results:
-        print(f"{r['jira_key']:<8} {'yes' if r['is_new'] else 'no':<5} {r['task_type']:<14} {r['l1_elapsed_sec']:>5.1f}s {'yes' if r['parsed'] else 'no':<6} {r['quality_score']:>5}/25 {'yes' if r['has_patches'] else 'no':<6} {'yes' if r['has_validation'] else 'no':<6} {'yes' if r['has_forbidden'] else 'no':<10} {r['disposition']:<30} {r['final_state']}")
+        print(f"{r['jira_key']:<10} {r['initial_state']:<12} {r['task_type']:<16} {r['l1_elapsed']:>5.1f}s "
+            f"{'yes' if r['parsed']=='yes' else 'no':<6} {r['quality_score']:>5}/25 "
+            f"{'yes' if r['has_patches'] else 'no':<9} {r['produced_by']:<18} {r['final_state']:<12}")
 
     print(f"\nCOUNTS:")
-    for k,v in counts.items():
-        print(f"  {k}: {v}")
-    print(f"\nL1-PRODUCED RATE: {l1_prod}/{total} ({l1_prod_pct}%)")
-    print(f"THRESHOLD: {'MET' if l1_prod_pct >= 60 else 'NOT MET'}")
+    for k,v in counts.items(): print(f"  {k}: {v}")
+    print(f"\nMETRICS:")
+    print(f"  L1-produced rate: {scoreboard['metrics']['l1_produced_rate']}%")
+    print(f"  Done count: {total_done}")
+    print(f"  Avg cycle time: {scoreboard['metrics']['avg_cycle_time']}s")
+
+    # Decision gate
+    rate = scoreboard['metrics']['l1_produced_rate']
+    print(f"\nDECISION GATE:")
+    if rate >= 60 and total_done >= 10:
+        print(f"  -> SCENARIO A: Continue expansion (rate={rate}%, done={total_done})")
+    elif rate >= 50:
+        print(f"  -> SCENARIO B: Hold size, inspect failures (rate={rate}%)")
+    elif total_done < 5 and sum(1 for r in results if r['final_state'] in ['RETRYING','PAUSED']) > 10:
+        print(f"  -> SCENARIO D: Execution bottleneck (done={total_done}, retrying/paused high)")
+    else:
+        print(f"  -> SCENARIO C: Stop expansion (rate={rate}%)")
 
     return scoreboard
 
 if __name__ == "__main__":
-    run()
+    main()
