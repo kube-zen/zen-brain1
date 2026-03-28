@@ -14,6 +14,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/kube-zen/zen-brain1/internal/metrics"
 )
 
 // ─── Configuration ────────────────────────────────────────────────────
