@@ -149,6 +149,46 @@ Every AI-generated ticket must be execution-ready before entering the remediatio
 
 **Phase 39 pilot:** 3/3 tickets scored ≥20/25 after normalization.
 
+## Attribution in Jira
+
+Every Jira task updated by the system must carry attribution metadata in comments and labels.
+
+### Attribution Labels
+
+| Label | Meaning |
+|-------|---------|
+| `l1-pilot` | Part of the L1 attribution pilot |
+| `attribution-test` | Attribution tracking enabled |
+| `lane:l1` | First pass dispatched to L1 (0.8b) |
+| `lane:l2` | Escalated to L2 |
+| `produced-by:l1` | Final artifact traced to L1 output |
+| `produced-by:supervisor` | Supervisor (GLM-5) did the actual work |
+| `produced-by:script` | Automated script, no LLM authorship |
+
+### Attribution in Comments
+
+Each remediation attempt adds a structured comment:
+```
+[L1-ATTRIBUTION-PILOT]
+Produced by: l1
+Model: Qwen3.5-0.8B-Q4_K_M
+L1 elapsed: 4.7s
+Parse error: none
+Final disposition: l1-produced
+Supervisor intervention: none
+Artifact path: docs/05-OPERATIONS/evidence/l1-attribution-pilot/ZB-817_raw.json
+```
+
+### Honesty Rules
+
+- **Jira state movement alone is not the metric.** Moving tickets to Done via script is ops cleanup, not factory output.
+- **Commit authorship alone is not the metric.** A commit by GLM-5 using a script is not L1 work.
+- **Ticket count alone is not the metric.** Creating tickets ≠ closing them via L1.
+
+### Full Policy
+
+See `docs/05-OPERATIONS/L1_ATTRIBUTION_POLICY.md` for complete attribution rules.
+
 ## Data Integrity
 
 Jira is the **authoritative source** for:

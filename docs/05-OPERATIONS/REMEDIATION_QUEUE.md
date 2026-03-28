@@ -64,9 +64,76 @@ Readiness levels:
 - 15-19/25 → needs_review
 - <15/25 → blocked (do not write to Jira as final)
 
+## L1 Attribution (Phase 40)
+
+**Updated:** 2026-03-28
+
+Every remediation task must record attribution — who actually did the work.
+
+### Required Attribution Fields
+
+```json
+{
+  "produced_by": "l1 | l2 | supervisor | script | none",
+  "first_pass_model": "qwen3.5:0.8b-q4 | qwen3.5:2b-q4 | none",
+  "supervisor_intervention": "none | normalization_only | prompt_fix | manual_rewrite | script_override",
+  "artifact_authorship": "l1 | mixed | supervisor | none",
+  "final_disposition": "l1-produced | l1-produced-needs-review | supervisor-written | script-only | failed"
+}
+```
+
+### L1 Artifact Proof Requirement
+
+Before claiming a task as L1-produced, require one saved artifact:
+- Raw L1 output → `evidence/l1-attribution-pilot/{KEY}_raw.json`
+- Normalized output → `evidence/l1-attribution-pilot/{KEY}_normalized.json`
+
+**No artifact = no attribution claim.** Non-negotiable.
+
+### 10-Ticket Attribution Pilot Results
+
+| Jira Key | Type | L1 Parsed | Has Content | Time | Produced By | Final State |
+|----------|------|-----------|-------------|------|-------------|-------------|
+| ZB-817 | config_change | ✅ | ✅ | 4.7s | l1 | Done |
+| ZB-818 | code_edit | ❌ | ❌ | 120s | l1-failed-parse | PAUSED |
+| ZB-819 | doc_update | ❌ | ❌ | 120s | l1-failed-parse | PAUSED |
+| ZB-820 | config_change | ❌ | ❌ | 120s | l1-failed-parse | PAUSED |
+| ZB-824 | code_edit | ❌ | ❌ | 12.5s | l1-failed-parse | PAUSED |
+| ZB-826 | doc_update | ✅ | ✅ | 18.0s | l1 | Done |
+| ZB-827 | doc_update | ❌ | ❌ | 120s | l1-failed-parse | PAUSED |
+| ZB-829 | config_change | ❌ | ❌ | 120s | l1-failed-parse | PAUSED |
+| ZB-832 | config_change | ✅ | ✅ | 20.4s | l1 | Done |
+| ZB-834 | doc_update | ❌ | ❌ | 120s | l1-failed-parse | PAUSED |
+
+**Counts:** l1-produced: 3 (30%) | l1-produced-needs-review: 7 (70%) | supervisor-written: 0 | script-only: 0
+
+**Honest assessment:** L1 handles small config_change/doc_update in <25s. L1 fails on code_edit and large-file tasks (timeout or truncation). Not ready for autonomous expansion. Full scoreboard: `docs/05-OPERATIONS/evidence/l1-attribution-scoreboard.md`
+
+### Policy Decision (Scenario B)
+
+Most bounded tickets are NOT truly l1-produced (30% vs 70%).
+- Stop claiming L1 is doing the work for most tasks
+- Tighten packet design — instruct L1 to produce descriptions only, not full file contents
+- Re-run pilot with description-only output format before expanding
+
+## Category Separation
+
+| Category | What It Measures | Counts as L1 Work? |
+|----------|-----------------|-------------------|
+| Ops cleanup | Bulk Jira state changes, stale closure | No |
+| L1 production | Tasks with attributable L1 artifacts | Yes |
+| Supervisor work | GLM-5/human did the actual work | No |
+| Discovery output | Scanner reports, findings generation | No |
+
+**Do not mix these in reporting.**
+
 ## Mandatory Statements
 
 - 0.8b drafts first-pass ticket content; code must normalize and quality-gate it
 - Jira receives structured, evidence-backed, bounded work items only
 - Tickets must be execution-ready, not just present
 - Evidence packs must be updated as the work happens, not reconstructed later
+- **Backlog cleanup is useful ops work, but it is not factory production**
+- **L1 usefulness must be backed by attributable artifacts**
+- **The factory must be measured honestly before expanding claims**
+- **See also:** L1_ATTRIBUTION_POLICY.md, BACKLOG_DRAIN_MODE.md
