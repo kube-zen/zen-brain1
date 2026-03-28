@@ -3,5 +3,7 @@ name: daily-sweep
 cadence: daily
 description: Complete daily analysis across all 10 task classes
 tasks: [dead_code, defects, tech_debt, roadmap, bug_hunting, stub_hunting, package_hotspots, test_gaps, config_drift, executive_summary]
+# Per-schedule worker override — W=7 for daily-sweep for first concurrency experiment
+workers: 7
 workers: 7  # First experiment target — 10-task batch benefits from higher concurrency
              # Only use if W=7 proves clean in sweep (Phase B)

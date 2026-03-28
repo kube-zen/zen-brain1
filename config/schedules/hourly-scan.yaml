@@ -3,4 +3,6 @@ name: hourly-scan
 cadence: hourly
 description: Quick defect, bug, and stub scan every hour
 tasks: [defects, bug_hunting, stub_hunting]
+# Per-schedule worker override (default: 5 if unset
+workers: 5
 workers: 5  # Conservative — 3-task batch, W=5 proven sufficient (W=7 showed no throughput gain)
