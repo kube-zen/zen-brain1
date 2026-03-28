@@ -1,119 +1,122 @@
-# Runtime Throughput Baseline
+# Runtime Throughput Baseline — Local L1 Capacity
 
-**Date:** 2026-03-28  
-**Status:** Baseline captured with real scheduler data  
-**Next Step:** Controlled parallelism experiment
+**Date:** 2026-03-28 14:44 EDT
+**Status:** BASELINE CAPTURED
+**Purpose:** Record measured baseline before controlled WORKERS increase from 5 to 7.
 
-## Core Principle
+## Machine Specifications
 
-**Healthy-but-slow is acceptable. Throughput is optimized by parallelism, not by shorter patience.**
+| Item | Value |
+|------|-------|
+| CPU | Intel i9-13900H, 20 cores (8P + 12E) |
+| RAM | 62 GB DDR5 |
+| Disk | 1.6 TB NVMe, 39% used |
+| OS | Linux 6.17.0-19-generic |
+| Uptime | 7 days |
+| Load avg | 1.80 / 1.93 / 2.20 |
 
-## Baseline Metrics (24h window ending 2026-03-28 17:00 UTC)
+## Main L1 Server Configuration
+
+| Item | Value |
+|------|-------|
+| Binary | llama.cpp llama-server |
+| Model | Qwen3.5-0.8B-Q4_K_M.gguf |
+| Port | 56227 (0.0.0.0) |
+| `--parallel` | **10** (supports up to 10 concurrent requests) |
+| `--ctx-size` | 65536 |
+| Threads | default |
+| Reasoning | off |
+| PID | 2746158 |
+| CPU usage | ~139% (idle-ish, bursts during inference) |
+| Memory | ~12% (7.4 GB of 62 GB) |
+
+**The main L1 endpoint already has more concurrency capacity than the scheduler is currently using.** The server supports 10 parallel slots but only 5 concurrent requests are being dispatched.
+
+## Additional Llama Servers (Background)
+
+| Port | Model | PID | Notes |
+|------|-------|-----|-------|
+| 46693 | Qwen3.5-0.8B-Q4_K_M | 130099 | Background, idle |
+| 39229 | zen-go-tuned-Q4_K_M | 132402 | Background, idle |
+| 56963 | Qwen3.5-0.8B-Q4_K_M | 1694158 | Background, idle |
+| 55423 | zen-go-q4_k_m-latest | 1696451 | Background, idle |
+| 47315 | Qwen3.5-0.8B-Q4_K_M | 1698979 | Background, idle |
+
+These consume ~5% memory combined but negligible CPU when idle.
+
+## Current Scheduler Configuration
+
+| Item | Value |
+|------|-------|
+| Scheduler binary | `cmd/scheduler/scheduler` (systemd supervised) |
+| Batch binary | `cmd/useful-batch/useful-batch` |
+| **WORKERS** | **5** (hardcoded in cmd/scheduler/main.go line 224) |
+| TIMEOUT | 300s |
+| L1_ENDPOINT | http://localhost:56227 (inherited from env) |
+| Schedules | hourly-scan (3 tasks), quad-hourly-summary (6 tasks), daily-sweep (10 tasks) |
+
+## Historical Run Metrics (81 runs)
+
+| Schedule | Runs | Tasks | L1 Success | Avg Wall |
+|----------|------|-------|------------|----------|
+| hourly-scan | 47 | 109 | 106 (97%) | 88s |
+| quad-hourly-summary | 20 | 114 | 98 (86%) | 114s |
+| daily-sweep | 14 | 127 | 104 (82%) | 262s |
+| **Total** | **81** | **350** | **308 (88%)** | **124s avg** |
+
+**Latency distribution:** p50=74s, p95=430s, max=605s
+
+## Per-Task Telemetry (new — 2 records from proof runs)
 
 | Metric | Value |
 |--------|-------|
-| Runs in 24h | 44 |
-| Total tasks | 175 |
-| L1 success | 166 |
-| L1 fail | 9 |
-| **L1-produced rate** | **94.9%** |
-| Total wall time | 2,728s (0.8h) |
-| Tasks/hour | 7.3 |
-| Done/day | ~175 (if all success → Done) |
+| Avg latency | 9,980ms |
+| P50 latency | 16,446ms |
+| Completion class | fast-productive (both) |
+| Produced by | l1 (both) |
+| L1-produced rate | 100% |
 
-## By Schedule Type
+Note: Per-task telemetry was just instrumented. Production data will accumulate from scheduled runs.
 
-| Schedule | Runs | Tasks | Success | Fail | L1-produced | Avg Wall |
-|----------|------|-------|---------|------|-------------|----------|
-| hourly-scan | 27 | 55 | 52 | 3 | 95% | 70s |
-| daily-sweep | 6 | 54 | 50 | 4 | 93% | 120s |
-| quad-hourly-summary | 11 | 66 | 64 | 2 | 97% | 11s |
+## Baseline Summary Table
 
-## Key Observations
+| Metric | Current Value |
+|--------|---------------|
+| Machine | i9-13900H, 20 cores, 62GB RAM |
+| Main L1 port | 56227 |
+| Server `--parallel` | 10 |
+| Scheduler WORKERS | **5** |
+| CPU util (main server) | ~139% / ~7% of total 20 cores |
+| Memory util | 12% (7.4 GB / 62 GB) |
+| Historical L1 success | 88% (308/350) |
+| Recent hourly wall time | 55-144s |
+| Recent hourly L1 success | ~100% |
+| Avg wall time (all runs) | 124s |
+| P50 wall time | 74s |
+| P95 wall time | 430s |
+| Total tasks completed | 350 across 81 runs |
 
-1. **hourly-scan runs are sequential (2 tasks/run, ~60s wall)** — one L1 call at a time
-2. **daily-sweep runs ~10 tasks in ~120s** — already slightly parallel
-3. **L1-produced rate is 94.9%** — the quality concern is solved, throughput is the bottleneck
-4. **Machine is ~96% idle during scheduler runs** — wall time is 0.8h out of 24h available
+## Current Bottleneck Hypothesis
 
-## Existing Observability Stack
+The scheduler is **under-driving** available server parallelism. The llama.cpp server supports 10 concurrent slots but only 5 workers are configured. CPU utilization during runs shows headroom — the machine is not saturated.
 
-Before this phase:
-- `/var/lib/zen-brain1/metrics/history.jsonl` — 80 run-level records (run-level only)
-- `/var/lib/zen-brain1/metrics/latest-summary.json` — latest run summary
-- Per-run artifacts under `/var/lib/zen-brain1/runs/{schedule}/{timestamp}/`
+Evidence for this:
+- Load average ~2 on a 20-core machine
+- Server CPU ~139% on a single process (not 1600%+)
+- Daily-sweep with 10 tasks at WORKERS=5 takes 262s wall time — half the tasks wait for a slot
 
-**Gap:** No per-task telemetry. No per-model comparison. No latency distribution.
+## Recommended First Step
 
-## What This Phase Adds
+Increase scheduler WORKERS from **5 → 7**.
 
-### Per-Task Telemetry (NEW)
+This is a single controlled change. Do not modify:
+- Server `--parallel` (already 10, sufficient)
+- Timeout policy (300s is appropriate)
+- Discovery scope
+- Remediation contract
 
-Every L1 call now records to `/var/lib/zen-brain1/metrics/per-task.jsonl`:
-- model, lane, provider
-- prompt_size, output_size, input_tokens, output_tokens
-- start_time, end_time, wall_time_ms, first_token_ms
-- completion_class (fast-productive / slow-but-productive / truncated-repaired / timeout / parse-fail / validation-fail)
-- produced_by (l1 / l1-partial / l1-failed / supervisor)
-- quality_score, repair_used, repair_succeeded
-- task_class, remediation_type, final_status
-- jira_transition, jira_updated
-- evidence_pack_path
-
-### Computed Metrics (NEW)
-
-Available via `go run ./cmd/metrics-report`:
-- L1-produced rate, timeout rate, truncation-repair rate
-- Avg / P50 / P95 latency
-- Tasks/hour, done/hour, done/day
-- Chars/sec generation speed
-- Per-model and per-lane breakdowns
-- Worker utilization and queue depth
-
-### Query Tool (NEW)
-
-```bash
-# Human-readable summary
-go run ./cmd/metrics-report --window last_24h
-
-# JSON for programmatic consumption
-go run ./cmd/metrics-report --window last_hour --json
-
-# All time
-go run ./cmd/metrics-report --window all
-```
-
-## Parallelism Experiment Design
-
-### Staircase Approach
-
-| Step | Workers | Measure | Stop If |
-|------|---------|---------|---------|
-| Baseline | 1 (current) | Capture 24h of per-task telemetry | — |
-| Step 1 | +2 (3 total) | Compare latency, L1-rate, throughput | Latency doubles OR L1-rate drops below 80% |
-| Step 2 | +2 (5 total) | Same comparison | Same stop condition |
-| Step 3 | +2 (7 total) | Same comparison | Same stop condition |
-
-### Decision Rule
-
-- **Keep scaling** if: done/hour improves and L1-produced rate stays above 80%
-- **Stop scaling** if: timeout rate exceeds 20% OR P95 latency exceeds 3x baseline OR machine becomes unstable
-
-### Per-Step Capture
-
-For each step, record:
-- Active L1 workers/slots
-- CPU utilization (from `/proc/stat` or `top`)
-- Memory utilization
-- Avg latency, P95 latency
-- done/hour
-- L1-produced rate
-- Timeout/truncation rate
-
-## Mandatory Operating Statements
-
-1. Healthy-but-slow is acceptable for CPU-only qwen3.5:0.8b
-2. Blanket timeout reduction is rejected
-3. Throughput = controlled parallelism + observability, not shorter patience
-4. Done-rate and backlog drain are the primary success metrics
-5. Extra capacity → real work, not idle waiting
+Success criteria:
+- Done/hour improves
+- L1-produced rate stays ≥80%
+- Timeout rate does not materially increase
+- P95 latency does not degrade more than 20%
