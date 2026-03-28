@@ -77,10 +77,40 @@ Storage path: `docs/05-OPERATIONS/evidence/l1-attribution-pilot/{KEY}_{target}_r
 Switching from full-file generation to patch-oriented output **doubled** the L1 success rate (30% → 60%).
 The remaining 40% failures are code_edit tasks where L1 still times out.
 
-### Current Recommendation
-- **60% threshold MET** for config_change, doc_update, and simple code_edit tasks
-- **DO NOT** expand code_edit tasks until timeout issue is resolved
-- **Safe to expand** config_change and doc_update tasks to wider queue
+### Timeout Policy (Corrected)
+
+**Healthy-but-slow is not the same as hung.** CPU-only 0.8b is allowed to be slow.
+
+| Task Shape | Adaptive Timeout |
+|-----------|-----------------|
+| Small config_change (<100 char desc) | 90s |
+| Normal config_change / code_edit / doc_update | 120s |
+| Complex code_edit / large doc_update | 180s |
+
+**Global timeout reduction is REJECTED.** The prior 60s blanket timeout killed productive slow generations.
+
+**Blanket fail-fast is the wrong fix.** Output-contract reduction is preferred over patience reduction.
+
+### Truncation Repair
+
+L1 sometimes produces correct JSON that gets cut off mid-field (common in sed commands with escape sequences). A JSON truncation repair step recovers these by:
+1. Finding the last complete key-value pair before truncation
+2. Closing open braces/brackets
+3. Parsing the repaired JSON
+
+This recovered 5/10 corrective retry tickets that would have been classified as failures under the old policy.
+
+### Output Classification
+
+Every L1 call is classified as one of:
+- **fast-productive** — completed quickly with parseable output
+- **slow-but-productive** — took 60-80s but produced usable output (recovered by truncation repair)
+- **no-output** — timed out with empty response
+- **truncated-output** — got substantial output but couldn't parse even after repair
+- **repetitive-degenerate** — L1 produced repetitive/garbage output
+- **infra-fail** — infrastructure error (network, server down)
+
+Only the last three justify aggressive fail-fast behavior.
 
 ## Decision Framework
 
