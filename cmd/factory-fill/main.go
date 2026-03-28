@@ -261,6 +261,42 @@ func loadConfig() factoryConfig {
 	}
 }
 
+// ─── Worker Terminal Result (PHASE A FIX) ────────────────────────────
+
+// WorkerTerminalResult mirrors the struct from remediation-worker.
+// This is the contract between worker subprocess and factory-fill dispatcher.
+type WorkerTerminalResult struct {
+	JiraKey         string `json:"jira_key"`
+	TerminalClass   string `json:"terminal_class"`
+	QualityScore    int    `json:"quality_score"`
+	QualityPassed   bool   `json:"quality_passed"`
+	L1Status        string `json:"l1_status"`
+	JiraState       string `json:"jira_state"`
+	EvidencePath    string `json:"evidence_path"`
+	BlockerReason   string `json:"blocker_reason,omitempty"`
+	GateLogPath     string `json:"gate_log_path,omitempty"`
+	Timestamp       string `json:"timestamp"`
+}
+
+// readWorkerTerminalResult reads the terminal classification file for a ticket.
+func readWorkerTerminalResult(resultDir, jiraKey string) (*WorkerTerminalResult, error) {
+	path := filepath.Join(resultDir, jiraKey+".json")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read terminal result for %s: %w", jiraKey, err)
+	}
+	var result WorkerTerminalResult
+	if err := json.Unmarshal(data, &result); err != nil {
+		return nil, fmt.Errorf("parse terminal result for %s: %w", jiraKey, err)
+	}
+	return &result, nil
+}
+
+// resultDir returns the directory for terminal result files.
+func resultDir() string {
+	return envOr("RESULT_DIR", "/tmp/zen-brain1-worker-results")
+}
+
 // ─── Dispatch ────────────────────────────────────────────────────────
 
 func dispatchTicket(cfg factoryConfig, ticket ClassifiedTicket) bool {
@@ -272,6 +308,12 @@ func dispatchTicket(cfg factoryConfig, ticket ClassifiedTicket) bool {
 		log.Printf("[DISPATCH] %s: could not move to In Progress — skipping", ticket.Key)
 		return false
 	}
+
+	// Clean any stale terminal result for this ticket
+	resultDir := resultDir()
+	os.MkdirAll(resultDir, 0755)
+	staleResult := filepath.Join(resultDir, ticket.Key+".json")
+	os.Remove(staleResult)
 
 	// Run remediation-worker as subprocess for this single ticket
 	workerBin := filepath.Join(filepath.Dir(os.Args[0]), "remediation-worker")
@@ -293,25 +335,101 @@ func dispatchTicket(cfg factoryConfig, ticket ClassifiedTicket) bool {
 		"JIRA_API_TOKEN="+jcfg.token,
 		"JIRA_PROJECT_KEY="+jcfg.project,
 		fmt.Sprintf("REMEDIATION_TIMEOUT=%d", cfg.TimeoutSec),
+		"RESULT_DIR="+resultDir,
 	)
 
 	output, err := cmd.CombinedOutput()
 	outputStr := string(output)
 
 	if err != nil {
-		log.Printf("[DISPATCH] %s: worker error: %v\n%s", ticket.Key, err, lastNLines(outputStr, 3))
-		jiraTransition(jcfg, ticket.Key, "RETRYING")
-		return false
+		log.Printf("[DISPATCH] %s: worker process error: %v\n%s", ticket.Key, err, lastNLines(outputStr, 3))
+		// Worker process crashed — try to read terminal result anyway
+		termResult, readErr := readWorkerTerminalResult(resultDir, ticket.Key)
+		if readErr != nil {
+			// No terminal result — move to RETRYING
+			log.Printf("[DISPATCH] %s: no terminal result file, moving to RETRYING", ticket.Key)
+			jiraTransition(jcfg, ticket.Key, "RETRYING")
+			return false
+		}
+		// Terminal result exists — use it (worker may have written it before crashing)
+		return handleTerminalResult(jcfg, ticket.Key, termResult)
 	}
 
-	if strings.Contains(outputStr, "REJECTED") || strings.Contains(outputStr, "BLOCKED") {
-		log.Printf("[DISPATCH] %s: quality gate rejected", ticket.Key)
-		jiraTransition(jcfg, ticket.Key, "PAUSED")
-		return false
+	// PHASE A FIX: Read explicit terminal classification instead of scraping stdout
+	termResult, readErr := readWorkerTerminalResult(resultDir, ticket.Key)
+	if readErr != nil {
+		// No terminal result file — fall back to stdout heuristics
+		log.Printf("[DISPATCH] %s: no terminal result file, using stdout heuristics", ticket.Key)
+		if strings.Contains(outputStr, "REJECTED") || strings.Contains(outputStr, "BLOCKED") {
+			log.Printf("[DISPATCH] %s: quality gate rejected (stdout heuristic)", ticket.Key)
+			jiraTransition(jcfg, ticket.Key, "PAUSED")
+			return false
+		}
+		log.Printf("[DISPATCH] %s: ✅ completed (stdout heuristic)", ticket.Key)
+		return true
 	}
 
-	log.Printf("[DISPATCH] %s: ✅ completed", ticket.Key)
-	return true
+	return handleTerminalResult(jcfg, ticket.Key, termResult)
+}
+
+// handleTerminalResult processes the explicit terminal classification from the worker.
+// PHASE A FIX: This is the authoritative state transition — no more stdout guessing.
+func handleTerminalResult(jcfg jiraConfig, key string, result *WorkerTerminalResult) bool {
+	log.Printf("[DISPATCH] %s: terminal class=%s quality=%d passed=%v jira=%s",
+		key, result.TerminalClass, result.QualityScore, result.QualityPassed, result.JiraState)
+
+	switch result.TerminalClass {
+	case "done":
+		log.Printf("[DISPATCH] %s: ✅ done", key)
+		return true
+
+	case "needs_review":
+		log.Printf("[DISPATCH] %s: ✅ done (needs review)", key)
+		return true
+
+	case "paused":
+		// Quality gate rejected or blocked — already moved to PAUSED by worker
+		log.Printf("[DISPATCH] %s: ⏸️ paused (quality gate: %d/25)", key, result.QualityScore)
+		// Verify Jira state — if still In Progress, force to PAUSED
+		if result.JiraState != "PAUSED" {
+			log.Printf("[DISPATCH] %s: correcting state to PAUSED (was %s)", key, result.JiraState)
+			jiraTransition(jcfg, key, "PAUSED")
+		}
+		return false
+
+	case "blocked_invalid_payload":
+		// Quality gate rejected with explicit invalid payload classification
+		log.Printf("[DISPATCH] %s: 🚫 blocked invalid payload (quality: %d/25, reason: %s)",
+			key, result.QualityScore, result.BlockerReason)
+		if result.JiraState != "PAUSED" {
+			jiraTransition(jcfg, key, "PAUSED")
+		}
+		return false
+
+	case "retrying":
+		log.Printf("[DISPATCH] %s: 🔄 retrying (L1 failed)", key)
+		if result.JiraState != "RETRYING" {
+			jiraTransition(jcfg, key, "RETRYING")
+		}
+		return false
+
+	case "to_escalate":
+		log.Printf("[DISPATCH] %s: ⬆️ escalated", key)
+		if result.JiraState != "TO_ESCALATE" {
+			jiraTransition(jcfg, key, "TO_ESCALATE")
+		}
+		return false
+
+	case "failed":
+		log.Printf("[DISPATCH] %s: ❌ failed: %s", key, result.BlockerReason)
+		jiraTransition(jcfg, key, "RETRYING")
+		return false
+
+	default:
+		log.Printf("[DISPATCH] %s: ⚠️ unknown terminal class %q — falling back to PAUSED", key, result.TerminalClass)
+		jiraTransition(jcfg, key, "PAUSED")
+		return false
+	}
 }
 
 func lastNLines(s string, n int) string {
@@ -407,20 +525,66 @@ func runFillCycle(cfg factoryConfig, state *FactoryState) {
 }
 
 // reconcileDispatchedStates checks every ticket dispatched this cycle.
-// If a ticket is still In Progress but has ai:remediated label (worker ran),
-// it means the quality gate rejected it — move to PAUSED.
-// If a ticket is In Progress with ai:remediated and quality labels, check if Done.
+// PHASE A FIX: Now also reads terminal result files as the authoritative source.
+// Falls back to label-based heuristic if terminal result is missing.
 func reconcileDispatchedStates(cfg factoryConfig, dispatched []ClassifiedTicket) {
 	jcfg := cfg.Jcfg
+	rDir := resultDir()
 	fixed := 0
 
 	for _, ticket := range dispatched {
-		// Fetch current state from Jira
-		issues, _, err := jiraSearch(jcfg,
-			fmt.Sprintf("project=%s AND key=%s", jcfg.project, ticket.Key),
-			1)
-		if err != nil || len(issues) == 0 {
-			log.Printf("[RECONCILE] %s: could not fetch state: %v", ticket.Key, err)
+		// PHASE A FIX: Check terminal result file first (authoritative)
+		termResult, err := readWorkerTerminalResult(rDir, ticket.Key)
+		if err == nil {
+			// We have an explicit terminal classification
+			// Verify Jira state matches
+			issues, _, searchErr := jiraSearch(jcfg,
+				fmt.Sprintf("project=%s AND key=%s", jcfg.project, ticket.Key), 1)
+			if searchErr != nil || len(issues) == 0 {
+				log.Printf("[RECONCILE] %s: could not fetch Jira state: %v", ticket.Key, searchErr)
+				continue
+			}
+
+			actualStatus := issues[0].Fields.Status.Name
+			_ = termResult.JiraState // used for logging in handleTerminalResult
+
+			// If terminal result says done/paused/retrying but Jira still says In Progress, fix it
+			if actualStatus == "In Progress" {
+				switch termResult.TerminalClass {
+				case "done", "needs_review":
+					log.Printf("[RECONCILE] %s: terminal=%s but Jira=In Progress → Done", ticket.Key, termResult.TerminalClass)
+					if jiraTransition(jcfg, ticket.Key, "Done") {
+						fixed++
+					}
+				case "paused", "blocked_invalid_payload":
+					log.Printf("[RECONCILE] %s: terminal=%s but Jira=In Progress → PAUSED", ticket.Key, termResult.TerminalClass)
+					if jiraTransition(jcfg, ticket.Key, "PAUSED") {
+						fixed++
+					}
+				case "retrying", "failed":
+					log.Printf("[RECONCILE] %s: terminal=%s but Jira=In Progress → RETRYING", ticket.Key, termResult.TerminalClass)
+					if jiraTransition(jcfg, ticket.Key, "RETRYING") {
+						fixed++
+					}
+				case "to_escalate":
+					log.Printf("[RECONCILE] %s: terminal=%s but Jira=In Progress → TO_ESCALATE", ticket.Key, termResult.TerminalClass)
+					if jiraTransition(jcfg, ticket.Key, "TO_ESCALATE") {
+						fixed++
+					}
+				default:
+					log.Printf("[RECONCILE] %s: unknown terminal=%s, Jira=%s — no action", ticket.Key, termResult.TerminalClass, actualStatus)
+				}
+			} else {
+				log.Printf("[RECONCILE] %s: ✅ terminal=%s Jira=%s (consistent)", ticket.Key, termResult.TerminalClass, actualStatus)
+			}
+			continue
+		}
+
+		// No terminal result — fall back to label-based heuristic
+		issues, _, fetchErr := jiraSearch(jcfg,
+			fmt.Sprintf("project=%s AND key=%s", jcfg.project, ticket.Key), 1)
+		if fetchErr != nil || len(issues) == 0 {
+			log.Printf("[RECONCILE] %s: could not fetch state: %v", ticket.Key, fetchErr)
 			continue
 		}
 
@@ -445,11 +609,9 @@ func reconcileDispatchedStates(cfg factoryConfig, dispatched []ClassifiedTicket)
 
 		switch {
 		case status == "Done":
-			// Already correctly terminal — nothing to do
 			log.Printf("[RECONCILE] %s: ✅ already Done", ticket.Key)
 
 		case status == "In Progress" && hasRemediated && hasQualityBlocked:
-			// Worker ran but quality gate rejected — must move to PAUSED
 			log.Printf("[RECONCILE] %s: ⚠️ quality-gate rejected but stuck In Progress → PAUSED", ticket.Key)
 			if jiraTransition(jcfg, ticket.Key, "PAUSED") {
 				log.Printf("[RECONCILE] %s: moved to PAUSED", ticket.Key)
@@ -457,7 +619,6 @@ func reconcileDispatchedStates(cfg factoryConfig, dispatched []ClassifiedTicket)
 			}
 
 		case status == "In Progress" && hasRemediated && hasQualityReady:
-			// Worker ran, quality gate passed, but didn't get moved to Done — try Done
 			log.Printf("[RECONCILE] %s: ⚠️ quality passed but stuck In Progress → Done", ticket.Key)
 			if jiraTransition(jcfg, ticket.Key, "Done") {
 				log.Printf("[RECONCILE] %s: moved to Done", ticket.Key)
@@ -465,7 +626,6 @@ func reconcileDispatchedStates(cfg factoryConfig, dispatched []ClassifiedTicket)
 			}
 
 		case status == "In Progress" && !hasRemediated:
-			// Dispatched but worker didn't process (maybe L1 failed silently) — move to RETRYING
 			log.Printf("[RECONCILE] %s: ⚠️ no remediation happened, still In Progress → RETRYING", ticket.Key)
 			if jiraTransition(jcfg, ticket.Key, "RETRYING") {
 				log.Printf("[RECONCILE] %s: moved to RETRYING", ticket.Key)
@@ -669,6 +829,7 @@ func writeDashboard(cfg factoryConfig, state *FactoryState) {
 
 // reconcileStuckInProgress checks all In Progress tickets and fixes terminal states.
 // This runs at the start of every cycle, even when no ready backlog tickets exist.
+// PHASE A FIX: Also checks terminal result files for authoritative classification.
 func reconcileStuckInProgress(jcfg jiraConfig) {
 	if !jcfg.enabled {
 		return
@@ -681,11 +842,43 @@ func reconcileStuckInProgress(jcfg jiraConfig) {
 		return
 	}
 
+	rDir := resultDir()
 	fixed := 0
 	for _, issue := range issues {
 		key := issue.Key
 		labels := issue.Fields.Labels
 
+		// PHASE A FIX: Check terminal result file first (authoritative)
+		if termResult, err := readWorkerTerminalResult(rDir, key); err == nil {
+			switch termResult.TerminalClass {
+			case "done", "needs_review":
+				log.Printf("[RECONCILE] %s: terminal=%s (file), stuck In Progress → Done", key, termResult.TerminalClass)
+				if jiraTransition(jcfg, key, "Done") {
+					fixed++
+				}
+				continue
+			case "paused", "blocked_invalid_payload":
+				log.Printf("[RECONCILE] %s: terminal=%s (file), stuck In Progress → PAUSED", key, termResult.TerminalClass)
+				if jiraTransition(jcfg, key, "PAUSED") {
+					fixed++
+				}
+				continue
+			case "retrying", "failed":
+				log.Printf("[RECONCILE] %s: terminal=%s (file), stuck In Progress → RETRYING", key, termResult.TerminalClass)
+				if jiraTransition(jcfg, key, "RETRYING") {
+					fixed++
+				}
+				continue
+			case "to_escalate":
+				log.Printf("[RECONCILE] %s: terminal=%s (file), stuck In Progress → TO_ESCALATE", key, termResult.TerminalClass)
+				if jiraTransition(jcfg, key, "TO_ESCALATE") {
+					fixed++
+				}
+				continue
+			}
+		}
+
+		// Fall back to label-based heuristic
 		hasRemediated := false
 		hasQualityBlocked := false
 		hasQualityReady := false

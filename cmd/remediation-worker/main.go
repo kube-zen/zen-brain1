@@ -45,6 +45,66 @@ type jiraConfig struct {
 	enabled bool
 }
 
+// ─── Terminal Classification (PHASE A FIX) ──────────────────────────
+//
+// Every remediation run produces an explicit terminal classification file.
+// The factory-fill dispatcher reads this file instead of scraping stdout.
+// This ensures quality-gate-rejected tickets NEVER stay In Progress.
+
+// TerminalClass is the explicit outcome of a single ticket remediation.
+type TerminalClass string
+
+const (
+	TerminalDone                TerminalClass = "done"
+	TerminalNeedsReview         TerminalClass = "needs_review"
+	TerminalPaused              TerminalClass = "paused"
+	TerminalRetrying            TerminalClass = "retrying"
+	TerminalToEscalate          TerminalClass = "to_escalate"
+	TerminalBlockedInvalidPayl  TerminalClass = "blocked_invalid_payload"
+	TerminalFailed              TerminalClass = "failed" // L1 call failed entirely
+)
+
+// WorkerTerminalResult is written to RESULT_DIR/{JIRA_KEY}.json after each ticket.
+type WorkerTerminalResult struct {
+	JiraKey         string        `json:"jira_key"`
+	TerminalClass   TerminalClass `json:"terminal_class"`
+	QualityScore    int           `json:"quality_score"`
+	QualityPassed   bool          `json:"quality_passed"`
+	L1Status        string        `json:"l1_status"`          // success, needs_review, blocked, to_escalate
+	JiraState       string        `json:"jira_state"`         // final Jira status after transition
+	EvidencePath    string        `json:"evidence_path"`
+	BlockerReason   string        `json:"blocker_reason,omitempty"`
+	Issues          []string      `json:"issues,omitempty"`
+	GateLogPath     string        `json:"gate_log_path,omitempty"`
+	Timestamp       string        `json:"timestamp"`
+}
+
+// writeTerminalResult writes the terminal classification to a JSON file.
+func writeTerminalResult(resultDir string, res WorkerTerminalResult) {
+	if resultDir == "" {
+		return
+	}
+	os.MkdirAll(resultDir, 0755)
+	res.Timestamp = time.Now().Format(time.RFC3339)
+	data, err := json.MarshalIndent(res, "", "  ")
+	if err != nil {
+		log.Printf("[TERMINAL-RESULT] marshal error for %s: %v", res.JiraKey, err)
+		return
+	}
+	path := filepath.Join(resultDir, res.JiraKey+".json")
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		log.Printf("[TERMINAL-RESULT] write error for %s: %v", res.JiraKey, err)
+		return
+	}
+	log.Printf("[TERMINAL-RESULT] %s: wrote %s → class=%s quality=%d passed=%v jira=%s",
+		res.JiraKey, path, res.TerminalClass, res.QualityScore, res.QualityPassed, res.JiraState)
+}
+
+// terminalResultDir returns the directory for terminal result files.
+func terminalResultDir() string {
+	return envOr("RESULT_DIR", "/tmp/zen-brain1-worker-results")
+}
+
 // ─── Data Types ────────────────────────────────────────────────────────
 
 // RemediationTicket represents a Jira ticket selected for remediation.
@@ -1069,6 +1129,9 @@ func runPilot(cfg remediationConfig, jcfg jiraConfig, pilotKeys []string) {
 	os.MkdirAll(cfg.EvidenceRoot, 0755)
 	os.MkdirAll(filepath.Join(cfg.EvidenceRoot, "..", "quality-gate-logs"), 0755)
 
+	resultDir := terminalResultDir()
+	os.MkdirAll(resultDir, 0755)
+
 	// Track gate results across the pilot
 	var gateResults []TicketQualityReport
 
@@ -1080,6 +1143,13 @@ func runPilot(cfg remediationConfig, jcfg jiraConfig, pilotKeys []string) {
 		ticket, err := fetchSingleTicket(jcfg, key)
 		if err != nil {
 			log.Printf("[REMEDIATION-PILOT] %s: fetch failed: %v", key, err)
+			// Write failed terminal result
+			writeTerminalResult(resultDir, WorkerTerminalResult{
+				JiraKey:       key,
+				TerminalClass: TerminalFailed,
+				QualityPassed: false,
+				BlockerReason: fmt.Sprintf("fetch failed: %v", err),
+			})
 			continue
 		}
 
@@ -1091,9 +1161,19 @@ func runPilot(cfg remediationConfig, jcfg jiraConfig, pilotKeys []string) {
 
 		// Execute via L1 (with telemetry)
 		log.Printf("[REMEDIATION-PILOT] %s: dispatching to L1...", key)
-		result, err := executeRemediationViaL1WithTelemetry(cfg.L1Endpoint, cfg.L1Model, packet, cfg.TimeoutSec, "pilot-"+time.Now().Format("20060102-150405"), "pilot")
-		if err != nil {
-			log.Printf("[REMEDIATION-PILOT] %s: L1 failed: %v", key, err)
+		result, l1err := executeRemediationViaL1WithTelemetry(cfg.L1Endpoint, cfg.L1Model, packet, cfg.TimeoutSec, "pilot-"+time.Now().Format("20060102-150405"), "pilot")
+		if l1err != nil {
+			log.Printf("[REMEDIATION-PILOT] %s: L1 failed: %v", key, l1err)
+			// Move to RETRYING — L1 call itself failed
+			transitionJiraStatus(jcfg, key, "in_progress")
+			transitionJiraStatus(jcfg, key, "retrying")
+			writeTerminalResult(resultDir, WorkerTerminalResult{
+				JiraKey:       key,
+				TerminalClass: TerminalRetrying,
+				QualityPassed: false,
+				BlockerReason: fmt.Sprintf("L1 call failed: %v", l1err),
+				JiraState:     "RETRYING",
+			})
 			continue
 		}
 
@@ -1116,7 +1196,11 @@ func runPilot(cfg remediationConfig, jcfg jiraConfig, pilotKeys []string) {
 		if gateReport.Score.Total < 15 {
 			log.Printf("[QUALITY-GATE] %s: REJECTED (score %d < 15). Writing blocked evidence only.", key, gateReport.Score.Total)
 			epPath := createEvidencePack(cfg, *ticket, result)
-			writeGateLog(cfg, key, gateReport, "rejected")
+			gateLogPath := writeGateLog(cfg, key, gateReport, "rejected")
+
+			// PHASE A FIX: Move to In Progress first (if not already), then immediately to PAUSED
+			transitionJiraStatus(jcfg, key, "in_progress")
+
 			if jcfg.enabled {
 				blockedResult := &RemediationOutput{
 					RemediationType: result.RemediationType,
@@ -1128,7 +1212,36 @@ func runPilot(cfg remediationConfig, jcfg jiraConfig, pilotKeys []string) {
 				}
 				updateJiraOutcome(jcfg, key, blockedResult, epPath)
 				addLabelsToIssue(jcfg, key, []string{"quality:blocked-invalid-payload"})
+
+				// PHASE A FIX: Explicit Jira comment for quality-gate rejection
+				rejectComment := fmt.Sprintf("[zen-brain1 quality gate] REJECTED\n\n"+
+					"Score: %d/25 (threshold: 15)\n"+
+					"Gate result: %s\n"+
+					"Reason(s): %s\n"+
+					"Artifact/evidence: %s\n"+
+					"Next action: Review evidence pack. If fixable, update ticket and re-queue.\n"+
+					"Current Jira state: In Progress → PAUSED",
+					gateReport.Score.Total, gateReport.Readiness,
+					strings.Join(gateReport.Issues, ", "), epPath)
+				postJiraComment(jcfg, key, rejectComment)
 			}
+
+			// PHASE A FIX: Immediately move to PAUSED — do NOT stay In Progress
+			transitionJiraStatus(jcfg, key, "paused")
+
+			// Write terminal result for factory-fill to consume
+			writeTerminalResult(resultDir, WorkerTerminalResult{
+				JiraKey:       key,
+				TerminalClass: TerminalBlockedInvalidPayl,
+				QualityScore:  gateReport.Score.Total,
+				QualityPassed: false,
+				L1Status:      result.FinalStatus,
+				JiraState:     "PAUSED",
+				EvidencePath:  epPath,
+				BlockerReason: fmt.Sprintf("Quality gate score %d/25 < 15. Missing: %s", gateReport.Score.Total, strings.Join(gateReport.Issues, ", ")),
+				Issues:        gateReport.Issues,
+				GateLogPath:   gateLogPath,
+			})
 			continue
 		}
 
@@ -1136,7 +1249,7 @@ func runPilot(cfg remediationConfig, jcfg jiraConfig, pilotKeys []string) {
 
 		// Create evidence pack with gated result
 		epPath := createEvidencePack(cfg, *ticket, result)
-		writeGateLog(cfg, key, gateReport, "passed")
+		gateLogPath := writeGateLog(cfg, key, gateReport, "passed")
 		log.Printf("[REMEDIATION-PILOT] %s: evidence pack at %s", key, epPath)
 
 		// Determine Jira labels based on readiness
@@ -1150,7 +1263,11 @@ func runPilot(cfg remediationConfig, jcfg jiraConfig, pilotKeys []string) {
 			qualityLabels = []string{"quality:needs-review"}
 		}
 
+		// Determine terminal class from L1 final status
+		tClass := classifyTerminalState(result.FinalStatus)
+
 		// Update Jira with quality-gated normalized payload
+		jiraFinalState := "Done"
 		if jcfg.enabled {
 			// Step 1: Move to In Progress
 			transitionJiraStatus(jcfg, key, "in_progress")
@@ -1166,7 +1283,20 @@ func runPilot(cfg remediationConfig, jcfg jiraConfig, pilotKeys []string) {
 
 			// Step 2: Move to terminal state based on final status
 			transitionToTerminal(jcfg, key, result.FinalStatus)
+			jiraFinalState = jiraStatusName(result.FinalStatus)
 		}
+
+		// Write terminal result for factory-fill to consume
+		writeTerminalResult(resultDir, WorkerTerminalResult{
+			JiraKey:       key,
+			TerminalClass: tClass,
+			QualityScore:  gateReport.Score.Total,
+			QualityPassed: true,
+			L1Status:      result.FinalStatus,
+			JiraState:     jiraFinalState,
+			EvidencePath:  epPath,
+			GateLogPath:   gateLogPath,
+		})
 	}
 
 	// Write pilot summary with gate results
@@ -1174,8 +1304,29 @@ func runPilot(cfg remediationConfig, jcfg jiraConfig, pilotKeys []string) {
 	log.Printf("[REMEDIATION-PILOT] === pilot complete ===")
 }
 
+// classifyTerminalState maps L1 FinalStatus to a TerminalClass.
+func classifyTerminalState(finalStatus string) TerminalClass {
+	switch strings.ToLower(finalStatus) {
+	case "success":
+		return TerminalDone
+	case "needs_review":
+		return TerminalNeedsReview
+	case "blocked":
+		return TerminalPaused
+	case "retrying":
+		return TerminalRetrying
+	case "to_escalate":
+		return TerminalToEscalate
+	default:
+		return TerminalNeedsReview
+	}
+}
+
 func runRemediationCycle(cfg remediationConfig, jcfg jiraConfig) {
 	log.Printf("[REMEDIATION] starting remediation cycle")
+
+	resultDir := terminalResultDir()
+	os.MkdirAll(resultDir, 0755)
 
 	// Phase 2: Fetch and select tickets
 	tickets, err := fetchOpenTickets(jcfg, 2) // max approval level 2
@@ -1204,10 +1355,20 @@ func runRemediationCycle(cfg remediationConfig, jcfg jiraConfig) {
 		log.Printf("[REMEDIATION] %s: processing (priority=%s)", ticket.Key, ticket.Priority)
 
 		packet := buildRemediationPacket(ticket, cfg.RepoRoot)
-		result, err := executeRemediationViaL1WithTelemetry(cfg.L1Endpoint, cfg.L1Model, packet, cfg.TimeoutSec, "cycle-"+time.Now().Format("20060102-150405"), "remediation-cycle")
-		if err != nil {
-			log.Printf("[REMEDIATION] %s: L1 failed: %v", ticket.Key, err)
+		result, l1err := executeRemediationViaL1WithTelemetry(cfg.L1Endpoint, cfg.L1Model, packet, cfg.TimeoutSec, "cycle-"+time.Now().Format("20060102-150405"), "remediation-cycle")
+		if l1err != nil {
+			log.Printf("[REMEDIATION] %s: L1 failed: %v", ticket.Key, l1err)
 			failed++
+			// PHASE A FIX: L1 failed — move to RETRYING, don't leave in limbo
+			transitionJiraStatus(jcfg, ticket.Key, "in_progress")
+			transitionJiraStatus(jcfg, ticket.Key, "retrying")
+			writeTerminalResult(resultDir, WorkerTerminalResult{
+				JiraKey:       ticket.Key,
+				TerminalClass: TerminalRetrying,
+				QualityPassed: false,
+				BlockerReason: fmt.Sprintf("L1 call failed: %v", l1err),
+				JiraState:     "RETRYING",
+			})
 			continue
 		}
 
@@ -1222,15 +1383,16 @@ func runRemediationCycle(cfg remediationConfig, jcfg jiraConfig) {
 			ticket.Key, gateReport.Score.Total, gateReport.Readiness, gateReport.Issues)
 
 		epPath := createEvidencePack(cfg, ticket, result)
-		writeGateLog(cfg, ticket.Key, gateReport, "cycle")
+		gateLogPath := writeGateLog(cfg, ticket.Key, gateReport, "cycle")
 
 		if gateReport.Score.Total < 15 {
 			log.Printf("[QUALITY-GATE] %s: REJECTED (score %d < 15). Blocked.", ticket.Key, gateReport.Score.Total)
 			rejected++
-			if jcfg.enabled {
-				// Move to In Progress first
-				transitionJiraStatus(jcfg, ticket.Key, "in_progress")
 
+			// PHASE A FIX: Move to In Progress, then immediately to PAUSED
+			transitionJiraStatus(jcfg, ticket.Key, "in_progress")
+
+			if jcfg.enabled {
 				blockedResult := &RemediationOutput{
 					RemediationType: result.RemediationType,
 					FileToEdit:      result.FileToEdit,
@@ -1242,14 +1404,43 @@ func runRemediationCycle(cfg remediationConfig, jcfg jiraConfig) {
 				updateJiraOutcome(jcfg, ticket.Key, blockedResult, epPath)
 				addLabelsToIssue(jcfg, ticket.Key, []string{"quality:blocked-invalid-payload"})
 
-				// Move to PAUSED terminal state
-				transitionJiraStatus(jcfg, ticket.Key, "paused")
+				// Explicit Jira comment for quality-gate rejection
+				rejectComment := fmt.Sprintf("[zen-brain1 quality gate] REJECTED\n\n"+
+					"Score: %d/25 (threshold: 15)\n"+
+					"Gate result: %s\n"+
+					"Reason(s): %s\n"+
+					"Artifact/evidence: %s\n"+
+					"Next action: Review evidence pack. If fixable, update ticket and re-queue.\n"+
+					"Current Jira state: In Progress → PAUSED",
+					gateReport.Score.Total, gateReport.Readiness,
+					strings.Join(gateReport.Issues, ", "), epPath)
+				postJiraComment(jcfg, ticket.Key, rejectComment)
 			}
+
+			// PHASE A FIX: Immediately move to PAUSED
+			transitionJiraStatus(jcfg, ticket.Key, "paused")
+
+			writeTerminalResult(resultDir, WorkerTerminalResult{
+				JiraKey:       ticket.Key,
+				TerminalClass: TerminalBlockedInvalidPayl,
+				QualityScore:  gateReport.Score.Total,
+				QualityPassed: false,
+				L1Status:      result.FinalStatus,
+				JiraState:     "PAUSED",
+				EvidencePath:  epPath,
+				BlockerReason: fmt.Sprintf("Quality gate score %d/25 < 15. Missing: %s", gateReport.Score.Total, strings.Join(gateReport.Issues, ", ")),
+				Issues:        gateReport.Issues,
+				GateLogPath:   gateLogPath,
+			})
 			continue
 		}
 
 		log.Printf("[QUALITY-GATE] %s: PASSED (%s, score %d).", ticket.Key, gateReport.Readiness, gateReport.Score.Total)
 		passed++
+
+		// Determine terminal class
+		tClass := classifyTerminalState(result.FinalStatus)
+		jiraFinalState := "Done"
 
 		if jcfg.enabled {
 			// Move to In Progress
@@ -1274,7 +1465,19 @@ func runRemediationCycle(cfg remediationConfig, jcfg jiraConfig) {
 
 			// Move to terminal state
 			transitionToTerminal(jcfg, ticket.Key, result.FinalStatus)
+			jiraFinalState = jiraStatusName(result.FinalStatus)
 		}
+
+		writeTerminalResult(resultDir, WorkerTerminalResult{
+			JiraKey:       ticket.Key,
+			TerminalClass: tClass,
+			QualityScore:  gateReport.Score.Total,
+			QualityPassed: true,
+			L1Status:      result.FinalStatus,
+			JiraState:     jiraFinalState,
+			EvidencePath:  epPath,
+			GateLogPath:   gateLogPath,
+		})
 	}
 
 	log.Printf("[REMEDIATION] === cycle complete: %d passed, %d rejected, %d failed ===", passed, rejected, failed)
@@ -1482,7 +1685,8 @@ func closeBatchReport(jcfg jiraConfig, key string) bool {
 }
 
 // writeGateLog writes a quality gate decision to the gate log directory.
-func writeGateLog(cfg remediationConfig, key string, report TicketQualityReport, decision string) {
+// Returns the path to the gate log file.
+func writeGateLog(cfg remediationConfig, key string, report TicketQualityReport, decision string) string {
 	logDir := filepath.Join(filepath.Dir(cfg.EvidenceRoot), "quality-gate-logs")
 	os.MkdirAll(logDir, 0755)
 
@@ -1499,6 +1703,7 @@ func writeGateLog(cfg remediationConfig, key string, report TicketQualityReport,
 	path := filepath.Join(logDir, fmt.Sprintf("%s-%s.json", key, decision))
 	os.WriteFile(path, data, 0644)
 	log.Printf("[QUALITY-GATE-LOG] %s: written to %s", key, path)
+	return path
 }
 
 // writePilotSummary writes a summary of all gate decisions in the pilot run.
