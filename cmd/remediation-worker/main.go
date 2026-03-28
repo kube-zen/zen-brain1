@@ -377,30 +377,9 @@ func buildRemediationPacket(ticket RemediationTicket, repoRoot string) Remediati
 
 // executeRemediationViaL1 sends a bounded remediation task to L1.
 func executeRemediationViaL1(endpoint, model string, packet RemediationPacket, timeoutSec int) (*RemediationOutput, error) {
-	systemPrompt := `You are a remediation worker. You receive a bounded task from a Jira ticket and must attempt a specific fix.
-
-RULES:
-- Produce ONLY a bounded edit to the target files identified
-- Do NOT invent new architecture or change unrelated files
-- Do NOT do a repo-wide refactor
-- If the problem is unclear or the target files cannot be identified, return final_status: blocked
-- Explain what you changed and why
-
-OUTPUT: You must produce ONLY valid JSON with exactly these fields:
-{
-  "remediation_type": "code_edit|config_change|doc_update|cannot_fix",
-  "file_to_edit": "path/to/file relative to repo root",
-  "edit_description": "what you changed and why",
-  "new_content": "the complete new content of the file (if code_edit), or null",
-  "config_changes": "description of config changes, or null",
-  "explanation": "what was wrong and what you fixed",
-  "final_status": "success|needs_review|blocked|to_escalate",
-  "blocker_reason": "why blocked, if applicable, or null",
-  "validation_result": "what validation would pass, or null",
-  "compliance_note": "any SR&ED/IRAP-relevant notes, or null"
-}
-
-Do NOT include markdown, commentary, or anything outside the JSON object.`
+	systemPrompt := `You are a remediation worker for zen-brain1. Produce a bounded fix for the target files.
+Return ONLY valid JSON: {"remediation_type":"code_edit|config_change|doc_update|cannot_fix","file_to_edit":"path","edit_description":"what","new_content":"content or null","config_changes":null,"explanation":"why","final_status":"success|needs_review|blocked|to_escalate","blocker_reason":null,"validation_result":null,"compliance_note":null}
+No markdown. No prose. Just the JSON object.`
 
 	userPrompt := fmt.Sprintf(`## Remediation Task for %s
 
