@@ -1,7 +1,7 @@
 # Observability and Throughput Policy
 
 **Date:** 2026-03-28  
-**Status:** Phase A/B/C/D complete
+**Status:** Phase A–D complete
 
 ## Core Principles
 
@@ -11,30 +11,35 @@
 4. **Observability is required for all model/lane scaling decisions.** No blind jumps.
 5. **Done movement is the primary success metric.** Discovery and ticket creation are secondary.
 
-## Terminal State Correctness (Phase A)
+## Terminal Result Files (Phase A)
 
-**Critical invariant: quality-gate-rejected tickets must not remain In Progress.**
+Every remediation-worker run produces a `RESULT_DIR/{JIRA_KEY}.json` terminal result file:
 
-Phase A (commit 9d0a2bf) replaced fragile stdout string matching with explicit WorkerTerminalResult JSON files.
+```json
+{
+  "jira_key": "ZB-1037",
+  "terminal_class": "needs_review",
+  "quality_score": 15,
+  "quality_passed": true,
+  "l1_status": "needs_review",
+  "jira_state": "Done",
+  "evidence_path": "/var/lib/zen-brain1/evidence/...",
+  "gate_log_path": "/var/lib/zen-brain1/quality-gate-logs/ZB-1037-passed.json",
+  "timestamp": "2026-03-28T17:33:42-04:00"
+}
+```
 
-Every remediation-worker run writes `RESULT_DIR/{JIRA_KEY}.json`:
-- `terminal_class`: done | needs_review | paused | retrying | to_escalate | blocked_invalid_payload | failed
-- `quality_score`: 0-25
-- `quality_passed`: bool
-- `jira_state`: final Jira status
+### Terminal Classifications
 
-Factory-fill reads these files via `handleTerminalResult`. Reconciliation remains a safety net.
-
-### Live Proof (Phase A)
-
-| Ticket | Path | Score | Terminal Class | Jira State |
-|--------|------|-------|---------------|------------|
-| ZB-1037 | success (gate passed) | 15/25 | needs_review | Done |
-| ZB-1032 | success (gate passed) | 17/25 | done | Done |
-| ZB-1045 | reject (gate failed) | 5/25 | blocked_invalid_payload | PAUSED |
-| ZB-843 | paused (L1 blocked) | 16/25 | paused | PAUSED |
-
-No tickets stuck In Progress after any terminal result.
+| Class | Meaning | Jira State |
+|-------|---------|------------|
+| `done` | Quality gate passed, L1 success | Done |
+| `needs_review` | Quality gate passed, L1 says review needed | Done |
+| `paused` | Quality gate rejected (score < 15) | PAUSED |
+| `blocked_invalid_payload` | Quality gate rejected, payload not usable | PAUSED |
+| `retrying` | L1 call failed entirely | RETRYING |
+| `to_escalate` | L1 says human must handle | TO_ESCALATE |
+| `failed` | Unrecoverable error | RETRYING |
 
 ## Per-Task Telemetry
 
@@ -47,18 +52,32 @@ Every L1 remediation call records:
 - repair_type (if truncation repair was used)
 - evidence_pack path
 
-## Per-Schedule WORKERS Override (Phase B)
+## Computed Metrics
 
-Schedule configs set `workers` field explicitly:
-- `hourly-scan`: W=5 (3-task batch, W=7 showed no throughput gain)
-- `quad-hourly-summary`: W=5 (6-task batch, same as hourly)
-- `daily-sweep`: W=7 (10-task batch, first experiment target)
+| Metric | Description |
+|--------|-------------|
+| tasks/min | Throughput rate |
+| L1-produced % | Honest success rate |
+| avg/p50/p95 wall_time | Latency distribution |
+| timeout rate | Requests with empty output |
+| truncation-repair rate | Responses saved by bracket repair |
+| chars/sec | Generation speed |
+| done/day | Jira Done movement |
+| cycle time | Open→Done duration |
 
-Scheduler logs effective WORKERS value per run. Env `WORKERS_OVERRIDE` takes highest priority.
+## Per-Schedule Workers Override (Phase B)
 
-## Parallelism Policy
+| Schedule | Workers | Rationale |
+|----------|---------|-----------|
+| hourly-scan | 5 | 3-task batch, W=5 proven sufficient |
+| quad-hourly-summary | 5 | 6-task batch, same as hourly until evidence supports higher |
+| daily-sweep | 7 | First experiment — 10-task batch, evidence-based |
 
-### Experiment Results (2026-03-28)
+### Decision Rule
+- Keep highest worker level that improves done/hour without de quality/state degradation
+- **W=10 not approved unless W=7 is clean**
+
+## Parallelism Experiment Results (2026-03-28 baseline)
 
 | Workers | Throughput | L1-produced | Avg Latency | P95 Latency | Timeouts | Notes |
 |---------|-----------|-------------|-------------|-------------|----------|-------|
@@ -69,66 +88,40 @@ Scheduler logs effective WORKERS value per run. Env `WORKERS_OVERRIDE` takes hig
 
 ### Key Finding
 
-Single llama.cpp `--parallel 10` does NOT improve throughput linearly with concurrent requests. CPU contention on the i9-13900H causes timeout cascades above 3 concurrent workers.
+Single llama.cpp `--parallel 10` does NOT improve throughput linearly. CPU contention on i9-13900H causes timeout cascades above 3 concurrent workers.
 
-### Decision Rule
+## Discovery Throttle (Phase C)
 
-- **Sequential (1 worker):** Best for quality-sensitive batches. Use for bounded expansion.
-- **3 workers:** Safe concurrency ceiling without quality loss. Use for bulk ops.
-- **5 workers:** Current default for factory-fill. Proven stable.
-- **7 workers:** Approved for daily-sweep only. First experiment target.
-- **10 workers:** NOT approved unless W=7 proves clean with clear benefit.
+**Policy:** if ready backlog > 10 tickets, skip discovery.
 
-### Scaling Path (if needed)
-
-To go beyond 5 useful workers, options are:
-1. **Multiple llama.cpp instances** on different ports (each with `--parallel 3`)
-2. **Reduce model size** (0.5b instead of 0.8b) for faster inference
-3. **GPU inference** (not available on current machine)
-4. **Smaller context window** (`--ctx-size 32768`) to reduce memory pressure
-
-## Backlog Priority / Discovery Throttle (Phase D)
-
-**Policy: Do not create more work faster than the factory can close it.**
-
-When backlog has > 10 ready tickets:
-- Discovery/ticketizer is throttled (skipped)
-- Remediation/backlog drain gets priority
-- Factory-fill continues pulling from backlog
-
-| Work Type | % | Notes |
-|-----------|---|-------|
+| Work Type | Allocation | Notes |
+|-----------|------------|-------|
 | Remediation / backlog drain | 70% | Primary — Done movement is the metric |
 | Roadmap / office execution | 20% | Office support, bounded tickets |
-| Discovery refresh / dedup | 10% | Keep from flooding |
-
-## Per-Task Telemetry (Phase 39+)
-
-Every L1 call emits a `TaskTelemetryRecord` to `/var/lib/zen-brain1/metrics/per-task.jsonl`.
-
-### Querying Metrics
-
-```bash
-# Human-readable summary (last 24h)
-go run ./cmd/metrics-report --window last_24h --human
-
-# JSON output for dashboards
-go run ./cmd/metrics-report --window last_hour --json
-```
+| Discovery refresh / dedup | 10% | Throttled when backlog is large |
 
 ## Evidence Paths
 
 - Phase A proof: `docs/05-OPERATIONS/evidence/phase-a-terminal-state-proof.md`
 - Runtime experiment: `docs/05-OPERATIONS/evidence/runtime-throughput-experiment/parallelism-experiment.json`
-- Factory dashboard: `docs/05-OPERATIONS/evidence/factory-fill-and-backlog-utilization.md`
+- Throughput dashboard: `docs/05-OPERATIONS/evidence/throughput-and-utilization-dashboard.md`
+- Corrective retry: `docs/05-OPERATIONS/evidence/l1-corrective-retry/`
 - Attribution scoreboard: `docs/05-OPERATIONS/evidence/l1-attribution-scoreboard.md`
+- Quality gate logs: `/var/lib/zen-brain1/quality-gate-logs/`
+- Terminal result files: `/tmp/zen-brain1-worker-results/` (per-run)
+
+- Per-task telemetry: `/var/lib/zen-brain1/metrics/per-task.jsonl`
+
+## Worker Allocation
+| Work Type | % | Notes |
+|-----------|---|-------|
+| Remediation / backlog drain | 60% | Primary — Done movement is the metric |
+| Roadmap-to-ticket / task shaping | 20% | Office support, bounded tickets |
+| Discovery refresh / dedup | 10% | Keep from flooding |
+| Reserved / retries / maintenance | 10% | Backstop |
 
 ## Operating Statements
-
-- Terminal result files are the authoritative source of truth for state transitions
-- Stdout heuristics are fallback only (legacy safety net)
-- Quality-gate-rejected tickets must not remain In Progress
-- Throughput measurements are invalid until terminal states are correct
-- Worker-count changes are evidence-based, not guesswork
-- Backlog drain remains the main success metric
-- Discovery is throttled when backlog drain is the priority
+- quality-gate-rejected tickets must not remain in In Progress
+- throughput measurements are invalid until terminal states are correct
+- discovery must be throttled when backlog drain is the priority
+- worker-count changes are evidence-based, not guesswork
