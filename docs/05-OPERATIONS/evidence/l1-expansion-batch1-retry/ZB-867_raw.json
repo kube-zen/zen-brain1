@@ -1,0 +1,37 @@
+{
+  "jira_key": "ZB-867",
+  "task": {
+    "jira_key": "ZB-867",
+    "target_files": [
+      "docs/05-OPERATIONS/L1_ATTRIBUTION_POLICY_v2.md"
+    ],
+    "task_type": "doc_update",
+    "description": "Create L1_ATTRIBUTION_POLICY_v2.md documenting attribution rules for L1 work.",
+    "validation": "test -f docs/05-OPERATIONS/L1_ATTRIBUTION_POLICY_v2.md"
+  },
+  "l1": {
+    "raw": "{\"choices\":[{\"finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"{\\n  \\\"edit_description\\\": \\\"Update L1_ATTRIBUTION_POLICY_v2.md to add L1 work attribution rules based on the new L1 work model.\\\",\\n  \\\"target_files\\\": [\\n    \\\"docs/05-OPERATIONS/L1_ATTRIBUTION_POLICY_v2.md\\\"\\n  ],\\n  \\\"patch_commands\\\": [\\n    \\\"sed -i 's/.*L1 work.*$/L1 work attribution rules based on the new L1 work model./' docs/05-OPERATIONS/L1_ATTRIBUTION_POLICY_v2.md\\\"\\n  ],\\n  \\\"validation_commands\\\": [\\n    \\\"test -f docs/05-OPERATIONS/L1_ATTRIBUTION_POLICY_v2.md\\\",\\n    \\\"grep -q 'L1 work attribution rules based on the new L1 work model.' docs/05-OPERATIONS/L1_ATTRIBUTION_POLICY_v2.md\\\"\\n  ],\\n  \\\"expected_outcome\\\": \\\"L1_ATTRIBUTION_POLICY_v2.md now contains the new L1 work attribution rules.\\\",\\n  \\\"risk_notes\\\": \\\"No risk. This is a straightforward documentation update.\\\",\\n  \\\"follow_up_type\\\": \\\"none|needs_review\\\"\\n}\"}}],\"created\":1774713279,\"model\":\"Qwen3.5-0.8B-Q4_K_M.gguf\",\"system_fingerprint\":\"b8467-990e4d969\",\"object\":\"chat.completion\",\"usage\":{\"completion_tokens\":252,\"prompt_tokens\":205,\"total_tokens\":457,\"prompt_tokens_details\":{\"cached_tokens\":0}},\"id\":\"chatcmpl-5qQZQ4S2DNyCGlTscQfq8SnUBO1PVLy7\",\"timings\":{\"cache_n\":0,\"prompt_n\":205,\"prompt_ms\":1417.518,\"prompt_per_token_ms\":6.914721951219512,\"prompt_per_second\":144.6189748560512,\"predicted_n\":252,\"predicted_ms\":7403.826,\"predicted_per_token_ms\":29.380261904761905,\"predicted_per_second\":34.03645628624984}}",
+    "content": "{\n  \"edit_description\": \"Update L1_ATTRIBUTION_POLICY_v2.md to add L1 work attribution rules based on the new L1 work model.\",\n  \"target_files\": [\n    \"docs/05-OPERATIONS/L1_ATTRIBUTION_POLICY_v2.md\"\n  ],\n  \"patch_commands\": [\n    \"sed -i 's/.*L1 work.*$/L1 work attribution rules based on the new L1 work model./' docs/05-OPERATIONS/L1_ATTRIBUTION_POLICY_v2.md\"\n  ],\n  \"validation_commands\": [\n    \"test -f docs/05-OPERATIONS/L1_ATTRIBUTION_POLICY_v2.md\",\n    \"grep -q 'L1 work attribution rules based on the new L1 work model.' docs/05-OPERATIONS/L1_ATTRIBUTION_POLICY_v2.md\"\n  ],\n  \"expected_outcome\": \"L1_ATTRIBUTION_POLICY_v2.md now contains the new L1 work attribution rules.\",\n  \"risk_notes\": \"No risk. This is a straightforward documentation update.\",\n  \"follow_up_type\": \"none|needs_review\"\n}",
+    "parsed": {
+      "edit_description": "Update L1_ATTRIBUTION_POLICY_v2.md to add L1 work attribution rules based on the new L1 work model.",
+      "target_files": [
+        "docs/05-OPERATIONS/L1_ATTRIBUTION_POLICY_v2.md"
+      ],
+      "patch_commands": [
+        "sed -i 's/.*L1 work.*$/L1 work attribution rules based on the new L1 work model./' docs/05-OPERATIONS/L1_ATTRIBUTION_POLICY_v2.md"
+      ],
+      "validation_commands": [
+        "test -f docs/05-OPERATIONS/L1_ATTRIBUTION_POLICY_v2.md",
+        "grep -q 'L1 work attribution rules based on the new L1 work model.' docs/05-OPERATIONS/L1_ATTRIBUTION_POLICY_v2.md"
+      ],
+      "expected_outcome": "L1_ATTRIBUTION_POLICY_v2.md now contains the new L1 work attribution rules.",
+      "risk_notes": "No risk. This is a straightforward documentation update.",
+      "follow_up_type": "none|needs_review"
+    },
+    "parse_error": null,
+    "elapsed": 8.9
+  },
+  "score": 25,
+  "issues": [],
+  "ts": "20260328-115439"
+}

@@ -1,0 +1,40 @@
+{
+  "jira_key": "ZB-884",
+  "task": {
+    "jira_key": "ZB-884",
+    "target_files": [
+      "docs/05-OPERATIONS/evidence/evidence-pack-template.json"
+    ],
+    "task_type": "config_change",
+    "description": "Add a version field and schema_version field to all evidence pack JSON templates.",
+    "validation": "python3 -c 'import json; json.load(open(\"docs/05-OPERATIONS/evidence/evidence-pack-template.json\"))'"
+  },
+  "l1": {
+    "raw": "{\"choices\":[{\"finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"{\\n  \\\"edit_description\\\": \\\"Add 'version' and 'schema_version' fields to all evidence pack JSON templates in docs/05-OPERATIONS/evidence/.\\\",\\n  \\\"target_files\\\": [\\\"docs/05-OPERATIONS/evidence/evidence-pack-template.json\\\"],\\n  \\\"patch_commands\\\": [\\n    \\\"sed -i 's/\\\\\\\"version\\\\\\\": null/\\\\\\\"version\\\\\\\": \\\\\\\"1.0\\\\\\\"/' docs/05-OPERATIONS/evidence/evidence-pack-template.json\\\",\\n    \\\"sed -i 's/\\\\\\\"schema_version\\\\\\\": null/\\\\\\\"schema_version\\\\\\\": \\\\\\\"1.0\\\\\\\"/' docs/05-OPERATIONS/evidence/evidence-pack-template.json\\\",\\n    \\\"sed -i 's/\\\\\\\"version\\\\\\\": \\\\\\\"1.0\\\\\\\"/\\\\\\\"version\\\\\\\": \\\\\\\"1.0.0\\\\\\\"/' docs/05-OPERATIONS/evidence/evidence-pack-template.json\\\",\\n    \\\"sed -i 's/\\\\\\\"schema_version\\\\\\\": \\\\\\\"1.0\\\\\\\"/\\\\\\\"schema_version\\\\\\\": \\\\\\\"1.0.0\\\\\\\"/' docs/05-OPERATIONS/evidence/evidence-pack-template.json\\\"\\n  ],\\n  \\\"validation_commands\\\": [\\n    \\\"python3 -c 'import json; json.load(open(\\\\\\\"docs/05-OPERATIONS/evidence/evidence-pack-template.json\\\\\\\"))'\\\",\\n    \\\"python3 -c 'import json; json.load(open(\\\\\\\"docs/05-OPERATIONS/evidence/evidence-pack-template.json\\\\\\\"))'\\\"\\n  ],\\n  \\\"expected_outcome\\\": \\\"All evidence pack JSON templates now include 'version' and 'schema_version' fields with default values of '1.0.0'.\\\",\\n  \\\"risk_notes\\\": \\\"Ensure these fields are populated correctly during deployment. If '1.0.0' is not valid, update to a valid version string.\\\",\\n  \\\"follow_up_type\\\": \\\"needs_review\\\"\\n}\"}}],\"created\":1774712896,\"model\":\"Qwen3.5-0.8B-Q4_K_M.gguf\",\"system_fingerprint\":\"b8467-990e4d969\",\"object\":\"chat.completion\",\"usage\":{\"completion_tokens\":395,\"prompt_tokens\":209,\"total_tokens\":604,\"prompt_tokens_details\":{\"cached_tokens\":0}},\"id\":\"chatcmpl-D5XVbYg2dajc6Z2NndYDyWaH94ZRvqj3\",\"timings\":{\"cache_n\":0,\"prompt_n\":209,\"prompt_ms\":2210.437,\"prompt_per_token_ms\":10.576253588516746,\"prompt_per_second\":94.55143937601478,\"predicted_n\":395,\"predicted_ms\":23380.645,\"predicted_per_tok",
+    "content": "{\n  \"edit_description\": \"Add 'version' and 'schema_version' fields to all evidence pack JSON templates in docs/05-OPERATIONS/evidence/.\",\n  \"target_files\": [\"docs/05-OPERATIONS/evidence/evidence-pack-template.json\"],\n  \"patch_commands\": [\n    \"sed -i 's/\\\"version\\\": null/\\\"version\\\": \\\"1.0\\\"/' docs/05-OPERATIONS/evidence/evidence-pack-template.json\",\n    \"sed -i 's/\\\"schema_version\\\": null/\\\"schema_version\\\": \\\"1.0\\\"/' docs/05-OPERATIONS/evidence/evidence-pack-template.json\",\n    \"sed -i 's/\\\"version\\\": \\\"1.0\\\"/\\\"version\\\": \\\"1.0.0\\\"/' docs/05-OPERATIONS/evidence/evidence-pack-template.json\",\n    \"sed -i 's/\\\"schema_version\\\": \\\"1.0\\\"/\\\"schema_version\\\": \\\"1.0.0\\\"/' docs/05-OPERATIONS/evidence/evidence-pack-template.json\"\n  ],\n  \"validation_commands\": [\n    \"python3 -c 'import json; json.load(open(\\\"docs/05-OPERATIONS/evidence/evidence-pack-template.json\\\"))'\",\n    \"python3 -c 'import json; json.load(open(\\\"docs/05-OPERATIONS/evidence/evidence-pack-template.json\\\"))'\"\n  ],\n  \"expected_outcome\": \"All evidence pack JSON templates now include 'version' and 'schema_version' fields with default values of '1.0.0'.\",\n  \"risk_notes\": \"Ensure these fields are populated correctly during deployment. If '1.0.0' is not valid, update to a valid version string.\",\n  \"follow_up_type\": \"needs_review\"\n}",
+    "parsed": {
+      "edit_description": "Add 'version' and 'schema_version' fields to all evidence pack JSON templates in docs/05-OPERATIONS/evidence/.",
+      "target_files": [
+        "docs/05-OPERATIONS/evidence/evidence-pack-template.json"
+      ],
+      "patch_commands": [
+        "sed -i 's/\"version\": null/\"version\": \"1.0\"/' docs/05-OPERATIONS/evidence/evidence-pack-template.json",
+        "sed -i 's/\"schema_version\": null/\"schema_version\": \"1.0\"/' docs/05-OPERATIONS/evidence/evidence-pack-template.json",
+        "sed -i 's/\"version\": \"1.0\"/\"version\": \"1.0.0\"/' docs/05-OPERATIONS/evidence/evidence-pack-template.json",
+        "sed -i 's/\"schema_version\": \"1.0\"/\"schema_version\": \"1.0.0\"/' docs/05-OPERATIONS/evidence/evidence-pack-template.json"
+      ],
+      "validation_commands": [
+        "python3 -c 'import json; json.load(open(\"docs/05-OPERATIONS/evidence/evidence-pack-template.json\"))'",
+        "python3 -c 'import json; json.load(open(\"docs/05-OPERATIONS/evidence/evidence-pack-template.json\"))'"
+      ],
+      "expected_outcome": "All evidence pack JSON templates now include 'version' and 'schema_version' fields with default values of '1.0.0'.",
+      "risk_notes": "Ensure these fields are populated correctly during deployment. If '1.0.0' is not valid, update to a valid version string.",
+      "follow_up_type": "needs_review"
+    },
+    "parse_error": null,
+    "elapsed": 25.7
+  },
+  "score": 25,
+  "issues": [],
+  "ts": "20260328-114816"
+}

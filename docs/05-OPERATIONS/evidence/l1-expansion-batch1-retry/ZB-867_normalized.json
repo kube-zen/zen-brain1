@@ -1,0 +1,21 @@
+{
+  "jira_key": "ZB-867",
+  "output": {
+    "edit_description": "Update L1_ATTRIBUTION_POLICY_v2.md to add L1 work attribution rules based on the new L1 work model.",
+    "target_files": [
+      "docs/05-OPERATIONS/L1_ATTRIBUTION_POLICY_v2.md"
+    ],
+    "patch_commands": [
+      "sed -i 's/.*L1 work.*$/L1 work attribution rules based on the new L1 work model./' docs/05-OPERATIONS/L1_ATTRIBUTION_POLICY_v2.md"
+    ],
+    "validation_commands": [
+      "test -f docs/05-OPERATIONS/L1_ATTRIBUTION_POLICY_v2.md",
+      "grep -q 'L1 work attribution rules based on the new L1 work model.' docs/05-OPERATIONS/L1_ATTRIBUTION_POLICY_v2.md"
+    ],
+    "expected_outcome": "L1_ATTRIBUTION_POLICY_v2.md now contains the new L1 work attribution rules.",
+    "risk_notes": "No risk. This is a straightforward documentation update.",
+    "follow_up_type": "none|needs_review"
+  },
+  "score": 25,
+  "ts": "20260328-115439"
+}

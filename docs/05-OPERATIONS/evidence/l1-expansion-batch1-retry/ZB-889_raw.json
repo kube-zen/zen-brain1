@@ -1,0 +1,38 @@
+{
+  "jira_key": "ZB-889",
+  "task": {
+    "jira_key": "ZB-889",
+    "target_files": [
+      "GOVERNANCE.md"
+    ],
+    "task_type": "doc_update",
+    "description": "Add a section to GOVERNANCE.md about L1 attribution tracking requirements.",
+    "validation": "test -f GOVERNANCE.md && grep -q 'attribution' GOVERNANCE.md"
+  },
+  "l1": {
+    "raw": "{\"choices\":[{\"finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"{\\n  \\\"edit_description\\\": \\\"Add 'L1 Attribution Tracking Requirements' section to GOVERNANCE.md\\\",\\n  \\\"target_files\\\": [\\\"GOVERNANCE.md\\\"],\\n  \\\"patch_commands\\\": [\\n    \\\"sed -i '/^## L1 Attribution Tracking Requirements$/a\\\\\\\\n\\\\\\\\n### L1 Attribution Tracking Requirements\\\\\\\\n\\\\\\\\n- Implement L1 attribution tracking for all LLM outputs\\\\\\\\n- Log attribution metrics per user session\\\\\\\\n- Audit model performance against L1 standards'\\\",\\n    \\\"echo 'Added L1 Attribution Tracking Requirements section to GOVERNANCE.md'\\\"\\n  ],\\n  \\\"validation_commands\\\": [\\n    \\\"test -f GOVERNANCE.md && grep -q 'L1 Attribution Tracking Requirements' GOVERNANCE.md\\\",\\n    \\\"grep -q 'attribution' GOVERNANCE.md\\\"\\n  ],\\n  \\\"expected_outcome\\\": \\\"GOVERNANCE.md now contains a section titled 'L1 Attribution Tracking Requirements' with concrete requirements for LLM output attribution.\\\",\\n  \\\"risk_notes\\\": \\\"No security risks. Requires careful review of L1 standards compliance.\\\",\\n  \\\"follow_up_type\\\": \\\"needs_review\\\"\\n}\"}}],\"created\":1774713060,\"model\":\"Qwen3.5-0.8B-Q4_K_M.gguf\",\"system_fingerprint\":\"b8467-990e4d969\",\"object\":\"chat.completion\",\"usage\":{\"completion_tokens\":242,\"prompt_tokens\":190,\"total_tokens\":432,\"prompt_tokens_details\":{\"cached_tokens\":0}},\"id\":\"chatcmpl-kWgvoDNPMjfN4BtLRB5ZsXMoOA4YcJch\",\"timings\":{\"cache_n\":0,\"prompt_n\":190,\"prompt_ms\":1454.909,\"prompt_per_token_ms\":7.657415789473685,\"prompt_per_second\":130.5923600720045,\"predicted_n\":242,\"predicted_ms\":7479.683,\"predicted_per_token_ms\":30.90778099173554,\"predicted_per_second\":32.35431234184657}}",
+    "content": "{\n  \"edit_description\": \"Add 'L1 Attribution Tracking Requirements' section to GOVERNANCE.md\",\n  \"target_files\": [\"GOVERNANCE.md\"],\n  \"patch_commands\": [\n    \"sed -i '/^## L1 Attribution Tracking Requirements$/a\\\\n\\\\n### L1 Attribution Tracking Requirements\\\\n\\\\n- Implement L1 attribution tracking for all LLM outputs\\\\n- Log attribution metrics per user session\\\\n- Audit model performance against L1 standards'\",\n    \"echo 'Added L1 Attribution Tracking Requirements section to GOVERNANCE.md'\"\n  ],\n  \"validation_commands\": [\n    \"test -f GOVERNANCE.md && grep -q 'L1 Attribution Tracking Requirements' GOVERNANCE.md\",\n    \"grep -q 'attribution' GOVERNANCE.md\"\n  ],\n  \"expected_outcome\": \"GOVERNANCE.md now contains a section titled 'L1 Attribution Tracking Requirements' with concrete requirements for LLM output attribution.\",\n  \"risk_notes\": \"No security risks. Requires careful review of L1 standards compliance.\",\n  \"follow_up_type\": \"needs_review\"\n}",
+    "parsed": {
+      "edit_description": "Add 'L1 Attribution Tracking Requirements' section to GOVERNANCE.md",
+      "target_files": [
+        "GOVERNANCE.md"
+      ],
+      "patch_commands": [
+        "sed -i '/^## L1 Attribution Tracking Requirements$/a\\n\\n### L1 Attribution Tracking Requirements\\n\\n- Implement L1 attribution tracking for all LLM outputs\\n- Log attribution metrics per user session\\n- Audit model performance against L1 standards'",
+        "echo 'Added L1 Attribution Tracking Requirements section to GOVERNANCE.md'"
+      ],
+      "validation_commands": [
+        "test -f GOVERNANCE.md && grep -q 'L1 Attribution Tracking Requirements' GOVERNANCE.md",
+        "grep -q 'attribution' GOVERNANCE.md"
+      ],
+      "expected_outcome": "GOVERNANCE.md now contains a section titled 'L1 Attribution Tracking Requirements' with concrete requirements for LLM output attribution.",
+      "risk_notes": "No security risks. Requires careful review of L1 standards compliance.",
+      "follow_up_type": "needs_review"
+    },
+    "parse_error": null,
+    "elapsed": 9.0
+  },
+  "score": 25,
+  "issues": [],
+  "ts": "20260328-115100"
+}

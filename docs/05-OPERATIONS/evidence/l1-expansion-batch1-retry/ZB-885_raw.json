@@ -1,0 +1,38 @@
+{
+  "jira_key": "ZB-885",
+  "task": {
+    "jira_key": "ZB-885",
+    "target_files": [
+      ".gitignore"
+    ],
+    "task_type": "config_change",
+    "description": "Add *.egg-info and __pycache__ entries to .gitignore.",
+    "validation": "grep -q 'egg-info\\|pycache' .gitignore"
+  },
+  "l1": {
+    "raw": "{\"choices\":[{\"finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"{\\n  \\\"edit_description\\\": \\\"Add .gitignore entries for *.egg-info and __pycache__ to prevent build artifacts from being tracked.\\\",\\n  \\\"target_files\\\": [\\\".gitignore\\\"],\\n  \\\"patch_commands\\\": [\\n    \\\"echo '.egg-info' >> .gitignore\\\",\\n    \\\"echo '__pycache__' >> .gitignore\\\"\\n  ],\\n  \\\"validation_commands\\\": [\\n    \\\"grep -q 'egg-info' .gitignore\\\",\\n    \\\"grep -q 'pycache' .gitignore\\\"\\n  ],\\n  \\\"expected_outcome\\\": \\\"Build artifacts (*.egg-info, __pycache__) are no longer tracked in .gitignore.\\\",\\n  \\\"risk_notes\\\": \\\"Potential security risk if these files are accidentally committed to version control.\\\",\\n  \\\"follow_up_type\\\": \\\"none|needs_review\\\"\\n}\"}}],\"created\":1774712909,\"model\":\"Qwen3.5-0.8B-Q4_K_M.gguf\",\"system_fingerprint\":\"b8467-990e4d969\",\"object\":\"chat.completion\",\"usage\":{\"completion_tokens\":179,\"prompt_tokens\":184,\"total_tokens\":363,\"prompt_tokens_details\":{\"cached_tokens\":0}},\"id\":\"chatcmpl-8mArSZsd28xHiYgHmA3hLe9tzEA8YEsB\",\"timings\":{\"cache_n\":0,\"prompt_n\":184,\"prompt_ms\":1597.605,\"prompt_per_token_ms\":8.682635869565217,\"prompt_per_second\":115.17239868428052,\"predicted_n\":179,\"predicted_ms\":8956.639,\"predicted_per_token_ms\":50.03708938547486,\"predicted_per_second\":19.985175242632867}}",
+    "content": "{\n  \"edit_description\": \"Add .gitignore entries for *.egg-info and __pycache__ to prevent build artifacts from being tracked.\",\n  \"target_files\": [\".gitignore\"],\n  \"patch_commands\": [\n    \"echo '.egg-info' >> .gitignore\",\n    \"echo '__pycache__' >> .gitignore\"\n  ],\n  \"validation_commands\": [\n    \"grep -q 'egg-info' .gitignore\",\n    \"grep -q 'pycache' .gitignore\"\n  ],\n  \"expected_outcome\": \"Build artifacts (*.egg-info, __pycache__) are no longer tracked in .gitignore.\",\n  \"risk_notes\": \"Potential security risk if these files are accidentally committed to version control.\",\n  \"follow_up_type\": \"none|needs_review\"\n}",
+    "parsed": {
+      "edit_description": "Add .gitignore entries for *.egg-info and __pycache__ to prevent build artifacts from being tracked.",
+      "target_files": [
+        ".gitignore"
+      ],
+      "patch_commands": [
+        "echo '.egg-info' >> .gitignore",
+        "echo '__pycache__' >> .gitignore"
+      ],
+      "validation_commands": [
+        "grep -q 'egg-info' .gitignore",
+        "grep -q 'pycache' .gitignore"
+      ],
+      "expected_outcome": "Build artifacts (*.egg-info, __pycache__) are no longer tracked in .gitignore.",
+      "risk_notes": "Potential security risk if these files are accidentally committed to version control.",
+      "follow_up_type": "none|needs_review"
+    },
+    "parse_error": null,
+    "elapsed": 10.6
+  },
+  "score": 25,
+  "issues": [],
+  "ts": "20260328-114829"
+}

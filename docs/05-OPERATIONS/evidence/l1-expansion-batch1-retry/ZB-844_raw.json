@@ -1,0 +1,22 @@
+{
+  "jira_key": "ZB-844",
+  "task": {
+    "jira_key": "ZB-844",
+    "target_files": [
+      "cmd/main.go"
+    ],
+    "task_type": "code_edit",
+    "description": "Add input sanitization to shell command handler to prevent shell injection attacks.",
+    "validation": "grep -q 'shell' cmd/main.go"
+  },
+  "l1": {
+    "raw": "",
+    "content": "",
+    "parsed": null,
+    "parse_error": "Expecting value: line 1 column 1 (char 0)",
+    "elapsed": 60.0
+  },
+  "score": 0,
+  "issues": [],
+  "ts": "20260328-115305"
+}
