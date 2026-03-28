@@ -82,7 +82,7 @@ type RemediationOutput struct {
 	EditDescription string `json:"edit_description"`
 	NewContent      string `json:"new_content,omitempty"`   // kept for compat, but 0.8b no longer fills this
 	ConfigChanges   string `json:"config_changes,omitempty"`
-	Fields          map[string]string `json:"fields,omitempty"` // structured key-value changes
+	Fields          map[string]interface{} `json:"fields,omitempty"` // structured key-value changes
 	Explanation     string `json:"explanation"`
 	FinalStatus     string `json:"final_status"`     // success, needs_review, blocked, to_escalate
 	BlockerReason   string `json:"blocker_reason,omitempty"`
