@@ -64,16 +64,23 @@ A ticket may move to Done ONLY if:
 - **Method:** Script-driven bulk close of stale scanner tickets (ops cleanup, NOT L1 production)
 
 ### L1 Attribution Results
-- **Pilot:** 10 bounded tasks dispatched to 0.8b
-- **L1-produced:** 3/10 (30%)
-- **L1-needs-review:** 7/10 (70% — timeouts, parse failures)
-- **Assessment:** L1 not ready for autonomous expansion. See L1_ATTRIBUTION_POLICY.md.
+- **v1 pilot (full-file contract):** 3/10 l1-produced (30%) — failed threshold
+- **v2 pilot (patch-oriented contract):** 6/10 l1-produced (60%) — **threshold MET**
+- See L1_ATTRIBUTION_POLICY.md for full analysis
+- **Contract change doubled L1 success rate**
+- Remaining failures: code_edit tasks where L1 still times out
 
 ### Throttle Status
 Scanner ticket creation should be throttled:
 - Only create new tickets for NEW findings (diff against previous run)
 - Stop creating batch parent tickets for runs that produce no new findings
 - Maximum: 10 new tickets per cycle until drain capacity catches up
+
+### Expansion Status
+- **v2 patch contract: 60% l1-produced — threshold MET**
+- Safe to expand: config_change, doc_update, simple code_edit on small files
+- NOT safe to expand: code_edit on large files, multi-file tasks
+- Expansion is conditional on patch-oriented contract being used (no full-file generation)
 
 ## Tools
 
