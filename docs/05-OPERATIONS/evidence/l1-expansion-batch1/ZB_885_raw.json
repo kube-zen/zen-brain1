@@ -1,0 +1,25 @@
+{
+  "jira_key": "ZB-885",
+  "contract": "v2-patch",
+  "task": {
+    "summary": "[EXP-03] Add .gitignore for *.egg-info and __pycache__",
+    "description": "Add *.egg-info and __pycache__/ to .gitignore in repo root.",
+    "target_files": [
+      ".gitignore"
+    ],
+    "task_type": "config_change",
+    "validation": "grep -q 'egg-info\\|pycache' .gitignore",
+    "key": "ZB-885",
+    "is_new": true
+  },
+  "l1_result": {
+    "llm_content": "",
+    "parsed": null,
+    "parse_error": "Expecting value: line 1 column 1 (char 0)",
+    "elapsed_sec": 60.0
+  },
+  "quality_score": 0,
+  "quality_issues": [],
+  "timestamp": "20260328-113743",
+  "disposition": "l1-failed-parse"
+}

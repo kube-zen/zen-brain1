@@ -1,0 +1,31 @@
+{
+  "jira_key": "ZB-882",
+  "contract_version": "v2-patch-oriented",
+  "task": {
+    "summary": "[L1-v2] Document L1 attribution policy in markdown",
+    "description": "Create docs/05-OPERATIONS/L1_ATTRIBUTION_POLICY_v2.md with rules for claiming L1 did useful work.",
+    "target_files": [
+      "docs/05-OPERATIONS/L1_ATTRIBUTION_POLICY_v2.md"
+    ],
+    "task_type": "doc_update",
+    "validation": "test -f docs/05-OPERATIONS/L1_ATTRIBUTION_POLICY_v2.md"
+  },
+  "l1_result": {
+    "raw_response": "",
+    "llm_content": "",
+    "json_str": "",
+    "parsed": null,
+    "parse_error": "Expecting value: line 1 column 1 (char 0)",
+    "elapsed_sec": 60.0,
+    "token_budget": 2048
+  },
+  "quality_score": 0,
+  "quality_issues": [
+    "no_parsed_output"
+  ],
+  "timestamp": "20260328-111301",
+  "attribution": {
+    "produced_by": "l1-failed",
+    "first_pass_model": "Qwen3.5-0.8B-Q4_K_M.gguf"
+  }
+}

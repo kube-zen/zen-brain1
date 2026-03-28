@@ -1,0 +1,33 @@
+{
+  "key": "ZB-926",
+  "task": {
+    "target": ".gitignore",
+    "desc": "Add *.tmp and *.swp to .gitignore to prevent editor temp files from being committed",
+    "type": "config_change",
+    "validation": "grep -q '.tmp' .gitignore && grep -q '.swp' .gitignore",
+    "key": "ZB-926"
+  },
+  "l1": {
+    "elapsed": 8.4,
+    "content": "{\"edit_description\":\"Add .tmp and .swp to .gitignore\",\"target_files\":[\".gitignore\"],\"patch_commands\":[\"sed -i '/^\\\\*\\\\.[a-z]*$/a\\\\t\\\\.tmp\\\\n\\\\t\\\\.swp\\\\n\\\\t.gitignore' .gitignore\"],\"validation_commands\":[\"grep -q '.tmp' .gitignore && grep -q '.swp' .gitignore\"],\"expected_outcome\":\"Remove .tmp and .swp from .gitignore\",\"risk_notes\":\"Potential security risk if temp files are committed\",\"follow_up_type\":\"none|needs_review\"}",
+    "parsed": {
+      "edit_description": "Add .tmp and .swp to .gitignore",
+      "target_files": [
+        ".gitignore"
+      ],
+      "patch_commands": [
+        "sed -i '/^\\*\\.[a-z]*$/a\\t\\.tmp\\n\\t\\.swp\\n\\t.gitignore' .gitignore"
+      ],
+      "validation_commands": [
+        "grep -q '.tmp' .gitignore && grep -q '.swp' .gitignore"
+      ],
+      "expected_outcome": "Remove .tmp and .swp from .gitignore",
+      "risk_notes": "Potential security risk if temp files are committed",
+      "follow_up_type": "none|needs_review"
+    },
+    "error": null
+  },
+  "quality": 25,
+  "issues": [],
+  "ts": "2026-03-28T11:47:39.617192"
+}

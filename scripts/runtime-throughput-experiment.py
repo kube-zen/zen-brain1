@@ -71,7 +71,10 @@ def repair_truncated_json(raw_str):
     if start < 0: return None, "no_json"
     end = s.rfind('}')
     if end > start:
-        try: return json.loads(s[start:end+1]), "bracket_trim"; except: pass
+        try:
+            return json.loads(s[start:end+1]), "bracket_trim"
+        except:
+            pass
     truncated = s[start:]
     last_comma = -1; depth = 0; in_str = False; esc = False
     for i, ch in enumerate(truncated):
@@ -88,7 +91,10 @@ def repair_truncated_json(raw_str):
         obk = repaired.count('[') - repaired.count(']')
         if ob > 0: repaired += '}' * ob
         if obk > 0: repaired += ']' * obk
-        try: return json.loads(repaired), "truncation_repaired"; except: pass
+        try:
+            return json.loads(repaired), "truncation_repaired"
+        except:
+            pass
     return None, "unrepairable"
 
 # ─── L1 Call with Full Telemetry ──────────────────────────────────────
@@ -129,10 +135,15 @@ def call_l1(task, task_id):
         js = re.sub(r'^```json\s*','',js); js = re.sub(r'^```\s*','',js); js = re.sub(r'\s*```$','',js)
         si, ei = js.find('{'), js.rfind('}')
         if si >= 0 and ei > si:
-            try: parsed = json.loads(js[si:ei+1])
+            try:
+                parsed = json.loads(js[si:ei+1])
             except:
                 for a in [re.sub(r',\s*}','}',js[si:ei+1])]:
-                    try: parsed = json.loads(a); break; except: continue
+                    try:
+                        parsed = json.loads(a)
+                        break
+                    except:
+                        continue
 
     # Classify
     if not llm_content.strip(): cls = "no-output"

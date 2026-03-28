@@ -1,0 +1,20 @@
+{
+  "key": "ZB-889",
+  "task": {
+    "key": "ZB-889",
+    "target": "GOVERNANCE.md",
+    "desc": "Create GOVERNANCE.md at repo root with a section on L1 attribution tracking rules",
+    "type": "doc_update",
+    "validation": "test -f GOVERNANCE.md && grep -q 'attribution' GOVERNANCE.md",
+    "is_retry": true
+  },
+  "l1": {
+    "elapsed": 45.0,
+    "content": "",
+    "parsed": null,
+    "error": "Expecting value: line 1 column 1 (char 0)"
+  },
+  "quality": 0,
+  "issues": [],
+  "ts": "2026-03-28T11:44:22.309895"
+}

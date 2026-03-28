@@ -1,0 +1,35 @@
+{
+  "key": "ZB-885",
+  "task": {
+    "key": "ZB-885",
+    "target": ".gitignore",
+    "desc": "Add *.egg-info and __pycache__/ to .gitignore to prevent Python build artifacts from being committed",
+    "type": "config_change",
+    "validation": "grep -q 'egg-info' .gitignore && grep -q '__pycache__' .gitignore",
+    "is_retry": true
+  },
+  "l1": {
+    "elapsed": 15.2,
+    "content": "{\"edit_description\":\"Add .gitignore to prevent Python build artifacts from being committed\",\"target_files\":[\".gitignore\"],\"patch_commands\":[\"echo '.egg-info' >> .gitignore\",\"echo '__pycache__' >> .gitignore\"],\"validation_commands\":[\"grep -q 'egg-info' .gitignore && grep -q '__pycache__' .gitignore\"],\"expected_outcome\":\"Python build artifacts (.egg-info, __pycache__) are now excluded from commit\",\"risk_notes\":\"Potential security risk if .egg-info is malicious; ensure it's not a legitimate package\",\"follow_up_type\":\"none|needs_review\"}",
+    "parsed": {
+      "edit_description": "Add .gitignore to prevent Python build artifacts from being committed",
+      "target_files": [
+        ".gitignore"
+      ],
+      "patch_commands": [
+        "echo '.egg-info' >> .gitignore",
+        "echo '__pycache__' >> .gitignore"
+      ],
+      "validation_commands": [
+        "grep -q 'egg-info' .gitignore && grep -q '__pycache__' .gitignore"
+      ],
+      "expected_outcome": "Python build artifacts (.egg-info, __pycache__) are now excluded from commit",
+      "risk_notes": "Potential security risk if .egg-info is malicious; ensure it's not a legitimate package",
+      "follow_up_type": "none|needs_review"
+    },
+    "error": null
+  },
+  "quality": 25,
+  "issues": [],
+  "ts": "2026-03-28T11:42:20.522212"
+}

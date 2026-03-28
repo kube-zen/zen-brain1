@@ -338,7 +338,7 @@ def process_task(task, jira_key, initial_state, is_retry=False):
             disposition, final_state = "l1-produced-needs-review", "PAUSED"
 
     # Jira update
-    comment = f"""[{Batch_ID.upper()}] Patch-oriented v2 contract
+    comment = f"""[{BATCH_ID.upper()}] Patch-oriented v2 contract
 Initial: {initial_state} | Final: {final_state}
 Produced by: {produced_by} | Model: {L1_MODEL}
 Elapsed: {l1['elapsed']}s | Quality: {q_score}/25

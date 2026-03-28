@@ -1,0 +1,22 @@
+{
+  "jira_key": "ZB-851",
+  "normalized_output": {
+    "edit_description": "Change parse() return type from bool to error in cmd/commands/parse.go",
+    "target_files": [
+      "cmd/commands/parse.go"
+    ],
+    "patch_commands": [
+      "sed -i 's/return bool/return error/' cmd/commands/parse.go",
+      "sed -i 's/return error/return bool/' cmd/commands/parse.go"
+    ],
+    "validation_commands": [
+      "grep -q 'return' cmd/commands/parse.go",
+      "grep -q 'return error' cmd/commands/parse.go"
+    ],
+    "expected_outcome": "parse() function now returns error type instead of bool",
+    "risk_notes": "Potential type mismatch if caller expects bool",
+    "follow_up_type": "needs_review"
+  },
+  "quality_score": 25,
+  "timestamp": "20260328-113909"
+}

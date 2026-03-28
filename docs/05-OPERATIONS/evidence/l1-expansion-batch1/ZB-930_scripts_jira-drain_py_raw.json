@@ -1,0 +1,19 @@
+{
+  "key": "ZB-930",
+  "task": {
+    "target": "scripts/jira-drain.py",
+    "desc": "Add a --max-results flag to jira-drain.py that limits how many tickets are retrieved per JQL query",
+    "type": "code_edit",
+    "validation": "python3 -c 'import ast; ast.parse(open(\"scripts/jira-drain.py\").read())'",
+    "key": "ZB-930"
+  },
+  "l1": {
+    "elapsed": 45.0,
+    "content": "",
+    "parsed": null,
+    "error": "Expecting value: line 1 column 1 (char 0)"
+  },
+  "quality": 0,
+  "issues": [],
+  "ts": "2026-03-28T11:50:22.548817"
+}

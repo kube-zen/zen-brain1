@@ -1,0 +1,25 @@
+{
+  "jira_key": "ZB-843",
+  "contract": "v2-patch",
+  "task": {
+    "key": "ZB-843",
+    "target_files": [
+      "cmd/main.go"
+    ],
+    "task_type": "code_edit",
+    "summary": "Remote Code Execution via exec Command",
+    "description": "Add input sanitization to exec command to prevent RCE. Target cmd/main.go where exec is called.",
+    "validation": "grep -q 'sanitize\\|validate\\|whitelist' cmd/main.go",
+    "is_new": false
+  },
+  "l1_result": {
+    "llm_content": "",
+    "parsed": null,
+    "parse_error": "Expecting value: line 1 column 1 (char 0)",
+    "elapsed_sec": 0.0
+  },
+  "quality_score": 0,
+  "quality_issues": [],
+  "timestamp": "20260328-113853",
+  "disposition": "l1-failed-parse"
+}

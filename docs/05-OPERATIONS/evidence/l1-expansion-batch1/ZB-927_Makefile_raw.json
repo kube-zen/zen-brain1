@@ -1,0 +1,19 @@
+{
+  "key": "ZB-927",
+  "task": {
+    "target": "Makefile",
+    "desc": "Add a Makefile target named test-jira that runs a simple Jira API connectivity test using the configured credentials",
+    "type": "config_change",
+    "validation": "grep -q 'test-jira' Makefile",
+    "key": "ZB-927"
+  },
+  "l1": {
+    "elapsed": 45.0,
+    "content": "",
+    "parsed": null,
+    "error": "Expecting value: line 1 column 1 (char 0)"
+  },
+  "quality": 0,
+  "issues": [],
+  "ts": "2026-03-28T11:48:28.072381"
+}

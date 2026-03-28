@@ -1,0 +1,25 @@
+{
+  "jira_key": "ZB-883",
+  "contract": "v2-patch",
+  "task": {
+    "summary": "[EXP-01] Add l1-produced label to Jira update workflow",
+    "description": "Add 'produced-by:l1' label to Jira comment template in jira-drain.py for L1-executed tickets.",
+    "target_files": [
+      "scripts/jira-drain.py"
+    ],
+    "task_type": "code_edit",
+    "validation": "python3 -c 'import ast; ast.parse(open(\"scripts/jira-drain.py\").read())'",
+    "key": "ZB-883",
+    "is_new": true
+  },
+  "l1_result": {
+    "llm_content": "",
+    "parsed": null,
+    "parse_error": "Expecting value: line 1 column 1 (char 0)",
+    "elapsed_sec": 60.0
+  },
+  "quality_score": 0,
+  "quality_issues": [],
+  "timestamp": "20260328-113539",
+  "disposition": "l1-failed-parse"
+}

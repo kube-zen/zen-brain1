@@ -1,0 +1,42 @@
+{
+  "jira_key": "ZB-852",
+  "contract": "v2-patch",
+  "task": {
+    "key": "ZB-852",
+    "target_files": [
+      "cmd/commands/parse.go"
+    ],
+    "task_type": "code_edit",
+    "summary": "CLI Tool: parse function returns string instead of int",
+    "description": "Fix parse function return type in cmd/commands/parse.go to use proper exit codes.",
+    "validation": "grep -q 'return' cmd/commands/parse.go",
+    "is_new": false
+  },
+  "l1_result": {
+    "llm_content": "{\n  \"edit_description\": \"Update parse.go to use 'exit(1)' for failure and 'exit(0)' for success, ensuring consistent exit codes per Go standard.\",\n  \"target_files\": [\"cmd/commands/parse.go\"],\n  \"patch_commands\": [\n    \"sed -i 's/return.*:.*return.*exit(0)/return.*:.*exit(0)/' cmd/commands/parse.go\",\n    \"sed -i 's/return.*:.*return.*exit(1)/return.*:.*exit(1)/' cmd/commands/parse.go\"\n  ],\n  \"validation_commands\": [\n    \"grep -q 'exit(0)' cmd/commands/parse.go && echo 'PASS: exit(0) used for success'\",\n    \"grep -q 'exit(1)' cmd/commands/parse.go && echo 'PASS: exit(1) used for failure'\",\n    \"grep -q 'exit(0)' cmd/commands/parse.go && echo 'PASS: exit(0) used for success'\"\n  ],\n  \"expected_outcome\": \"Parse function now returns exit(0) on success and exit(1) on failure, adhering to Go's standard exit codes.\",\n  \"risk_notes\": \"None\",\n  \"follow_up_type\": \"none\"\n}",
+    "parsed": {
+      "edit_description": "Update parse.go to use 'exit(1)' for failure and 'exit(0)' for success, ensuring consistent exit codes per Go standard.",
+      "target_files": [
+        "cmd/commands/parse.go"
+      ],
+      "patch_commands": [
+        "sed -i 's/return.*:.*return.*exit(0)/return.*:.*exit(0)/' cmd/commands/parse.go",
+        "sed -i 's/return.*:.*return.*exit(1)/return.*:.*exit(1)/' cmd/commands/parse.go"
+      ],
+      "validation_commands": [
+        "grep -q 'exit(0)' cmd/commands/parse.go && echo 'PASS: exit(0) used for success'",
+        "grep -q 'exit(1)' cmd/commands/parse.go && echo 'PASS: exit(1) used for failure'",
+        "grep -q 'exit(0)' cmd/commands/parse.go && echo 'PASS: exit(0) used for success'"
+      ],
+      "expected_outcome": "Parse function now returns exit(0) on success and exit(1) on failure, adhering to Go's standard exit codes.",
+      "risk_notes": "None",
+      "follow_up_type": "none"
+    },
+    "parse_error": null,
+    "elapsed_sec": 12.3
+  },
+  "quality_score": 25,
+  "quality_issues": [],
+  "timestamp": "20260328-113920",
+  "disposition": "l1-produced"
+}

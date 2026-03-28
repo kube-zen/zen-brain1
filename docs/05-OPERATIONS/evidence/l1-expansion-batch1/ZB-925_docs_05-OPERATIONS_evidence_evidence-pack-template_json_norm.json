@@ -1,0 +1,15 @@
+{
+  "key": "ZB-925",
+  "parsed": {
+    "edit_description": "Add 'created_at' field with placeholder 'REPLACE_WITH_TIMESTAMP' to evidence-pack-template.json",
+    "target_files": [
+      "docs/05-OPERATIONS/evidence/evidence-pack-template.json"
+    ],
+    "patch_commands": "sed -i \"s/created_at/created_at='REPLACE_WITH_TIMESTAMP'/g\" docs/05-OPERATIONS/evidence/evidence-pack-template.json",
+    "validation_commands": "grep -q 'created_at' docs/05-OPERATIONS/evidence/evidence-pack-template.json",
+    "expected_outcome": "Evidence-pack-template now includes a timestamp field for audit purposes",
+    "risk_notes": "No security risks",
+    "follow_up_type": "none|needs_review"
+  },
+  "quality": 20
+}

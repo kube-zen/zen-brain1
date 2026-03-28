@@ -1,0 +1,30 @@
+{
+  "key": "ZB-886",
+  "task": {
+    "key": "ZB-886",
+    "target": "Makefile",
+    "desc": "Add a Makefile target named validate that runs python3 -m py_compile on all Python scripts in scripts/",
+    "type": "config_change",
+    "validation": "grep -q 'validate' Makefile",
+    "is_retry": true
+  },
+  "l1": {
+    "elapsed": 12.6,
+    "content": "{\"edit_description\":\"Add 'validate' target to Makefile\",\"target_files\":[\"Makefile\"],\"patch_commands\":\"sed -i '/^target:/,/^target:/{N;s/^target:$/target: validate: python3 -m py_compile scripts\\/;}/' Makefile\",\"validation_commands\":\"grep -q 'validate' Makefile\",\"expected_outcome\":\"Makefile now contains 'validate' target that runs py_compile on scripts/\",\"risk_notes\":\"None\",\"follow_up_type\":\"none|needs_review\"}",
+    "parsed": {
+      "edit_description": "Add 'validate' target to Makefile",
+      "target_files": [
+        "Makefile"
+      ],
+      "patch_commands": "sed -i '/^target:/,/^target:/{N;s/^target:$/target: validate: python3 -m py_compile scripts/;}/' Makefile",
+      "validation_commands": "grep -q 'validate' Makefile",
+      "expected_outcome": "Makefile now contains 'validate' target that runs py_compile on scripts/",
+      "risk_notes": "None",
+      "follow_up_type": "none|needs_review"
+    },
+    "error": null
+  },
+  "quality": 20,
+  "issues": [],
+  "ts": "2026-03-28T11:42:35.159735"
+}

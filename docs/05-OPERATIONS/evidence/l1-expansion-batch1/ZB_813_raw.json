@@ -1,0 +1,25 @@
+{
+  "jira_key": "ZB-813",
+  "contract": "v2-patch",
+  "task": {
+    "key": "ZB-813",
+    "target_files": [
+      "cmd/main.go"
+    ],
+    "task_type": "code_edit",
+    "summary": "Missing input validation for UserAgent parameter (injection)",
+    "description": "Add UserAgent input validation to prevent injection attacks. Target cmd/main.go.",
+    "validation": "grep -q 'UserAgent' cmd/main.go",
+    "is_new": false
+  },
+  "l1_result": {
+    "llm_content": "",
+    "parsed": null,
+    "parse_error": "Expecting value: line 1 column 1 (char 0)",
+    "elapsed_sec": 60.0
+  },
+  "quality_score": 0,
+  "quality_issues": [],
+  "timestamp": "20260328-113934",
+  "disposition": "l1-failed-parse"
+}

@@ -1,0 +1,25 @@
+{
+  "jira_key": "ZB-849",
+  "contract": "v2-patch",
+  "task": {
+    "key": "ZB-849",
+    "target_files": [
+      "cmd/commands/parse.go"
+    ],
+    "task_type": "code_edit",
+    "summary": "SyntaxError: --json flag not handled in parse.go",
+    "description": "Add --json flag handling to parse function. Target cmd/commands/parse.go.",
+    "validation": "grep -q 'json' cmd/commands/parse.go",
+    "is_new": false
+  },
+  "l1_result": {
+    "llm_content": "",
+    "parsed": null,
+    "parse_error": "Expecting value: line 1 column 1 (char 0)",
+    "elapsed_sec": 0.0
+  },
+  "quality_score": 0,
+  "quality_issues": [],
+  "timestamp": "20260328-113857",
+  "disposition": "l1-failed-parse"
+}

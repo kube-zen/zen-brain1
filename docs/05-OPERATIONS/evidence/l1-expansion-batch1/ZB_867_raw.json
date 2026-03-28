@@ -1,0 +1,25 @@
+{
+  "jira_key": "ZB-867",
+  "contract": "v2-patch",
+  "task": {
+    "key": "ZB-867",
+    "target_files": [
+      "docs/05-OPERATIONS/L1_ATTRIBUTION_POLICY_v2.md"
+    ],
+    "task_type": "doc_update",
+    "summary": "[L1-v2] Document L1 attribution policy in markdown",
+    "description": "Create L1_ATTRIBUTION_POLICY_v2.md with rules for claiming L1 did useful work.",
+    "validation": "test -f docs/05-OPERATIONS/L1_ATTRIBUTION_POLICY_v2.md",
+    "is_new": false
+  },
+  "l1_result": {
+    "llm_content": "",
+    "parsed": null,
+    "parse_error": "Expecting value: line 1 column 1 (char 0)",
+    "elapsed_sec": 60.0
+  },
+  "quality_score": 0,
+  "quality_issues": [],
+  "timestamp": "20260328-114350",
+  "disposition": "l1-failed-parse"
+}
