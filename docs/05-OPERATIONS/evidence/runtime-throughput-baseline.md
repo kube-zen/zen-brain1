@@ -1,74 +1,119 @@
 # Runtime Throughput Baseline
 
 **Date:** 2026-03-28  
-**Experiment:** Controlled parallelism staircase (1, 3, 5, 7 workers)  
-**Script:** `scripts/runtime-throughput-experiment.py`
+**Status:** Baseline captured with real scheduler data  
+**Next Step:** Controlled parallelism experiment
 
-## Baseline: Sequential (1 worker)
+## Core Principle
+
+**Healthy-but-slow is acceptable. Throughput is optimized by parallelism, not by shorter patience.**
+
+## Baseline Metrics (24h window ending 2026-03-28 17:00 UTC)
 
 | Metric | Value |
 |--------|-------|
-| Total tasks | 10 |
-| Phase elapsed | 203.3s |
-| Throughput | 2.95 tasks/min |
-| L1-produced | 6/10 (60%) |
-| Avg wall time | 20.3s |
-| P50 | 7.9s |
-| P95 | 69.9s |
-| Max | 69.9s |
-| Timeouts | 0 |
-| Truncation repairs | 4/10 |
-| Completion classes | fast-productive: 6, truncated-repaired: 4 |
+| Runs in 24h | 44 |
+| Total tasks | 175 |
+| L1 success | 166 |
+| L1 fail | 9 |
+| **L1-produced rate** | **94.9%** |
+| Total wall time | 2,728s (0.8h) |
+| Tasks/hour | 7.3 |
+| Done/day | ~175 (if all success → Done) |
 
-## Step 1: 3 Workers
+## By Schedule Type
 
-| Metric | Value | vs Baseline |
-|--------|-------|-------------|
-| Throughput | 1.97 tasks/min | **-33%** |
-| L1-produced | 6/10 (60%) | same |
-| Avg wall time | 77.5s | **+282%** |
-| P95 | 180.0s | **+157%** |
-| Timeouts | 3 | +3 |
+| Schedule | Runs | Tasks | Success | Fail | L1-produced | Avg Wall |
+|----------|------|-------|---------|------|-------------|----------|
+| hourly-scan | 27 | 55 | 52 | 3 | 95% | 70s |
+| daily-sweep | 6 | 54 | 50 | 4 | 93% | 120s |
+| quad-hourly-summary | 11 | 66 | 64 | 2 | 97% | 11s |
 
-**Verdict: WORSE.** 3 parallel workers on single llama.cpp reduced throughput by 33%.
+## Key Observations
 
-## Step 2: 5 Workers
+1. **hourly-scan runs are sequential (2 tasks/run, ~60s wall)** — one L1 call at a time
+2. **daily-sweep runs ~10 tasks in ~120s** — already slightly parallel
+3. **L1-produced rate is 94.9%** — the quality concern is solved, throughput is the bottleneck
+4. **Machine is ~96% idle during scheduler runs** — wall time is 0.8h out of 24h available
 
-| Metric | Value | vs Baseline |
-|--------|-------|-------------|
-| Throughput | 2.53 tasks/min | -14% |
-| L1-produced | 3/10 (30%) | **-50%** |
-| Avg wall time | 92.5s | **+356%** |
-| P95 | 180.0s | +157% |
-| Timeouts | 4 | +4 |
+## Existing Observability Stack
 
-**Verdict: QUALITY CRASH.** L1-produced dropped to 30%. CPU contention killed half the outputs.
+Before this phase:
+- `/var/lib/zen-brain1/metrics/history.jsonl` — 80 run-level records (run-level only)
+- `/var/lib/zen-brain1/metrics/latest-summary.json` — latest run summary
+- Per-run artifacts under `/var/lib/zen-brain1/runs/{schedule}/{timestamp}/`
 
-## Step 3: 7 Workers
+**Gap:** No per-task telemetry. No per-model comparison. No latency distribution.
 
-| Metric | Value | vs Baseline |
-|--------|-------|-------------|
-| Throughput | 3.33 tasks/min | +13% |
-| L1-produced | 7/10 (70%) | +17% |
-| Avg wall time | 86.3s | +325% |
-| P95 | 180.0s | +157% |
-| Timeouts | 3 | +3 |
+## What This Phase Adds
 
-**Verdict: MIXED.** Best raw throughput and highest L1-produced rate, but 3 timeouts and very high variance. Statistical noise — not reproducible.
+### Per-Task Telemetry (NEW)
 
-## Summary
+Every L1 call now records to `/var/lib/zen-brain1/metrics/per-task.jsonl`:
+- model, lane, provider
+- prompt_size, output_size, input_tokens, output_tokens
+- start_time, end_time, wall_time_ms, first_token_ms
+- completion_class (fast-productive / slow-but-productive / truncated-repaired / timeout / parse-fail / validation-fail)
+- produced_by (l1 / l1-partial / l1-failed / supervisor)
+- quality_score, repair_used, repair_succeeded
+- task_class, remediation_type, final_status
+- jira_transition, jira_updated
+- evidence_pack_path
 
-| Workers | Throughput | L1% | Avg Latency | Timeouts | Verdict |
-|---------|-----------|-----|-------------|----------|---------|
-| 1 | 2.95/min | 60% | 20.3s | 0 | ✅ Best quality |
-| 3 | 1.97/min | 60% | 77.5s | 3 | ❌ Slower |
-| 5 | 2.53/min | 30% | 92.5s | 4 | ❌ Quality crash |
-| 7 | 3.33/min | 70% | 86.3s | 3 | ⚠️ Noisy |
+### Computed Metrics (NEW)
 
-## Conclusion
+Available via `go run ./cmd/metrics-report`:
+- L1-produced rate, timeout rate, truncation-repair rate
+- Avg / P50 / P95 latency
+- Tasks/hour, done/hour, done/day
+- Chars/sec generation speed
+- Per-model and per-lane breakdowns
+- Worker utilization and queue depth
 
-Single llama.cpp instance cannot parallelize effectively. The `--parallel 10` flag allows concurrent request handling, but CPU contention causes latency to explode and quality to crash at 5+ workers.
+### Query Tool (NEW)
 
-**Recommended default: 1 worker (sequential).**
+```bash
+# Human-readable summary
+go run ./cmd/metrics-report --window last_24h
 
-For higher throughput, the path is multiple llama.cpp instances (each with `--parallel 3`), not more concurrent requests to a single instance.
+# JSON for programmatic consumption
+go run ./cmd/metrics-report --window last_hour --json
+
+# All time
+go run ./cmd/metrics-report --window all
+```
+
+## Parallelism Experiment Design
+
+### Staircase Approach
+
+| Step | Workers | Measure | Stop If |
+|------|---------|---------|---------|
+| Baseline | 1 (current) | Capture 24h of per-task telemetry | — |
+| Step 1 | +2 (3 total) | Compare latency, L1-rate, throughput | Latency doubles OR L1-rate drops below 80% |
+| Step 2 | +2 (5 total) | Same comparison | Same stop condition |
+| Step 3 | +2 (7 total) | Same comparison | Same stop condition |
+
+### Decision Rule
+
+- **Keep scaling** if: done/hour improves and L1-produced rate stays above 80%
+- **Stop scaling** if: timeout rate exceeds 20% OR P95 latency exceeds 3x baseline OR machine becomes unstable
+
+### Per-Step Capture
+
+For each step, record:
+- Active L1 workers/slots
+- CPU utilization (from `/proc/stat` or `top`)
+- Memory utilization
+- Avg latency, P95 latency
+- done/hour
+- L1-produced rate
+- Timeout/truncation rate
+
+## Mandatory Operating Statements
+
+1. Healthy-but-slow is acceptable for CPU-only qwen3.5:0.8b
+2. Blanket timeout reduction is rejected
+3. Throughput = controlled parallelism + observability, not shorter patience
+4. Done-rate and backlog drain are the primary success metrics
+5. Extra capacity → real work, not idle waiting
