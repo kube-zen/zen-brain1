@@ -1,0 +1,228 @@
+{
+  "timestamp": "2026-03-28T12:21:52.248735",
+  "batch": "corrective-retry",
+  "policy": "adaptive-timeout-v1",
+  "total": 10,
+  "counts": {
+    "l1-produced": 10
+  },
+  "l1_produced_pct": 100,
+  "prior_failure_recovery": {
+    "timeout_recovered": 6,
+    "truncated_recovered": 4
+  },
+  "truncation_repairs_used": 5,
+  "results": [
+    {
+      "jira_key": "ZB-887",
+      "task_type": "doc_update",
+      "prior_failure": "l1-truncated-json",
+      "l1_elapsed": 11.5,
+      "adaptive_timeout": 120,
+      "output_class": "fast-productive",
+      "repair_type": "no_repair_needed",
+      "parsed": true,
+      "score": 20,
+      "issues": [
+        "no_validation"
+      ],
+      "prompt_size": 990,
+      "output_size": 1425,
+      "has_patches": true,
+      "has_validation": false,
+      "produced_by": "l1",
+      "disposition": "l1-produced",
+      "final_state": "Done"
+    },
+    {
+      "jira_key": "ZB-888",
+      "task_type": "config_change",
+      "prior_failure": "l1-timeout",
+      "l1_elapsed": 8.3,
+      "adaptive_timeout": 90,
+      "output_class": "fast-productive",
+      "repair_type": "no_repair_needed",
+      "parsed": true,
+      "score": 20,
+      "issues": [
+        "no_validation"
+      ],
+      "prompt_size": 982,
+      "output_size": 1297,
+      "has_patches": true,
+      "has_validation": false,
+      "produced_by": "l1",
+      "disposition": "l1-produced",
+      "final_state": "Done"
+    },
+    {
+      "jira_key": "ZB-901",
+      "task_type": "config_change",
+      "prior_failure": "l1-truncated-json",
+      "l1_elapsed": 6.7,
+      "adaptive_timeout": 90,
+      "output_class": "fast-productive",
+      "repair_type": "no_repair_needed",
+      "parsed": true,
+      "score": 25,
+      "issues": [],
+      "prompt_size": 934,
+      "output_size": 1134,
+      "has_patches": true,
+      "has_validation": true,
+      "produced_by": "l1",
+      "disposition": "l1-produced",
+      "final_state": "Done"
+    },
+    {
+      "jira_key": "ZB-903",
+      "task_type": "code_edit",
+      "prior_failure": "l1-timeout",
+      "l1_elapsed": 5.1,
+      "adaptive_timeout": 120,
+      "output_class": "fast-productive",
+      "repair_type": "no_repair_needed",
+      "parsed": true,
+      "score": 20,
+      "issues": [
+        "no_validation"
+      ],
+      "prompt_size": 943,
+      "output_size": 1038,
+      "has_patches": true,
+      "has_validation": false,
+      "produced_by": "l1",
+      "disposition": "l1-produced",
+      "final_state": "Done"
+    },
+    {
+      "jira_key": "ZB-910",
+      "task_type": "doc_update",
+      "prior_failure": "l1-truncated-json",
+      "l1_elapsed": 8.0,
+      "adaptive_timeout": 120,
+      "output_class": "fast-productive",
+      "repair_type": "no_repair_needed",
+      "parsed": true,
+      "score": 25,
+      "issues": [],
+      "prompt_size": 917,
+      "output_size": 1444,
+      "has_patches": true,
+      "has_validation": true,
+      "produced_by": "l1",
+      "disposition": "l1-produced",
+      "final_state": "Done"
+    },
+    {
+      "jira_key": "ZB-916",
+      "task_type": "code_edit",
+      "prior_failure": "l1-timeout",
+      "l1_elapsed": 74.5,
+      "adaptive_timeout": 120,
+      "output_class": "slow-but-productive",
+      "repair_type": "truncation_repaired_comma_trim",
+      "parsed": true,
+      "score": 15,
+      "issues": [
+        "no_concrete_patches",
+        "no_validation"
+      ],
+      "prompt_size": 920,
+      "output_size": 5834,
+      "has_patches": false,
+      "has_validation": false,
+      "produced_by": "l1",
+      "disposition": "l1-produced",
+      "final_state": "Done"
+    },
+    {
+      "jira_key": "ZB-927",
+      "task_type": "config_change",
+      "prior_failure": "l1-timeout",
+      "l1_elapsed": 71.7,
+      "adaptive_timeout": 90,
+      "output_class": "slow-but-productive",
+      "repair_type": "truncation_repaired_comma_trim",
+      "parsed": true,
+      "score": 15,
+      "issues": [
+        "no_concrete_patches",
+        "no_validation"
+      ],
+      "prompt_size": 912,
+      "output_size": 9451,
+      "has_patches": false,
+      "has_validation": false,
+      "produced_by": "l1",
+      "disposition": "l1-produced",
+      "final_state": "Done"
+    },
+    {
+      "jira_key": "ZB-928",
+      "task_type": "code_edit",
+      "prior_failure": "l1-timeout",
+      "l1_elapsed": 68.8,
+      "adaptive_timeout": 120,
+      "output_class": "slow-but-productive",
+      "repair_type": "truncation_repaired_comma_trim",
+      "parsed": true,
+      "score": 15,
+      "issues": [
+        "no_concrete_patches",
+        "no_validation"
+      ],
+      "prompt_size": 929,
+      "output_size": 9279,
+      "has_patches": false,
+      "has_validation": false,
+      "produced_by": "l1",
+      "disposition": "l1-produced",
+      "final_state": "Done"
+    },
+    {
+      "jira_key": "ZB-929",
+      "task_type": "doc_update",
+      "prior_failure": "l1-truncated-json",
+      "l1_elapsed": 69.7,
+      "adaptive_timeout": 120,
+      "output_class": "slow-but-productive",
+      "repair_type": "truncation_repaired_comma_trim",
+      "parsed": true,
+      "score": 15,
+      "issues": [
+        "no_concrete_patches",
+        "no_validation"
+      ],
+      "prompt_size": 961,
+      "output_size": 10344,
+      "has_patches": false,
+      "has_validation": false,
+      "produced_by": "l1",
+      "disposition": "l1-produced",
+      "final_state": "Done"
+    },
+    {
+      "jira_key": "ZB-930",
+      "task_type": "code_edit",
+      "prior_failure": "l1-timeout",
+      "l1_elapsed": 78.0,
+      "adaptive_timeout": 120,
+      "output_class": "slow-but-productive",
+      "repair_type": "truncation_repaired_comma_trim",
+      "parsed": true,
+      "score": 15,
+      "issues": [
+        "no_concrete_patches",
+        "no_validation"
+      ],
+      "prompt_size": 921,
+      "output_size": 5639,
+      "has_patches": false,
+      "has_validation": false,
+      "produced_by": "l1",
+      "disposition": "l1-produced",
+      "final_state": "Done"
+    }
+  ]
+}

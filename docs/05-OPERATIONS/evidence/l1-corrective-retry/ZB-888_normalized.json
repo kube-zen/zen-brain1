@@ -1,0 +1,19 @@
+{
+  "jira_key": "ZB-888",
+  "output": {
+    "edit_description": "Update scripts/validate.sh to run py_compile on all .py files in scripts/.",
+    "target_files": [
+      "scripts/validate.sh"
+    ],
+    "patch_commands": [
+      "sed -i 's/.*runs python3 -m py_compile.*$/runs python3 -m py_compile on all .py files in scripts./' scripts/validate.sh",
+      "sed -i 's/.*runs python3 -m py_compile.*$/runs python3 -m py_compile on all .py files in scripts./' scripts/validate.sh"
+    ],
+    "expected_outcome": "success looks like",
+    "risk_notes": "Ensure py_compile is available in the Python environment and the script is executable.",
+    "follow_up_type": "none|needs_review"
+  },
+  "repaired_from": "no_repair_needed",
+  "score": 20,
+  "ts": "20260328-121508"
+}

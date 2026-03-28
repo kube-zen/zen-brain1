@@ -1,0 +1,18 @@
+{
+  "jira_key": "ZB-903",
+  "output": {
+    "edit_description": "Add 'json' flag to parse function output",
+    "target_files": [
+      "cmd/commands/parse.go"
+    ],
+    "patch_commands": [
+      "sed -i 's/return.*json.*$/return json/' cmd/commands/parse.go"
+    ],
+    "expected_outcome": "success",
+    "risk_notes": "Must ensure 'json' is a valid JSON type in the codebase context",
+    "follow_up_type": "none"
+  },
+  "repaired_from": "no_repair_needed",
+  "score": 20,
+  "ts": "20260328-121524"
+}

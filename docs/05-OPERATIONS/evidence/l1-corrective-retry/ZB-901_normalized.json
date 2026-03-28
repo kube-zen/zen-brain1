@@ -1,0 +1,21 @@
+{
+  "jira_key": "ZB-901",
+  "output": {
+    "edit_description": "Add l1-*.json to .gitignore to prevent L1 raw output artifacts from being committed.",
+    "target_files": [
+      ".gitignore"
+    ],
+    "patch_commands": [
+      "echo 'l1-*.json' >> .gitignore"
+    ],
+    "validation_commands": [
+      "grep -q 'l1' .gitignore"
+    ],
+    "expected_outcome": "success looks like",
+    "risk_notes": "Ensure l1-*.json exists in the repository before adding to .gitignore.",
+    "follow_up_type": "none|needs_review"
+  },
+  "repaired_from": "no_repair_needed",
+  "score": 25,
+  "ts": "20260328-121517"
+}

@@ -1,0 +1,12 @@
+{
+  "jira_key": "ZB-930",
+  "output": {
+    "edit_description": "Add input validation for exec command to prevent remote code execution.",
+    "target_files": [
+      "cmd/main.go"
+    ]
+  },
+  "repaired_from": "truncation_repaired_comma_trim",
+  "score": 15,
+  "ts": "20260328-122150"
+}

@@ -1,0 +1,43 @@
+{
+  "jira_key": "ZB-888",
+  "task": {
+    "jira_key": "ZB-888",
+    "target_files": [
+      "scripts/validate.sh"
+    ],
+    "task_type": "config_change",
+    "description": "Create scripts/validate.sh that runs python3 -m py_compile on all .py files in scripts/.",
+    "validation": "test -f scripts/validate.sh && bash -n scripts/validate.sh",
+    "prior_failure": "l1-timeout"
+  },
+  "l1": {
+    "raw": "{\"choices\":[{\"finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"{\\n  \\\"edit_description\\\": \\\"Update scripts/validate.sh to run py_compile on all .py files in scripts/.\\\",\\n  \\\"target_files\\\": [\\\"scripts/validate.sh\\\"],\\n  \\\"patch_commands\\\": [\\n    \\\"sed -i 's/.*runs python3 -m py_compile.*$/runs python3 -m py_compile on all .py files in scripts./' scripts/validate.sh\\\",\\n    \\\"sed -i 's/.*runs python3 -m py_compile.*$/runs python3 -m py_compile on all .py files in scripts./' scripts/validate.sh\\\"\\n  ],\\n  \\\"expected_outcome\\\": \\\"success looks like\\\",\\n  \\\"risk_notes\\\": \\\"Ensure py_compile is available in the Python environment and the script is executable.\\\",\\n  \\\"follow_up_type\\\": \\\"none|needs_review\\\"\\n}\"}}],\"created\":1774714508,\"model\":\"Qwen3.5-0.8B-Q4_K_M.gguf\",\"system_fingerprint\":\"b8467-990e4d969\",\"object\":\"chat.completion\",\"usage\":{\"completion_tokens\":178,\"prompt_tokens\":201,\"total_tokens\":379,\"prompt_tokens_details\":{\"cached_tokens\":0}},\"id\":\"chatcmpl-1ZqpoIrbGsPGGLrfslmCjOQepoE4kg71\",\"timings\":{\"cache_n\":0,\"prompt_n\":201,\"prompt_ms\":1899.182,\"prompt_per_token_ms\":9.448666666666666,\"prompt_per_second\":105.8350384533973,\"predicted_n\":178,\"predicted_ms\":6321.624,\"predicted_per_token_ms\":35.51474157303371,\"predicted_per_second\":28.157321599639587}}",
+    "llm_content": "{\n  \"edit_description\": \"Update scripts/validate.sh to run py_compile on all .py files in scripts/.\",\n  \"target_files\": [\"scripts/validate.sh\"],\n  \"patch_commands\": [\n    \"sed -i 's/.*runs python3 -m py_compile.*$/runs python3 -m py_compile on all .py files in scripts./' scripts/validate.sh\",\n    \"sed -i 's/.*runs python3 -m py_compile.*$/runs python3 -m py_compile on all .py files in scripts./' scripts/validate.sh\"\n  ],\n  \"expected_outcome\": \"success looks like\",\n  \"risk_notes\": \"Ensure py_compile is available in the Python environment and the script is executable.\",\n  \"follow_up_type\": \"none|needs_review\"\n}",
+    "repaired": "{\n  \"edit_description\": \"Update scripts/validate.sh to run py_compile on all .py files in scripts/.\",\n  \"target_files\": [\"scripts/validate.sh\"],\n  \"patch_commands\": [\n    \"sed -i 's/.*runs python3 -m py_compile.*$/runs python3 -m py_compile on all .py files in scripts./' scripts/validate.sh\",\n    \"sed -i 's/.*runs python3 -m py_compile.*$/runs python3 -m py_compile on all .py files in scripts./' scripts/validate.sh\"\n  ],\n  \"expected_outcome\": \"success looks like\",\n  \"risk_notes\": \"Ensure py_compile is available in the Python environment and the script is executable.\",\n  \"follow_up_type\": \"none|needs_review\"\n}",
+    "repair_type": "no_repair_needed",
+    "parsed": {
+      "edit_description": "Update scripts/validate.sh to run py_compile on all .py files in scripts/.",
+      "target_files": [
+        "scripts/validate.sh"
+      ],
+      "patch_commands": [
+        "sed -i 's/.*runs python3 -m py_compile.*$/runs python3 -m py_compile on all .py files in scripts./' scripts/validate.sh",
+        "sed -i 's/.*runs python3 -m py_compile.*$/runs python3 -m py_compile on all .py files in scripts./' scripts/validate.sh"
+      ],
+      "expected_outcome": "success looks like",
+      "risk_notes": "Ensure py_compile is available in the Python environment and the script is executable.",
+      "follow_up_type": "none|needs_review"
+    },
+    "elapsed": 8.3,
+    "prompt_size": 982,
+    "output_size": 1297,
+    "adaptive_timeout": 90,
+    "output_class": "fast-productive"
+  },
+  "score": 20,
+  "issues": [
+    "no_validation"
+  ],
+  "ts": "20260328-121508",
+  "policy": "adaptive-timeout-v1"
+}

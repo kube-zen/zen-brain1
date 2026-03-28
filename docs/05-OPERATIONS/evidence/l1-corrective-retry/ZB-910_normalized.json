@@ -1,0 +1,27 @@
+{
+  "jira_key": "ZB-910",
+  "output": {
+    "edit_description": "Add a 'Quick Start' section to README.md with 3 example commands",
+    "target_files": [
+      "README.md"
+    ],
+    "patch_commands": [
+      "echo \"# Quick Start\\n\\n\" >> README.md",
+      "echo \"1. Install dependencies...\" >> README.md",
+      "echo \"2. Run the application...\" >> README.md",
+      "echo \"3. View documentation...\" >> README.md"
+    ],
+    "validation_commands": [
+      "grep -q 'Quick Start' README.md",
+      "grep -q '1\\.' README.md",
+      "grep -q '2\\.' README.md",
+      "grep -q '3\\.' README.md"
+    ],
+    "expected_outcome": "success looks like",
+    "risk_notes": "Ensure the commands are valid and do not conflict with existing code",
+    "follow_up_type": "none|needs_review"
+  },
+  "repaired_from": "no_repair_needed",
+  "score": 25,
+  "ts": "20260328-121535"
+}

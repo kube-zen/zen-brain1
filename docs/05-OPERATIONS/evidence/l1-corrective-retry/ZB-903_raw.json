@@ -1,0 +1,42 @@
+{
+  "jira_key": "ZB-903",
+  "task": {
+    "jira_key": "ZB-903",
+    "target_files": [
+      "cmd/commands/parse.go"
+    ],
+    "task_type": "code_edit",
+    "description": "Add handling for --json flag in parse function so it outputs JSON format.",
+    "validation": "grep -q 'json' cmd/commands/parse.go",
+    "prior_failure": "l1-timeout"
+  },
+  "l1": {
+    "raw": "{\"choices\":[{\"finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"{\\n  \\\"edit_description\\\": \\\"Add 'json' flag to parse function output\\\",\\n  \\\"target_files\\\": [\\n    \\\"cmd/commands/parse.go\\\"\\n  ],\\n  \\\"patch_commands\\\": [\\n    \\\"sed -i 's/return.*json.*$/return json/' cmd/commands/parse.go\\\"\\n  ],\\n  \\\"expected_outcome\\\": \\\"success\\\",\\n  \\\"risk_notes\\\": \\\"Must ensure 'json' is a valid JSON type in the codebase context\\\",\\n  \\\"follow_up_type\\\": \\\"none\\\"\\n}\"}}],\"created\":1774714524,\"model\":\"Qwen3.5-0.8B-Q4_K_M.gguf\",\"system_fingerprint\":\"b8467-990e4d969\",\"object\":\"chat.completion\",\"usage\":{\"completion_tokens\":118,\"prompt_tokens\":194,\"total_tokens\":312,\"prompt_tokens_details\":{\"cached_tokens\":0}},\"id\":\"chatcmpl-yGaT1Od03HnOdF0xJ2TptyanhSFKQwmW\",\"timings\":{\"cache_n\":0,\"prompt_n\":194,\"prompt_ms\":1413.035,\"prompt_per_token_ms\":7.28368556701031,\"prompt_per_second\":137.2931314510964,\"predicted_n\":118,\"predicted_ms\":3594.47,\"predicted_per_token_ms\":30.461610169491525,\"predicted_per_second\":32.82820554907956}}",
+    "llm_content": "{\n  \"edit_description\": \"Add 'json' flag to parse function output\",\n  \"target_files\": [\n    \"cmd/commands/parse.go\"\n  ],\n  \"patch_commands\": [\n    \"sed -i 's/return.*json.*$/return json/' cmd/commands/parse.go\"\n  ],\n  \"expected_outcome\": \"success\",\n  \"risk_notes\": \"Must ensure 'json' is a valid JSON type in the codebase context\",\n  \"follow_up_type\": \"none\"\n}",
+    "repaired": "{\n  \"edit_description\": \"Add 'json' flag to parse function output\",\n  \"target_files\": [\n    \"cmd/commands/parse.go\"\n  ],\n  \"patch_commands\": [\n    \"sed -i 's/return.*json.*$/return json/' cmd/commands/parse.go\"\n  ],\n  \"expected_outcome\": \"success\",\n  \"risk_notes\": \"Must ensure 'json' is a valid JSON type in the codebase context\",\n  \"follow_up_type\": \"none\"\n}",
+    "repair_type": "no_repair_needed",
+    "parsed": {
+      "edit_description": "Add 'json' flag to parse function output",
+      "target_files": [
+        "cmd/commands/parse.go"
+      ],
+      "patch_commands": [
+        "sed -i 's/return.*json.*$/return json/' cmd/commands/parse.go"
+      ],
+      "expected_outcome": "success",
+      "risk_notes": "Must ensure 'json' is a valid JSON type in the codebase context",
+      "follow_up_type": "none"
+    },
+    "elapsed": 5.1,
+    "prompt_size": 943,
+    "output_size": 1038,
+    "adaptive_timeout": 120,
+    "output_class": "fast-productive"
+  },
+  "score": 20,
+  "issues": [
+    "no_validation"
+  ],
+  "ts": "20260328-121524",
+  "policy": "adaptive-timeout-v1"
+}

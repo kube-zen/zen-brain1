@@ -1,0 +1,19 @@
+{
+  "jira_key": "ZB-887",
+  "output": {
+    "edit_description": "Add comment near transition IDs dict documenting what each transition does.",
+    "target_files": [
+      "scripts/jira-drain.py"
+    ],
+    "patch_commands": [
+      "sed -i 's/transition_ids\\s*\\{[^}]*\\}/transition_ids\\s*\\{\\n  comment: \"Each transition is documented below.\\n\\n  - \\1\\n\\}/' scripts/jira-drain.py",
+      "sed -i 's/transition_ids\\s*\\}\\ntransition_ids\\s*\\{[^}]*\\}/transition_ids\\s*\\}\\n  comment: \"Each transition is documented below.\\n\\n  - \\1\\n\\}/' scripts/jira-drain.py"
+    ],
+    "expected_outcome": "success looks like",
+    "risk_notes": "Ensure no syntax errors in the existing transition_ids dict.",
+    "follow_up_type": "none|needs_review"
+  },
+  "repaired_from": "no_repair_needed",
+  "score": 20,
+  "ts": "20260328-121457"
+}

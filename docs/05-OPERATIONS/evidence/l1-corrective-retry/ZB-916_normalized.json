@@ -1,0 +1,12 @@
+{
+  "jira_key": "ZB-916",
+  "output": {
+    "edit_description": "Add input sanitization to prevent shell injection in command handler",
+    "target_files": [
+      "cmd/main.go"
+    ]
+  },
+  "repaired_from": "truncation_repaired_comma_trim",
+  "score": 15,
+  "ts": "20260328-121652"
+}

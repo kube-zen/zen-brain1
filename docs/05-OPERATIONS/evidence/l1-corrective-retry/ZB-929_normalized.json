@@ -1,0 +1,12 @@
+{
+  "jira_key": "ZB-929",
+  "output": {
+    "edit_description": "Add L1 attribution tracking requirements to GOVERNANCE.md",
+    "target_files": [
+      "GOVERNANCE.md"
+    ]
+  },
+  "repaired_from": "truncation_repaired_comma_trim",
+  "score": 15,
+  "ts": "20260328-122029"
+}
