@@ -16,6 +16,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/kube-zen/zen-brain1/internal/metrics"
 )
 
 // zen-brain1 continuous useful-task batch launcher (PHASE 34 — 0.1-style rewrite).
@@ -610,6 +612,22 @@ func looksLikeGoPath(s string) bool {
 func main() {
 	log.SetFlags(log.Ltime | log.Lmicroseconds)
 
+	// Initialize per-task metrics collector (aligned with remediation-worker schema)
+	metricsDir := envOr("METRICS_DIR", metrics.DefaultMetricsDir)
+	metricsCollector, merr := metrics.NewCollector(metricsDir)
+	if merr != nil {
+		log.Printf("[METRICS] WARNING: collector init failed: %v — continuing without per-task telemetry", merr)
+	}
+	defer func() {
+		if metricsCollector != nil {
+			metricsCollector.Close()
+			recs, err := metrics.LoadRecordsFromDir(metricsDir)
+			if err == nil && len(recs) > 0 {
+				_ = metrics.ComputeAndSave(metricsDir, recs, "latest_run")
+			}
+		}
+	}()
+
 	batchName := envOr("BATCH_NAME", "adhoc")
 	outputRoot := envOr("OUTPUT_ROOT", "/tmp/zen-brain1-runs")
 	endpoint := envOr("L1_ENDPOINT", defaultEndpoint)
@@ -716,6 +734,30 @@ func main() {
 				logFile.WriteString(fmt.Sprintf("[TASK] %s DONE state=done validation=success duration=%s\n", workItemID, time.Since(taskStart)))
 				succeeded.Add(1)
 				results[idx] = r
+
+				// Telemetry for skip path (no L1 call, deterministic output)
+				if metricsCollector != nil {
+					wallMs := time.Since(taskStart).Milliseconds()
+					telRec := metrics.TaskTelemetryRecord{
+						Timestamp:       time.Now(),
+						RunID:           fmt.Sprintf("%s-%s", batchName, ts),
+						TaskID:          workItemID,
+						Model:           model,
+						Lane:            "l1-local",
+						Provider:        "script-skip",
+						StartTime:       taskStart,
+						EndTime:         time.Now(),
+						WallTimeMs:      wallMs,
+						CompletionClass: metrics.ClassFastProductive,
+						ProducedBy:      metrics.ProducedByScript,
+						AttemptNumber:   1,
+						TaskClass:       name,
+						FinalStatus:     "success",
+					}
+					if err := metricsCollector.Record(telRec); err != nil {
+						log.Printf("[METRICS] WARNING: skip-path telemetry failed for %s: %v", workItemID, err)
+					}
+				}
 				return
 			}
 
@@ -782,6 +824,50 @@ func main() {
 			}
 
 			results[idx] = r
+
+			// ── Per-task telemetry emission (aligned with remediation-worker schema) ──
+			if metricsCollector != nil {
+				wallMs := taskEnd.Sub(taskStart).Milliseconds()
+				promptChars := len(packet)
+				outputChars := 0
+				if content, readErr := os.ReadFile(artifactPath); readErr == nil {
+					outputChars = len(content)
+				}
+				cc := metrics.ClassifyCompletion(wallMs, outputChars, false, 20, 15)
+				pb := metrics.ClassifyProducedBy(outputChars, err == nil, 20, 15, "")
+				if err != nil {
+					cc = metrics.ClassTimeout
+					pb = metrics.ProducedByL1Failed
+				}
+				finalSt := "success"
+				if s, ok := r["state"].(string); ok {
+					finalSt = s
+				}
+				telRec := metrics.TaskTelemetryRecord{
+					Timestamp:       taskEnd,
+					RunID:           fmt.Sprintf("%s-%s", batchName, ts),
+					TaskID:          workItemID,
+					Model:           model,
+					Lane:            "l1-local",
+					Provider:        "llama-cpp",
+					PromptSizeChars: promptChars,
+					OutputSizeChars: outputChars,
+					StartTime:       taskStart,
+					EndTime:         taskEnd,
+					WallTimeMs:      wallMs,
+					CompletionClass: cc,
+					ProducedBy:      pb,
+					AttemptNumber:   1,
+					TaskClass:       name,
+					FinalStatus:     finalSt,
+				}
+				if jiraKey, ok := r["jira_key"].(string); ok {
+					telRec.JiraKey = jiraKey
+				}
+				if err := metricsCollector.Record(telRec); err != nil {
+					log.Printf("[METRICS] WARNING: failed to record telemetry for %s: %v", workItemID, err)
+				}
+			}
 		}(i, taskName)
 	}
 
