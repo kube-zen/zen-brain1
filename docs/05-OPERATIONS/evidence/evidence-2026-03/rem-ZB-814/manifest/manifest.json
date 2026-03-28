@@ -1,0 +1,12 @@
+{
+  "jira_key": "ZB-814",
+  "related_project": "",
+  "approval_level": 0,
+  "sred_code": "",
+  "irap_work_pkg": "",
+  "source_report": "",
+  "created_at": "2026-03-28T09:03:10.363575517-04:00",
+  "run_id": "rem-ZB-814-20260328-090310",
+  "remediation_result": "blocked: The zen-brain1.py file does not contain any code that can be fixed according to the provided constraints. The ticket requires no specific target files to edit.",
+  "evidence_path": "docs/05-OPERATIONS/evidence/evidence-2026-03/rem-ZB-814"
+}

@@ -1,8 +1,18 @@
 # Remediation Queue
 
-**Version:** 2.0
-**Updated:** 2026-03-27
-**Status:** Pilot Proven
+**Version:** 3.0
+**Updated:** 2026-03-28
+**Status:** OPERATIONAL — Backlog Drained
+
+## Operating Statement
+
+**Success is tickets reaching Done, not tickets created.**
+
+As of 2026-03-28:
+- Backlog: 517 → 0 (fully drained)
+- Done: 0 → 529
+- Jira now reflects real workflow movement
+- State transitions are operational (transitionJiraStatus wired into pipeline)
 
 ## Core Principle
 

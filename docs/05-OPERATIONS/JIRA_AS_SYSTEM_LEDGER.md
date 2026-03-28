@@ -1,12 +1,25 @@
 # Jira as System Ledger
 
-**Version:** 1.0
-**Updated:** 2026-03-27
-**Status:** Active
+**Version:** 2.0
+**Updated:** 2026-03-28
+**Status:** ACTIVE — Workflow Engine Operational
 
 ## Core Principle
 
 **Jira is the central human/AI work ledger across all layers.** It is not just a dev ticket tracker — it is the operating ledger for Board / Office / Factory interaction. Every actionable piece of work flows through Jira.
+
+**As of 2026-03-28:** Jira states are now operational — tickets transition through Backlog → Selected → In Progress → Done (or PAUSED/RETRYING/TO_ESCALATE). State transitions are enforced by the remediation worker.
+
+## State Machine (Active)
+
+| From | To | When |
+|------|----|------|
+| Backlog | Selected for Development | Selected by drain queue |
+| Selected for Development | In Progress | Dispatched to L1 |
+| In Progress | Done | Validation passes, closure criteria met |
+| In Progress | PAUSED | Waiting on dependency/approval |
+| In Progress | RETRYING | Retryable L1 failure |
+| In Progress | TO_ESCALATE | Retries exhausted or L2 needed |
 
 ## What Jira Tracks
 

@@ -1,0 +1,12 @@
+{
+  "jira_key": "ZB-816",
+  "related_project": "",
+  "approval_level": 0,
+  "sred_code": "",
+  "irap_work_pkg": "",
+  "source_report": "",
+  "created_at": "2026-03-28T09:03:29.613231401-04:00",
+  "run_id": "rem-ZB-816-20260328-090329",
+  "remediation_result": "blocked: No specific target files identified for remediation. The issue requires architectural changes that cannot be performed without refactoring the entire codebase or modifying repo-wide configuration.",
+  "evidence_path": "docs/05-OPERATIONS/evidence/evidence-2026-03/rem-ZB-816"
+}
