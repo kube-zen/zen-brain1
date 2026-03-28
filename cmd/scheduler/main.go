@@ -221,7 +221,7 @@ func runSchedule(s Schedule, stateDir, artifactRoot, batchBin string) {
 		fmt.Sprintf("OUTPUT_ROOT=%s", artifactRoot),
 		fmt.Sprintf("TASKS=%s", tasks),
 		fmt.Sprintf("TIMEOUT=300"),
-		fmt.Sprintf("WORKERS=5"),
+		fmt.Sprintf("WORKERS=5"), // Experiment 5→7 showed no throughput gain for ≤3 task batches; keep 5 for hourly, test 7 for daily-sweep separately
 	)
 
 	output, err := cmd.CombinedOutput()
