@@ -398,6 +398,94 @@ func runFillCycle(cfg factoryConfig, state *FactoryState) {
 		}(ticket)
 	}
 	wg.Wait()
+
+	// PHASE A FIX: Post-dispatch state reconciliation
+	// The remediation-worker subprocess may exit 0 even when quality-gate rejects a ticket.
+	// That leaves tickets stuck In Progress with no correct terminal state.
+	// This step checks every dispatched ticket's actual Jira state and fixes it.
+	reconcileDispatchedStates(cfg, ready)
+}
+
+// reconcileDispatchedStates checks every ticket dispatched this cycle.
+// If a ticket is still In Progress but has ai:remediated label (worker ran),
+// it means the quality gate rejected it — move to PAUSED.
+// If a ticket is In Progress with ai:remediated and quality labels, check if Done.
+func reconcileDispatchedStates(cfg factoryConfig, dispatched []ClassifiedTicket) {
+	jcfg := cfg.Jcfg
+	fixed := 0
+
+	for _, ticket := range dispatched {
+		// Fetch current state from Jira
+		issues, _, err := jiraSearch(jcfg,
+			fmt.Sprintf("project=%s AND key=%s", jcfg.project, ticket.Key),
+			1)
+		if err != nil || len(issues) == 0 {
+			log.Printf("[RECONCILE] %s: could not fetch state: %v", ticket.Key, err)
+			continue
+		}
+
+		issue := issues[0]
+		status := issue.Fields.Status.Name
+		labels := issue.Fields.Labels
+
+		hasRemediated := false
+		hasQualityBlocked := false
+		hasQualityReady := false
+		for _, l := range labels {
+			if l == "ai:remediated" {
+				hasRemediated = true
+			}
+			if l == "quality:blocked-invalid-payload" {
+				hasQualityBlocked = true
+			}
+			if l == "quality:ready-for-execution" || l == "quality:ready-with-review" {
+				hasQualityReady = true
+			}
+		}
+
+		switch {
+		case status == "Done":
+			// Already correctly terminal — nothing to do
+			log.Printf("[RECONCILE] %s: ✅ already Done", ticket.Key)
+
+		case status == "In Progress" && hasRemediated && hasQualityBlocked:
+			// Worker ran but quality gate rejected — must move to PAUSED
+			log.Printf("[RECONCILE] %s: ⚠️ quality-gate rejected but stuck In Progress → PAUSED", ticket.Key)
+			if jiraTransition(jcfg, ticket.Key, "PAUSED") {
+				log.Printf("[RECONCILE] %s: moved to PAUSED", ticket.Key)
+				fixed++
+			}
+
+		case status == "In Progress" && hasRemediated && hasQualityReady:
+			// Worker ran, quality gate passed, but didn't get moved to Done — try Done
+			log.Printf("[RECONCILE] %s: ⚠️ quality passed but stuck In Progress → Done", ticket.Key)
+			if jiraTransition(jcfg, ticket.Key, "Done") {
+				log.Printf("[RECONCILE] %s: moved to Done", ticket.Key)
+				fixed++
+			}
+
+		case status == "In Progress" && !hasRemediated:
+			// Dispatched but worker didn't process (maybe L1 failed silently) — move to RETRYING
+			log.Printf("[RECONCILE] %s: ⚠️ no remediation happened, still In Progress → RETRYING", ticket.Key)
+			if jiraTransition(jcfg, ticket.Key, "RETRYING") {
+				log.Printf("[RECONCILE] %s: moved to RETRYING", ticket.Key)
+				fixed++
+			}
+
+		case status == "RETRYING":
+			log.Printf("[RECONCILE] %s: already RETRYING — factory-fill will pick up next cycle", ticket.Key)
+
+		case status == "PAUSED":
+			log.Printf("[RECONCILE] %s: already PAUSED", ticket.Key)
+
+		default:
+			log.Printf("[RECONCILE] %s: state=%s labels=%v — no action needed", ticket.Key, status, labels)
+		}
+	}
+
+	if fixed > 0 {
+		log.Printf("[RECONCILE] Fixed %d/%d tickets with incorrect terminal states", fixed, len(dispatched))
+	}
 }
 
 func fetchBacklogTickets(jcfg jiraConfig, max int) ([]jiraIssue, error) {
