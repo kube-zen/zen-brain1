@@ -1,113 +1,52 @@
 # Backlog Drain Mode
 
-**Version:** 1.0
-**Created:** 2026-03-28
-**Status:** Active
+**Operating Policy:** Underfilled factory with backlog present = BUG.
 
-## Core Principle
+## Current State
 
-**Success is tickets reaching Done, not tickets created.**
-**Discovery must not outpace execution.**
-**L1 does the heavy lift for bounded remediation.**
+- **Factory-fill engine:** `cmd/factory-fill` — continuous dispatch loop
+- **Safe concurrency target:** 5 (runtime env `SAFE_L1_CONCURRENCY`)
+- **Proven throughput:** ~10 tickets/5min burst = ~120 tickets/hr (sustained lower)
+- **L1-produced rate:** Varies by ticket complexity (patch-oriented contract)
+- **Quality gate:** 15/25 threshold, rejects ~30% of complex tickets
 
-## Operating Rules
+## Fill Policy
 
-### Rule 1: Done is the Metric
-- The system's health is measured by tickets reaching Done
-- Tickets created but never drained = system failure
-- Backlog growing while Done stays flat = throttle creation
-
-### Rule 2: Throttle Creation if Drain is Losing
 ```
-if Backlog_count > 2 * Drain_capacity_per_cycle:
-    throttle ticket creation to top-N only
-    stop generating duplicate findings
-    focus on draining what exists
+target_in_progress = min(safe_l1_concurrency, ready_backlog + retrying)
 ```
 
-### Rule 3: Deduplicate Before Creating
-- Before creating a new finding ticket, check if the same finding exists
-- Same finding from a new scan run = comment on existing ticket, not new ticket
-- Batch parent tickets should aggregate, not multiply
+If current in-progress < target: pull tickets immediately.
 
-### Rule 4: State Machine is Operational
-States are not decoration. They mean things:
-- **Backlog** — waiting to be triaged
-- **Selected for Development** — selected for execution
-- **In Progress** — being worked by L1/supervisor
-- **PAUSED** — waiting on dependency/review
-- **RETRYING** — L1 failed, retrying
-- **TO_ESCALATE** — needs human/L2
-- **Done** — validated and closed
+## State Reconciliation (PHASE A FIX)
 
-### Rule 5: Done Criteria
-A ticket may move to Done ONLY if:
-1. Remediation/output exists
-2. Validation passed
-3. Jira comment/log added
-4. Evidence pack updated (if applicable)
-5. No unresolved blocker remains
-6. Governance/compliance fields preserved
+The remediation-worker subprocess may exit 0 even when the quality gate rejects a ticket's payload. This leaves tickets stuck In Progress with incorrect terminal states.
 
-### Rule 6: Separate Ops from Factory
-| Category | Measured By |
-|----------|------------|
-| Ops cleanup | Backlog reduction, stale closure |
-| L1 production | Attributable artifacts per L1 attribution policy |
-| Supervisor work | Intervention rate, escalation handling |
+**Fix:** Every factory-fill cycle starts with `reconcileStuckInProgress`:
+- Checks all In Progress tickets
+- If `ai:remediated` + `quality:blocked-invalid-payload` → PAUSED
+- If `ai:remediated` + quality passed labels → Done
+- If `ai:remediated` + no quality labels → Done (gate didn't fire)
+- If NOT remediated → RETRYING (worker didn't process)
 
-## Current State (2026-03-28)
+## Allocation
+- 70% remediation / backlog drain
+- 20% roadmap / office execution
+- 10% discovery refresh / dedup
 
-### Backlog Drain Results
-- **Baseline:** 524 Backlog, 0 Done
-- **After drain:** 2 Backlog, 539 Done (including bulk close + pilot)
-- **Method:** Script-driven bulk close of stale scanner tickets (ops cleanup, NOT L1 production)
+## Per-Schedule WORKERS Override
+Currently all schedules use hardcoded `WORKERS=5`.
+Evidence supports:
+- W=5: 3-task hourly-scan completes in 55-144s
+- W=7: no throughput gain for ≤3 task batches (CPU contention)
+- W=7 may benefit daily-sweep (10 tasks) — test separately
 
-### L1 Attribution Results
-- **v1 pilot (full-file contract):** 3/10 l1-produced (30%) — failed threshold
-- **v2 pilot (patch-oriented contract):** 6/10 l1-produced (60%) — **threshold MET**
-- See L1_ATTRIBUTION_POLICY.md for full analysis
-- **Contract change doubled L1 success rate**
-- Remaining failures: code_edit tasks where L1 still times out
+## Decision Rule
+After throughput experiment:
+- Keep highest worker level that improves done/hour without degrading quality/state correctness
+- Do not choose level based on raw CPU usage alone
 
-### Throttle Status
-Scanner ticket creation should be throttled:
-- Only create new tickets for NEW findings (diff against previous run)
-- Stop creating batch parent tickets for runs that produce no new findings
-- Maximum: 10 new tickets per cycle until drain capacity catches up
+## Jira State Machine
+States: Backlog(11), Selected for Development(21), In Progress(31), Done(41), PAUSED(51), RETRYING(61), TO_ESCALATE(71)
 
-### Expansion Status
-- **v2 patch contract: 60% l1-produced — threshold MET**
-- Safe to expand: config_change, doc_update, simple code_edit on small files
-- NOT safe to expand: code_edit on large files, multi-file tasks
-- Expansion is conditional on patch-oriented contract being used (no full-file generation)
-
-## Tools
-
-- `scripts/jira-drain.py` — State machine + drain operations
-- `scripts/l1-attribution-pilot.py` — L1 attribution testing
-- `scripts/backlog-baseline.py` — Capture backlog state
-- `cmd/remediation-worker/` — Go-based remediation worker (production path)
-
-## Jira Transition IDs
-
-| Target State | Transition ID |
-|-------------|--------------|
-| Backlog | 11 |
-| Selected for Development | 21 |
-| In Progress | 31 |
-| Done | 41 |
-| PAUSED | 51 |
-| RETRYING | 61 |
-| TO_ESCALATE | 71 |
-
-All transitions are global (available from any state).
-
-## Mandatory Statements
-
-- Success is tickets reaching Done, not tickets created
-- L1 does the heavy lift (when it can)
-- Jira states are now operational, not decorative
-- Evidence packs are part of closure
-- Discovery is throttled if backlog drain falls behind
-- Ops cleanup ≠ factory production
+Required: Jira In Progress reflects actual active work.
