@@ -967,6 +967,10 @@ func runPilot(cfg remediationConfig, jcfg jiraConfig, pilotKeys []string) {
 	log.Printf("[REMEDIATION-PILOT] processing %d pilot tickets: %v", len(pilotKeys), pilotKeys)
 
 	os.MkdirAll(cfg.EvidenceRoot, 0755)
+	os.MkdirAll(filepath.Join(cfg.EvidenceRoot, "..", "quality-gate-logs"), 0755)
+
+	// Track gate results across the pilot
+	var gateResults []TicketQualityReport
 
 	for _, key := range pilotKeys {
 		key = strings.TrimSpace(key)
@@ -996,20 +1000,71 @@ func runPilot(cfg remediationConfig, jcfg jiraConfig, pilotKeys []string) {
 		log.Printf("[REMEDIATION-PILOT] %s: L1 result: type=%s status=%s file=%s",
 			key, result.RemediationType, result.FinalStatus, result.FileToEdit)
 
-		// Create evidence pack
+		// ── MANDATORY: Normalize L1 output ──
+		normalizedPayload := buildNormalizedPayload(*ticket, result, packet)
+		log.Printf("[NORMALIZE] %s: payload normalized (title=%q routing=%s)",
+			key, normalizedPayload.Title, normalizedPayload.RoutingRecommendation)
+
+		// ── MANDATORY: Quality gate ──
+		gateReport := qualityGate(normalizedPayload)
+		gateResults = append(gateResults, gateReport)
+
+		log.Printf("[QUALITY-GATE] %s: score=%d/25 readiness=%s issues=%v",
+			key, gateReport.Score.Total, gateReport.Readiness, gateReport.Issues)
+
+		// Enforce hard gate: score < 15 => REJECTED
+		if gateReport.Score.Total < 15 {
+			log.Printf("[QUALITY-GATE] %s: REJECTED (score %d < 15). Writing blocked evidence only.", key, gateReport.Score.Total)
+			epPath := createEvidencePack(cfg, *ticket, result)
+			writeGateLog(cfg, key, gateReport, "rejected")
+			if jcfg.enabled {
+				blockedResult := &RemediationOutput{
+					RemediationType: result.RemediationType,
+					FileToEdit:      result.FileToEdit,
+					EditDescription: fmt.Sprintf("BLOCKED BY QUALITY GATE (score %d/25)", gateReport.Score.Total),
+					Explanation:     result.Explanation,
+					FinalStatus:     "blocked",
+					BlockerReason:   fmt.Sprintf("Quality gate score %d/25 < 15. Missing: %s", gateReport.Score.Total, strings.Join(gateReport.Issues, ", ")),
+				}
+				updateJiraOutcome(jcfg, key, blockedResult, epPath)
+				addLabelsToIssue(jcfg, key, []string{"quality:blocked-invalid-payload"})
+			}
+			continue
+		}
+
+		log.Printf("[QUALITY-GATE] %s: PASSED (score %d >= 15). Proceeding with %s.", key, gateReport.Score.Total, gateReport.Readiness)
+
+		// Create evidence pack with gated result
 		epPath := createEvidencePack(cfg, *ticket, result)
+		writeGateLog(cfg, key, gateReport, "passed")
 		log.Printf("[REMEDIATION-PILOT] %s: evidence pack at %s", key, epPath)
 
-		// Update Jira
+		// Determine Jira labels based on readiness
+		var qualityLabels []string
+		switch gateReport.Readiness {
+		case ReadyForExecution:
+			qualityLabels = []string{"quality:ready-for-execution"}
+		case ReadyWithReview:
+			qualityLabels = []string{"quality:ready-with-review"}
+		default:
+			qualityLabels = []string{"quality:needs-review"}
+		}
+
+		// Update Jira with quality-gated normalized payload
 		if jcfg.enabled {
-			if updateJiraOutcome(jcfg, key, result, epPath) {
-				log.Printf("[REMEDIATION-PILOT] %s: Jira updated with remediation outcome", key)
+			commentBody := buildJiraCommentBody(normalizedPayload, gateReport, epPath)
+			if postJiraComment(jcfg, key, commentBody) {
+				log.Printf("[REMEDIATION-PILOT] %s: Jira updated with quality-gated outcome", key)
 			} else {
-				log.Printf("[REMEDIATION-PILOT] %s: Jira update failed", key)
+				log.Printf("[REMEDIATION-PILOT] %s: Jira comment failed", key)
 			}
+			allLabels := append([]string{"ai:remediated"}, qualityLabels...)
+			addLabelsToIssue(jcfg, key, allLabels)
 		}
 	}
 
+	// Write pilot summary with gate results
+	writePilotSummary(cfg, pilotKeys, gateResults)
 	log.Printf("[REMEDIATION-PILOT] === pilot complete ===")
 }
 
@@ -1034,8 +1089,9 @@ func runRemediationCycle(cfg remediationConfig, jcfg jiraConfig) {
 	log.Printf("[REMEDIATION] selected %d tickets for remediation", len(selected))
 
 	os.MkdirAll(cfg.EvidenceRoot, 0755)
+	os.MkdirAll(cfg.EvidenceRoot+"/../quality-gate-logs", 0755)
 
-	created, updated, failed := 0, 0, 0
+	passed, rejected, failed := 0, 0, 0
 
 	for i := range selected {
 		ticket := selected[i]
@@ -1051,20 +1107,169 @@ func runRemediationCycle(cfg remediationConfig, jcfg jiraConfig) {
 
 		log.Printf("[REMEDIATION] %s: result=%s type=%s", ticket.Key, result.FinalStatus, result.RemediationType)
 
+		// ── MANDATORY: Normalize + Quality gate (same as pilot) ──
+		normalizedPayload := buildNormalizedPayload(ticket, result, packet)
+		log.Printf("[NORMALIZE] %s: payload normalized (routing=%s)", ticket.Key, normalizedPayload.RoutingRecommendation)
+
+		gateReport := qualityGate(normalizedPayload)
+		log.Printf("[QUALITY-GATE] %s: score=%d/25 readiness=%s issues=%v",
+			ticket.Key, gateReport.Score.Total, gateReport.Readiness, gateReport.Issues)
+
 		epPath := createEvidencePack(cfg, ticket, result)
+		writeGateLog(cfg, ticket.Key, gateReport, "cycle")
+
+		if gateReport.Score.Total < 15 {
+			log.Printf("[QUALITY-GATE] %s: REJECTED (score %d < 15). Blocked.", ticket.Key, gateReport.Score.Total)
+			rejected++
+			if jcfg.enabled {
+				blockedResult := &RemediationOutput{
+					RemediationType: result.RemediationType,
+					FileToEdit:      result.FileToEdit,
+					EditDescription: fmt.Sprintf("BLOCKED BY QUALITY GATE (score %d/25): %s", gateReport.Score.Total, strings.Join(gateReport.Issues, ", ")),
+					Explanation:     result.Explanation,
+					FinalStatus:     "blocked",
+					BlockerReason:   fmt.Sprintf("Quality gate score %d/25 below threshold 15", gateReport.Score.Total),
+				}
+				updateJiraOutcome(jcfg, ticket.Key, blockedResult, epPath)
+				addLabelsToIssue(jcfg, ticket.Key, []string{"quality:blocked-invalid-payload"})
+			}
+			continue
+		}
+
+		log.Printf("[QUALITY-GATE] %s: PASSED (%s, score %d).", ticket.Key, gateReport.Readiness, gateReport.Score.Total)
+		passed++
 
 		if jcfg.enabled {
-			if updateJiraOutcome(jcfg, ticket.Key, result, epPath) {
-				updated++
+			commentBody := buildJiraCommentBody(normalizedPayload, gateReport, epPath)
+			if postJiraComment(jcfg, ticket.Key, commentBody) {
+				log.Printf("[REMEDIATION] %s: Jira updated with gated outcome", ticket.Key)
 			} else {
 				failed++
 			}
-		} else {
-			created++
+			var qualityLabels []string
+			switch gateReport.Readiness {
+			case ReadyForExecution:
+				qualityLabels = []string{"quality:ready-for-execution"}
+			case ReadyWithReview:
+				qualityLabels = []string{"quality:ready-with-review"}
+			default:
+				qualityLabels = []string{"quality:needs-review"}
+			}
+			addLabelsToIssue(jcfg, ticket.Key, append([]string{"ai:remediated"}, qualityLabels...))
 		}
 	}
 
-	log.Printf("[REMEDIATION] === cycle complete: %d updated, %d failed ===", updated, failed)
+	log.Printf("[REMEDIATION] === cycle complete: %d passed, %d rejected, %d failed ===", passed, rejected, failed)
+}
+
+// ─── Quality Gate Helpers ─────────────────────────────────────────────
+
+// postJiraComment posts a plain-text comment to a Jira issue using Atlassian Document Format.
+func postJiraComment(jcfg jiraConfig, key string, bodyText string) bool {
+	if !jcfg.enabled {
+		return false
+	}
+
+	// Build ADF comment payload
+	payload := map[string]interface{}{
+		"body": map[string]interface{}{
+			"type":    "doc",
+			"version": 1,
+			"content": []map[string]interface{}{
+				{
+					"type": "paragraph",
+					"content": []map[string]string{
+						{"type": "text", "text": bodyText},
+					},
+				},
+			},
+		},
+	}
+
+	bodyBytes, _ := json.Marshal(payload)
+	ctx, cancel := contextWithTimeout(15)
+	defer cancel()
+
+	req, _ := http.NewRequestWithContext(ctx, "POST",
+		jcfg.url+"/rest/api/3/issue/"+key+"/comment",
+		strings.NewReader(string(bodyBytes)))
+	req.SetBasicAuth(jcfg.email, jcfg.token)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		log.Printf("[JIRA-COMMENT] failed for %s: %v", key, err)
+		return false
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 201 {
+		body, _ := io.ReadAll(resp.Body)
+		log.Printf("[JIRA-COMMENT] returned %d for %s: %s", resp.StatusCode, key, string(body))
+		return false
+	}
+	return true
+}
+
+// writeGateLog writes a quality gate decision to the gate log directory.
+func writeGateLog(cfg remediationConfig, key string, report TicketQualityReport, decision string) {
+	logDir := filepath.Join(filepath.Dir(cfg.EvidenceRoot), "quality-gate-logs")
+	os.MkdirAll(logDir, 0755)
+
+	entry := map[string]interface{}{
+		"jira_key":  key,
+		"score":     report.Score,
+		"readiness": string(report.Readiness),
+		"decision":  decision,
+		"issues":    report.Issues,
+		"timestamp": time.Now().Format(time.RFC3339),
+	}
+
+	data, _ := json.MarshalIndent(entry, "", "  ")
+	path := filepath.Join(logDir, fmt.Sprintf("%s-%s.json", key, decision))
+	os.WriteFile(path, data, 0644)
+	log.Printf("[QUALITY-GATE-LOG] %s: written to %s", key, path)
+}
+
+// writePilotSummary writes a summary of all gate decisions in the pilot run.
+func writePilotSummary(cfg remediationConfig, pilotKeys []string, gateResults []TicketQualityReport) {
+	summaryDir := filepath.Join(cfg.EvidenceRoot, "pilot-summaries")
+	os.MkdirAll(summaryDir, 0755)
+
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("# Quality Gate Pilot Summary\n"))
+	sb.WriteString(fmt.Sprintf("**Date:** %s\n", time.Now().Format(time.RFC3339)))
+	sb.WriteString(fmt.Sprintf("**Tickets:** %d\n\n", len(gateResults)))
+
+	sb.WriteString("| Key | Score | Readiness | Decision | Issues |\n")
+	sb.WriteString("|-----|-------|-----------|----------|--------|\n")
+
+	for _, gr := range gateResults {
+		decision := "rejected"
+		if gr.Score.Total >= 15 {
+			decision = "passed"
+		}
+		issues := strings.Join(gr.Issues, ", ")
+		if issues == "" {
+			issues = "none"
+		}
+		sb.WriteString(fmt.Sprintf("| %s | %d/25 | %s | %s | %s |\n",
+			gr.JiraKey, gr.Score.Total, gr.Readiness, decision, issues))
+	}
+
+	sb.WriteString("\n## Score Breakdown\n\n")
+	for _, gr := range gateResults {
+		sb.WriteString(fmt.Sprintf("### %s (%s, %d/25)\n", gr.JiraKey, gr.Readiness, gr.Score.Total))
+		sb.WriteString(fmt.Sprintf("- Clarity: %d/5\n", gr.Score.Clarity))
+		sb.WriteString(fmt.Sprintf("- Evidence Quality: %d/5\n", gr.Score.EvidenceQuality))
+		sb.WriteString(fmt.Sprintf("- Boundedness: %d/5\n", gr.Score.Boundedness))
+		sb.WriteString(fmt.Sprintf("- Validation Clarity: %d/5\n", gr.Score.ValidationClarity))
+		sb.WriteString(fmt.Sprintf("- Governance Completion: %d/5\n\n", gr.Score.GovernanceCompletion))
+	}
+
+	path := filepath.Join(summaryDir, fmt.Sprintf("pilot-%s.md", time.Now().Format("20060102-150405")))
+	os.WriteFile(path, []byte(sb.String()), 0644)
+	log.Printf("[PILOT-SUMMARY] written to %s", path)
 }
 
 // fetchSingleTicket gets details for one specific Jira ticket.
