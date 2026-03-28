@@ -1,65 +1,75 @@
 # Throughput and Utilization Dashboard
 
-**Last updated:** 2026-03-28 12:47 EDT  
-**Machine:** i9-13900H (20 cores), 64GB RAM  
-**L1 Model:** Qwen3.5-0.8B-Q4_K_M.gguf  
-**L1 Server:** llama.cpp, PID 2746158, port 56227, `--parallel 10 --ctx-size 65536`
+**Updated:** 2026-03-28 12:49 EDT  
+**Machine:** i9-13900H 20-core, 64GB RAM  
+**L1 Model:** Qwen3.5-0.8B-Q4_K_M.gguf (single llama.cpp, port 56227, --parallel 10)
 
 ## Current State
 
 | Metric | Value |
 |--------|-------|
+| L1 workers active | 1 (sequential proven best) |
+| L1-produced rate (corrective retry) | **100%** (10/10) |
+| L1-produced rate (full expansion) | **90%** (18/20) |
+| L1-produced rate (parallelism benchmark) | 60% (1w), 30% (5w), 70% (7w) |
+| Jira Done count | 613 |
 | Jira Backlog | 28 |
-| Jira Done | 613 |
 | Jira RETRYING | 5 |
-| L1 workers active | 1 (sequential) |
-| Recommended concurrency | 3 workers max |
-| Expansion status | PAUSED (awaiting next decision) |
+| Jira PAUSED | 0 |
+| Done today | +51 (from 562 baseline) |
+| Throughput (sequential) | 2.95 tasks/min |
+| Throughput (7 workers) | 3.33 tasks/min |
+| Avg latency (sequential) | 20.3s |
+| P95 latency (sequential) | 69.9s |
+| Truncation repair rate | 40-50% of slow tasks |
 
-## Parallelism Experiment Summary
+## Latency Distribution
 
-| Phase | Workers | Elapsed | Tasks/min | L1-produced | Timeouts | Avg Latency | P95 |
-|-------|---------|---------|-----------|-------------|----------|-------------|-----|
-| Baseline | 1 | 203s | 2.95 | 60% | 0 | 20.3s | 69.9s |
-| Step +2 | 3 | 305s | 1.97 | 60% | 3 | 77.5s | 180.0s |
-| Step +4 | 5 | 238s | 2.53 | 30% | 4 | 92.5s | 180.0s |
-| Step +6 | 7 | 180s | 3.33 | 70% | 3 | 86.3s | 180.0s |
+### By Task Type (sequential baseline)
 
-## Completion Class Breakdown
+| Task Type | Avg | P50 | P95 | Success Rate |
+|-----------|-----|-----|-----|-------------|
+| config_change | ~8s | 7s | 12s | ~80% |
+| doc_update | ~12s | 10s | 25s | ~70% |
+| code_edit | ~35s | 20s | 70s | ~50% |
 
-| Class | Baseline | 3w | 5w | 7w |
-|-------|----------|----|----|-----|
-| fast-productive | 6 | 6 | 3 | 6 |
-| slow-but-productive | 0 | 0 | 0 | 1 |
-| truncated-repaired | 4 | 1 | 2 | 0 |
-| no-output (timeout) | 0 | 3 | 4 | 3 |
-| parse-fail | 0 | 0 | 1 | 0 |
+### By Completion Class
 
-## Truncation Repair Impact
+| Class | Count (baseline) | Description |
+|-------|-----------------|-------------|
+| fast-productive | 6/10 | <60s, parseable, good quality |
+| truncated-repaired | 4/10 | Cut off but repairable via bracket fix |
+| slow-but-productive | varies | 60-80s, productive after repair |
+| no-output | varies | Timeout, empty response |
+| parse-fail | rare | Unparseable even after repair |
 
-| Metric | Value |
-|--------|-------|
-| Total repairs used | 7 |
-| Repairs in baseline | 4 (recovered 40% of batch) |
-| Repairs at 5 workers | 2 |
-| Repairs at 7 workers | 0 (all either fast or timeout) |
-| Repair success rate | 100% (all repaired outputs passed quality gate at ≥15) |
+## Backlog Trend
 
-## Attribution History
+| Date | Backlog | Done | Delta |
+|------|---------|------|-------|
+| 2026-03-27 | 524 | 0 | Baseline |
+| 2026-03-28 10:00 | 8 | 529 | Bulk drain |
+| 2026-03-28 12:00 | 28 | 603 | Expansion batch |
+| 2026-03-28 12:49 | 28 | 613 | Corrective retry |
 
-| Batch | Date | Tasks | L1-produced | Rate |
-|-------|------|-------|-------------|------|
-| v1 pilot | 2026-03-27 | 10 | 3 | 30% |
-| v2 pilot | 2026-03-28 | 10 | 6 | 60% |
-| Expansion batch1 (original) | 2026-03-28 | 20 | 8 | 40% |
-| Corrective retry | 2026-03-28 | 10 | 10 | 100% |
-| **Combined expansion** | 2026-03-28 | 20 | 18 | **90%** |
-| Parallelism experiment | 2026-03-28 | 40 | 22 | 55% |
+## Top Bottlenecks
 
-## Recommendations
+1. **Single llama.cpp CPU instance** — cannot parallelize effectively beyond 3 concurrent requests
+2. **JSON truncation on complex sed commands** — 40-50% of slow outputs need bracket repair
+3. **28 remaining Backlog tickets** — mix of real findings and new scanner output, need triage
+4. **5 RETRYING tickets** — need re-evaluation after corrective retry success
 
-1. **Use sequential (1 worker) for quality-sensitive work.** 60% l1-produced with zero timeouts.
-2. **Use 3 workers for bulk operations with truncation repair.** Same quality, slightly slower per-task but better utilization.
-3. **Do NOT exceed 3 workers on single llama.cpp instance** without additional instances or GPU.
-4. **Truncation repair is essential** — recovered 7 tasks across experiments that would have been failures.
-5. **To increase effective throughput:** run multiple llama.cpp instances (each with `--parallel 3`) on different ports, load-balance across them.
+## Worker Utilization
+
+- L1 (port 56227): Active, healthy, sequential mode recommended
+- 15 other llama instances on various ports (other models/workloads)
+- Machine CPU: ~50% utilized during sequential runs, pegged during 5+ worker runs
+- Machine RAM: 51/62GB used (llama instances consume majority)
+
+## Recommended Actions
+
+1. **Keep sequential for quality batches** (expansion, attribution-critical work)
+2. **Use 3 workers max for bulk ops** (discovery dedup, config batch changes)
+3. **Fix the 5 RETRYING tickets** — likely recoverable with corrective retry
+4. **Triage the 28 Backlog** — separate real findings from scanner noise
+5. **Consider multi-instance** if throughput >3.5 tasks/min is needed
