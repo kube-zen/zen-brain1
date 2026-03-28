@@ -1,0 +1,31 @@
+{
+  "jira_key": "ZB-877",
+  "contract_version": "v2-patch-oriented",
+  "task": {
+    "summary": "[L1-v2] Add quickstart comment to jira-drain.py",
+    "description": "Add a comment block at top of jira-drain.py with 3-4 usage examples.",
+    "target_files": [
+      "scripts/jira-drain.py"
+    ],
+    "task_type": "doc_update",
+    "validation": "python3 -c 'import ast; ast.parse(open(\"scripts/jira-drain.py\").read())'"
+  },
+  "l1_result": {
+    "raw_response": "",
+    "llm_content": "",
+    "json_str": "",
+    "parsed": null,
+    "parse_error": "Expecting value: line 1 column 1 (char 0)",
+    "elapsed_sec": 60.0,
+    "token_budget": 2048
+  },
+  "quality_score": 0,
+  "quality_issues": [
+    "no_parsed_output"
+  ],
+  "timestamp": "20260328-110951",
+  "attribution": {
+    "produced_by": "l1-failed",
+    "first_pass_model": "Qwen3.5-0.8B-Q4_K_M.gguf"
+  }
+}

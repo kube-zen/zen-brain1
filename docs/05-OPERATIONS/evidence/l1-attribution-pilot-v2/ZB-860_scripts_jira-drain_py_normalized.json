@@ -1,0 +1,29 @@
+{
+  "jira_key": "ZB-860",
+  "contract_version": "v2-patch-oriented",
+  "normalized_output": {
+    "jira_key": "ZB-860",
+    "problem_summary": "Add 3-4 usage examples to top of jira-drain.py for doc_update task.",
+    "target_files": [
+      "scripts/jira-drain.py"
+    ],
+    "edit_description": "Insert a comment block at the top of jira-drain.py with 3-4 usage examples.",
+    "patch_commands": [
+      "echo \"# Usage examples for jira-drain.py\" >> scripts/jira-drain.py",
+      "echo \"1. jira-drain.py --help\" >> scripts/jira-drain.py",
+      "echo \"2. jira-drain.py --version\" >> scripts/jira-drain.py",
+      "echo \"3. jira-drain.py --debug\" >> scripts/jira-drain.py",
+      "echo \"4. jira-drain.py --test\" >> scripts/jira-drain.py"
+    ],
+    "validation_commands": [
+      "python3 -c 'import ast; ast.parse(open(\"scripts/jira-drain.py\").read())'",
+      "grep -q \"# Usage examples\" scripts/jira-drain.py && echo \"PASS: Comment block found\" || echo \"FAIL: Comment block missing\""
+    ],
+    "expected_outcome": "jira-drain.py now includes a comment block with 4 usage examples at the top.",
+    "risk_notes": "Ensure the examples are valid Python syntax and do not break the script's logic.",
+    "follow_up_type": "needs_review"
+  },
+  "quality_score": 25,
+  "quality_issues": [],
+  "timestamp": "20260328-110327"
+}

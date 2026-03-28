@@ -1,0 +1,31 @@
+{
+  "jira_key": "ZB-861",
+  "contract_version": "v2-patch-oriented",
+  "task": {
+    "summary": "[L1-v2] Add .gitignore entry for evidence/*.json artifacts",
+    "description": "Add *.json to .gitignore under docs/05-OPERATIONS/evidence/ to prevent large JSON artifacts from being committed.",
+    "target_files": [
+      ".gitignore"
+    ],
+    "task_type": "config_change",
+    "validation": "grep -q 'evidence.*json' .gitignore"
+  },
+  "l1_result": {
+    "raw_response": "{\"choices\":[{\"finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"{\\n  \\\"jira_key\\\": \\\"ZB-861\\\",\\n  \\\"problem_summary\\\": \\\"Add *.json to .gitignore under docs/05-OPERATIONS/evidence/ to prevent large JSON artifacts from being committed.\\\",\\n  \\\"target_files\\\": [\\\".gitignore\\\"],\\n  \\\"edit_description\\\": \\\"Add 'evidence/05-OPERATIONS/evidence/*.json' to the list of files to ignore in .gitignore.\\\",\\n  \\\"patch_commands\\\": [\\\"echo >> .gitignore << 'EOF' && echo 'evidence/05-OPERATIONS/evidence/*.json' >> .gitignore && echo '' >> .gitignore && echo 'EOF'],\\n  \\\"validation_commands\\\": [\\\"grep -q 'evidence.*json' .gitignore\\\", \\\"git add .gitignore\\\"],\\n  \\\"expected_outcome\\\": \\\"JSON files in evidence/05-OPERATIONS/evidence/ are now excluded from git commits.\\\",\\n  \\\"risk_notes\\\": \\\"Ensure no other JSON files exist in the docs/05-OPERATIONS/evidence/ directory.\\\",\\n  \\\"follow_up_type\\\": \\\"needs_review\\\"\\n}\"}}],\"created\":1774710228,\"model\":\"Qwen3.5-0.8B-Q4_K_M.gguf\",\"system_fingerprint\":\"b8467-990e4d969\",\"object\":\"chat.completion\",\"usage\":{\"completion_tokens\":239,\"prompt_tokens\":389,\"total_tokens\":628,\"prompt_tokens_details\":{\"cached_tokens\":0}},\"id\":\"chatcmpl-WGYt1V0Y5mfk6WhhpjkPQ7QwHFBW9ig2\",\"timings\":{\"cache_n\":0,\"prompt_n\":389,\"prompt_ms\":2815.8,\"prompt_per_token_ms\":7.238560411311054,\"prompt_per_second\":138.14901626535973,\"predicted_n\":239,\"predicted_ms\":10768.908,\"predicted_per_token_ms\":45.05819246861925,\"predicted_per_second\":22.193522314425937}}",
+    "llm_content": "{\n  \"jira_key\": \"ZB-861\",\n  \"problem_summary\": \"Add *.json to .gitignore under docs/05-OPERATIONS/evidence/ to prevent large JSON artifacts from being committed.\",\n  \"target_files\": [\".gitignore\"],\n  \"edit_description\": \"Add 'evidence/05-OPERATIONS/evidence/*.json' to the list of files to ignore in .gitignore.\",\n  \"patch_commands\": [\"echo >> .gitignore << 'EOF' && echo 'evidence/05-OPERATIONS/evidence/*.json' >> .gitignore && echo '' >> .gitignore && echo 'EOF'],\n  \"validation_commands\": [\"grep -q 'evidence.*json' .gitignore\", \"git add .gitignore\"],\n  \"expected_outcome\": \"JSON files in evidence/05-OPERATIONS/evidence/ are now excluded from git commits.\",\n  \"risk_notes\": \"Ensure no other JSON files exist in the docs/05-OPERATIONS/evidence/ directory.\",\n  \"follow_up_type\": \"needs_review\"\n}",
+    "json_str": "{\n  \"jira_key\": \"ZB-861\",\n  \"problem_summary\": \"Add *.json to .gitignore under docs/05-OPERATIONS/evidence/ to prevent large JSON artifacts from being committed.\",\n  \"target_files\": [\".gitignore\"],\n  \"edit_description\": \"Add 'evidence/05-OPERATIONS/evidence/*.json' to the list of files to ignore in .gitignore.\",\n  \"patch_commands\": [\"echo >> .gitignore << 'EOF' && echo 'evidence/05-OPERATIONS/evidence/*.json' >> .gitignore && echo '' >> .gitignore && echo 'EOF'],\n  \"validation_commands\": [\"grep -q 'evidence.*json' .gitignore\", \"git add .gitignore\"],\n  \"expected_outcome\": \"JSON files in evidence/05-OPERATIONS/evidence/ are now excluded from git commits.\",\n  \"risk_notes\": \"Ensure no other JSON files exist in the docs/05-OPERATIONS/evidence/ directory.\",\n  \"follow_up_type\": \"needs_review\"\n}",
+    "parsed": null,
+    "parse_error": "Invalid control character at: line 6 column 154 (char 467)",
+    "elapsed_sec": 13.7,
+    "token_budget": 2048
+  },
+  "quality_score": 0,
+  "quality_issues": [
+    "no_parsed_output"
+  ],
+  "timestamp": "20260328-110332",
+  "attribution": {
+    "produced_by": "l1-failed",
+    "first_pass_model": "Qwen3.5-0.8B-Q4_K_M.gguf"
+  }
+}

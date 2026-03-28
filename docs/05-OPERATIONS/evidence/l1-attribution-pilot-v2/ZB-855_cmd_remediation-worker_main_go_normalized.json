@@ -1,0 +1,25 @@
+{
+  "jira_key": "ZB-855",
+  "contract_version": "v2-patch-oriented",
+  "normalized_output": {
+    "jira_key": "ZB-855",
+    "problem_summary": "Add Go doc comment above RemediationPacket struct in cmd/remediation-worker/main.go",
+    "target_files": [
+      "cmd/remediation-worker/main.go"
+    ],
+    "edit_description": "Insert '// +go:generate go doc' before 'RemediationPacket' in main.go to generate documentation.",
+    "patch_commands": [
+      "sed -i '1i\\t// +\\ngo:generate go doc' cmd/remediation-worker/main.go"
+    ],
+    "validation_commands": [
+      "grep -q 'RemediationPacket' cmd/remediation-worker/main.go",
+      "go doc -all > /dev/null 2>&1"
+    ],
+    "expected_outcome": "Go doc comment generated above RemediationPacket struct",
+    "risk_notes": "Ensure go generate command runs successfully without errors.",
+    "follow_up_type": "needs_review"
+  },
+  "quality_score": 25,
+  "quality_issues": [],
+  "timestamp": "20260328-110142"
+}

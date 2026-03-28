@@ -1,0 +1,31 @@
+{
+  "jira_key": "ZB-867",
+  "contract_version": "v2-patch-oriented",
+  "task": {
+    "summary": "[L1-v2] Document L1 attribution policy in markdown",
+    "description": "Create docs/05-OPERATIONS/L1_ATTRIBUTION_POLICY_v2.md with rules for claiming L1 did useful work.",
+    "target_files": [
+      "docs/05-OPERATIONS/L1_ATTRIBUTION_POLICY_v2.md"
+    ],
+    "task_type": "doc_update",
+    "validation": "test -f docs/05-OPERATIONS/L1_ATTRIBUTION_POLICY_v2.md"
+  },
+  "l1_result": {
+    "raw_response": "{\"choices\":[{\"finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"{\\n  \\\"jira_key\\\": \\\"ZB-867\\\",\\n  \\\"problem_summary\\\": \\\"Create L1_ATTRIBUTION_POLICY_v2.md with rules for claiming L1 did useful work.\\\",\\n  \\\"target_files\\\": [\\\"docs/05-OPERATIONS/L1_ATTRIBUTION_POLICY_v2.md\\\"],\\n  \\\"edit_description\\\": \\\"Add a section to claim L1 did useful work and remove the current 'no' rule.\\\",\\n  \\\"patch_commands\\\": [\\n    \\\"echo '---\\\\n\\\\n# L1 ATTRIBUTION POLICY\\\\n\\\\n## Claiming L1 did useful work\\\\n\\\\n> **Rule:** If L1 performed work that was not purely administrative, claim it.\\\\n\\\\n---\\\\n\\\\n## Current policy\\\\n\\\\n> **Rule:** L1 did not do useful work.\\\",\\n    \\\"validation_commands\\\": [\\n      \\\"test -f docs/05-OPERATIONS/L1_ATTRIBUTION_POLICY_v2.md\\\",\\n      \\\"grep -q 'claim L1 did useful work' docs/05-OPERATIONS/L1_ATTRIBUTION_POLICY_v2.md\\\"\\n    ],\\n  \\\"expected_outcome\\\": \\\"File contains a section titled 'Claiming L1 did useful work' with a rule stating L1 performed work that was not purely administrative.\\\",\\n  \\\"risk_notes\\\": \\\"Ensure the new rule doesn't conflict with existing 'no' rules for administrative work.\\\",\\n  \\\"follow_up_type\\\": \\\"needs_review\\\"\\n}\"}}],\"created\":1774710310,\"model\":\"Qwen3.5-0.8B-Q4_K_M.gguf\",\"system_fingerprint\":\"b8467-990e4d969\",\"object\":\"chat.completion\",\"usage\":{\"completion_tokens\":308,\"prompt_tokens\":409,\"total_tokens\":717,\"prompt_tokens_details\":{\"cached_tokens\":0}},\"id\":\"chatcmpl-ZrGpzV1my8yVHus0GVgWEQXu3faLsFTB\",\"timings\":{\"cache_n\":0,\"prompt_n\":409,\"prompt_ms\":3054.971,\"prompt_per_token_ms\":7.46936674816626,\"prompt_per_second\":133.88015794585283,\"predicted_n\":308,\"predicted_ms\":26438.836,\"predicted_per_token_ms\":85.84037662337663,\"predicted_per_second\":11.649529502736051}}",
+    "llm_content": "{\n  \"jira_key\": \"ZB-867\",\n  \"problem_summary\": \"Create L1_ATTRIBUTION_POLICY_v2.md with rules for claiming L1 did useful work.\",\n  \"target_files\": [\"docs/05-OPERATIONS/L1_ATTRIBUTION_POLICY_v2.md\"],\n  \"edit_description\": \"Add a section to claim L1 did useful work and remove the current 'no' rule.\",\n  \"patch_commands\": [\n    \"echo '---\\n\\n# L1 ATTRIBUTION POLICY\\n\\n## Claiming L1 did useful work\\n\\n> **Rule:** If L1 performed work that was not purely administrative, claim it.\\n\\n---\\n\\n## Current policy\\n\\n> **Rule:** L1 did not do useful work.\",\n    \"validation_commands\": [\n      \"test -f docs/05-OPERATIONS/L1_ATTRIBUTION_POLICY_v2.md\",\n      \"grep -q 'claim L1 did useful work' docs/05-OPERATIONS/L1_ATTRIBUTION_POLICY_v2.md\"\n    ],\n  \"expected_outcome\": \"File contains a section titled 'Claiming L1 did useful work' with a rule stating L1 performed work that was not purely administrative.\",\n  \"risk_notes\": \"Ensure the new rule doesn't conflict with existing 'no' rules for administrative work.\",\n  \"follow_up_type\": \"needs_review\"\n}",
+    "json_str": "{\n  \"jira_key\": \"ZB-867\",\n  \"problem_summary\": \"Create L1_ATTRIBUTION_POLICY_v2.md with rules for claiming L1 did useful work.\",\n  \"target_files\": [\"docs/05-OPERATIONS/L1_ATTRIBUTION_POLICY_v2.md\"],\n  \"edit_description\": \"Add a section to claim L1 did useful work and remove the current 'no' rule.\",\n  \"patch_commands\": [\n    \"echo '---\\n\\n# L1 ATTRIBUTION POLICY\\n\\n## Claiming L1 did useful work\\n\\n> **Rule:** If L1 performed work that was not purely administrative, claim it.\\n\\n---\\n\\n## Current policy\\n\\n> **Rule:** L1 did not do useful work.\",\n    \"validation_commands\": [\n      \"test -f docs/05-OPERATIONS/L1_ATTRIBUTION_POLICY_v2.md\",\n      \"grep -q 'claim L1 did useful work' docs/05-OPERATIONS/L1_ATTRIBUTION_POLICY_v2.md\"\n    ],\n  \"expected_outcome\": \"File contains a section titled 'Claiming L1 did useful work' with a rule stating L1 performed work that was not purely administrative.\",\n  \"risk_notes\": \"Ensure the new rule doesn't conflict with existing 'no' rules for administrative work.\",\n  \"follow_up_type\": \"needs_review\"\n}",
+    "parsed": null,
+    "parse_error": "Expecting ',' delimiter: line 8 column 26 (char 577)",
+    "elapsed_sec": 29.6,
+    "token_budget": 2048
+  },
+  "quality_score": 0,
+  "quality_issues": [
+    "no_parsed_output"
+  ],
+  "timestamp": "20260328-110438",
+  "attribution": {
+    "produced_by": "l1-failed",
+    "first_pass_model": "Qwen3.5-0.8B-Q4_K_M.gguf"
+  }
+}

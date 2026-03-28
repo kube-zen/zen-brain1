@@ -1,0 +1,45 @@
+{
+  "jira_key": "ZB-856",
+  "contract_version": "v2-patch-oriented",
+  "task": {
+    "summary": "[L1-v2] Create Makefile target 'drain-status'",
+    "description": "Add a Makefile target 'drain-status' that runs python3 scripts/jira-drain.py status.",
+    "target_files": [
+      "Makefile"
+    ],
+    "task_type": "config_change",
+    "validation": "grep -q 'drain-status' Makefile"
+  },
+  "l1_result": {
+    "raw_response": "{\"choices\":[{\"finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"{\\n  \\\"jira_key\\\": \\\"ZB-856\\\",\\n  \\\"problem_summary\\\": \\\"Add 'drain-status' target to Makefile that executes python3 scripts/jira-drain.py status.\\\",\\n  \\\"target_files\\\": [\\\"Makefile\\\"],\\n  \\\"edit_description\\\": \\\"Add 'drain-status' target line to the end of the Makefile to define the required script execution.\\\",\\n  \\\"patch_commands\\\": [\\\"echo \\\\\\\"drain-status: python3 scripts/jira-drain.py status\\\\\\\" >> Makefile\\\"],\\n  \\\"validation_commands\\\": [\\\"grep -q 'drain-status' Makefile\\\"],\\n  \\\"expected_outcome\\\": \\\"Makefile now contains 'drain-status' target for running the status script.\\\",\\n  \\\"risk_notes\\\": \\\"Ensure 'python3' is available in the environment where the script runs.\\\",\\n  \\\"follow_up_type\\\": \\\"needs_review\\\"\\n}\"}}],\"created\":1774710126,\"model\":\"Qwen3.5-0.8B-Q4_K_M.gguf\",\"system_fingerprint\":\"b8467-990e4d969\",\"object\":\"chat.completion\",\"usage\":{\"completion_tokens\":189,\"prompt_tokens\":381,\"total_tokens\":570,\"prompt_tokens_details\":{\"cached_tokens\":0}},\"id\":\"chatcmpl-T0PXsmDa1KmV9f5xhuKnhUBUpiVZaL3k\",\"timings\":{\"cache_n\":0,\"prompt_n\":381,\"prompt_ms\":2576.796,\"prompt_per_token_ms\":6.763244094488188,\"prompt_per_second\":147.85803765606593,\"predicted_n\":189,\"predicted_ms\":6008.821,\"predicted_per_token_ms\":31.792703703703705,\"predicted_per_second\":31.453757733838305}}",
+    "llm_content": "{\n  \"jira_key\": \"ZB-856\",\n  \"problem_summary\": \"Add 'drain-status' target to Makefile that executes python3 scripts/jira-drain.py status.\",\n  \"target_files\": [\"Makefile\"],\n  \"edit_description\": \"Add 'drain-status' target line to the end of the Makefile to define the required script execution.\",\n  \"patch_commands\": [\"echo \\\"drain-status: python3 scripts/jira-drain.py status\\\" >> Makefile\"],\n  \"validation_commands\": [\"grep -q 'drain-status' Makefile\"],\n  \"expected_outcome\": \"Makefile now contains 'drain-status' target for running the status script.\",\n  \"risk_notes\": \"Ensure 'python3' is available in the environment where the script runs.\",\n  \"follow_up_type\": \"needs_review\"\n}",
+    "json_str": "{\n  \"jira_key\": \"ZB-856\",\n  \"problem_summary\": \"Add 'drain-status' target to Makefile that executes python3 scripts/jira-drain.py status.\",\n  \"target_files\": [\"Makefile\"],\n  \"edit_description\": \"Add 'drain-status' target line to the end of the Makefile to define the required script execution.\",\n  \"patch_commands\": [\"echo \\\"drain-status: python3 scripts/jira-drain.py status\\\" >> Makefile\"],\n  \"validation_commands\": [\"grep -q 'drain-status' Makefile\"],\n  \"expected_outcome\": \"Makefile now contains 'drain-status' target for running the status script.\",\n  \"risk_notes\": \"Ensure 'python3' is available in the environment where the script runs.\",\n  \"follow_up_type\": \"needs_review\"\n}",
+    "parsed": {
+      "jira_key": "ZB-856",
+      "problem_summary": "Add 'drain-status' target to Makefile that executes python3 scripts/jira-drain.py status.",
+      "target_files": [
+        "Makefile"
+      ],
+      "edit_description": "Add 'drain-status' target line to the end of the Makefile to define the required script execution.",
+      "patch_commands": [
+        "echo \"drain-status: python3 scripts/jira-drain.py status\" >> Makefile"
+      ],
+      "validation_commands": [
+        "grep -q 'drain-status' Makefile"
+      ],
+      "expected_outcome": "Makefile now contains 'drain-status' target for running the status script.",
+      "risk_notes": "Ensure 'python3' is available in the environment where the script runs.",
+      "follow_up_type": "needs_review"
+    },
+    "parse_error": null,
+    "elapsed_sec": 8.6,
+    "token_budget": 2048
+  },
+  "quality_score": 25,
+  "quality_issues": [],
+  "timestamp": "20260328-110155",
+  "attribution": {
+    "produced_by": "l1",
+    "first_pass_model": "Qwen3.5-0.8B-Q4_K_M.gguf"
+  }
+}

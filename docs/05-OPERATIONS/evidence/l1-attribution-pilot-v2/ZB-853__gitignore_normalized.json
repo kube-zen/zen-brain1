@@ -1,0 +1,26 @@
+{
+  "jira_key": "ZB-853",
+  "contract_version": "v2-patch-oriented",
+  "normalized_output": {
+    "jira_key": "ZB-853",
+    "problem_summary": "Add *.json to .gitignore under docs/05-OPERATIONS/evidence/ to prevent large JSON artifacts from being committed.",
+    "target_files": [
+      ".gitignore"
+    ],
+    "edit_description": "Add 'evidence/05-OPERATIONS/evidence/*.json' to the gitignore list to exclude large JSON files from version control.",
+    "patch_commands": [
+      "echo >> .gitignore",
+      "echo 'evidence/05-OPERATIONS/evidence/*.json' >> .gitignore"
+    ],
+    "validation_commands": [
+      "grep -q 'evidence.*json' .gitignore",
+      "git add .gitignore"
+    ],
+    "expected_outcome": "JSON files in evidence/05-OPERATIONS/evidence/ will be excluded from commit and pushed.",
+    "risk_notes": "Ensure no other JSON files exist in that directory; if they do, they will be committed.",
+    "follow_up_type": "needs_review"
+  },
+  "quality_score": 25,
+  "quality_issues": [],
+  "timestamp": "20260328-110025"
+}

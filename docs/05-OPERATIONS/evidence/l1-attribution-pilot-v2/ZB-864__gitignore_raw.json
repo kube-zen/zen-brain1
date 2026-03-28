@@ -1,0 +1,31 @@
+{
+  "jira_key": "ZB-864",
+  "contract_version": "v2-patch-oriented",
+  "task": {
+    "summary": "[L1-v2] Add .gitignore entry for evidence/*.json artifacts",
+    "description": "Add *.json to .gitignore under docs/05-OPERATIONS/evidence/ to prevent large JSON artifacts from being committed.",
+    "target_files": [
+      ".gitignore"
+    ],
+    "task_type": "config_change",
+    "validation": "grep -q 'evidence.*json' .gitignore"
+  },
+  "l1_result": {
+    "raw_response": "{\"choices\":[{\"finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"{\\n  \\\"jira_key\\\": \\\"ZB-864\\\",\\n  \\\"problem_summary\\\": \\\"Add *.json to .gitignore under docs/05-OPERATIONS/evidence/ to prevent large JSON artifacts from being committed.\\\",\\n  \\\"target_files\\\": [\\\".gitignore\\\"],\\n  \\\"edit_description\\\": \\\"Add the pattern *.json to the documentation section of .gitignore to exclude large JSON files.\\\",\\n  \\\"patch_commands\\\": [\\n    \\\"echo >> .gitignore << 'EOF'\\\"\\n    \\\"  evidence/*.json\\\"\\n    \\\"EOF\\\"\\n  ],\\n  \\\"validation_commands\\\": [\\n    \\\"grep -q 'evidence.*json' .gitignore\\\",\\n    \\\"git add .gitignore\\\"\\n  ],\\n  \\\"expected_outcome\\\": \\\"JSON files in evidence/ will be excluded from git commit.\\\",\\n  \\\"risk_notes\\\": \\\"Ensure no other JSON files exist in docs/05-OPERATIONS/evidence/ that might break this pattern.\\\",\\n  \\\"follow_up_type\\\": \\\"needs_review\\\"\\n}\"}}],\"created\":1774710273,\"model\":\"Qwen3.5-0.8B-Q4_K_M.gguf\",\"system_fingerprint\":\"b8467-990e4d969\",\"object\":\"chat.completion\",\"usage\":{\"completion_tokens\":221,\"prompt_tokens\":389,\"total_tokens\":610,\"prompt_tokens_details\":{\"cached_tokens\":0}},\"id\":\"chatcmpl-yg25eIOAq4pikD2Wes4kCx6Eh6op0Z3C\",\"timings\":{\"cache_n\":0,\"prompt_n\":389,\"prompt_ms\":5844.107,\"prompt_per_token_ms\":15.023411311053984,\"prompt_per_second\":66.56277853913352,\"predicted_n\":221,\"predicted_ms\":17493.324,\"predicted_per_token_ms\":79.15531221719458,\"predicted_per_second\":12.633390886717699}}",
+    "llm_content": "{\n  \"jira_key\": \"ZB-864\",\n  \"problem_summary\": \"Add *.json to .gitignore under docs/05-OPERATIONS/evidence/ to prevent large JSON artifacts from being committed.\",\n  \"target_files\": [\".gitignore\"],\n  \"edit_description\": \"Add the pattern *.json to the documentation section of .gitignore to exclude large JSON files.\",\n  \"patch_commands\": [\n    \"echo >> .gitignore << 'EOF'\"\n    \"  evidence/*.json\"\n    \"EOF\"\n  ],\n  \"validation_commands\": [\n    \"grep -q 'evidence.*json' .gitignore\",\n    \"git add .gitignore\"\n  ],\n  \"expected_outcome\": \"JSON files in evidence/ will be excluded from git commit.\",\n  \"risk_notes\": \"Ensure no other JSON files exist in docs/05-OPERATIONS/evidence/ that might break this pattern.\",\n  \"follow_up_type\": \"needs_review\"\n}",
+    "json_str": "{\n  \"jira_key\": \"ZB-864\",\n  \"problem_summary\": \"Add *.json to .gitignore under docs/05-OPERATIONS/evidence/ to prevent large JSON artifacts from being committed.\",\n  \"target_files\": [\".gitignore\"],\n  \"edit_description\": \"Add the pattern *.json to the documentation section of .gitignore to exclude large JSON files.\",\n  \"patch_commands\": [\n    \"echo >> .gitignore << 'EOF'\"\n    \"  evidence/*.json\"\n    \"EOF\"\n  ],\n  \"validation_commands\": [\n    \"grep -q 'evidence.*json' .gitignore\",\n    \"git add .gitignore\"\n  ],\n  \"expected_outcome\": \"JSON files in evidence/ will be excluded from git commit.\",\n  \"risk_notes\": \"Ensure no other JSON files exist in docs/05-OPERATIONS/evidence/ that might break this pattern.\",\n  \"follow_up_type\": \"needs_review\"\n}",
+    "parsed": null,
+    "parse_error": "Expecting ',' delimiter: line 8 column 5 (char 378)",
+    "elapsed_sec": 23.4,
+    "token_budget": 2048
+  },
+  "quality_score": 0,
+  "quality_issues": [
+    "no_parsed_output"
+  ],
+  "timestamp": "20260328-110407",
+  "attribution": {
+    "produced_by": "l1-failed",
+    "first_pass_model": "Qwen3.5-0.8B-Q4_K_M.gguf"
+  }
+}

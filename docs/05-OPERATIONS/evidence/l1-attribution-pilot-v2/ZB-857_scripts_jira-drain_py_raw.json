@@ -1,0 +1,47 @@
+{
+  "jira_key": "ZB-857",
+  "contract_version": "v2-patch-oriented",
+  "task": {
+    "summary": "[L1-v2] Add --timeout flag to jira-drain.py",
+    "description": "Add a --timeout CLI flag to jira-drain.py that sets curl timeout. Default 30s.",
+    "target_files": [
+      "scripts/jira-drain.py"
+    ],
+    "task_type": "code_edit",
+    "validation": "python3 -c 'import ast; ast.parse(open(\"scripts/jira-drain.py\").read())'"
+  },
+  "l1_result": {
+    "raw_response": "{\"choices\":[{\"finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"{\\n  \\\"jira_key\\\": \\\"ZB-857\\\",\\n  \\\"problem_summary\\\": \\\"Add --timeout CLI flag to jira-drain.py that sets curl timeout. Default 30s.\\\",\\n  \\\"target_files\\\": [\\\"scripts/jira-drain.py\\\"],\\n  \\\"edit_description\\\": \\\"Add --timeout flag to set curl timeout to 30s by default, using sed to insert the flag and default value.\\\",\\n  \\\"patch_commands\\\": [\\n    \\\"sed -i 's/--timeout/--timeout 30s/' scripts/jira-drain.py\\\",\\n    \\\"sed -i 's/--timeout/--timeout 30s/' scripts/jira-drain.py\\\"\\n  ],\\n  \\\"validation_commands\\\": [\\n    \\\"python3 -c 'import ast; ast.parse(open(\\\\\\\"scripts/jira-drain.py\\\\\\\").read())'\\\",\\n    \\\"python3 -c 'import sys; sys.argv = [\\\\\\\"python3\\\\\\\", \\\\\\\"scripts/jira-drain.py\\\\\\\"]' scripts/jira-drain.py\\\"\\n  ],\\n  \\\"expected_outcome\\\": \\\"jira-drain.py accepts --timeout 30s as default and accepts custom timeout via CLI.\\\",\\n  \\\"risk_notes\\\": \\\"Ensure curl is installed and timeout command is available in Python environment.\\\",\\n  \\\"follow_up_type\\\": \\\"needs_review\\\"\\n}\"}}],\"created\":1774710141,\"model\":\"Qwen3.5-0.8B-Q4_K_M.gguf\",\"system_fingerprint\":\"b8467-990e4d969\",\"object\":\"chat.completion\",\"usage\":{\"completion_tokens\":284,\"prompt_tokens\":398,\"total_tokens\":682,\"prompt_tokens_details\":{\"cached_tokens\":0}},\"id\":\"chatcmpl-oRtb8rHHcvQMvWnadBLjQ8vFQTRNSzF9\",\"timings\":{\"cache_n\":0,\"prompt_n\":398,\"prompt_ms\":2811.087,\"prompt_per_token_ms\":7.063032663316583,\"prompt_per_second\":141.58224202950672,\"predicted_n\":284,\"predicted_ms\":9399.003,\"predicted_per_token_ms\":33.095080985915494,\"predicted_per_second\":30.215970779028368}}",
+    "llm_content": "{\n  \"jira_key\": \"ZB-857\",\n  \"problem_summary\": \"Add --timeout CLI flag to jira-drain.py that sets curl timeout. Default 30s.\",\n  \"target_files\": [\"scripts/jira-drain.py\"],\n  \"edit_description\": \"Add --timeout flag to set curl timeout to 30s by default, using sed to insert the flag and default value.\",\n  \"patch_commands\": [\n    \"sed -i 's/--timeout/--timeout 30s/' scripts/jira-drain.py\",\n    \"sed -i 's/--timeout/--timeout 30s/' scripts/jira-drain.py\"\n  ],\n  \"validation_commands\": [\n    \"python3 -c 'import ast; ast.parse(open(\\\"scripts/jira-drain.py\\\").read())'\",\n    \"python3 -c 'import sys; sys.argv = [\\\"python3\\\", \\\"scripts/jira-drain.py\\\"]' scripts/jira-drain.py\"\n  ],\n  \"expected_outcome\": \"jira-drain.py accepts --timeout 30s as default and accepts custom timeout via CLI.\",\n  \"risk_notes\": \"Ensure curl is installed and timeout command is available in Python environment.\",\n  \"follow_up_type\": \"needs_review\"\n}",
+    "json_str": "{\n  \"jira_key\": \"ZB-857\",\n  \"problem_summary\": \"Add --timeout CLI flag to jira-drain.py that sets curl timeout. Default 30s.\",\n  \"target_files\": [\"scripts/jira-drain.py\"],\n  \"edit_description\": \"Add --timeout flag to set curl timeout to 30s by default, using sed to insert the flag and default value.\",\n  \"patch_commands\": [\n    \"sed -i 's/--timeout/--timeout 30s/' scripts/jira-drain.py\",\n    \"sed -i 's/--timeout/--timeout 30s/' scripts/jira-drain.py\"\n  ],\n  \"validation_commands\": [\n    \"python3 -c 'import ast; ast.parse(open(\\\"scripts/jira-drain.py\\\").read())'\",\n    \"python3 -c 'import sys; sys.argv = [\\\"python3\\\", \\\"scripts/jira-drain.py\\\"]' scripts/jira-drain.py\"\n  ],\n  \"expected_outcome\": \"jira-drain.py accepts --timeout 30s as default and accepts custom timeout via CLI.\",\n  \"risk_notes\": \"Ensure curl is installed and timeout command is available in Python environment.\",\n  \"follow_up_type\": \"needs_review\"\n}",
+    "parsed": {
+      "jira_key": "ZB-857",
+      "problem_summary": "Add --timeout CLI flag to jira-drain.py that sets curl timeout. Default 30s.",
+      "target_files": [
+        "scripts/jira-drain.py"
+      ],
+      "edit_description": "Add --timeout flag to set curl timeout to 30s by default, using sed to insert the flag and default value.",
+      "patch_commands": [
+        "sed -i 's/--timeout/--timeout 30s/' scripts/jira-drain.py",
+        "sed -i 's/--timeout/--timeout 30s/' scripts/jira-drain.py"
+      ],
+      "validation_commands": [
+        "python3 -c 'import ast; ast.parse(open(\"scripts/jira-drain.py\").read())'",
+        "python3 -c 'import sys; sys.argv = [\"python3\", \"scripts/jira-drain.py\"]' scripts/jira-drain.py"
+      ],
+      "expected_outcome": "jira-drain.py accepts --timeout 30s as default and accepts custom timeout via CLI.",
+      "risk_notes": "Ensure curl is installed and timeout command is available in Python environment.",
+      "follow_up_type": "needs_review"
+    },
+    "parse_error": null,
+    "elapsed_sec": 12.3,
+    "token_budget": 2048
+  },
+  "quality_score": 25,
+  "quality_issues": [],
+  "timestamp": "20260328-110207",
+  "attribution": {
+    "produced_by": "l1",
+    "first_pass_model": "Qwen3.5-0.8B-Q4_K_M.gguf"
+  }
+}

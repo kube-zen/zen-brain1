@@ -1,0 +1,45 @@
+{
+  "jira_key": "ZB-868",
+  "contract_version": "v2-patch-oriented",
+  "task": {
+    "summary": "[L1-v2] Add doc comment to RemediationPacket struct",
+    "description": "Add a Go doc comment above the RemediationPacket struct in cmd/remediation-worker/main.go.",
+    "target_files": [
+      "cmd/remediation-worker/main.go"
+    ],
+    "task_type": "doc_update",
+    "validation": "grep -q 'RemediationPacket' cmd/remediation-worker/main.go"
+  },
+  "l1_result": {
+    "raw_response": "{\"choices\":[{\"finish_reason\":\"stop\",\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"{\\n  \\\"jira_key\\\": \\\"ZB-868\\\",\\n  \\\"problem_summary\\\": \\\"Add Go doc comment above RemediationPacket struct in cmd/remediation-worker/main.go\\\",\\n  \\\"target_files\\\": [\\n    \\\"cmd/remediation-worker/main.go\\\"\\n  ],\\n  \\\"edit_description\\\": \\\"Add 'package main' and 'package github.com/...' doc comments above the struct block to document the package and its imports.\\\",\\n  \\\"patch_commands\\\": [\\n    \\\"sed -i '1,/^package main/ { /^package main/ !d; /^package github.com/.../.../main\\\\\\\\.go$/ { /^package github.com/.../.../main\\\\\\\\.go$/ !d; /^package main/ { /^package main/ !d; /^package github.com/.../.../main\\\\\\\\.go$/ { /^package main/ !d; /^package github.com/.../.../main\\\\\\\\.go$/ } } }' cmd/remediation-worker/main.go\\\",\\n    \\\"echo >> cmd/remediation-worker/main.go\\\"\\n  ],\\n  \\\"expected_outcome\\\": \\\"Go doc comments added above the struct block, documenting the package and imports.\\\",\\n  \\\"risk_notes\\\": \\\"Ensure no syntax errors occur during sed substitution.\\\",\\n  \\\"follow_up_type\\\": \\\"needs_review\\\"\\n}\"}}],\"created\":1774710316,\"model\":\"Qwen3.5-0.8B-Q4_K_M.gguf\",\"system_fingerprint\":\"b8467-990e4d969\",\"object\":\"chat.completion\",\"usage\":{\"completion_tokens\":280,\"prompt_tokens\":390,\"total_tokens\":670,\"prompt_tokens_details\":{\"cached_tokens\":0}},\"id\":\"chatcmpl-yvqvNAuY44FswJJwfAvRK5D7icyPOAiq\",\"timings\":{\"cache_n\":0,\"prompt_n\":390,\"prompt_ms\":2943.131,\"prompt_per_token_ms\":7.546489743589743,\"prompt_per_second\":132.51194051505013,\"predicted_n\":280,\"predicted_ms\":18118.437,\"predicted_per_token_ms\":64.70870357142857,\"predicted_per_second\":15.453871655706283}}",
+    "llm_content": "{\n  \"jira_key\": \"ZB-868\",\n  \"problem_summary\": \"Add Go doc comment above RemediationPacket struct in cmd/remediation-worker/main.go\",\n  \"target_files\": [\n    \"cmd/remediation-worker/main.go\"\n  ],\n  \"edit_description\": \"Add 'package main' and 'package github.com/...' doc comments above the struct block to document the package and its imports.\",\n  \"patch_commands\": [\n    \"sed -i '1,/^package main/ { /^package main/ !d; /^package github.com/.../.../main\\\\.go$/ { /^package github.com/.../.../main\\\\.go$/ !d; /^package main/ { /^package main/ !d; /^package github.com/.../.../main\\\\.go$/ { /^package main/ !d; /^package github.com/.../.../main\\\\.go$/ } } }' cmd/remediation-worker/main.go\",\n    \"echo >> cmd/remediation-worker/main.go\"\n  ],\n  \"expected_outcome\": \"Go doc comments added above the struct block, documenting the package and imports.\",\n  \"risk_notes\": \"Ensure no syntax errors occur during sed substitution.\",\n  \"follow_up_type\": \"needs_review\"\n}",
+    "json_str": "{\n  \"jira_key\": \"ZB-868\",\n  \"problem_summary\": \"Add Go doc comment above RemediationPacket struct in cmd/remediation-worker/main.go\",\n  \"target_files\": [\n    \"cmd/remediation-worker/main.go\"\n  ],\n  \"edit_description\": \"Add 'package main' and 'package github.com/...' doc comments above the struct block to document the package and its imports.\",\n  \"patch_commands\": [\n    \"sed -i '1,/^package main/ { /^package main/ !d; /^package github.com/.../.../main\\\\.go$/ { /^package github.com/.../.../main\\\\.go$/ !d; /^package main/ { /^package main/ !d; /^package github.com/.../.../main\\\\.go$/ { /^package main/ !d; /^package github.com/.../.../main\\\\.go$/ } } }' cmd/remediation-worker/main.go\",\n    \"echo >> cmd/remediation-worker/main.go\"\n  ],\n  \"expected_outcome\": \"Go doc comments added above the struct block, documenting the package and imports.\",\n  \"risk_notes\": \"Ensure no syntax errors occur during sed substitution.\",\n  \"follow_up_type\": \"needs_review\"\n}",
+    "parsed": {
+      "jira_key": "ZB-868",
+      "problem_summary": "Add Go doc comment above RemediationPacket struct in cmd/remediation-worker/main.go",
+      "target_files": [
+        "cmd/remediation-worker/main.go"
+      ],
+      "edit_description": "Add 'package main' and 'package github.com/...' doc comments above the struct block to document the package and its imports.",
+      "patch_commands": [
+        "sed -i '1,/^package main/ { /^package main/ !d; /^package github.com/.../.../main\\.go$/ { /^package github.com/.../.../main\\.go$/ !d; /^package main/ { /^package main/ !d; /^package github.com/.../.../main\\.go$/ { /^package main/ !d; /^package github.com/.../.../main\\.go$/ } } }' cmd/remediation-worker/main.go",
+        "echo >> cmd/remediation-worker/main.go"
+      ],
+      "expected_outcome": "Go doc comments added above the struct block, documenting the package and imports.",
+      "risk_notes": "Ensure no syntax errors occur during sed substitution.",
+      "follow_up_type": "needs_review"
+    },
+    "parse_error": null,
+    "elapsed_sec": 21.3,
+    "token_budget": 2048
+  },
+  "quality_score": 20,
+  "quality_issues": [
+    "no_validation_commands"
+  ],
+  "timestamp": "20260328-110453",
+  "attribution": {
+    "produced_by": "l1",
+    "first_pass_model": "Qwen3.5-0.8B-Q4_K_M.gguf"
+  }
+}
