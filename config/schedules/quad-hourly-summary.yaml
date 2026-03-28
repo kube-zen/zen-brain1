@@ -3,7 +3,5 @@ name: quad-hourly-summary
 cadence: quad-hourly
 description: Comprehensive health scan every 4 hours
 tasks: [dead_code, tech_debt, package_hotspots, test_gaps, config_drift, roadmap]
-# Per-schedule worker override ( default: 5 if unset
+# Per-schedule worker override (default: 5 if unset)
 workers: 5
-workers: 5  # 6-task batch — same as hourly until evidence supports higher
-
