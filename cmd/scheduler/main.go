@@ -11,9 +11,12 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"gopkg.in/yaml.v3"
 )
 
 // zen-brain1 internal recurring scheduler.
@@ -45,6 +48,9 @@ type Schedule struct {
 	Tasks       []string `yaml:"tasks" json:"tasks"`
 	Cadence     string   `yaml:"cadence" json:"cadence"`     // "hourly", "quad-hourly", "daily"
 	Description string   `yaml:"description" json:"description"`
+	// Workers overrides the default concurrency for this schedule.
+	// 0 or unset = use default (5). Set explicitly per schedule for evidence-based tuning.
+	Workers     int      `yaml:"workers" json:"workers"`
 }
 
 // ScheduleState tracks when each schedule last ran.
@@ -162,7 +168,7 @@ func loadSchedules(dir string) ([]Schedule, error) {
 			continue
 		}
 		var s Schedule
-		if err := yamlUnmarshal(data, &s); err != nil {
+		if err := yaml.Unmarshal(data, &s); err != nil {
 			log.Printf("[SCHED] WARNING: cannot parse %s: %v", e.Name(), err)
 			continue
 		}
@@ -215,13 +221,28 @@ func runSchedule(s Schedule, stateDir, artifactRoot, batchBin string) {
 		tasks += t
 	}
 
+	// Per-schedule WORKERS override (Phase B).
+	// If schedule sets Workers > 0, use that value. Otherwise default to 5.
+	defaultWorkers := 5
+	if envW := os.Getenv("WORKERS_OVERRIDE"); envW != "" {
+		if n, err := strconv.Atoi(envW); err == nil && n > 0 {
+			defaultWorkers = n
+		}
+	}
+	effectiveWorkers := defaultWorkers
+	if s.Workers > 0 {
+		effectiveWorkers = s.Workers
+	}
+	log.Printf("[SCHED] %s: effective WORKERS=%d (schedule=%d, default=%d)",
+		s.Name, effectiveWorkers, s.Workers, defaultWorkers)
+
 	cmd := exec.Command(batchBin)
 	cmd.Env = append(os.Environ(),
 		fmt.Sprintf("BATCH_NAME=%s", s.Name),
 		fmt.Sprintf("OUTPUT_ROOT=%s", artifactRoot),
 		fmt.Sprintf("TASKS=%s", tasks),
 		fmt.Sprintf("TIMEOUT=300"),
-		fmt.Sprintf("WORKERS=5"), // Experiment 5→7 showed no throughput gain for ≤3 task batches; keep 5 for hourly, test 7 for daily-sweep separately
+		fmt.Sprintf("WORKERS=%d", effectiveWorkers),
 	)
 
 	output, err := cmd.CombinedOutput()
