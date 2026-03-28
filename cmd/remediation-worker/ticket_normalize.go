@@ -140,6 +140,35 @@ func buildNormalizedPayload(ticket RemediationTicket, result *RemediationOutput,
 	if payload.RoutingRecommendation == "" {
 		payload.RoutingRecommendation = "manual_review"
 	}
+	// Extract SR&ED/IRAP from ticket labels if not already set
+	if payload.SREDUncertainty == "" {
+		for _, l := range ticket.Labels {
+			if strings.HasPrefix(l, "sred:") {
+				payload.SREDUncertainty = strings.TrimPrefix(l, "sred:")
+				break
+			}
+		}
+	}
+	if payload.IRAPWorkPackage == "" {
+		for _, l := range ticket.Labels {
+			if strings.HasPrefix(l, "irap:") {
+				payload.IRAPWorkPackage = strings.TrimPrefix(l, "irap:")
+				break
+			}
+		}
+	}
+	// If L1 returned wrong target (e.g. "main.go"), use the packet's target files instead
+	if payload.TargetFiles == "" || payload.TargetFiles == "main.go" {
+		if packet.TargetFiles != "" && packet.TargetFiles != "no specific target files identified" {
+			payload.TargetFiles = packet.TargetFiles
+		}
+	}
+	// If L1 didn't provide validation, use the packet's validation commands
+	if payload.Validation == "" {
+		if packet.ValidationCmds != "" {
+			payload.Validation = packet.ValidationCmds
+		}
+	}
 
 	return payload
 }
