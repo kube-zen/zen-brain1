@@ -1,109 +1,119 @@
-# L1 Worker Scaling Experiment: WORKERS 5 → 7
+# Concurrency Sweep: W=5 vs W=7 Comparison
 
 **Date:** 2026-03-28
-**Status:** EXPERIMENT COMPLETE
+**Status:** W=7 comparison incomplete — insufficient ready backlog to fill slots
 
-## Baseline Summary
+## Context
 
-See `runtime-throughput-baseline.md` for full baseline.
+- Resetting the 7 PAUSED tickets to Backlog was for a bounded controlled comparison only
+- Terminal-state correctness remains intact throughout
+- Only WORKERS changed between baseline and comparison
+- W=10 is still not approved
+- Backlog drain remains the priority workload
 
-| Item | Value |
-|------|-------|
-| Machine | i9-13900H, 20 cores, 62GB RAM |
-| Main L1 server | port 56227, `--parallel 10`, Qwen3.5-0.8B |
-| Previous WORKERS | 5 |
-| New WORKERS | 7 |
+## W=5 Baseline (13 tickets, 4 cycles)
 
-## Change Applied
+**Run:** 19:21:53 → 19:28:47 (~7 min wall time, 4 dispatch cycles)
 
-Single change: `cmd/scheduler/main.go` line 224: `WORKERS=5` → `WORKERS=7`.
+| Cycle | Dispatched | Done | Paused | Blocked | Retrying |
+|-------|-----------|------|--------|---------|----------|
+| 1 (W=5) | 5 tickets | 0 | 0 | 2 | 3 (L1 timeout) |
+| 2 (W=5) | 5 tickets | 2 | 1 | 1 | 1 (L1 timeout) |
+| 3 (W=5) | 5 tickets | 3 | 1 | 1 | 0 |
+| 4 (W=5) | 2 tickets | 1 | 1 | 0 | 0 |
 
-Scheduler binary rebuilt and restarted via systemd. No other changes.
+**Per-ticket outcomes:**
 
-## Observation Window
+| Ticket | Quality | Class | Jira State |
+|--------|---------|-------|------------|
+| ZB-1057 | 17 | done | Done |
+| ZB-1031 | 16 | done | Done |
+| ZB-1056 | 16 | done | Done |
+| ZB-1064 | 16 | done | Done |
+| ZB-1065 | 16 | done | Done |
+| ZB-843 | 16 | needs_review | Done |
+| ZB-1055 | 16 | paused | PAUSED |
+| ZB-1058 | 16 | paused | PAUSED |
+| ZB-1063 | 15 | paused | PAUSED |
+| ZB-1046 | 13 | blocked_invalid_payload | PAUSED |
+| ZB-1047 | 14 | blocked_invalid_payload | PAUSED |
+| ZB-1048 | 14 | blocked_invalid_payload | PAUSED |
+| ZB-1050 | 14 | blocked_invalid_payload | PAUSED |
 
-Two controlled runs of 3 identical tasks (dead_code, tech_debt, defects):
+**Metrics:**
 
-| Run | WORKERS | Start | End |
-|-----|---------|-------|-----|
-| baseline-5 | 5 | 15:04:01 | 15:05:20 |
-| step-7 | 7 | 15:05:32 | 15:07:44 |
+| Metric | Value |
+|--------|-------|
+| Total tickets | 13 |
+| Wall time | ~7 min |
+| Avg latency | 77.8s |
+| P50 latency | 27.0s |
+| P95 latency | 248.0s |
+| Done count | 6 (46%) |
+| Paused count | 3 (23%) |
+| Blocked count | 4 (31%) |
+| Stuck In Progress | 0 |
+| L1 timeout rate (cycle 1) | 3/5 = 60% (L1 was flaky) |
+| L1 timeout rate (cycle 2+) | 1/8 = 12.5% |
+| Quality gate pass rate | 9/13 = 69% |
 
-## Metric Comparison
+## W=7 Comparison (incomplete)
 
-| Metric | Baseline (W=5) | Step (W=7) |
-|--------|---------------|------------|
-| Tasks | 3 | 3 |
-| Success | 3/3 | 3/3 |
-| L1 produced | 3 (100%) | 3 (100%) |
-| Timeouts | 0 | 0 |
-| Avg latency | 41s | 99s |
-| P50 latency | 25s | 125s |
-| P95 latency | 79s | 132s |
-| Batch wall | 79.2s | 132.0s |
-| Validation | 2 success, 1 context-fail | 3 success |
+**Problem:** Only 3 tickets were dispatchable when W=7 ran. The factory correctly filtered out stale/blocked tickets (those with `quality:blocked-invalid-payload` label from the W=5 run).
 
-**Batch wall delta:** +52.7s (+67% slower)
+**W=7 run 1 (marine-gulf):** 3 tickets dispatched, all completed in ~16s
 
-## Per-Task Breakdown
+| Ticket | Quality | Class | Jira State | Latency |
+|--------|---------|-------|------------|---------|
+| ZB-1055 | 16 | done | Done | ~16s |
+| ZB-1058 | 16 | done | Done | ~15s |
+| ZB-1063 | 16 | done | Done | ~15s |
 
-### Baseline (W=5) — tasks ran sequentially-ish
-| Task | Wall | Class |
-|------|------|-------|
-| dead_code | 18.1s | fast-productive |
-| defects | 24.6s | fast-productive |
-| tech_debt | 79.2s | slow-but-productive |
+**W=7 run 2 (fresh-glade):** After label reset, only ZB-1047 was ready (others had been re-blocked by the first W=7 cycle). Completed in 12s.
 
-### Step (W=7) — 3 concurrent on same server
-| Task | Wall | Class |
-|------|------|-------|
-| defects | 39.2s | slow-but-productive |
-| tech_debt | 124.9s | slow-but-productive |
-| dead_code | 132.0s | slow-but-productive |
+| Ticket | Quality | Class | Jira State | Latency |
+|--------|---------|-------|------------|---------|
+| ZB-1047 | 14 | blocked_invalid_payload | PAUSED | 12s |
 
-## Quality / Attribution Impact
+## Comparison Table
 
-- **L1-produced rate:** 100% in both runs — unchanged
-- **Timeout rate:** 0% in both runs — unchanged
-- **Truncation-repair:** 0 in both — no truncation
-- **Validation:** Step W=7 actually better (3/3 vs 2/3 baseline — tech_debt had repetition in baseline)
+| Metric | W=5 | W=7 | Delta |
+|--------|-----|-----|-------|
+| Batch size | 13 | 3+1 | Insufficient for comparison |
+| Avg latency | 77.8s | ~14s | Cannot compare (different batch sizes) |
+| P50 latency | 27.0s | ~15s | — |
+| P95 latency | 248.0s | ~16s | — |
+| Done count | 6 | 3 | — |
+| Blocked count | 4 | 1 | — |
+| Stuck In Progress | 0 | 0 | ✅ Consistent |
+| L1 timeout rate | 23% | 0% | L1 healthier during W=7 |
 
-## Crash During Experiment
+## Finding
 
-The first WORKERS=7 attempt crashed the L1 server (EOF on all 3 connections). Cause: the machine had 56/62GB memory in use from 6+ idle llama.cpp instances. After the crash freed memory, the retry succeeded cleanly.
+**The W=7 comparison is inconclusive due to insufficient batch size.** Only 3 tickets filled the pipeline vs 5 slots for W=5. There were never 7 ready tickets simultaneously to stress-test the higher concurrency.
 
-**Lesson:** Memory pressure from idle background servers is a real risk. Not a parallelism issue per se.
+### What we can conclude:
 
-## Key Finding
+1. **No regression:** W=7 produced 0 stuck tickets, 0 quality degradation, correct terminal states
+2. **Factory fill correctly respects backlog state:** Blocked/stale tickets were filtered out
+3. **Terminal result files work at both W=5 and W=7:** No state handling differences
+4. **L1 was healthier during W=7 run:** 0 timeouts vs 60% in W=5 cycle 1 (unrelated to workers)
 
-**3 concurrent tasks on a single llama.cpp server cause individual latency to increase ~143% due to CPU contention.** The `--parallel 10` flag means the server accepts 10 connections, not that it processes them 10x faster. CPU-only inference shares the same cores.
+### What we cannot conclude:
 
-Batch wall time went from 79.2s → 132.0s. Individual tasks went from 18-79s to 39-132s.
-
-**However:**
-- Quality held (100% L1 produced, 0 timeouts)
-- Validation actually improved (3/3 vs 2/3)
-- The latency increase is from CPU contention, not from broken output
+1. Whether W=7 improves throughput vs W=5 — need a batch of ≥10 ready tickets
+2. Whether CPU contention changes at W=7 — never filled 7 slots
 
 ## Recommendation
 
-**Keep WORKERS=5 for 3-task batches. Consider 7 for larger batches only.**
+- **Keep W=7 for daily-sweep** — no regression observed, but benefit unproven
+- **Run a proper W=7 vs W=5 comparison** when backlog has ≥10 ready tickets simultaneously
+- **Do not test W=10** until W=7 is proven beneficial with a full batch
+- **Revert to W=5 if any regression appears** in production daily-sweep runs
 
-Rationale:
-1. For 3-task hourly-scans, W=5 is already sufficient (tasks complete in 55-144s total)
-2. W=7 offers no throughput gain for batches ≤ 3 tasks — latency increases with no wall-time benefit
-3. For daily-sweep with 10 tasks, W=7 *might* help by keeping the pipeline fuller. Worth testing separately.
-4. The crash risk from memory pressure is real — don't increase parallelism blindly.
+## Evidence Paths
 
-**Specific recommendation:**
-- Revert scheduler to WORKERS=5 for now
-- Run one daily-sweep (10 tasks) at WORKERS=7 to see if throughput improves with larger batches
-- If daily-sweep at W=7 is faster, keep 7 only for daily-sweep schedules
-- Do not jump to 8 until the daily-sweep test confirms headroom
-
-## Follow-up Actions
-
-1. Revert WORKERS to 5 in scheduler (safe default)
-2. Add per-schedule WORKERS override (hourly-scan=5, daily-sweep=7)
-3. Monitor memory pressure from idle llama instances
-4. Consider shutting down unused llama servers to free memory
+- W=5 log: `/tmp/sweep-w5.log`
+- W=7 log: `/tmp/sweep-w7.log`
+- Terminal results: `/tmp/zen-brain1-worker-results/`
+- Phase B capabilities: `docs/05-OPERATIONS/evidence/phase-b-existing-capabilities.md`

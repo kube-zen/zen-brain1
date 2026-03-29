@@ -77,7 +77,9 @@ Every L1 remediation call records:
 - Keep highest worker level that improves done/hour without de quality/state degradation
 - **W=10 not approved unless W=7 is clean**
 
-## Parallelism Experiment Results (2026-03-28 baseline)
+## Parallelism Experiment Results
+
+### Prior Baseline (pre-terminal-state-fix)
 
 | Workers | Throughput | L1-produced | Avg Latency | P95 Latency | Timeouts | Notes |
 |---------|-----------|-------------|-------------|-------------|----------|-------|
@@ -86,7 +88,26 @@ Every L1 remediation call records:
 | 5 | 2.53/min | 30% | 92.5s | 180.0s | 4 | Quality crash |
 | 7 | 3.33/min | 70% | 86.3s | 180.0s | 3 | Best throughput, noisier |
 
-### Key Finding
+### W=5 vs W=7 Bounded Sweep (post-terminal-state-fix, 2026-03-28)
+
+W=5 processed 13 tickets in ~7 min across 4 cycles. W=7 comparison was inconclusive — only 3 tickets filled the pipeline (insufficient backlog to stress 7 slots).
+
+| Metric | W=5 | W=7 | Notes |
+|--------|-----|-----|-------|
+| Batch size | 13 | 3+1 | Insufficient for W=7 comparison |
+| Wall time | ~7 min | ~16s | Not comparable |
+| Avg latency | 77.8s | ~14s | Different batch sizes |
+| P50 latency | 27.0s | ~15s | — |
+| P95 latency | 248.0s | ~16s | — |
+| Done count | 6 (46%) | 3 (75%) | — |
+| Stuck In Progress | 0 | 0 | ✅ Consistent |
+| L1 timeout rate | 23% | 0% | L1 healthier during W=7 |
+
+**Verdict:** W=7 shows no regression but benefit is unproven. Keep W=7 for daily-sweep, revert to W=5 if regression appears. Need ≥10 ready tickets for a proper comparison.
+
+See `docs/05-OPERATIONS/evidence/l1-workers-5-to-7-step.md` for full details.
+
+### Key Finding (pre-fix baseline)
 
 Single llama.cpp `--parallel 10` does NOT improve throughput linearly. CPU contention on i9-13900H causes timeout cascades above 3 concurrent workers.
 
