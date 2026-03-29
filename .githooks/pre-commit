@@ -158,6 +158,14 @@ if [ -d "scripts/ci" ]; then
     for gate in scripts/ci/*_gate.py; do
         if [[ -f "$gate" ]]; then
             gate_name=$(basename "$gate")
+            # Skip gates that require external deps (shared module, Redis, etc.)
+            # These run in CI, not in pre-commit
+            case "$gate_name" in
+                vertical_slice_contract_gate.py)
+                    echo -e "  ${YELLOW}⏭️  $gate_name skipped (integration tests — runs in CI)${NC}"
+                    continue
+                    ;;
+            esac
             if python3 "$gate" 2>/dev/null; then
                 echo -e "  ${GREEN}✅ $gate_name${NC}"
             else
