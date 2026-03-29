@@ -1,6 +1,6 @@
 # Factory Fill Dashboard
 
-Updated: 2026-03-29T13:50:45-04:00
+Updated: 2026-03-29T13:53:24-04:00
 
 | Metric | Value |
 |--------|-------|
@@ -8,10 +8,10 @@ Updated: 2026-03-29T13:50:45-04:00
 | Backlog (total) | 0 |
 | Retrying | 0 |
 | In Progress | 0 |
-| Safe Target | 7 |
+| Safe Target | 5 |
 | Actual Active | 0 |
-| Done this run | 17 |
-| Failed this run | 20 |
+| Done this run | 20 |
+| Failed this run | 23 |
 
 ✅ Factory utilization OK
 
