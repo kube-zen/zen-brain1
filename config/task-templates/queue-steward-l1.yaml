@@ -1,11 +1,17 @@
 # Queue Steward L1 Template
 #
+# DEPRECATED: This template uses the legacy schema.
+# See config/task-templates/v2/queue-steward-l1.yaml for the v1.0 schema version.
+#
 # Factory-floor queue supervisor role.
 # The L1 model inspects queue state and produces structured recommendations.
 # The queue-steward binary then executes safe actions based on those recommendations.
 #
 # GLM-5 stays in supervisor/policy role — it does NOT do routine queue care.
 # Underfilled factory with ready backlog is treated as a bug.
+#
+# Local inference: llama.cpp with enable_thinking=false (certified path).
+# Ollama is NOT a supported local path.
 
 name: queue-steward-l1
 display_name: Queue Steward (L1 Factory Floor)
