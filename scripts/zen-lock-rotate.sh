@@ -42,7 +42,7 @@ JIRA_PROJECT_KEY="ZB"
 ENVFILE_SYSTEMD="/etc/zen-brain1/jira.env"          # scheduler override
 ENVFILE_DEFAULT="/etc/default/zen-brain"              # legacy env
 DROPIN_JIRA="$HOME/.config/systemd/user/zen-brain.service.d/jira.conf"  # k3d service dropin
-ZENLOCK_MANIFEST="$HOME/zen/zen-brain1/deploy/zen-lock/jira-credentials.zenlock.yaml"
+ZENLOCK_MANIFEST="$HOME/zen/keys/zen-brain/jira-credentials.zenlock.yaml"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -185,7 +185,7 @@ fi
 echo -e "${YELLOW}=== PHASE 4: Updating k8s ZenLock manifest ===${NC}"
 
 ZB1_DIR="$HOME/zen/zen-brain1"
-OUT_MANIFEST="$ZB1_DIR/deploy/zen-lock/jira-credentials.zenlock.yaml"
+OUT_MANIFEST="$KEY_DIR/jira-credentials.zenlock.yaml"
 
 encrypt_b64() {
     printf '%s' "$1" | age -r "$AGE_RECIPIENT" | base64 -w0
