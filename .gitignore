@@ -1,26 +1,40 @@
-# Binaries for programs and plugins
-bin/
+# Binaries — root-level build outputs
+/factory-fill
+/remediation-worker
+/queue-steward
+/roadmap-steward
 /useful-batch
 /scheduler
-cmd/useful-batch/useful-batch
-cmd/scheduler/scheduler
-cmd/finding-ticketizer/finding-ticketizer
-cmd/admission-gate/admission-gate
-cmd/jira-ledger/jira-ledger
 /apiserver
 /foreman
 /zen-brain
 /controller
 /create-jira-issues
 /zen-brain1
+/mlq-dispatcher
+/metrics-report
+/run-mlq-rescue
+bin/
 *.exe
 *.exe~
 *.dll
 *.so
 *.dylib
-demo_*
-demo_qmd
-demo_qmd.go
+
+# Binaries — cmd/ build outputs (mirror of root)
+cmd/factory-fill/factory-fill
+cmd/queue-steward/queue-steward
+cmd/roadmap-steward/roadmap-steward
+cmd/remediation-worker/remediation-worker
+cmd/useful-batch/useful-batch
+cmd/scheduler/scheduler
+cmd/finding-ticketizer/finding-ticketizer
+cmd/admission-gate/admission-gate
+cmd/jira-ledger/jira-ledger
+cmd/create-jira-issues/create-jira-issues
+cmd/mlq-dispatcher/mlq-dispatcher
+cmd/metrics-report/metrics-report
+cmd/run-mlq-rescue/run-mlq-rescue
 
 # Test binary, built with `go test -c`
 *.test
@@ -118,9 +132,5 @@ ZENBRAIN*NEVERDELETETHISSHIT.age
 zen-lock-private-key.age
 zen-lock-public-key.age
 
-# Binaries (historical bloat cleanup)
-create-jira-issues
-
 # Vendored sqlite generated Go files (restore via go mod vendor)
 vendor/modernc.org/sqlite/lib/
-cmd/remediation-worker/remediation-worker
