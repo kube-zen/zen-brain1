@@ -1,0 +1,13 @@
+# Roadmap Steward Hourly
+# Cadence: every 60 minutes
+# Purpose: roadmap item → ticket conversion with backpressure
+
+name: roadmap-steward-hourly
+cadence: custom
+interval_minutes: 60
+description: |
+  Reads roadmap items from ROADMAP_ITEMS.md, creates or updates Jira tickets,
+  respects dedup/cooldown/backpressure. Max 3 items per cycle.
+tasks: [roadmap_steward]
+workers: 1
+steward_mode: hourly

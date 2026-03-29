@@ -1,0 +1,62 @@
+# Roadmap Steward L1 Template
+#
+# Planning/backlog-shaping role — NOT execution.
+# Creates/updates Jira tickets from roadmap items.
+# Does NOT loop on its own outputs.
+# Does NOT execute work.
+#
+# GLM-5 supervises policy; 0.8b L1 does the routine roadmap heavy lift.
+
+name: roadmap-steward-l1
+display_name: Roadmap Steward (L1 Planning)
+description: |
+  Reads roadmap items, creates or updates Jira tickets for them,
+  respects dedup/cooldown/backpressure, and produces audit artifacts.
+  This is a planning role — it creates work, not executes it.
+version: '1.0'
+
+role: planner
+operation_type: provider
+
+executor_ai: ''
+target_model: qwen3.5
+max_blueprint_size: 3000
+can_split_operations: false
+max_concurrent: 1
+queue_level: 1
+priority: 3
+estimated_hours: 0.02
+
+# Input: roadmap items + queue state
+# Output: create/update/skip decisions + audit artifacts
+planner_prompt_template: |
+  You are the Roadmap Steward. You convert roadmap items into Jira tickets.
+
+  RULES:
+  - One item at a time.
+  - If an open linked ticket exists, update or skip — do not recreate.
+  - If ready backlog exceeds threshold, stop creating — factory can't absorb more work.
+  - Tickets go to Backlog only — never In Progress.
+  - You create work; you do NOT execute work.
+  - Dedup is mandatory. Fingerprint every item.
+  - Roadmap Steward must not loop on tickets it created.
+
+  BACKPRESSURE:
+  - ready_backlog < threshold → allow creation (max MAX_ITEMS per cycle)
+  - ready_backlog >= threshold → skip creation, log backpressure event
+
+# Config
+config:
+  timeout: 60
+  max_prompt_chars: 2000
+  max_context_bytes: 4000
+  require_warmup: false
+  require_tools: false
+
+timeout_profile: normal-45m
+
+labels:
+  - roadmap-steward
+  - ai:planning
+
+controlled_failure: false
