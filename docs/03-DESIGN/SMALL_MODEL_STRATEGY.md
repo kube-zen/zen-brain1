@@ -75,7 +75,7 @@ Standalone Go codegen failures from small models are **narrow task-shape evidenc
 - **Operational Guide:** [L1/L2 Lane Runbook](../05-OPERATIONS/L1_L2_LANE_RUNBOOK.md)
 - **Escalation design:** [LOCAL_LLM_ESCALATION_LADDER.md](./LOCAL_LLM_ESCALATION_LADDER.md)
 - **2B vs 0.8B local evaluation (llama.cpp Q4_K_M):** [QWEN_2B_LOCAL_EVALUATION.md](../05-OPERATIONS/QWEN_2B_LOCAL_EVALUATION.md)
-- **0.8B llama.cpp vs Ollama benchmark:** [LLAMA_CPP_VS_OLLAMA_QWEN_0.8B_BENCHMARK.md](../05-OPERATIONS/LLAMA_CPP_VS_OLLAMA_QWEN_0.8B_BENCHMARK.md)
+- **0.8B llama.cpp vs Ollama benchmark:** [LLAMA_CPP_VS_OLLAMA_QWEN_0_8B_BENCHMARK.md](../05-OPERATIONS/LLAMA_CPP_VS_OLLAMA_QWEN_0_8B_BENCHMARK.md)
 - **0.8B llama.cpp codegen guide:** [QWEN_08B_LLAMA_CPP_CODEGEN_GUIDE.md](../05-OPERATIONS/QWEN_08B_LLAMA_CPP_CODEGEN_GUIDE.md)
 - **Go subtask llama.cpp harness (0.8B / 2B):** [GO_SUBTASK_LLAMA_CPP_HARNESS.md](../05-OPERATIONS/GO_SUBTASK_LLAMA_CPP_HARNESS.md)
 - **Local Go LoRA tuning postmortem:** [QWEN_08B_LORA_TUNING_POSTMORTEM.md](../05-OPERATIONS/QWEN_08B_LORA_TUNING_POSTMORTEM.md)
@@ -292,7 +292,7 @@ Independent **llama.cpp** runs (OpenAI-compatible API, **Qwen3.5-0.8B Q4_K_M** b
 ## Phase 15 Updates (2026-03-25)
 
 See [L1/L2 Lane Runbook](../05-OPERATIONS/L1_L2_LANE_RUNBOOK.md) for the operational procedure.
-See [08B Positive Control Runbook](../05-OPERATIONS/08B_POSITIVE_CONTROL_RUNBOOK.md) for the test script.
+See [08B Positive Control Runbook](../05-OPERATIONS/ZB_08B_POSITIVE_CONTROL_RUNBOOK.md) for the test script.
 See [MLQ Lane Routing Matrix](../05-OPERATIONS/MLQ_LANE_ROUTING_MATRIX.md) for routing decisions.
 
 Key changes:

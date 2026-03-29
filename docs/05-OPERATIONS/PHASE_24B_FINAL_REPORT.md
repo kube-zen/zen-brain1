@@ -287,7 +287,7 @@ The zen-brain1 foreman is **operationally correct** for useful work. Remaining l
 - [Small Model Strategy](../03-DESIGN/SMALL_MODEL_STRATEGY.md) — 0.8B policy and usage guidelines
 - [L1/L2 Lane Runbook](../05-OPERATIONS/L1_L2_LANE_RUNBOOK.md) — Operational procedures
 - [MLQ Lane Routing Matrix](../05-OPERATIONS/MLQ_LANE_ROUTING_MATRIX.md) — Routing decisions
-- [08B Positive Control Runbook](../05-OPERATIONS/08B_POSITIVE_CONTROL_RUNBOOK.md) — Validation harness
+- [08B Positive Control Runbook](../05-OPERATIONS/ZB_08B_POSITIVE_CONTROL_RUNBOOK.md) — Validation harness
 
 ---
 

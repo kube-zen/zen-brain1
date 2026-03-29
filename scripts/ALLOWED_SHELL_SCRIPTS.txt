@@ -1,0 +1,27 @@
+# Allowlist for shell scripts (.sh) that predate the Python-only policy.
+# These are grandfathered in. New .sh files should not be added.
+# One path per line (relative to repo root).
+
+# Deploy scripts
+deploy/preflight-checks.sh
+deploy/zen-lock/bootstrap-jira-zenlock-from-local.sh
+
+# Operational scripts
+scripts/zen-mesh-operator-loop.sh
+scripts/check_jira_canonical_path.sh
+scripts/worker-ctl.sh
+scripts/validate-kb.sh
+scripts/retention-cleanup.sh
+scripts/runtime_health_check.sh
+scripts/run-go-subtasks-2b-cpu.sh
+scripts/zen-ctl.sh
+scripts/run-useful-batch.sh
+scripts/run-nightshift-proof.sh
+scripts/health-check.sh
+scripts/check-proven-lane.sh
+scripts/run-08b-positive-control.sh
+scripts/backlog-baseline.sh
+
+# CI sub-scripts
+scripts/guardrails/check-no-tracked-binaries.sh
+scripts/common/ci/gates/no-k3d-image-import.sh

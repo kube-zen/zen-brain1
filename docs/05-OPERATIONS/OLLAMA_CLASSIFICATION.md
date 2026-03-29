@@ -199,7 +199,7 @@ Mostly historical docs/reports. Low risk but needs per-file decision.
 | `p17c_results/run3.log` | Benchmark log |
 | `p17c_results/run.log` | Benchmark log |
 | `p18_results/` | Results directory |
-| `docs/05-OPERATIONS/LLAMA_CPP_VS_OLLAMA_QWEN_0.8B_BENCHMARK.md` | Benchmark comparison |
+| `docs/05-OPERATIONS/LLAMA_CPP_VS_OLLAMA_QWEN_0_8B_BENCHMARK.md` | Benchmark comparison |
 
 ### D3. Historical Session Summaries (5 files)
 | File | Notes |
@@ -244,7 +244,7 @@ Mostly historical docs/reports. Low risk but needs per-file decision.
 | `docs/04-DEVELOPMENT/MINIMAL_USABLE.md` | Setup guide |
 | `docs/04-DEVELOPMENT/README.md` | Dev README |
 | `docs/04-DEVELOPMENT/REAL_PATH_VALIDATION.md` | Validation guide |
-| `docs/05-OPERATIONS/08B_POSITIVE_CONTROL_RUNBOOK.md` | Runbook |
+| `docs/05-OPERATIONS/ZB_08B_POSITIVE_CONTROL_RUNBOOK.md` | Runbook |
 | `docs/05-OPERATIONS/24_7_USEFUL_OPERATIONS_RUNBOOK.md` | Runbook |
 | `docs/05-OPERATIONS/CANONICAL_PATH_FAIL_CLOSED_FIXES.md` | Fix report |
 | `docs/05-OPERATIONS/HARDENING_REPORT.md` | Hardening report |

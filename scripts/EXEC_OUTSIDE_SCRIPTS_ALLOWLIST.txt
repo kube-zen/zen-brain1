@@ -3,4 +3,8 @@
 # Paths ending with '/' match all files under that directory.
 
 .githooks/pre-commit
+.githooks/pre-push
+.githooks/post-merge
 Makefile  # Makefile may be executable; allow it
+deploy/preflight-checks.sh
+deploy/zen-lock/bootstrap-jira-zenlock-from-local.sh

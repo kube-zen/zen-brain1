@@ -1,0 +1,136 @@
+#!/usr/bin/env bash
+# Pre-push hook for zen-brain1
+# Runs CI gate suite before pushing to remote
+# Bypass with: git push --no-verify
+#
+# Adapted from zen-platform P034/P107/P108 patterns
+
+set -euo pipefail
+
+# P034/P107/P108: Guard against .github directory
+if [ -d ".github" ]; then
+    echo "ERROR: .github directory detected!"
+    echo "This repo uses git hooks only. Remove .github/ before pushing."
+    exit 1
+fi
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
+SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")/.." && pwd)"
+cd "$SCRIPT_DIR" || exit 1
+
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo -e "${BLUE}PRE-PUSH HOOK: Running CI Gates${NC}"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+
+# Read remote refs from stdin
+REMOTE_BRANCH=""
+while read local_ref local_sha remote_ref remote_sha; do
+    REMOTE_BRANCH=$(echo "$remote_ref" | sed 's|refs/heads/||')
+done
+
+# Full CI on main/master, quick checks on feature branches
+if [[ "$REMOTE_BRANCH" == "main" || "$REMOTE_BRANCH" == "master" || "$CURRENT_BRANCH" == "main" || "$CURRENT_BRANCH" == "master" ]]; then
+    echo -e "${YELLOW}⚠️  Pushing to main/master — running full CI suite${NC}"
+    echo ""
+
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "Running: python3 scripts/ci/run.py"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+
+    if python3 scripts/ci/run.py; then
+        echo ""
+        echo -e "${GREEN}✅ Full CI suite passed!${NC}"
+        echo ""
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo -e "${GREEN}PRE-PUSH CHECKS PASSED${NC}"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo ""
+        exit 0
+    else
+        echo ""
+        echo -e "${RED}❌ CI suite failed${NC}"
+        echo ""
+        echo "Fix the issues above and try again."
+        echo "To bypass this check: git push --no-verify"
+        echo ""
+        exit 1
+    fi
+else
+    echo -e "${YELLOW}⚠️  Pushing to feature branch — running quick checks${NC}"
+    echo ""
+
+    FAILED=0
+
+    # 1. Merge conflict markers
+    echo "🔀 Checking for merge conflict markers..."
+    CHANGED_FILES=$(git diff --name-only "$local_sha" "$remote_sha" 2>/dev/null || echo "")
+    if [[ -n "$CHANGED_FILES" ]]; then
+        CONFLICTS=$(echo "$CHANGED_FILES" | xargs grep -l "^<<<<<<< " 2>/dev/null || true)
+        if [[ -n "$CONFLICTS" ]]; then
+            echo -e "${RED}❌ Merge conflict markers found:${NC}"
+            echo "$CONFLICTS"
+            FAILED=1
+        else
+            echo -e "${GREEN}✅ No merge conflicts${NC}"
+        fi
+    else
+        echo -e "${GREEN}✅ No merge conflicts${NC}"
+    fi
+    echo ""
+
+    # 2. Large files
+    echo "📦 Checking for large files in changes..."
+    if [[ -n "$CHANGED_FILES" ]]; then
+        LARGE=$(echo "$CHANGED_FILES" | xargs -I {} find {} -size +5M 2>/dev/null || true)
+        if [[ -n "$LARGE" ]]; then
+            echo -e "${YELLOW}⚠️  Large files detected (>5MB):${NC}"
+            echo "$LARGE"
+        else
+            echo -e "${GREEN}✅ No large files${NC}"
+        fi
+    else
+        echo -e "${GREEN}✅ No large files${NC}"
+    fi
+    echo ""
+
+    # 3. Binary check
+    echo "🔍 Checking for binaries..."
+    if [[ -n "$CHANGED_FILES" ]]; then
+        BINARIES=$(echo "$CHANGED_FILES" | xargs file 2>/dev/null | grep -iE "ELF|Mach-O|PE32|executable" | grep -v ".go:" || true)
+        if [[ -n "$BINARIES" ]]; then
+            echo -e "${RED}❌ Binary files detected:${NC}"
+            echo "$BINARIES"
+            FAILED=1
+        else
+            echo -e "${GREEN}✅ No binaries${NC}"
+        fi
+    else
+        echo -e "${GREEN}✅ No binaries${NC}"
+    fi
+    echo ""
+
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    if [[ $FAILED -eq 0 ]]; then
+        echo -e "${GREEN}✅ Quick checks passed!${NC}"
+        echo "Note: Full CI will run on main/master push"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo ""
+        exit 0
+    else
+        echo -e "${RED}❌ Quick checks failed${NC}"
+        echo "Fix and retry. Bypass: git push --no-verify"
+        echo ""
+        exit 1
+    fi
+fi

@@ -66,7 +66,7 @@ The Board does NOT:
 - Make micro-decisions
 - Replace the Office or Factory layers
 
-See [BOARD_REVIEW_CADENCE.md](../../05-OPERATIONS/BOARD_REVIEW_CADENCE.md) for the operational process.
+See [BOARD_REVIEW_CADENCE.md](../05-OPERATIONS/BOARD_REVIEW_CADENCE.md) for the operational process.
 
 ### Layer 2 — Strategy / Portfolio Office
 

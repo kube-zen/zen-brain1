@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# Post-merge hook for zen-brain1
+# Runs CI gates after merging to main/master
+# Adapted from zen-platform patterns
+
+set -euo pipefail
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+SCRIPT_PATH="$(readlink -f "${BASH_SOURCE[0]}")"
+SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")/.." && pwd)"
+cd "$SCRIPT_DIR" || exit 0
+
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+
+# Only run on main/master
+if [[ "$CURRENT_BRANCH" != "main" && "$CURRENT_BRANCH" != "master" ]]; then
+    exit 0
+fi
+
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo -e "${BLUE}POST-MERGE HOOK: Running CI Gates${NC}"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+
+if [[ -f "scripts/ci/run.py" ]]; then
+    echo "Running: python3 scripts/ci/run.py"
+    echo ""
+
+    if python3 scripts/ci/run.py; then
+        echo ""
+        echo -e "${GREEN}✅ Post-merge CI gates passed!${NC}"
+        echo ""
+        exit 0
+    else
+        echo ""
+        echo -e "${RED}❌ Post-merge CI gates failed${NC}"
+        echo ""
+        exit 0  # Don't block post-merge, just warn
+    fi
+else
+    echo -e "${YELLOW}⚠️  scripts/ci/run.py not found, skipping${NC}"
+    echo ""
+fi

@@ -12,9 +12,9 @@
 This document captures **how to get reliable, useful output** from **Qwen3.5** small checkpoints served by **llama.cpp** — primarily the **certified** local class **`qwen3.5:0.8b`** (GGUF typically **Q4_K_M**). The **same inference and prompt rules** apply to **Qwen3.5-2B** (L2-style / escalation lane); expect **slower** generation and **more RAM** on CPU — see [QWEN_2B_LOCAL_EVALUATION.md](QWEN_2B_LOCAL_EVALUATION.md) for measurements and a **Go harness parity** table. It complements:
 
 - [SMALL_MODEL_STRATEGY.md](../03-DESIGN/SMALL_MODEL_STRATEGY.md) (policy and strategy)
-- [LLAMA_CPP_VS_OLLAMA_QWEN_0.8B_BENCHMARK.md](LLAMA_CPP_VS_OLLAMA_QWEN_0.8B_BENCHMARK.md) (latency / stack matrix)
+- [LLAMA_CPP_VS_OLLAMA_QWEN_0_8B_BENCHMARK.md](LLAMA_CPP_VS_OLLAMA_QWEN_0_8B_BENCHMARK.md) (latency / stack matrix)
 - [L1_L2_LANE_RUNBOOK.md](L1_L2_LANE_RUNBOOK.md) (L1 packet shaping)
-- [08B_POSITIVE_CONTROL_RUNBOOK.md](08B_POSITIVE_CONTROL_RUNBOOK.md) (cluster health check)
+- [ZB_08B_POSITIVE_CONTROL_RUNBOOK.md](ZB_08B_POSITIVE_CONTROL_RUNBOOK.md) (cluster health check)
 
 Zen-brain production paths may use **Ollama** or **llama.cpp** per MLQ config; the **inference knobs** below apply whenever the backend is **llama.cpp**.
 
@@ -84,4 +84,4 @@ Under the **identical** structured Go subtask and verifier, **2B Q4_K_M** achiev
 - [QWEN_2B_LOCAL_EVALUATION.md](QWEN_2B_LOCAL_EVALUATION.md) — 0.8B vs 2B tok/s, RAM, Go harness parity
 - [L1_L2_LANE_RUNBOOK.md](L1_L2_LANE_RUNBOOK.md) — “Packet Shaping”, warmup curls
 - [OLLAMA_08B_OPERATIONS_GUIDE.md](OLLAMA_08B_OPERATIONS_GUIDE.md) — certified Ollama path (ZB-023)
-- [LLAMA_CPP_VS_OLLAMA_QWEN_0.8B_BENCHMARK.md](LLAMA_CPP_VS_OLLAMA_QWEN_0.8B_BENCHMARK.md)
+- [LLAMA_CPP_VS_OLLAMA_QWEN_0_8B_BENCHMARK.md](LLAMA_CPP_VS_OLLAMA_QWEN_0_8B_BENCHMARK.md)

@@ -48,6 +48,29 @@ Key settings:
 - Use for: Complex multi-step implementation tasks requiring codegen
 - Applies to: L1/L2 via FactoryTaskRunner path
 
+## Verification Commands
+
+### Verify llama.cpp is running (primary inference)
+```bash
+# Check L1 endpoint is responsive
+curl -s http://localhost:56227/api/tags | head -5
+
+# Check L2 endpoint is responsive
+curl -s http://localhost:60509/api/tags | head -5
+```
+
+### Verify Ollama is NOT used for active-path work
+```bash
+# Should return empty or only show fallback config (not active workers)
+grep -r "11434" config/mlq-levels*.yaml config/policy/providers.yaml 2>/dev/null | grep -v "fallback" | grep -v "#"
+```
+
+### Verify no in-cluster Ollama references
+```bash
+# Should return empty (in-cluster Ollama is forbidden)
+grep -r "ollama.zen-brain" config/ deploy/ 2>/dev/null
+```
+
 ## Related Files
 
 - `internal/mlq/task_executor.go`: MLQ retry/escalation logic

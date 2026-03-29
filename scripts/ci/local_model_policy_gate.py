@@ -88,6 +88,13 @@ VERIFICATION_COMMAND_PATTERNS = [
     r"kubectl exec.*grep OLLAMA_BASE_URL",
     r"kubectl logs.*grep.*local-worker",
     r"kubectl exec.*wget.*11434/api/tags",
+    # Local inference verification (llama.cpp primary)
+    r"curl.*localhost.*56227",
+    r"curl.*localhost.*60509",
+    r"curl.*api/tags",
+    # Verify no in-cluster ollama
+    r"grep.*ollama\.zen-brain",
+    r"grep.*11434",
 ]
 
 

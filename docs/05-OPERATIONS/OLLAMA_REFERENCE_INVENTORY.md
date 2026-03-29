@@ -107,7 +107,7 @@ Largest concentrations:
 - `docs/05-OPERATIONS/OLLAMA_WARMUP_RUNBOOK.md` — **90 lines**
 - `docs/04-DEVELOPMENT/CONFIGURATION.md` — **254 lines** (misleading primary status)
 - `docs/04-DEVELOPMENT/DEPLOYMENT_VALIDATION.md` — **105 lines**
-- `docs/05-OPERATIONS/LLAMA_CPP_VS_OLLAMA_QWEN_0.8B_BENCHMARK.md` — **278 lines** (benchmark)
+- `docs/05-OPERATIONS/LLAMA_CPP_VS_OLLAMA_QWEN_0_8B_BENCHMARK.md` — **278 lines** (benchmark)
 
 ### 5.4 Scripts (10 files)
 

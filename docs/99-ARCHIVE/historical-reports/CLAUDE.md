@@ -10,4 +10,4 @@ Key rules:
 - Credentials from ZenLock only
 - Auth check separate from project check
 
-See: [AGENTS.md](./AGENTS.md)
+See: `AGENTS.md` (repo root)

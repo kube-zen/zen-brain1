@@ -73,3 +73,22 @@ internal/office/action_policy.go
 #   This is domain-specific to Zen-Brain's command interface
 #   Not an SDK reimplementation - parses user input into domain commands
 internal/command/parser_v2.go
+
+# Scheduler: BrainTask phase management and Foreman scheduling
+# Domain-specific to Zen-Brain's task lifecycle (not zen-sdk scheduler)
+internal/scheduler
+internal/scheduler/types.go
+
+# MLQ task executor: domain-specific task execution with bounded context
+# Uses SDK observability/logging but is domain logic
+internal/mlq/task_executor.go
+internal/mlq/selector.go
+
+# Template executor: domain-specific template rendering engine
+# Domain-specific to Zen-Brain's workflow templates
+internal/template/executor.go
+
+# Metrics classification: domain-specific metrics taxonomy
+# Domain-specific to Zen-Brain's metric classification logic
+internal/metrics/types.go
+internal/metrics/classify.go

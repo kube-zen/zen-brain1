@@ -117,4 +117,4 @@ All of the following must be true before 2.0 begins:
 - [Roadmap Governance](../03-DESIGN/ROADMAP_GOVERNANCE.md) — how version decisions are made
 - [Board Review Cadence](../05-OPERATIONS/BOARD_REVIEW_CADENCE.md) — Board process template
 - [Jira as System Ledger](../05-OPERATIONS/JIRA_AS_SYSTEM_LEDGER.md) — Jira governance model
-- [ROADMAP_ITEMS.md](../../ROADMAP_ITEMS.md) — canonical actionable items list
+- [ROADMAP_ITEMS.md](../99-ARCHIVE/historical-reports/ROADMAP_ITEMS.md) — canonical actionable items list (archived)

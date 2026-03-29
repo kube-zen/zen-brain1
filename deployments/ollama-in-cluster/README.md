@@ -19,7 +19,7 @@
 |----------|---------|-------|
 | **Canonical Policy** | Local CPU inference policy (qwen3.5:0.8b ONLY) | [SMALL_MODEL_STRATEGY.md](../../docs/03-DESIGN/SMALL_MODEL_STRATEGY.md) |
 | **Operational Guide** | Operations for local Ollama | [OLLAMA_08B_OPERATIONS_GUIDE.md](../../docs/05-OPERATIONS/OLLAMA_08B_OPERATIONS_GUIDE.md) |
-| **Deployment Guide** | Deployment instructions (host Docker Ollama) | [deploy/README.md](../README.md) |
+| **Deployment Guide** | Deployment instructions (host Docker Ollama) | [deploy/README.md](../../deploy/README.md) |
 
 ## Legacy Status
 
