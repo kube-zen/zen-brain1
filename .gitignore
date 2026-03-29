@@ -134,3 +134,6 @@ zen-lock-public-key.age
 
 # Vendored sqlite generated Go files (restore via go mod vendor)
 vendor/modernc.org/sqlite/lib/
+
+# Auto-generated runtime evidence (factory-fill dashboard)
+docs/05-OPERATIONS/evidence/factory-fill-and-backlog-utilization.md
