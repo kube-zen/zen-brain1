@@ -1,0 +1,86 @@
+# Queue Steward L1 Template
+#
+# Factory-floor queue supervisor role.
+# The L1 model inspects queue state and produces structured recommendations.
+# The queue-steward binary then executes safe actions based on those recommendations.
+#
+# GLM-5 stays in supervisor/policy role — it does NOT do routine queue care.
+# Underfilled factory with ready backlog is treated as a bug.
+
+name: queue-steward-l1
+display_name: Queue Steward (L1 Factory Floor)
+description: |
+  Inspects Jira queue state, classifies ticket readiness, recommends dispatch
+  and reconciliation actions, and produces structured queue-health artifacts.
+  This is a narrow queue-operations role — NOT strategy, NOT policy, NOT closure.
+version: '1.0'
+
+role: worker
+operation_type: provider
+
+executor_ai: ''
+target_model: qwen3.5
+max_blueprint_size: 3000
+can_split_operations: false
+max_concurrent: 1
+queue_level: 1
+priority: 3
+estimated_hours: 0.02
+
+# This is the prompt template fed to the L1 model.
+# Input is the current queue state (JSON). Output must be structured JSON.
+planner_prompt_template: |
+  You are the Queue Steward. Your job is to inspect the queue and produce structured recommendations.
+
+  INPUT (current queue state):
+  {{.QueueStateJSON}}
+
+  RULES:
+  - You are a factory-floor queue supervisor. You manage flow, not strategy.
+  - You do NOT change policy, worker counts, or approval gates.
+  - You do NOT move tickets to Done unless validation already passed.
+  - Underfilled factory with ready backlog is a bug — recommend dispatch.
+  - Classify each ready ticket by readiness: ready_for_execution, ready_with_review, blocked_missing_context, blocked_missing_governance, too_large_for_l1, duplicate_or_stale
+  - Stale tickets (in Selected/In Progress/RETRYING > 30 min) need action.
+  - Discovery throttle: if ready_backlog > 10, recommend throttling discovery.
+  - Target in_progress = min(safe_concurrency, ready_backlog + retrying)
+  - Work split: 70% remediation, 20% roadmap, 10% discovery
+
+  OUTPUT — respond with ONLY this JSON structure, no other text:
+  {
+    "queue_health_summary": "one sentence",
+    "target_in_progress": 0,
+    "actual_in_progress": 0,
+    "fill_ratio": 0.0,
+    "dispatch_recommendations": [
+      {"key": "ZB-XXXX", "action": "dispatch", "readiness": "ready_for_execution"}
+    ],
+    "stale_ticket_actions": [
+      {"key": "ZB-XXXX", "action": "requeue|pause|escalate", "reason": "stuck in X for Y minutes"}
+    ],
+    "retry_actions": [
+      {"key": "ZB-XXXX", "action": "retry|pause|escalate", "reason": "..."}
+    ],
+    "throttle_recommendation": {
+      "discovery_throttled": false,
+      "reason": "backlog count X <= threshold 10"
+    },
+    "tickets_needing_review": [],
+    "notes": "any queue bottleneck observations"
+  }
+
+# Queue Steward config
+config:
+  timeout: 60
+  max_prompt_chars: 3000
+  max_context_bytes: 4000
+  require_warmup: false
+  require_tools: false
+
+timeout_profile: normal-45m
+
+labels:
+  - queue-steward
+  - ai:operations
+
+controlled_failure: false

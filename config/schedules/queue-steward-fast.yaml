@@ -1,0 +1,13 @@
+# Queue Steward Fast Cycle
+# Cadence: every 5 minutes
+# Purpose: queue hygiene, fill check, stuck-state detection
+
+name: queue-steward-fast
+cadence: custom
+interval_minutes: 5
+description: |
+  Fast queue hygiene cycle. Inspects queue state, recommends dispatch
+  to keep factory filled, detects stuck tickets.
+tasks: [queue_steward]
+workers: 1
+steward_mode: fast
