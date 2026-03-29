@@ -1,105 +1,180 @@
 #!/usr/bin/env bash
-# Pre‑commit hook for Zen‑Brain repository hygiene.
-# Installs automatically via: make install-hooks
+# Pre-commit hook for zen-brain1 repository hygiene.
 #
-# Runs quick repo‑hygiene gates before allowing a commit.
-# Full CI gates run in CI via scripts/ci/*.py.
+# Gates (adapted from zen-platform .githooks/pre-commit):
+#   1. No binary/executable files (ELF, Mach-O, PE)
+#   2. No large files (>5MB)
+#   3. No archive files in root
+#   4. No merge conflict markers
+#   5. Go format + vet (quick)
+#   6. Python CI gates (if scripts/ci/ exists)
+#   7. No Ollama references in new Go/template files
+#
+# Install: git config core.hooksPath .githooks
 
 set -euo pipefail
 
-# Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-# Run from repository root (hook may be in .git/hooks so script dir would be wrong)
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 cd "$REPO_ROOT" || exit 1
 
-# Track if any checks failed
 FAILED=0
 
-echo "🔍 Running Zen‑Brain pre‑commit checks..."
+echo "🔍 Running zen-brain1 pre-commit checks..."
 echo ""
 
-# 1. No shell scripts anywhere
-echo "📜 Checking for shell scripts..."
-if python3 scripts/ci/no_shell_scripts_gate.py 2>/dev/null; then
-    echo -e "${GREEN}✅ No shell scripts${NC}"
-else
-    echo -e "${RED}❌ Shell scripts found${NC}"
+# 1. Binary file detection (BLOCKING)
+echo "🔍 Checking for binary files..."
+BINARY_FILES=()
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM)
+if [[ -n "$STAGED_FILES" ]]; then
+    for file in $STAGED_FILES; do
+        if [[ -f "$file" ]]; then
+            if command -v file >/dev/null 2>&1; then
+                file_type=$(file -b "$file" 2>/dev/null || echo "")
+                if echo "$file_type" | grep -qE "^(ELF |Mach-O|PE |executable|shared object)"; then
+                    BINARY_FILES+=("$file")
+                fi
+            fi
+        fi
+    done
+fi
+if [[ ${#BINARY_FILES[@]} -gt 0 ]]; then
+    echo -e "${RED}❌ Binary files detected:${NC}"
+    for b in "${BINARY_FILES[@]}"; do echo "   $b"; done
+    echo "   Add to .gitignore instead: git reset HEAD <file> && echo '<file>' >> .gitignore"
     FAILED=1
+else
+    echo -e "${GREEN}✅ No binary files${NC}"
 fi
 echo ""
 
-# 2. Python script placement
-echo "🐍 Checking Python script placement..."
-if python3 scripts/ci/python_script_placement_gate.py 2>/dev/null; then
-    echo -e "${GREEN}✅ Python scripts placed correctly${NC}"
-else
-    echo -e "${RED}❌ Python script placement violation${NC}"
+# 2. Large file detection (>5MB, BLOCKING)
+echo "📦 Checking for large files..."
+LARGE_FILES=()
+if [[ -n "$STAGED_FILES" ]]; then
+    for file in $STAGED_FILES; do
+        if [[ -f "$file" ]]; then
+            size=$(stat -c%s "$file" 2>/dev/null || echo 0)
+            if (( size > 5242880 )); then
+                LARGE_FILES+=("$file ($(numfmt --to=iec $size))")
+            fi
+        fi
+    done
+fi
+if [[ ${#LARGE_FILES[@]} -gt 0 ]]; then
+    echo -e "${RED}❌ Large files detected (>5MB):${NC}"
+    for f in "${LARGE_FILES[@]}"; do echo "   $f"; done
     FAILED=1
+else
+    echo -e "${GREEN}✅ No large files${NC}"
 fi
 echo ""
 
-# 3. Repository layout (docs taxonomy, naming)
-echo "📁 Checking repository layout..."
-if python3 scripts/ci/repo_layout_gate.py 2>/dev/null; then
-    echo -e "${GREEN}✅ Repository layout OK${NC}"
-else
-    echo -e "${RED}❌ Repository layout violation${NC}"
+# 3. No archive files in root (BLOCKING)
+echo "📦 Checking for archives in root..."
+ROOT_ARCHIVES=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^[^/]+\.(zip|tar|tar\.gz|tgz|tar\.bz2|7z|rar)$' || true)
+if [[ -n "$ROOT_ARCHIVES" ]]; then
+    echo -e "${RED}❌ Archive files in root:${NC}"
+    echo "$ROOT_ARCHIVES"
     FAILED=1
+else
+    echo -e "${GREEN}✅ No archives in root${NC}"
 fi
 echo ""
 
-# 4. No executable sprawl
-echo "🚫 Checking executable sprawl..."
-if python3 scripts/ci/no_executable_sprawl_gate.py 2>/dev/null; then
-    echo -e "${GREEN}✅ No executable sprawl${NC}"
-else
-    echo -e "${RED}❌ Executable sprawl violation${NC}"
+# 4. Merge conflict markers (BLOCKING)
+echo "🔀 Checking for merge conflicts..."
+CONFLICTS=$(git diff --cached --name-only | xargs grep -l "^<<<<<<< " 2>/dev/null || true)
+if [[ -n "$CONFLICTS" ]]; then
+    echo -e "${RED}❌ Merge conflicts:${NC}"
+    echo "$CONFLICTS"
     FAILED=1
+else
+    echo -e "${GREEN}✅ No merge conflicts${NC}"
 fi
 echo ""
 
-# 5. No large/binary files (warning only)
-echo "📦 Checking for large/binary files..."
-if python3 scripts/ci/no_binaries_gate.py 2>/dev/null; then
-    echo -e "${GREEN}✅ No large/binary files${NC}"
-else
-    # This gate returns warnings but not errors; treat as warning
-    echo -e "${YELLOW}⚠️  Large/binary files detected (see output)${NC}"
+# 5. Ollama denylist check (BLOCKING for new Go/template files)
+echo "🚫 Checking for Ollama references..."
+OLLAMA_FILES=()
+if [[ -n "$STAGED_FILES" ]]; then
+    for file in $STAGED_FILES; do
+        if [[ -f "$file" ]] && [[ "$file" =~ \.(go|yaml|yml|json)$ ]]; then
+            if grep -qin 'ollama\|localhost:11434' "$file" 2>/dev/null; then
+                # Skip if file already tracked and was there before
+                if ! git ls-tree --name-only HEAD "$file" >/dev/null 2>&1; then
+                    # New file — block
+                    OLLAMA_FILES+=("$file")
+                fi
+            fi
+        fi
+    done
 fi
-echo ""
-
-# 6. Internal markdown links
-echo "🔗 Checking internal markdown links..."
-if python3 scripts/ci/docs_link_gate.py 2>/dev/null; then
-    echo -e "${GREEN}✅ Internal links OK${NC}"
-else
-    echo -e "${RED}❌ Broken internal links${NC}"
+if [[ ${#OLLAMA_FILES[@]} -gt 0 ]]; then
+    echo -e "${RED}❌ Ollama references in new files (policy: llama.cpp only):${NC}"
+    for f in "${OLLAMA_FILES[@]}"; do echo "   $f"; done
     FAILED=1
-fi
-echo ""
-
-# 7. zen-sdk ownership (no local reimplementation of SDK concerns without allowlist)
-echo "📦 Checking zen-sdk ownership..."
-if python3 scripts/ci/zen_sdk_ownership_gate.py 2>/dev/null; then
-    echo -e "${GREEN}✅ zen-sdk ownership OK${NC}"
 else
-    echo -e "${RED}❌ zen-sdk ownership violation${NC}"
-    FAILED=1
+    echo -e "${GREEN}✅ No Ollama references in new files${NC}"
 fi
 echo ""
 
+# 6. Go checks (if Go files staged)
+GO_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep '\.go$' || true)
+if [[ -n "$GO_FILES" ]]; then
+    echo "🔧 Running Go checks..."
+    if command -v go >/dev/null 2>&1; then
+        UNFORMATTED=$(echo "$GO_FILES" | xargs gofmt -l 2>/dev/null | head -10 || true)
+        if [[ -n "$UNFORMATTED" ]]; then
+            echo -e "${YELLOW}⚠️  Unformatted Go files:${NC}"
+            echo "$UNFORMATTED"
+            echo "   Run: gofmt -w <files>"
+            FAILED=1
+        else
+            echo -e "  ${GREEN}✅ gofmt${NC}"
+        fi
+
+        if ! go vet ./... >/dev/null 2>&1; then
+            echo -e "${RED}❌ go vet issues${NC}"
+            go vet ./... 2>&1 | head -5
+            FAILED=1
+        else
+            echo -e "  ${GREEN}✅ go vet${NC}"
+        fi
+    else
+        echo -e "  ${YELLOW}⚠️  go not found, skipping${NC}"
+    fi
+    echo ""
+fi
+
+# 7. Python CI gates (if available)
+if [ -d "scripts/ci" ]; then
+    echo "🐍 Running Python CI gates..."
+    for gate in scripts/ci/*_gate.py; do
+        if [[ -f "$gate" ]]; then
+            gate_name=$(basename "$gate")
+            if python3 "$gate" 2>/dev/null; then
+                echo -e "  ${GREEN}✅ $gate_name${NC}"
+            else
+                echo -e "${RED}❌ $gate_name failed${NC}"
+                FAILED=1
+            fi
+        fi
+    done
+    echo ""
+fi
+
+# Summary
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 if [[ $FAILED -eq 0 ]]; then
-    echo -e "${GREEN}✓ All pre‑commit checks passed.${NC}"
+    echo -e "${GREEN}✅ All pre-commit checks passed${NC}"
     exit 0
 else
-    echo -e "${RED}✗ Pre‑commit checks failed. Fix the issues above before committing.${NC}"
-    echo ""
-    echo "To bypass temporarily (not recommended):"
-    echo "  git commit --no-verify"
+    echo -e "${RED}❌ Pre-commit checks failed${NC}"
     exit 1
 fi
