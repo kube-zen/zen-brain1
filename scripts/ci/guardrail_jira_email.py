@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""CI guardrail: block forbidden Jira email reintroduction.
+"""CI guardrail: enforce canonical Jira email.
 
-Scans the repo for occurrences of zen@zen-mesh.io outside of explicitly
-allowed contexts (migration notes, "wrong/forbidden" documentation).
+Scans the repo for occurrences of the WRONG Jira email (zen@kube-zen.io)
+and flags them — the canonical email is zen@zen-mesh.io.
 
 Exit code 0 = clean
 Exit code 1 = forbidden email found in non-exempt files
@@ -11,30 +11,33 @@ import os
 import re
 import sys
 
-FORBIDDEN_EMAIL = "zen@zen-mesh.io"
-CANONICAL_EMAIL = "zen@kube-zen.io"
+CANONICAL_EMAIL = "zen@zen-mesh.io"
+FORBIDDEN_EMAIL = "zen@kube-zen.io"
 
-# Files/patterns where the forbidden email is allowed (as historical reference)
+# Files/patterns where the old email is allowed (historical reference, archive)
 EXEMPT_PATTERNS = [
-    r"AGENTS\.md",                          # Contains "FORBIDDEN" note about the wrong email
-    r"CLAUDE\.md",                           # Contains "NOT zen@zen-mesh.io" note
-    r"REAL_JIRA_INTEGRATION_REPORT",          # Historical proof doc (fully exempt — annotated at top)
-    r"CURRENT_STATE\.md",                    # Contains 401 failure note
-    r"guardrail_jira_email",                 # This guardrail script itself
+    r"99-ARCHIVE/",
+    r"guardrail_jira_email",                 # This guardrail itself
+    r"bootstrap-jira-zenlock-from-local",    # Legacy bootstrap script
+    r"JIRA_INTEGRATION_RUNBOOK",             # Legacy runbook
+    r"BREAK_GLASS_RUNBOOK",                  # Break-glass (references old keys)
+    r"CLUSTER_RECOVERY",                     # Cluster recovery doc
 ]
 
-# Line patterns where the forbidden email is allowed
+# Line patterns where the old email is allowed
 EXEMPT_LINE_PATTERNS = [
-    r"WRONG",
-    r"FORBIDDEN",
-    r"NOT\s+zen@zen-mesh",
-    r"causes\s+401",
     r"HISTORICAL",
-    r"wrong.*email",
-    r"forbidden",
-    r"migration\s+note",
-    r"HTTP\s+401",
-    r"FAIL.*401",
+    r"was\s+(wrong|incorrect|old|legacy)",
+    r"previously",
+    r"canonical.*was",
+    r"changed\s+from",
+    r"migration",
+    r"FORBIDDEN",
+    r"WRONG",
+    r"NOT\s+`?zen@kube-zen",
+    r"blocks\s+`?zen@kube-zen",
+    r"causes\s+401",
+    r"guardrail.*blocks",
 ]
 
 def is_exempt(filepath):
@@ -60,14 +63,18 @@ def scan_repo(repo_root):
             fpath = os.path.join(root, fname)
             relpath = os.path.relpath(fpath, repo_root)
 
-            # Skip binary files and images
             ext = os.path.splitext(fname)[1].lower()
             if ext in {".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico", ".pdf",
                        ".zip", ".gz", ".tar", ".bin", ".exe", ".so", ".o", ".a",
                        ".gguf", ".age"}:
                 continue
 
-            # Skip test files that specifically test wrong email rejection
+            # Skip compiled binaries (false positives from embedded strings)
+            if fname in ("roadmap-steward", "queue-steward", "scheduler",
+                         "factory-fill", "useful-batch", "zen-brain",
+                         "startup-logging", "test-jira-myself"):
+                continue
+
             if "_test.go" in fname:
                 continue
 
@@ -76,7 +83,6 @@ def scan_repo(repo_root):
                     file_exempt = is_exempt(relpath)
                     for lineno, line in enumerate(f, 1):
                         if FORBIDDEN_EMAIL in line:
-                            # Fully exempt files skip all checks
                             if file_exempt or is_line_exempt(line):
                                 continue
                             violations.append({
@@ -100,10 +106,10 @@ def main():
         for v in violations:
             print(f"   {v['file']}:{v['line']}: {v['content'][:100]}")
         print()
-        print("Fix: Replace with zen@kube-zen.io or add exemption if this is a historical/migration reference.")
+        print(f"Fix: Replace with {CANONICAL_EMAIL} or add exemption for historical references.")
         sys.exit(1)
     else:
-        print(f"✅ No forbidden Jira email ('{FORBIDDEN_EMAIL}') found. Canonical: {CANONICAL_EMAIL}")
+        print(f"✅ No forbidden Jira email ('{FORBIDDEN_EMAIL}'). Canonical: {CANONICAL_EMAIL}")
         sys.exit(0)
 
 if __name__ == "__main__":

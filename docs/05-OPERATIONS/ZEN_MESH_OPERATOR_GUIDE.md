@@ -39,7 +39,7 @@ export ZEN_BRAIN_OFFICE_ALLOW_STUB_LEDGER=1  # Stub ledger for now
 
 # Jira Configuration (from ~/zen/.zen-brain1-config/jira.yaml)
 export JIRA_URL=https://zen-mesh.atlassian.net
-export JIRA_EMAIL=zen@kube-zen.io
+export JIRA_EMAIL=zen@zen-mesh.io
 export JIRA_PROJECT_KEY=ZB
 
 # Token Type: ATATT3... (user-level API token - works with Basic Auth)
@@ -51,7 +51,7 @@ export JIRA_PROJECT_KEY=ZB
 # Location: ~/zen/.zen-brain1-config/jira.yaml (NOT in repo)
 enabled: true
 base_url: "https://zen-mesh.atlassian.net"
-email: "zen@kube-zen.io"
+email: "zen@zen-mesh.io"
 token: "ATATT3..."  # user-level API token
 default_project_key: "ZB"
 ```
@@ -304,7 +304,7 @@ grep OLLAMA_BASE_URL ~/.zen-brain/config.yaml
 curl http://127.0.0.1:11434/api/version
 
 # 3. Check token validity
-curl -u "zen@kube-zen.io:ATATT3..." \
+curl -u "zen@zen-mesh.io:ATATT3..." \
   -H "Accept: application/json" \
   "https://zen-mesh.atlassian.net/rest/api/3/myself"
 

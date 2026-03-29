@@ -10,7 +10,7 @@ echo ""
 # Step 1: Verify Jira integration
 echo "[1/4] Verifying Jira integration..."
 export JIRA_URL=https://zen-mesh.atlassian.net
-export JIRA_EMAIL=zen@kube-zen.io
+export JIRA_EMAIL=zen@zen-mesh.io
 export JIRA_PROJECT_KEY=ZB
 export JIRA_TOKEN=$(grep "^token:" ~/.zen-brain1-config/jira.yaml | awk '{print $2}' | tr -d '"')
 ./bin/zen-brain office doctor | head -20

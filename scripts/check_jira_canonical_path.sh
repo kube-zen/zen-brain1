@@ -11,9 +11,9 @@ set -euo pipefail
 HOME="${HOME:-/root}"
 ZEN_DIR="$HOME/zen"
 ZB1_DIR="$ZEN_DIR/zen-brain1"
-AGE_PRIV="$ZEN_DIR/ZENBRAINPRIVATEKEYNEVERDELETETHISSHIT.age"
-AGE_PUB="$ZEN_DIR/ZENBRAINPUBLICKEYNEVERDELETETHISSHIT.age"
-JIRA_TOKEN_FILE="$ZEN_DIR/DONOTASKMOREFORTHISSHIT.txt"
+AGE_PRIV="$HOME/zen/keys/zen-brain/credentials.key"
+AGE_PUB="$ZEN_DIR/keys/zen-brain/credentials.pub"
+JIRA_TOKEN_FILE="$HOME/zen/keys/zen-brain/secrets.d/jira.enc"
 WRONG_PATH="$HOME/.zen-brain/secrets/jira.yaml"
 
 echo "=== ZB-025A: Jira Canonical Path Sanity Check ==="

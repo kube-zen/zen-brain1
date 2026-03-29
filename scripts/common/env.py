@@ -126,10 +126,10 @@ def _ensure_zen_glm_secret(context_name: str, config_path: str | None, env: str)
 def _ensure_zen_lock_secret(context_name: str, config_path: str | None) -> None:
     """Ensure zen-lock master key secret exists (from canonical AGE key path).
     
-    Canonical path: ~/zen/ZENBRAINPRIVATEKEYNEVERDELETETHISSHIT.age
+    Canonical path: ~/zen/keys/zen-brain/credentials.key
     This is the ONLY supported local path for the AGE private key.
     """
-    private_key_path = os.path.expanduser("~/zen/ZENBRAINPRIVATEKEYNEVERDELETETHISSHIT.age")
+    private_key_path = os.path.expanduser("~/zen/keys/zen-brain/credentials.key")
     if not os.path.exists(private_key_path):
         _log(f"Zen-lock private key not found at canonical path {private_key_path}")
         _log("Run deploy/zen-lock/bootstrap-jira-zenlock-from-local.sh first")

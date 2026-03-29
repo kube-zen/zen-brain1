@@ -92,7 +92,7 @@ fi
 
 # 8. Security: Plaintext bootstrap file removed after successful bootstrap (ZB-025B-SEC)
 echo -n "8. Security: Plaintext bootstrap file removed: "
-PLAINTEXT_FILE="$HOME/zen/DONOTASKMOREFORTHISSHIT.txt"
+PLAINTEXT_FILE="$HOME/zen/keys/zen-brain/secrets.d/jira-token"
 if [ ! -f "$PLAINTEXT_FILE" ]; then
   echo "PASS (plaintext bootstrap file not present)"
 else
@@ -103,8 +103,8 @@ fi
 
 # 9. Security: AGE key files exist (ZB-025B-SEC)
 echo -n "9. Security: AGE keypair exists: "
-AGE_PRIV="$HOME/zen/ZENBRAINPRIVATEKEYNEVERDELETETHISSHIT.age"
-AGE_PUB="$HOME/zen/ZENBRAINPUBLICKEYNEVERDELETETHISSHIT.age"
+AGE_PRIV="$HOME/zen/keys/zen-brain/credentials.key"
+AGE_PUB="$HOME/zen/keys/zen-brain/credentials.pub"
 if [ -s "$AGE_PRIV" ] && [ -s "$AGE_PUB" ]; then
   echo "PASS (AGE keypair exists)"
 else

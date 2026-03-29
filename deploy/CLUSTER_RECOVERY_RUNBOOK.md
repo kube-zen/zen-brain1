@@ -20,7 +20,7 @@ kubectl apply -f ~/zen/zen-lock/config/crd/bases/
 3. **Create master key secret:**
 \`\`\`bash
 kubectl create secret generic zen-lock-master-key -n zen-lock-system \\
-  --from-file=key.txt=/home/neves/zen/ZENBRAINPRIVATEKEYNEVERDELETETHISSHIT.age
+  --from-file=key.txt=/home/neves/zen/keys/zen-brain/credentials.key
 \`\`\`
 
 4. **Create webhook certificate (with SANs):**

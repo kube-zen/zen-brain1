@@ -3,8 +3,8 @@
 set -euo pipefail
 
 JIRA_URL="https://zen-mesh.atlassian.net"
-JIRA_EMAIL="zen@kube-zen.io"
-JIRA_TOKEN=$(tr -d '\r\n' < ~/zen/DONOTASKMOREFORTHISSHIT.txt)
+JIRA_EMAIL="zen@zen-mesh.io"
+JIRA_TOKEN=$(tr -d '\r\n' < ~/zen/keys/zen-brain/secrets.d/jira-token)
 PROJECT="ZB"
 
 api() {

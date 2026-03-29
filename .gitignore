@@ -137,3 +137,10 @@ vendor/modernc.org/sqlite/lib/
 
 # Auto-generated runtime evidence (factory-fill dashboard)
 docs/05-OPERATIONS/evidence/factory-fill-and-backlog-utilization.md
+
+# Zen-lock credential infrastructure
+~/zen/keys/
+*.credentials.key
+*.credentials.pub
+secrets.d/
+*.enc

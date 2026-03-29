@@ -13,9 +13,9 @@ umask 077
 HOME="${HOME:-/root}"
 ZEN_DIR="$HOME/zen"
 ZB1_DIR="$ZEN_DIR/zen-brain1"
-AGE_PRIV="$ZEN_DIR/ZENBRAINPRIVATEKEYNEVERDELETETHISSHIT.age"
-AGE_PUB="$ZEN_DIR/ZENBRAINPUBLICKEYNEVERDELETETHISSHIT.age"
-JIRA_TOKEN_FILE="$ZEN_DIR/DONOTASKMOREFORTHISSHIT.txt"
+AGE_PRIV="$ZEN_DIR/keys/zen-brain/credentials.key"
+AGE_PUB="$ZEN_DIR/keys/zen-brain/credentials.pub"
+JIRA_TOKEN_FILE="$ZEN_DIR/keys/zen-brain/secrets.d/jira-token"
 JIRA_METADATA="$ZB1_DIR/deploy/zen-lock/jira-metadata.yaml"
 OUT_MANIFEST="$ZB1_DIR/deploy/zen-lock/jira-credentials.zenlock.yaml"
 

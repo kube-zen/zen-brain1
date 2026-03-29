@@ -188,7 +188,7 @@ export OLLAMA_BASE_URL=http://127.0.0.1:11434
 export ZEN_BRAIN_OFFICE_ALLOW_STUB_KB=1
 export ZEN_BRAIN_OFFICE_ALLOW_STUB_LEDGER=1
 export JIRA_URL=https://zen-mesh.atlassian.net
-export JIRA_EMAIL=zen@kube-zen.io
+export JIRA_EMAIL=zen@zen-mesh.io
 export JIRA_TOKEN=$(grep "^token:" ~/.zen-brain1-config/jira.yaml | awk '{print $2}' | tr -d '"')
 
 ./bin/zen-brain self-improvement 2>&1 | tee /tmp/nightshift-phase1-$(date +%Y%m%d).log

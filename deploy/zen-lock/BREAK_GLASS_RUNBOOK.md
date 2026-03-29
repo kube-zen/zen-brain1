@@ -22,18 +22,18 @@ This runbook covers emergency recovery procedures for Jira integration failures.
 
 ### Check live private key is real (not placeholder)
 
-**Canonical path:** `~/zen/ZENBRAINPRIVATEKEYNEVERDELETETHISSHIT.age`
+**Canonical path:** `~/zen/keys/zen-brain/credentials.key`
 
 ```bash
 # Check private key exists at canonical path
-ls -la ~/zen/ZENBRAINPRIVATEKEYNEVERDELETETHISSHIT.age
+ls -la ~/zen/keys/zen-brain/credentials.key
 
 # Verify it's not a placeholder (should be 74 bytes, starts with AGE-SECRET-KEY-1)
-wc -c ~/zen/ZENBRAINPRIVATEKEYNEVERDELETETHISSHIT.age
-head -c 20 ~/zen/ZENBRAINPRIVATEKEYNEVERDELETETHISSHIT.age
+wc -c ~/zen/keys/zen-brain/credentials.key
+head -c 20 ~/zen/keys/zen-brain/credentials.key
 
 # Get public key for comparison
-age-keygen -y ~/zen/ZENBRAINPRIVATEKEYNEVERDELETETHISSHIT.age
+age-keygen -y ~/zen/keys/zen-brain/credentials.key
 ```
 
 **Expected:** Private key file is 74 bytes, starts with `AGE-SECRET-KEY-1`, public key output starts with `age1`.
@@ -48,7 +48,7 @@ age-keygen -y ~/zen/ZENBRAINPRIVATEKEYNEVERDELETETHISSHIT.age
 ```bash
 # Recreate the master key secret (using canonical path and --from-file)
 kubectl create secret generic zen-lock-master-key \
-  --from-file=key.txt=~/zen/ZENBRAINPRIVATEKEYNEVERDELETETHISSHIT.age \
+  --from-file=key.txt=~/zen/keys/zen-brain/credentials.key \
   -n zen-lock-system \
   --dry-run=client -o yaml | kubectl apply -f -
 
@@ -181,7 +181,7 @@ kubectl exec -n zen-brain deployment/foreman -- cat /zen-lock/secrets/JIRA_PROJE
 cat > /tmp/jira-input.yaml <<EOF
 stringData:
   JIRA_URL: "https://zen-mesh.atlassian.net"
-  JIRA_EMAIL: "zen@kube-zen.io"
+  JIRA_EMAIL: "zen@zen-mesh.io"
   JIRA_API_TOKEN: "NEW_TOKEN_HERE"
   JIRA_PROJECT_KEY: "ZB"
 EOF

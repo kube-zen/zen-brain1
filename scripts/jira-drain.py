@@ -12,9 +12,10 @@ Usage:
 import json, subprocess, sys, os, time
 from datetime import datetime
 
-TOKEN = open(os.path.expanduser("~/zen/DONOTASKMOREFORTHISSHIT.txt")).read().strip()
+from common.zen_lock import get_jira_token, get_jira_email
+TOKEN = get_jira_token()
 URL = "https://zen-mesh.atlassian.net"
-EMAIL = "zen@kube-zen.io"
+JIRA_EMAIL = get_jira_email()
 PROJECT = "ZB"
 EVIDENCE_DIR = os.path.expanduser("~/zen/zen-brain1/docs/05-OPERATIONS/evidence")
 

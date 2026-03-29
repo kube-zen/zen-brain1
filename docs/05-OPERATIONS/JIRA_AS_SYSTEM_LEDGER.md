@@ -41,7 +41,7 @@
 
 ### Project
 - **Project Key:** ZB
-- **Email:** `zen@kube-zen.io`
+- **Email:** `zen@zen-mesh.io`
 - **URL:** `https://zen-mesh.atlassian.net`
 
 ### Issue Structure

@@ -76,8 +76,8 @@ func main() {
 
 	// Test both emails
 	emails := []string{
-		"zen@kube-zen.io",
-		"zen@kube-zen.io",
+		"zen@zen-mesh.io",
+		"zen@zen-mesh.io",
 	}
 
 	results := make(map[string]struct {

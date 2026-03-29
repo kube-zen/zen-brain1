@@ -122,7 +122,7 @@ API reachability: ok
 ```bash
 # Location: ~/zen/.zen-brain1-config/jira.yaml
 # NOT committed to repository (security)
-email: zen@kube-zen.io
+email: zen@zen-mesh.io
 token: ATATT3... (user-level API token)
 project_key: ZB
 

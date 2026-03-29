@@ -86,7 +86,7 @@ func main() {
 	cfg := &stubConfigLoader{
 		jiraCredSource:    "zenlock-dir:/zen-lock/secrets",
 		jiraBaseURL:       "https://zen-mesh.atlassian.net",
-		jiraEmail:         "zen@kube-zen.io",
+		jiraEmail:         "zen@zen-mesh.io",
 		tier1RedisAddr:    "zencontext-redis.zen-context.svc.cluster.local:6379",
 		llmModel:          "qwen3.5:0.8b",
 		llmTimeoutSeconds: 2700,

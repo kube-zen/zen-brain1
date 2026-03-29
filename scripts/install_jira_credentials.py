@@ -6,8 +6,8 @@ Use the canonical bootstrap script instead:
   deploy/zen-lock/bootstrap-jira-zenlock-from-local.sh
 
 Canonical flow:
-  1. AGE keys: ~/zen/ZENBRAINPRIVATEKEYNEVERDELETETHISSHIT.age
-  2. Plaintext token: ~/zen/DONOTASKMOREFORTHISSHIT.txt (bootstrap-only)
+  1. AGE keys: ~/zen/keys/zen-brain/credentials.key
+  2. Plaintext token: ~/zen/keys/zen-brain/secrets.d/jira-token (bootstrap-only)
   3. ZenLock manifest: deploy/zen-lock/jira-credentials.zenlock.yaml
 
 Install Jira credentials from input YAML file.

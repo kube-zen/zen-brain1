@@ -49,7 +49,7 @@ type stewardConfig struct {
 func loadConfig() stewardConfig {
 	return stewardConfig{
 		JiraURL:        envOr("JIRA_URL", "https://zen-mesh.atlassian.net"),
-		JiraEmail:      envOr("JIRA_EMAIL", "zen@kube-zen.io"),
+		JiraEmail:      envOr("JIRA_EMAIL", "zen@zen-mesh.io"),
 		JiraAPIToken:   envOr("JIRA_API_TOKEN", envOr("JIRA_TOKEN", "")),
 		JiraProject:    envOr("JIRA_PROJECT_KEY", "ZB"),
 		L1Endpoint:     envOr("L1_ENDPOINT", "http://localhost:56227"),
@@ -438,7 +438,7 @@ func main() {
 	cfg := loadConfig()
 
 	if cfg.JiraAPIToken == "" {
-		token, err := os.ReadFile(envOr("JIRA_TOKEN_FILE", os.Getenv("HOME")+"/zen/DONOTASKMOREFORTHISSHIT.txt"))
+		token, err := os.ReadFile(envOr("JIRA_TOKEN_FILE", os.Getenv("HOME")+"/zen/keys/zen-brain/secrets.d/jira.enc"))
 		if err == nil {
 			cfg.JiraAPIToken = strings.TrimSpace(string(token))
 		}

@@ -24,7 +24,7 @@
 | Built | 2026-03-27 11:39 EDT |
 | Contains `Run dir:` fix | ✅ verified via `strings` |
 | EnvironmentFile | `/etc/systemd/system/zen-brain1-scheduler.service.d/override.conf` |
-| Jira env | `/etc/zen-brain1/jira.env` (ZB project, zen@kube-zen.io) |
+| Jira env | `/etc/zen-brain1/jira.env` (ZB project, zen@zen-mesh.io) |
 
 ## Live Jira Lifecycle Proof
 

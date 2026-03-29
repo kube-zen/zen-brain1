@@ -1,204 +1,99 @@
 # Credential Rails - Canonical Runbook
 
-## Normal Credential Model
+**Version:** 2.0
+**Date:** 2026-03-29
+**Status:** Active
 
-**Long-lived local bootstrap material:**
-- `~/zen/ZENBRAINPRIVATEKEYNEVERDELETETHISSHIT.age`
-- `~/zen/ZENBRAINPUBLICKEYNEVERDELETETHISSHIT.age`
+## Single Source of Truth
 
-**Encrypted artifact:**
-- `deploy/zen-lock/jira-credentials.zenlock.yaml`
+| Item | Path | Purpose |
+|------|------|---------|
+| Age keypair | `~/zen/keys/zen-brain/credentials.key` | Encrypts all local credentials |
+| Age public key | `~/zen/keys/zen-brain/credentials.pub` | Recipient for encryption |
+| Encrypted bundle | `~/zen/keys/zen-brain/secrets.d/jira.enc` | **Canonical credential store** (age-encrypted JSON) |
+| Token input (ephemeral) | `~/zen/keys/zen-brain/secrets.d/jira-token` | Only exists during rotation, deleted after |
+| Rotation script | `scripts/zen-lock-rotate.sh` | Single command to rotate all credentials |
+| Source script | `scripts/zen-lock-source.sh` | `eval "$(zen-lock-source.sh)"` for shell |
+| Python helper | `scripts/common/zen_lock.py` | `from common.zen_lock import get_jira_credentials()` |
+| K8s ZenLock manifest | `deploy/zen-lock/jira-credentials.zenlock.yaml` | K8s ZenLock CRD (for cluster deployments) |
 
-**Runtime source ONLY:**
-- `/zen-lock/secrets` (ZenLock injection)
+## Canonical Values
 
-## One-Time Bootstrap or Token Rotation
+| Field | Value |
+|-------|-------|
+| JIRA_URL | `https://zen-mesh.atlassian.net` |
+| JIRA_EMAIL | `zen@zen-mesh.io` |
+| JIRA_PROJECT_KEY | `ZB` |
+| Auth method | Basic auth (`-u email:token`) |
 
-**Plaintext token file (ONE-TIME USE ONLY):**
-- `~/zen/DONOTASKMOREFORTHISSHIT.txt`
-- Used ONLY during bootstrap or explicit token rotation
-- MUST be deleted after successful bootstrap
-- NOT part of normal recurring workflow
-
-### Bootstrap Steps
-
-```bash
-# 1. Ensure AGE keypair exists
-ls -la ~/zen/ZENBRAINPRIVATEKEYNEVERDELETETHISSHIT.age
-ls -la ~/zen/ZENBRAINPUBLICKEYNEVERDELETETHISSHIT.age
-
-# 2. Place new token in bootstrap file (rotation only)
-# This file should already exist from initial setup
-cat ~/zen/DONOTASKMOREFORTHISSHIT.txt
-
-# 3. Run bootstrap script
-cd ~/zen/zen-brain1
-./deploy/zen-lock/bootstrap-jira-zenlock-from-local.sh
-
-# 4. Verify Jira auth works
-kubectl exec -n zen-brain deployment/foreman -- /app/zen-brain office doctor
-kubectl exec -n zen-brain deployment/foreman -- /app/zen-brain office smoke-real
-
-# 5. Verify plaintext token was deleted
-ls -la ~/zen/DONOTASKMOREFORTHISSHIT.txt
-# Should NOT exist after successful bootstrap
-```
-
-### Verification Steps
+## Rotation Procedure
 
 ```bash
-# Check ZenLock health
-kubectl -n zen-lock-system get pods
+# 1. Place new token (one line, nothing else)
+echo -n 'ATATT3x...' > ~/zen/keys/zen-brain/secrets.d/jira-token
 
-# Check Foreman has ZenLock mounted
-kubectl exec -n zen-brain deployment/foreman -- ls -la /zen-lock/secrets/
-
-# Check Jira credentials present
-kubectl exec -n zen-brain deployment/foreman -- cat /zen-lock/secrets/JIRA_URL
-kubectl exec -n zen-brain deployment/foreman -- cat /zen-lock/secrets/JIRA_EMAIL
-kubectl exec -n zen-brain deployment/foreman -- sh -c 'wc -c /zen-lock/secrets/JIRA_API_TOKEN'
-
-# Test Jira auth
-kubectl exec -n zen-brain deployment/foreman -- /app/zen-brain office doctor
+# 2. Run rotation (validates, encrypts, updates all consumers, shreds plaintext)
+~/zen/zen-brain1/scripts/zen-lock-rotate.sh
 ```
+
+The script handles everything:
+- Validates token against Jira (HTTP 200 check)
+- Encrypts into `jira.enc` with age keypair
+- Updates: `/etc/zen-brain1/jira.env`, `/etc/default/zen-brain`, systemd drop-ins, K8s ZenLock manifest
+- Restarts scheduler and k3d zen-brain services
+- **Securely shreds the plaintext token file**
+
+## Credential Consumers
+
+All consumers are updated automatically by the rotation script:
+
+| Consumer | How it gets credentials |
+|----------|----------------------|
+| `zen-brain1-scheduler` (systemd) | `ExecStartPre` decrypts → `/run/zen-brain1/jira-runtime.env` |
+| `zen-brain` k3d service (user systemd) | `ExecStartPre` decrypts → `/run/user/$UID/zen-brain-jira.env` |
+| Python scripts | `from common.zen_lock import get_jira_credentials()` |
+| Shell scripts | `eval "$(scripts/zen-lock-source.sh)"` |
+| Go binaries (factory-fill, scheduler) | Read `JIRA_API_TOKEN` from environment (set by systemd) |
+| K8s pods (future) | ZenLock webhook → `/zen-lock/secrets/` |
 
 ## DO / DO NOT
 
-### DO
+### ✓ DO
+- Use `scripts/zen-lock-rotate.sh` for ALL credential rotations
+- Use `scripts/common/zen_lock.py` in Python scripts
+- Use `scripts/zen-lock-source.sh` in shell scripts
+- Read credentials from `~/zen/keys/zen-brain/secrets.d/jira.enc` (encrypted)
+- Verify auth after rotation: `curl -u zen@zen-mesh.io:$(age -d -i ~/zen/keys/zen-brain/credentials.key ~/zen/keys/zen-brain/secrets.d/jira.enc | python3 -c "import sys,json; print(json.load(sys.stdin)['JIRA_API_TOKEN'])") https://zen-mesh.atlassian.net/rest/api/3/myself`
 
-- Use ZenLock for all cluster credentials
-- Run bootstrap script when setting up Jira or rotating tokens
-- Delete plaintext token after successful bootstrap
-- Verify Jira auth after bootstrap
-- Check Foreman startup logs for credential source
-- Monitor preflight checks for ZenLock health
+### ✗ DON'T
+- Hardcode tokens in systemd units, shell scripts, or source code
+- Read from `~/zen/DONOTASKMOREFORTHISSHIT.txt` (legacy, removed)
+- Read from `~/zen/ZENBRAINPRIVATEKEYNEVERDELETETHISSHIT.age` (legacy keypair, different purpose)
+- Use `zen@kube-zen.io` (wrong email — causes 401)
+- Ask the operator for tokens — they are in the encrypted bundle
+- Paste tokens in chat, logs, or commits
+- Create alternate credential files or paths
 
-### DO NOT
+## CI Enforcement
 
-- Use `~/.zen-brain/secrets/jira.yaml` as active path in cluster
-- Use `~/.zen-lock/private-key.age` as active path in cluster
-- Create random `.env.jira.local` files as secret source
-- Paste tokens in chat
-- Accept runtime plaintext/env fallback in cluster mode
-- Create alternate bootstrap stories
-- Keep plaintext token file after successful bootstrap
-- Ask for plaintext token during normal operations
+- `scripts/ci/guardrail_jira_email.py` — blocks `zen@kube-zen.io` in non-archived files
+- Pre-commit hook checks for hardcoded tokens in staged files
 
-## Runtime Guardrails
+## Legacy Paths (for reference, do not use)
 
-### Cluster Mode (Strict)
-
-- ZenLock MUST be healthy
-- Credentials MUST come from `/zen-lock/secrets`
-- Plaintext token file MUST NOT exist after bootstrap
-- Non-ZenLock credential sources are FORBIDDEN
-- Violations result in hard failure with clear error messages
-
-### Local Dev Mode (Relaxed)
-
-- May use `~/.zen-brain/secrets/jira.yaml` for debugging
-- ZenLock not required
-- Env fallback allowed with explicit opt-in
-
-## Enforcement
-
-### Runtime
-
-- Config loader fails closed in cluster mode
-- Error messages point to bootstrap script and required files
-- No silent fallback to alternate credential sources
-
-### Preflight
-
-- ZenLock health check
-- Jira credential availability check
-- Jira project key accessibility check
-- Plaintext token file absence check
-- Local model configuration check
-
-### CI (Future)
-
-- Fail if legacy Jira paths in active code/docs
-- Fail if secret creation uses `--from-literal` for key.txt
-- Fail if token-like strings in repo
-- Fail if cluster runtime accepts non-ZenLock Jira creds
-- Fail if 0.8b local lane timeout < 2700s
-- Fail if stale threshold <= 45m
-- Fail if project key drift detected (multiple keys in active paths)
-
-## Troubleshooting
-
-### "Jira credentials not loaded from ZenLock"
-
-**Symptom:** Foreman logs show credentials not found
-
-**Solution:**
-1. Check ZenLock is healthy: `kubectl -n zen-lock-system get pods`
-2. Check ZenLock secret exists: `kubectl -n zen-lock-system get secrets`
-3. Check Foreman has ZenLock annotation: `kubectl get deployment foreman -n zen-brain -o yaml | grep zen-lock`
-4. Run bootstrap script if needed
-
-### "Plaintext bootstrap file still exists after bootstrap"
-
-**Symptom:** Preflight check fails
-
-**Solution:**
-1. Verify bootstrap completed successfully
-2. Delete plaintext file manually: `rm ~/zen/DONOTASKMOREFORTHISSHIT.txt`
-3. Re-run preflight checks
-
-### "credentials_file is forbidden in cluster mode"
-
-**Symptom:** Config loader rejects credentials_file
-
-**Solution:**
-1. Remove credentials_file from config
-2. Ensure ZenLock is configured correctly
-3. Run bootstrap script if ZenLock not set up
+| Old Path | Status | Replacement |
+|----------|--------|-------------|
+| `~/zen/DONOTASKMOREFORTHISSHIT.txt` | Removed | `~/zen/keys/zen-brain/secrets.d/jira-token` (ephemeral) |
+| `~/zen/ZENBRAINPRIVATEKEYNEVERDELETETHISSHIT.age` | Still exists | `~/zen/keys/zen-brain/credentials.key` |
+| `~/zen/ZENBRAINPUBLICKEYNEVERDELETETHISSHIT.age` | Still exists | `~/zen/keys/zen-brain/credentials.pub` |
+| `zen@kube-zen.io` | Wrong email | `zen@zen-mesh.io` |
+| Hardcoded `Environment=JIRA_TOKEN=...` in systemd | Removed | zen-lock drop-in with `ExecStartPre` |
 
 ## Security Model
 
-**Normal Operation:**
-1. Credentials encrypted with AGE keypair
-2. ZenLock stores encrypted credentials
-3. ZenLock webhook injects credentials into pods
-4. Foreman reads from `/zen-lock/secrets`
-5. NO plaintext credentials in cluster
-
-**Bootstrap/Rotation:**
-1. Operator places new token in plaintext file
-2. Bootstrap script encrypts and updates ZenLock
-3. Script verifies Jira auth works
-4. Script deletes plaintext file
-5. Normal operation resumes
-
-**Audit Trail:**
-- Bootstrap script logs all actions
-- Foreman logs credential source at startup
-- Preflight checks verify ZenLock health
-- CI gates prevent regression
-
-## Applicability
-
-These rules apply to **all developers, human or AI**.
-
-Violating them is a **bug**.
-
-Runtime, CI, and preflight are the **source of truth**, not memory.
-h works
-4. Script deletes plaintext file
-5. Normal operation resumes
-
-**Audit Trail:**
-- Bootstrap script logs all actions
-- Foreman logs credential source at startup
-- Preflight checks verify ZenLock health
-- CI gates prevent regression
-
-## Applicability
-
-These rules apply to **all developers, human or AI**.
-
-Violating them is a **bug**.
-
-Runtime, CI, and preflight are the **source of truth**, not memory.
+1. Token exists in plaintext **only during rotation** (seconds)
+2. After rotation, token lives **only** in the age-encrypted `jira.enc`
+3. Decryption requires the age private key (`credentials.key`, mode 600)
+4. All consumers derive from this single encrypted file
+5. The rotation script is the ONLY way to update credentials
+6. Plaintext token is shredded with `shred -u` after successful encryption

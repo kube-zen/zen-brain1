@@ -2,9 +2,10 @@
 """Phase 1: Capture Jira backlog baseline. Uses the new /rest/api/3/search/jql endpoint."""
 import json, subprocess, sys, os
 
-TOKEN = open(os.path.expanduser("~/zen/DONOTASKMOREFORTHISSHIT.txt")).read().strip()
+from common.zen_lock import get_jira_token, get_jira_email
+TOKEN = get_jira_token()
 URL = "https://zen-mesh.atlassian.net"
-EMAIL = "zen@kube-zen.io"
+JIRA_EMAIL = get_jira_email()
 PROJECT = "ZB"
 
 def jira_post(jql, max_results=1, fields=None, next_page_token=None):

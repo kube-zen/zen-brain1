@@ -16,8 +16,9 @@ import os
 import sys
 import time
 
-EMAIL = "zen@kube-zen.io"
-TOKEN = open(os.path.expanduser("~/zen/DONOTASKMOREFORTHISSHIT.txt")).read().strip()
+JIRA_EMAIL = get_jira_email()
+from common.zen_lock import get_jira_token, get_jira_email
+TOKEN = get_jira_token()
 URL = "https://zen-mesh.atlassian.net"
 PROJECT = "ZB"
 

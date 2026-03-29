@@ -77,7 +77,7 @@ See `docs/PROMPT_ENGINEERING_MIGRATION.md` for full details.
 
 ## CANONICAL JIRA IDENTITY — DO NOT ASK AGAIN
 
-**Canonical Jira Email**: `zen@kube-zen.io`
+**Canonical Jira Email**: `zen@zen-mesh.io`
 **Canonical Jira URL**: `https://zen-mesh.atlassian.net`
 **Canonical Project Key**: `ZB`
 
@@ -92,7 +92,7 @@ If the live secret and this doc are present, follow them. Do not ask the user.
 All runtime Jira credentials come from ZenLock-injected secrets:
 ```
 /zen-lock/secrets/JIRA_URL          → https://zen-mesh.atlassian.net
-/zen-lock/secrets/JIRA_EMAIL        → zen@kube-zen.io
+/zen-lock/secrets/JIRA_EMAIL        → zen@zen-mesh.io
 /zen-lock/secrets/JIRA_API_TOKEN    → (API token, not logged)
 /zen-lock/secrets/JIRA_PROJECT_KEY  → ZB
 ```
@@ -115,7 +115,7 @@ All runtime Jira credentials come from ZenLock-injected secrets:
 ```bash
 # From live pod
 kubectl exec -n zen-brain deployment/foreman -- cat /zen-lock/secrets/JIRA_EMAIL
-# Expected: zen@kube-zen.io
+# Expected: zen@zen-mesh.io
 
 kubectl exec -n zen-brain deployment/foreman -- zen-brain office doctor
 # Expected: Jira auth OK
@@ -124,7 +124,7 @@ kubectl exec -n zen-brain deployment/foreman -- zen-brain office doctor
 ### Proof Command (local, with token)
 ```bash
 export JIRA_URL=https://zen-mesh.atlassian.net
-export JIRA_EMAIL=zen@kube-zen.io
+export JIRA_EMAIL=zen@zen-mesh.io
 export JIRA_TOKEN=<fresh-token>
 curl -sf -u "$JIRA_EMAIL:$JIRA_TOKEN" "$JIRA_URL/rest/api/3/myself" | python3 -c "import json,sys; d=json.load(sys.stdin); print(f'OK: {d[\"displayName\"]}')"
 ```
@@ -141,7 +141,7 @@ JIRA_TOKEN=<token> MODE=preflight STRICT=true ./cmd/admission-gate/admission-gat
 
 ### Canonical Email Identity
 
-**Canonical Jira Email**: `zen@kube-zen.io`
+**Canonical Jira Email**: `zen@zen-mesh.io`
 
 This email MUST be used for all Jira operations. Do NOT use:
 - zen@zen-mesh.io (WRONG - causes 401 auth failures)
@@ -152,7 +152,7 @@ This email MUST be used for all Jira operations. Do NOT use:
 1. **Cluster Runtime (Production)**:
    - Source: `/zen-lock/secrets/` (ZenLock injection)
    - Files: `JIRA_URL`, `JIRA_EMAIL`, `JIRA_API_TOKEN`, `JIRA_PROJECT_KEY`
-   - Email in secret MUST be `zen@kube-zen.io`
+   - Email in secret MUST be `zen@zen-mesh.io`
 
 2. **Bootstrap/Rotation Only**:
    - `~/zen/DONOTASKMOREFORTHISSHIT.txt` (token file)
@@ -236,7 +236,7 @@ Legacy project keys (e.g., `SCRUM`) are DEPRECATED. Do NOT use.
 ```bash
 # 1. Check credentials mounted
 kubectl exec -n zen-brain deployment/foreman -- cat /zen-lock/secrets/JIRA_EMAIL
-# Should output: zen@kube-zen.io
+# Should output: zen@zen-mesh.io
 
 # 2. Test auth
 kubectl exec -n zen-brain deployment/foreman -- /app/zen-brain office doctor
@@ -286,7 +286,7 @@ CI MUST fail if:
 5. **Local LLM timeout too short**
    - 0.8b path uses timeout < 2700s
 6. **Wrong Jira email in metadata**
-   - `deploy/zen-lock/jira-metadata.yaml` must have `email: zen@kube-zen.io`
+   - `deploy/zen-lock/jira-metadata.yaml` must have `email: zen@zen-mesh.io`
 
 ---
 
@@ -315,7 +315,7 @@ Must contain:
    ```bash
    kubectl exec -n zen-brain deployment/foreman -- cat /zen-lock/secrets/JIRA_EMAIL
    ```
-   Must be `zen@kube-zen.io`
+   Must be `zen@zen-mesh.io`
 
 2. **If wrong email**:
    - Update `deploy/zen-lock/jira-metadata.yaml`

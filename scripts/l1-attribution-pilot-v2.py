@@ -8,9 +8,10 @@ max_tokens capped at 2048. No new_content blobs.
 import json, subprocess, sys, os, time, re
 from datetime import datetime
 
-TOKEN = open(os.path.expanduser("~/zen/DONOTASKMOREFORTHISSHIT.txt")).read().strip()
+from common.zen_lock import get_jira_token, get_jira_email
+TOKEN = get_jira_token()
 JIRA_URL = "https://zen-mesh.atlassian.net"
-JIRA_EMAIL = "zen@kube-zen.io"
+JIRA_EMAIL = get_jira_email()
 JIRA_PROJECT = "ZB"
 L1_ENDPOINT = "http://localhost:56227"
 L1_MODEL = "Qwen3.5-0.8B-Q4_K_M.gguf"
