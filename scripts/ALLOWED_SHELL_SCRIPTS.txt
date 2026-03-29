@@ -27,3 +27,4 @@ scripts/guardrails/check-no-tracked-binaries.sh
 scripts/common/ci/gates/no-k3d-image-import.sh
 scripts/zen-lock-rotate.sh
 scripts/zen-lock-source.sh
+deploy/k8s/deploy.sh
