@@ -144,3 +144,6 @@ docs/05-OPERATIONS/evidence/factory-fill-and-backlog-utilization.md
 *.credentials.pub
 secrets.d/
 *.enc
+deploy/zen-lock/jira-credentials.zenlock.yaml
+*.zenlock.yaml
+*.enc
