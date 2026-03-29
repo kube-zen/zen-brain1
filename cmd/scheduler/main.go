@@ -46,39 +46,39 @@ const (
 type Schedule struct {
 	Name        string   `yaml:"name" json:"name"`
 	Tasks       []string `yaml:"tasks" json:"tasks"`
-	Cadence     string   `yaml:"cadence" json:"cadence"`     // "hourly", "quad-hourly", "daily"
+	Cadence     string   `yaml:"cadence" json:"cadence"` // "hourly", "quad-hourly", "daily"
 	Description string   `yaml:"description" json:"description"`
 	// Workers overrides the default concurrency for this schedule.
 	// 0 or unset = use default (5). Set explicitly per schedule for evidence-based tuning.
-	Workers     int      `yaml:"workers" json:"workers"`
+	Workers int `yaml:"workers" json:"workers"`
 }
 
 // ScheduleState tracks when each schedule last ran.
 type ScheduleState struct {
-	LastRun   time.Time `json:"last_run"`
-	LastStatus string   `json:"last_status"` // "success", "partial", "failed"
-	LastDir   string    `json:"last_dir"`
-	NextDue   time.Time `json:"next_due"`
-	RunCount  int       `json:"run_count"`
+	LastRun    time.Time `json:"last_run"`
+	LastStatus string    `json:"last_status"` // "success", "partial", "failed"
+	LastDir    string    `json:"last_dir"`
+	NextDue    time.Time `json:"next_due"`
+	RunCount   int       `json:"run_count"`
 }
 
 // SchedulerStatus is the overall status for operator queries.
 type SchedulerStatus struct {
-	Active      bool              `json:"active"`
-	Schedules   []ScheduleEntry   `json:"schedules"`
-	StateDir    string            `json:"state_dir"`
-	ArtifactRoot string           `json:"artifact_root"`
-	UpdatedAt   time.Time         `json:"updated_at"`
+	Active       bool            `json:"active"`
+	Schedules    []ScheduleEntry `json:"schedules"`
+	StateDir     string          `json:"state_dir"`
+	ArtifactRoot string          `json:"artifact_root"`
+	UpdatedAt    time.Time       `json:"updated_at"`
 }
 
 type ScheduleEntry struct {
-	Name        string `json:"name"`
-	Cadence     string `json:"cadence"`
-	Tasks       []string `json:"tasks"`
-	LastRun     string `json:"last_run,omitempty"`
-	NextDue     string `json:"next_due"`
-	LastStatus  string `json:"last_status,omitempty"`
-	RunCount    int    `json:"run_count"`
+	Name       string   `json:"name"`
+	Cadence    string   `json:"cadence"`
+	Tasks      []string `json:"tasks"`
+	LastRun    string   `json:"last_run,omitempty"`
+	NextDue    string   `json:"next_due"`
+	LastStatus string   `json:"last_status,omitempty"`
+	RunCount   int      `json:"run_count"`
 }
 
 func main() {
@@ -474,7 +474,7 @@ func jiraCreateIssue(cfg jiraLedgerConfig, summary, description string, labels [
 		Project struct {
 			Key string `json:"key"`
 		} `json:"project"`
-		Summary     string   `json:"summary"`
+		Summary     string `json:"summary"`
 		Description struct {
 			Type    string    `json:"type"`
 			Version int       `json:"version"`
@@ -502,7 +502,7 @@ func jiraCreateIssue(cfg jiraLedgerConfig, summary, description string, labels [
 	payload.Fields.Description.Type = "doc"
 	payload.Fields.Description.Version = 1
 	payload.Fields.Description.Content = []adfPara{{
-		Type: "paragraph",
+		Type:    "paragraph",
 		Content: []adfContent{{Type: "text", Text: description}},
 	}}
 	payload.Fields.IssueType.Name = "Task"
@@ -905,27 +905,27 @@ func writeRunMetrics(runDir, scheduleName, status string, output string, start t
 	wallSec := time.Since(start).Seconds()
 
 	metrics := map[string]interface{}{
-		"run_id":                  filepath.Base(runDir),
-		"schedule_name":           scheduleName,
-		"started_at":              start.UTC().Format(time.RFC3339),
-		"completed_at":            time.Now().UTC().Format(time.RFC3339),
-		"wall_time_seconds":       int(wallSec),
-		"task_count_total":        total,
-		"task_count_l1_success":   succeeded,
-		"task_count_l1_fail":      failed,
+		"run_id":                             filepath.Base(runDir),
+		"schedule_name":                      scheduleName,
+		"started_at":                         start.UTC().Format(time.RFC3339),
+		"completed_at":                       time.Now().UTC().Format(time.RFC3339),
+		"wall_time_seconds":                  int(wallSec),
+		"task_count_total":                   total,
+		"task_count_l1_success":              succeeded,
+		"task_count_l1_fail":                 failed,
 		"task_count_l1_success_needs_review": 0,
 		"task_count_l1_fail_l2_success":      0,
 		"task_count_l1_fail_l2_fail":         0,
-		"task_count_infra_fail":   0,
-		"task_count_blocked_jira_auth": 0,
-		"escalation_count":        0,
-		"artifact_count":          succeeded,
-		"jira_parent_issue_key":   jiraParentKey,
-		"jira_child_issue_count":  jiraChildCount,
-		"model_lane_summary":      "L1 (qwen3.5:0.8b Q4_K_M)",
-		"status":                  status,
-		"artifact_root":           runDir,
-		"telemetry_root":          filepath.Join(runDir, "telemetry"),
+		"task_count_infra_fail":              0,
+		"task_count_blocked_jira_auth":       0,
+		"escalation_count":                   0,
+		"artifact_count":                     succeeded,
+		"jira_parent_issue_key":              jiraParentKey,
+		"jira_child_issue_count":             jiraChildCount,
+		"model_lane_summary":                 "L1 (qwen3.5:0.8b Q4_K_M)",
+		"status":                             status,
+		"artifact_root":                      runDir,
+		"telemetry_root":                     filepath.Join(runDir, "telemetry"),
 	}
 
 	data, _ := json.MarshalIndent(metrics, "", "  ")
@@ -1172,8 +1172,8 @@ func parseList(s string) []string {
 	return out
 }
 
-func splitLines(s string) []string  { return splitString(s, '\n') }
-func contains(s, sub string) bool   { return indexOf(s, sub) >= 0 }
+func splitLines(s string) []string { return splitString(s, '\n') }
+func contains(s, sub string) bool  { return indexOf(s, sub) >= 0 }
 func indexOf(s, sub string) int {
 	for i := 0; i <= len(s)-len(sub); i++ {
 		if s[i:i+len(sub)] == sub {
@@ -1205,8 +1205,12 @@ func splitString(s string, sep byte) []string {
 }
 func trimSpace(s string) string {
 	i, j := 0, len(s)
-	for i < j && s[i] == ' ' { i++ }
-	for j > i && s[j-1] == ' ' { j-- }
+	for i < j && s[i] == ' ' {
+		i++
+	}
+	for j > i && s[j-1] == ' ' {
+		j--
+	}
 	return s[i:j]
 }
 
@@ -1226,14 +1230,23 @@ func truncate(b []byte, maxLen int) string {
 // discovery findings into Jira tickets. Runs as a subprocess — failures
 // are logged but never block the batch or scheduler.
 func runFindingTicketizer(runDir, scheduleName string, jiraCfg jiraLedgerConfig) {
-	ticketizerBin := filepath.Join(filepath.Dir(os.Args[0]), "..", "finding-ticketizer", "finding-ticketizer")
-	if _, err := os.Stat(ticketizerBin); err != nil {
-		// Try repo-relative path
-		ticketizerBin = filepath.Join(filepath.Dir(os.Args[0]), "finding-ticketizer", "finding-ticketizer")
-		if _, err := os.Stat(ticketizerBin); err != nil {
-			log.Printf("[TICKETIZER] binary not found at %s — skipping", ticketizerBin)
-			return
+	// K8s / container: binary at /usr/local/bin/finding-ticketizer (on PATH)
+	// Bare-metal: binary at ../finding-ticketizer/finding-ticketizer or same-dir subdir
+	candidates := []string{
+		"finding-ticketizer", // PATH lookup
+		filepath.Join(filepath.Dir(os.Args[0]), "finding-ticketizer"),                             // same dir
+		filepath.Join(filepath.Dir(os.Args[0]), "..", "finding-ticketizer", "finding-ticketizer"), // repo layout
+	}
+	var ticketizerBin string
+	for _, c := range candidates {
+		if _, err := os.Stat(c); err == nil {
+			ticketizerBin = c
+			break
 		}
+	}
+	if ticketizerBin == "" {
+		log.Printf("[TICKETIZER] binary not found (tried PATH, same-dir, repo-relative) — skipping")
+		return
 	}
 
 	log.Printf("[TICKETIZER] running for %s (run=%s)", scheduleName, filepath.Base(runDir))

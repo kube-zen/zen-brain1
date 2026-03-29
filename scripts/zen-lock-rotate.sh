@@ -187,8 +187,12 @@ echo -e "${YELLOW}=== PHASE 4: Updating k8s ZenLock manifest ===${NC}"
 ZB1_DIR="$HOME/zen/zen-brain1"
 OUT_MANIFEST="$KEY_DIR/jira-credentials.zenlock.yaml"
 
+# Use the ZenLock controller's public key (not local age key)
+# Derive from: kubectl get secret zen-lock-master-key -n zen-lock-system -o jsonpath='{.data.key\.txt}' | base64 -d | age-keygen -y
+ZENLOCK_CONTROLLER_PUBKEY="age10tz37znvllcd0eqhu9e2jt48l6pn094kplwvpkpz6al2x4kfjagqfezm5t"
+
 encrypt_b64() {
-    printf '%s' "$1" | age -r "$AGE_RECIPIENT" | base64 -w0
+    printf '%s' "$1" | age -r "$ZENLOCK_CONTROLLER_PUBKEY" | base64 -w0
 }
 
 mkdir -p "$(dirname "$OUT_MANIFEST")"
@@ -200,9 +204,10 @@ metadata:
   name: jira-credentials
   namespace: zen-brain
 spec:
+  algorithm: age
   allowedSubjects:
     - kind: ServiceAccount
-      name: foreman
+      name: zen-brain
       namespace: zen-brain
   encryptedData:
     JIRA_URL: "$(encrypt_b64 "$JIRA_URL")"

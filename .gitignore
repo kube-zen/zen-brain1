@@ -115,7 +115,6 @@ test_zencontext*
 *.broken
 *.clean
 apply_template_*.py
-fix_factory.py
 remove_bounded.py
 template_manager.patch
 
@@ -147,3 +146,22 @@ secrets.d/
 deploy/zen-lock/jira-credentials.zenlock.yaml
 *.zenlock.yaml
 *.enc
+# Compiled binaries (built on host, not committed)
+scheduler
+factory-fill
+finding-ticketizer
+useful-batch
+remediation-worker
+queue-steward
+roadmap-steward
+foreman
+
+# Compiled binaries (built on host, not committed)
+/scheduler
+/factory-fill
+/finding-ticketizer
+/useful-batch
+/remediation-worker
+/queue-steward
+/roadmap-steward
+/foreman

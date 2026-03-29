@@ -1,0 +1,7 @@
+# Dockerfile.zen-lock-cli — Minimal image for ZenLock credential decryption
+# Used as init container in K8s deployments
+FROM alpine:3.20
+
+RUN apk add --no-cache age kubectl
+
+ENTRYPOINT ["/bin/sh"]

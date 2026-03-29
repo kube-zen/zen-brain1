@@ -1,0 +1,18 @@
+apiVersion: security.kube-zen.io/v1alpha1
+kind: ZenLock
+metadata:
+  name: jira-credentials
+  namespace: zen-brain
+spec:
+  algorithm: age
+  allowedSubjects:
+    - kind: ServiceAccount
+      name: zen-brain
+      namespace: zen-brain
+  encryptedData:
+    # Placeholder — real values are in ~/zen/keys/zen-brain/jira-credentials.zenlock.yaml
+    # Applied by: kubectl apply -f ~/zen/keys/zen-brain/jira-credentials.zenlock.yaml
+    JIRA_URL: "PLACEHOLDER"
+    JIRA_EMAIL: "PLACEHOLDER"
+    JIRA_API_TOKEN: "PLACEHOLDER"
+    JIRA_PROJECT_KEY: "PLACEHOLDER"

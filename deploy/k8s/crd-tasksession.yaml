@@ -1,0 +1,52 @@
+# TaskSession CRD — thin session/task state
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: tasksessions.zenbrain.kube-zen.io
+spec:
+  group: zenbrain.kube-zen.io
+  names:
+    kind: TaskSession
+    listKind: TaskSessionList
+    plural: tasksessions
+    singular: tasksession
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    served: true
+    storage: true
+    schema:
+      openAPIV3Schema:
+        type: object
+        required: [spec]
+        properties:
+          spec:
+            type: object
+            required: [ticketKey, taskClass]
+            properties:
+              ticketKey:
+                type: string
+                description: Jira ticket key (e.g., ZB-1234)
+              taskClass:
+                type: string
+                description: Task class (defect-attribution, bug-triage, etc.)
+              status:
+                type: string
+                enum: [pending, running, completed, failed]
+                default: pending
+              workerId:
+                type: string
+                description: Worker pod handling this session
+              startTime:
+                type: string
+                format: date-time
+              endTime:
+                type: string
+                format: date-time
+              result:
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
+                description: Arbitrary result payload
+          status:
+            type: object
+            x-kubernetes-preserve-unknown-fields: true

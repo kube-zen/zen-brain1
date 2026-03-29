@@ -1,0 +1,188 @@
+# ── Scheduler Deployment ─────────────────────────────────────────────
+# Runs the recurring scheduler daemon. Invokes useful-batch as subprocess.
+# Pooled model: N concurrent goroutines per schedule, not one Job per task.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: scheduler
+  namespace: zen-brain
+  labels:
+    app.kubernetes.io/name: zen-brain
+    app.kubernetes.io/component: scheduler
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: zen-brain
+      app.kubernetes.io/component: scheduler
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: zen-brain
+        app.kubernetes.io/component: scheduler
+    spec:
+      serviceAccountName: zen-brain
+      containers:
+      - name: scheduler
+        image: zen-registry:5000/zen-brain-scheduler:latest
+        imagePullPolicy: Always
+        env:
+        - name: SCHEDULE_DIR
+          value: "/config/schedules"
+        - name: STATE_DIR
+          value: "/state"
+        - name: ARTIFACT_ROOT
+          value: "/artifacts"
+        - name: BATCH_BIN
+          value: "/useful-batch"
+        - name: METRICS_DIR
+          value: "/metrics"
+        - name: POLL_INTERVAL
+          value: "60s"
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        # Jira credentials from ZenLock-decrypted secret
+        envFrom:
+        - secretRef:
+            name: jira-credentials-runtime
+        volumeMounts:
+        - name: schedules
+          mountPath: /config/schedules
+          readOnly: true
+        - name: task-templates
+          mountPath: /config/task-templates
+          readOnly: true
+        - name: state
+          mountPath: /state
+        - name: artifacts
+          mountPath: /artifacts
+        - name: metrics
+          mountPath: /metrics
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "256Mi"
+      volumes:
+      - name: schedules
+        configMap:
+          name: schedules
+      - name: task-templates
+        configMap:
+          name: task-templates
+      - name: state
+        emptyDir: {}
+      - name: artifacts
+        emptyDir: {}
+      - name: metrics
+        emptyDir: {}
+---
+# ── Factory-Fill Deployment (Pooled Workers) ─────────────────────────
+# Backlog-aware dispatch loop with pooled concurrent workers.
+# NOT one Job per task — uses goroutine pool for work-conserving behavior.
+# Each goroutine invokes remediation-worker as subprocess.
+# Adaptive concurrency (R035–R041): dynamic W based on CPU, backlog, reserved slots.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: factory-fill
+  namespace: zen-brain
+  labels:
+    app.kubernetes.io/name: zen-brain
+    app.kubernetes.io/component: factory-fill
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: zen-brain
+      app.kubernetes.io/component: factory-fill
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: zen-brain
+        app.kubernetes.io/component: factory-fill
+    spec:
+      serviceAccountName: zen-brain
+      containers:
+      - name: factory-fill
+        image: zen-registry:5000/zen-brain-factory-fill:latest
+        imagePullPolicy: Always
+        env:
+        - name: REPO_ROOT
+          value: "/workspace"
+        - name: ARTIFACT_ROOT
+          value: "/artifacts"
+        - name: EVIDENCE_ROOT
+          value: "/evidence"
+        - name: METRICS_DIR
+          value: "/metrics"
+        - name: L1_ENDPOINT
+          value: "http://host.k3d.internal:56227"
+        - name: L2_ENDPOINT
+          value: "http://host.k3d.internal:60509"
+        - name: L1_MODEL
+          value: "Qwen3.5-0.8B-Q4_K_M.gguf"
+        # Adaptive concurrency (R035–R041)
+        - name: CONCURRENCY_TOTAL_SLOTS
+          value: "10"
+        - name: CONCURRENCY_RESERVED_SLOTS
+          value: "2"
+        - name: FACTORY_POLL_INTERVAL
+          value: "30s"
+        - name: MAX_DISPATCH
+          value: "8"
+        - name: TIMEOUT_SEC
+          value: "120"
+        - name: RESULT_DIR
+          value: "/results"
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        # Jira credentials from ZenLock-decrypted secret
+        envFrom:
+        - secretRef:
+            name: jira-credentials-runtime
+        volumeMounts:
+        - name: workspace
+          mountPath: /workspace
+        - name: artifacts
+          mountPath: /artifacts
+        - name: evidence
+          mountPath: /evidence
+        - name: metrics
+          mountPath: /metrics
+        - name: results
+          mountPath: /results
+        - name: templates
+          mountPath: /config/templates
+          readOnly: true
+        resources:
+          requests:
+            cpu: "200m"
+            memory: "256Mi"
+          limits:
+            cpu: "1000m"
+            memory: "512Mi"
+      volumes:
+      - name: workspace
+        emptyDir: {}
+      - name: artifacts
+        emptyDir: {}
+      - name: evidence
+        emptyDir: {}
+      - name: metrics
+        emptyDir: {}
+      - name: results
+        emptyDir: {}
+      - name: templates
+        configMap:
+          name: task-templates

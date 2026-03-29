@@ -1,0 +1,11 @@
+# Headless service for control-plane internal DNS
+apiVersion: v1
+kind: Service
+metadata:
+  name: zen-brain-control-plane
+  namespace: zen-brain
+spec:
+  selector:
+    app.kubernetes.io/part-of: zen-brain
+  clusterIP: None
+  ports: []

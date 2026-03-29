@@ -33,14 +33,14 @@ import (
 type TicketReadiness string
 
 const (
-	ReadyForExecution    TicketReadiness = "ready_for_execution"
-	ReadyWithReview      TicketReadiness = "ready_with_review"
-	BlockedMissingCtx    TicketReadiness = "blocked_missing_context"
-	BlockedGovernance    TicketReadiness = "blocked_missing_governance"
-	TooLargeForL1        TicketReadiness = "too_large_for_l1"
-	ScanBatchArtifact    TicketReadiness = "scan_batch_artifact"
-	DuplicateOrStale     TicketReadiness = "duplicate_or_stale"
-	BlockedInsufficient  TicketReadiness = "blocked_insufficient_spec"
+	ReadyForExecution   TicketReadiness = "ready_for_execution"
+	ReadyWithReview     TicketReadiness = "ready_with_review"
+	BlockedMissingCtx   TicketReadiness = "blocked_missing_context"
+	BlockedGovernance   TicketReadiness = "blocked_missing_governance"
+	TooLargeForL1       TicketReadiness = "too_large_for_l1"
+	ScanBatchArtifact   TicketReadiness = "scan_batch_artifact"
+	DuplicateOrStale    TicketReadiness = "duplicate_or_stale"
+	BlockedInsufficient TicketReadiness = "blocked_insufficient_spec"
 )
 
 type ClassifiedTicket struct {
@@ -55,11 +55,15 @@ type ClassifiedTicket struct {
 type jiraIssue struct {
 	Key    string `json:"key"`
 	Fields struct {
-		Summary     string   `json:"summary"`
-		Description string   `json:"description"`
-		Labels      []string `json:"labels"`
-		Status      struct{ Name string `json:"name"` } `json:"status"`
-		Priority    struct{ Name string `json:"name"` } `json:"priority"`
+		Summary     string          `json:"summary"`
+		Description json.RawMessage `json:"description"` // ADF object or string — we don't use it
+		Labels      []string        `json:"labels"`
+		Status      struct {
+			Name string `json:"name"`
+		} `json:"status"`
+		Priority struct {
+			Name string `json:"name"`
+		} `json:"priority"`
 	} `json:"fields"`
 }
 
@@ -106,7 +110,7 @@ func classifyTicket(issue jiraIssue) ClassifiedTicket {
 	rdyCheck := readinessValidator.Check(readiness.TicketInput{
 		Key:         issue.Key,
 		Title:       issue.Fields.Summary,
-		Description: issue.Fields.Description,
+		Description: string(issue.Fields.Description), // raw JSON string (may be ADF) — readiness checks length only
 		Labels:      issue.Fields.Labels,
 	})
 	if rdyCheck.Status == readiness.StatusNotReady {
@@ -204,7 +208,9 @@ func jiraTransition(jcfg jiraConfig, key, targetName string) bool {
 		return false
 	}
 	var tr struct {
-		Transitions []struct{ ID, Name string `json:"id,json:"` }
+		Transitions []struct {
+			ID, Name string `json:"id,json:"`
+		}
 	}
 	// Manual parse — the struct tag is wrong, use generic
 	var trRaw struct {
@@ -245,25 +251,25 @@ func jiraTransition(jcfg jiraConfig, key, targetName string) bool {
 // ─── Factory State ───────────────────────────────────────────────────
 
 type FactoryState struct {
-	Active    int32 // currently in-flight
-	Done      int32 // completed this run
-	Failed    int32 // failed this run
+	Active          int32 // currently in-flight
+	Done            int32 // completed this run
+	Failed          int32 // failed this run
 	SafeConcurrency int
 }
 
 type factoryConfig struct {
-	RepoRoot         string
-	ArtifactRoot     string
-	EvidenceRoot     string
-	MetricsDir       string
-	SafeConcurrency  int           // DEPRECATED: kept for backward compat, controller overrides
-	L1Endpoint       string
-	L1Model          string
-	PollInterval     time.Duration
-	TimeoutSec       int
-	MaxDispatch      int // max tickets to fetch per cycle
-	Jcfg             jiraConfig
-	ConcurrencyCfg   concurrency.Config
+	RepoRoot        string
+	ArtifactRoot    string
+	EvidenceRoot    string
+	MetricsDir      string
+	SafeConcurrency int // DEPRECATED: kept for backward compat, controller overrides
+	L1Endpoint      string
+	L1Model         string
+	PollInterval    time.Duration
+	TimeoutSec      int
+	MaxDispatch     int // max tickets to fetch per cycle
+	Jcfg            jiraConfig
+	ConcurrencyCfg  concurrency.Config
 }
 
 // Package-level readiness validator (G013/G015).
@@ -294,16 +300,16 @@ func loadConfig() factoryConfig {
 // WorkerTerminalResult mirrors the struct from remediation-worker.
 // This is the contract between worker subprocess and factory-fill dispatcher.
 type WorkerTerminalResult struct {
-	JiraKey         string `json:"jira_key"`
-	TerminalClass   string `json:"terminal_class"`
-	QualityScore    int    `json:"quality_score"`
-	QualityPassed   bool   `json:"quality_passed"`
-	L1Status        string `json:"l1_status"`
-	JiraState       string `json:"jira_state"`
-	EvidencePath    string `json:"evidence_path"`
-	BlockerReason   string `json:"blocker_reason,omitempty"`
-	GateLogPath     string `json:"gate_log_path,omitempty"`
-	Timestamp       string `json:"timestamp"`
+	JiraKey       string `json:"jira_key"`
+	TerminalClass string `json:"terminal_class"`
+	QualityScore  int    `json:"quality_score"`
+	QualityPassed bool   `json:"quality_passed"`
+	L1Status      string `json:"l1_status"`
+	JiraState     string `json:"jira_state"`
+	EvidencePath  string `json:"evidence_path"`
+	BlockerReason string `json:"blocker_reason,omitempty"`
+	GateLogPath   string `json:"gate_log_path,omitempty"`
+	Timestamp     string `json:"timestamp"`
 }
 
 // readWorkerTerminalResult reads the terminal classification file for a ticket.
@@ -765,17 +771,17 @@ func sortTicketsByPriority(tickets []ClassifiedTicket) {
 // ─── Dashboard (PHASE 6) ─────────────────────────────────────────────
 
 type BoardSnapshot struct {
-	Timestamp      time.Time `json:"timestamp"`
-	BacklogReady   int       `json:"backlog_ready"`
-	BacklogTotal   int       `json:"backlog_total"`
-	Retrying       int       `json:"retrying"`
-	InProgress     int       `json:"in_progress"`
-	SafeTarget     int       `json:"safe_target"`
-	ActualActive   int       `json:"actual_active"`
-	DoneCount      int       `json:"done_count"`
-	FailedCount    int       `json:"failed_count"`
-	Underfill      bool      `json:"underfill"`
-	Notes          string    `json:"notes,omitempty"`
+	Timestamp    time.Time `json:"timestamp"`
+	BacklogReady int       `json:"backlog_ready"`
+	BacklogTotal int       `json:"backlog_total"`
+	Retrying     int       `json:"retrying"`
+	InProgress   int       `json:"in_progress"`
+	SafeTarget   int       `json:"safe_target"`
+	ActualActive int       `json:"actual_active"`
+	DoneCount    int       `json:"done_count"`
+	FailedCount  int       `json:"failed_count"`
+	Underfill    bool      `json:"underfill"`
+	Notes        string    `json:"notes,omitempty"`
 }
 
 func (s *FactoryState) GetDone() int   { return int(atomic.LoadInt32(&s.Done)) }
@@ -824,8 +830,8 @@ func writeDashboard(cfg factoryConfig, state *FactoryState, ctrl *concurrency.Co
 		InProgress:   inProgCount,
 		SafeTarget:   int(cm.DesiredGeneral), // now dynamic
 		ActualActive: active,
-		DoneCount:         state.GetDone(),
-		FailedCount:       state.GetFailed(),
+		DoneCount:    state.GetDone(),
+		FailedCount:  state.GetFailed(),
 		Underfill:    underfill,
 	}
 
