@@ -1,11 +1,12 @@
 // Command factory-fill implements a backlog-aware dispatch loop that keeps
 // the L1 factory filled whenever ready work exists in Jira.
 //
-// Operating policy:
-//   - Underfilled factory with backlog present = BUG
-//   - target_in_progress = min(safe_l1_concurrency, ready_backlog + retrying)
-//   - If current in-progress < target: pull tickets, dispatch immediately
-//   - Do not wait for the next scheduler cycle if ready tickets exist
+// Operating policy (R035–R041):
+//   - Adaptive concurrency: no static W values
+//   - Work-conserving: idle workers while runnable work exists is a bug
+//   - 2 model slots always reserved for scheduled tasks
+//   - Resource-aware: throttle on CPU soft/hard cap with hysteresis
+//   - Conservative fallback on telemetry failure
 //   - Jira In Progress must reflect actual active work
 package main
 
@@ -22,6 +23,9 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/kube-zen/zen-brain1/internal/concurrency"
+	"github.com/kube-zen/zen-brain1/internal/readiness"
 )
 
 // ─── Ticket Readiness Classification (PHASE 1) ───────────────────────
@@ -29,13 +33,14 @@ import (
 type TicketReadiness string
 
 const (
-	ReadyForExecution TicketReadiness = "ready_for_execution"
-	ReadyWithReview   TicketReadiness = "ready_with_review"
-	BlockedMissingCtx TicketReadiness = "blocked_missing_context"
-	BlockedGovernance TicketReadiness = "blocked_missing_governance"
-	TooLargeForL1     TicketReadiness = "too_large_for_l1"
-	ScanBatchArtifact TicketReadiness = "scan_batch_artifact"
-	DuplicateOrStale  TicketReadiness = "duplicate_or_stale"
+	ReadyForExecution    TicketReadiness = "ready_for_execution"
+	ReadyWithReview      TicketReadiness = "ready_with_review"
+	BlockedMissingCtx    TicketReadiness = "blocked_missing_context"
+	BlockedGovernance    TicketReadiness = "blocked_missing_governance"
+	TooLargeForL1        TicketReadiness = "too_large_for_l1"
+	ScanBatchArtifact    TicketReadiness = "scan_batch_artifact"
+	DuplicateOrStale     TicketReadiness = "duplicate_or_stale"
+	BlockedInsufficient  TicketReadiness = "blocked_insufficient_spec"
 )
 
 type ClassifiedTicket struct {
@@ -50,10 +55,11 @@ type ClassifiedTicket struct {
 type jiraIssue struct {
 	Key    string `json:"key"`
 	Fields struct {
-		Summary  string   `json:"summary"`
-		Labels   []string `json:"labels"`
-		Status   struct{ Name string `json:"name"` } `json:"status"`
-		Priority struct{ Name string `json:"name"` } `json:"priority"`
+		Summary     string   `json:"summary"`
+		Description string   `json:"description"`
+		Labels      []string `json:"labels"`
+		Status      struct{ Name string `json:"name"` } `json:"status"`
+		Priority    struct{ Name string `json:"name"` } `json:"priority"`
 	} `json:"fields"`
 }
 
@@ -90,7 +96,22 @@ func classifyTicket(issue jiraIssue) ClassifiedTicket {
 		case "ai:completed", "ai:blocked":
 			ct.Readiness = DuplicateOrStale
 			return ct
+		case "needs-detail", "needs-triage":
+			ct.Readiness = BlockedInsufficient
+			return ct
 		}
+	}
+
+	// G013/G015: Readiness gate — validate ticket quality before allowing execution
+	rdyCheck := readinessValidator.Check(readiness.TicketInput{
+		Key:         issue.Key,
+		Title:       issue.Fields.Summary,
+		Description: issue.Fields.Description,
+		Labels:      issue.Fields.Labels,
+	})
+	if rdyCheck.Status == readiness.StatusNotReady {
+		ct.Readiness = BlockedInsufficient
+		return ct
 	}
 
 	isSecurity := false
@@ -139,7 +160,7 @@ func jiraSearch(jcfg jiraConfig, jql string, maxResults int) ([]jiraIssue, int, 
 	payload, _ := json.Marshal(map[string]interface{}{
 		"jql":        jql,
 		"maxResults": maxResults,
-		"fields":     []string{"summary", "labels", "status", "priority"},
+		"fields":     []string{"summary", "description", "labels", "status", "priority"},
 	})
 	req, err := http.NewRequest("POST", jcfg.url+"/rest/api/3/search/jql", strings.NewReader(string(payload)))
 	if err != nil {
@@ -235,29 +256,36 @@ type factoryConfig struct {
 	ArtifactRoot     string
 	EvidenceRoot     string
 	MetricsDir       string
-	SafeConcurrency  int
+	SafeConcurrency  int           // DEPRECATED: kept for backward compat, controller overrides
 	L1Endpoint       string
 	L1Model          string
 	PollInterval     time.Duration
 	TimeoutSec       int
 	MaxDispatch      int // max tickets to fetch per cycle
 	Jcfg             jiraConfig
+	ConcurrencyCfg   concurrency.Config
 }
+
+// Package-level readiness validator (G013/G015).
+// Initialized once, used by classifyTicket to enforce the executable contract.
+var readinessValidator = readiness.NewValidator()
 
 func loadConfig() factoryConfig {
 	jcfg := loadJiraConfig()
+	concCfg := concurrency.LoadConfigFromEnv()
 	return factoryConfig{
 		RepoRoot:        envOr("REPO_ROOT", "/home/neves/zen/zen-brain1"),
 		ArtifactRoot:    envOr("ARTIFACT_ROOT", "/var/lib/zen-brain1/runs"),
 		EvidenceRoot:    envOr("EVIDENCE_ROOT", "/var/lib/zen-brain1/evidence"),
 		MetricsDir:      envOr("METRICS_DIR", "/var/lib/zen-brain1/metrics"),
-		SafeConcurrency: envIntOr("SAFE_L1_CONCURRENCY", 5),
+		SafeConcurrency: envIntOr("SAFE_L1_CONCURRENCY", 5), // DEPRECATED: controller overrides
 		L1Endpoint:      envOr("L1_ENDPOINT", "http://localhost:56227"),
 		L1Model:         envOr("L1_MODEL", "Qwen3.5-0.8B-Q4_K_M.gguf"),
 		PollInterval:    envDurationOr("POLL_INTERVAL", "30s"),
 		TimeoutSec:      envIntOr("TIMEOUT_SEC", 120),
 		MaxDispatch:     envIntOr("MAX_DISPATCH", 15),
 		Jcfg:            jcfg,
+		ConcurrencyCfg:  concCfg,
 	}
 }
 
@@ -442,17 +470,10 @@ func lastNLines(s string, n int) string {
 
 // ─── Fill Loop ───────────────────────────────────────────────────────
 
-func runFillCycle(cfg factoryConfig, state *FactoryState) {
+func runFillCycle(cfg factoryConfig, state *FactoryState, ctrl *concurrency.Controller, dash *concurrency.Dashboard) {
 	active := int(atomic.LoadInt32(&state.Active))
-	slotsAvailable := cfg.SafeConcurrency - active
 
-	log.Printf("[FACTORY] Cycle: active=%d target=%d slots=%d done=%d failed=%d",
-		active, cfg.SafeConcurrency, slotsAvailable, state.GetDone(), state.GetFailed())
-
-	if slotsAvailable <= 0 {
-		log.Printf("[FACTORY] Factory full (%d/%d) — waiting", active, cfg.SafeConcurrency)
-		return
-	}
+	log.Printf("[FACTORY] Cycle start: active=%d", active)
 
 	// Fetch backlog tickets
 	tickets, err := fetchBacklogTickets(cfg.Jcfg, cfg.MaxDispatch)
@@ -471,20 +492,51 @@ func runFillCycle(cfg factoryConfig, state *FactoryState) {
 		}
 	}
 
-	log.Printf("[FACTORY] Backlog: %d fetched, %d ready, %d blocked, %d scan-artifacts, %d stale",
+	log.Printf("[FACTORY] Backlog: %d fetched, %d ready, %d blocked, %d scan-artifacts, %d stale, %d insufficient-spec",
 		len(classified), readyCount,
 		countReadiness(classified, BlockedMissingCtx)+countReadiness(classified, BlockedGovernance),
 		countReadiness(classified, ScanBatchArtifact),
-		countReadiness(classified, DuplicateOrStale))
+		countReadiness(classified, DuplicateOrStale),
+		countReadiness(classified, BlockedInsufficient))
 
 	if readyCount == 0 {
 		log.Printf("[FACTORY] No ready tickets — idle")
+		// Record metrics even when idle
+		m := ctrl.Metrics()
+		m.ReadyCount = 0
+		dash.Record(m)
 		return
 	}
 
-	// Underfill detection: ready work exists but factory not full
-	if active < cfg.SafeConcurrency && readyCount > slotsAvailable {
-		log.Printf("[FACTORY] ⚠️ UNDERFILL: %d slots empty with %d ready tickets — filling", slotsAvailable, readyCount)
+	// Dynamic concurrency calculation (R035–R041)
+	desired, throttleReason := ctrl.DesiredConcurrency(readyCount, active)
+	slotsAvailable := desired - active
+	if slotsAvailable < 0 {
+		slotsAvailable = 0
+	}
+
+	// Update metrics with actual backlog info
+	m := ctrl.Metrics()
+	m.BacklogCount = len(classified)
+	m.ReadyCount = readyCount
+	dash.Record(m)
+
+	log.Printf("[FACTORY] Dynamic concurrency: desired=%d running=%d slots=%d cpu=%.1f%% throttle=%q",
+		desired, active, slotsAvailable, m.CPUPercent, throttleReason)
+
+	// Health signal: idle workers while runnable work exists = bug (R041 invariant 1)
+	if slotsAvailable > 0 && active < desired {
+		log.Printf("[FACTORY] ⚠️ IDLE WORKERS BUG: %d slots available with %d ready tickets — filling now",
+			slotsAvailable, readyCount)
+	}
+
+	if slotsAvailable <= 0 {
+		if throttleReason != "" {
+			log.Printf("[FACTORY] Throttled: %s", throttleReason)
+		} else {
+			log.Printf("[FACTORY] Factory at desired capacity (%d/%d) — waiting", active, desired)
+		}
+		return
 	}
 
 	// Pick tickets to dispatch (up to slots available)
@@ -498,7 +550,7 @@ func runFillCycle(cfg factoryConfig, state *FactoryState) {
 		ready = ready[:toDispatch]
 	}
 
-	log.Printf("[FACTORY] Dispatching %d tickets", len(ready))
+	log.Printf("[FACTORY] Dispatching %d tickets (reserved=%d for scheduled)", len(ready), m.ReservedSlots)
 
 	var wg sync.WaitGroup
 	for _, ticket := range ready {
@@ -518,9 +570,6 @@ func runFillCycle(cfg factoryConfig, state *FactoryState) {
 	wg.Wait()
 
 	// PHASE A FIX: Post-dispatch state reconciliation
-	// The remediation-worker subprocess may exit 0 even when quality-gate rejects a ticket.
-	// That leaves tickets stuck In Progress with no correct terminal state.
-	// This step checks every dispatched ticket's actual Jira state and fixes it.
 	reconcileDispatchedStates(cfg, ready)
 }
 
@@ -732,7 +781,7 @@ type BoardSnapshot struct {
 func (s *FactoryState) GetDone() int   { return int(atomic.LoadInt32(&s.Done)) }
 func (s *FactoryState) GetFailed() int { return int(atomic.LoadInt32(&s.Failed)) }
 
-func writeDashboard(cfg factoryConfig, state *FactoryState) {
+func writeDashboard(cfg factoryConfig, state *FactoryState, ctrl *concurrency.Controller) {
 	// Get current board counts
 	backlogIssues, _, _ := jiraSearch(cfg.Jcfg,
 		fmt.Sprintf("project=%s AND status=Backlog AND labels=bug", cfg.Jcfg.project), 1)
@@ -764,7 +813,8 @@ func writeDashboard(cfg factoryConfig, state *FactoryState) {
 		fmt.Sprintf("project=%s AND status=\"In Progress\"", cfg.Jcfg.project), 1)
 
 	active := int(atomic.LoadInt32(&state.Active))
-	underfill := active < cfg.SafeConcurrency && readyCount > 0
+	cm := ctrl.Metrics()
+	underfill := active < cm.DesiredGeneral && readyCount > 0
 
 	snap := BoardSnapshot{
 		Timestamp:    time.Now(),
@@ -772,7 +822,7 @@ func writeDashboard(cfg factoryConfig, state *FactoryState) {
 		BacklogTotal: totalBacklog,
 		Retrying:     retryCount,
 		InProgress:   inProgCount,
-		SafeTarget:   cfg.SafeConcurrency,
+		SafeTarget:   int(cm.DesiredGeneral), // now dynamic
 		ActualActive: active,
 		DoneCount:         state.GetDone(),
 		FailedCount:       state.GetFailed(),
@@ -812,9 +862,30 @@ func writeDashboard(cfg factoryConfig, state *FactoryState) {
 	} else {
 		sb.WriteString("\n✅ Factory utilization OK\n")
 	}
+	sb.WriteString(fmt.Sprintf("\n## Concurrency Controller\n"))
+	sb.WriteString(fmt.Sprintf("| Metric | Value |\n|--------|-------|\n"))
+	sb.WriteString(fmt.Sprintf("| Total slots | %d |\n", cm.TotalSlots))
+	sb.WriteString(fmt.Sprintf("| Reserved (scheduled) | %d |\n", cm.ReservedSlots))
+	sb.WriteString(fmt.Sprintf("| Usable (general) | %d |\n", cm.UsableSlots))
+	sb.WriteString(fmt.Sprintf("| Desired general workers | %d |\n", cm.DesiredGeneral))
+	sb.WriteString(fmt.Sprintf("| CPU pressure | %.1f%% |\n", cm.CPUPercent))
+	if cm.IsThrottled {
+		sb.WriteString(fmt.Sprintf("| Throttle reason | %s |\n", cm.ThrottleReason))
+	} else {
+		sb.WriteString("| Throttle reason | none |\n")
+	}
+	if cm.IsConservative {
+		sb.WriteString("| Mode | CONSERVATIVE (telemetry degraded) |\n")
+	} else {
+		sb.WriteString("| Mode | normal |\n")
+	}
 	sb.WriteString("\n## Operating Policy\n")
-	sb.WriteString("- Underfilled factory with backlog present = BUG\n")
-	sb.WriteString("- target_in_progress = min(safe_target, ready_backlog + retrying)\n")
+	sb.WriteString("- Adaptive concurrency (no static W values)\n")
+	sb.WriteString("- Work-conserving: idle workers with runnable work = BUG\n")
+	sb.WriteString("- 2 model slots reserved for scheduled tasks\n")
+	sb.WriteString("- Throttle on CPU soft cap (80%), hard stop at 90%\n")
+	sb.WriteString("- Hysteresis prevents concurrency oscillation\n")
+	sb.WriteString("- Conservative fallback on telemetry failure\n")
 	sb.WriteString("- Jira In Progress reflects actual active work\n")
 	sb.WriteString("- Success = done-rate + honest attribution\n")
 
@@ -944,8 +1015,14 @@ func main() {
 
 	state := &FactoryState{SafeConcurrency: cfg.SafeConcurrency}
 
-	log.Printf("[FACTORY-FILL] Config: safe_target=%d, poll=%v, l1=%s",
-		cfg.SafeConcurrency, cfg.PollInterval, cfg.L1Endpoint)
+	// Initialize dynamic concurrency controller (R035–R041)
+	ctrl := concurrency.NewController(cfg.ConcurrencyCfg, nil)
+	dash := concurrency.NewDashboard(cfg.MetricsDir)
+
+	log.Printf("[FACTORY-FILL] Config: total_slots=%d reserved=%d usable=%d poll=%v l1=%s",
+		cfg.ConcurrencyCfg.TotalSlots, cfg.ConcurrencyCfg.ReservedSlots,
+		cfg.ConcurrencyCfg.TotalSlots-cfg.ConcurrencyCfg.ReservedSlots,
+		cfg.PollInterval, cfg.L1Endpoint)
 
 	// State reconciliation: always run before fill cycle to fix any tickets stuck In Progress
 	// from previous cycles where the worker exited clean but quality gate rejected.
@@ -953,8 +1030,8 @@ func main() {
 
 	forceRun := os.Getenv("FORCE_RUN") != "" || os.Getenv("ONCE") != ""
 	if forceRun {
-		runFillCycle(cfg, state)
-		writeDashboard(cfg, state)
+		runFillCycle(cfg, state, ctrl, dash)
+		writeDashboard(cfg, state, ctrl)
 		log.Printf("[FACTORY-FILL] Force run complete: done=%d failed=%d", state.GetDone(), state.GetFailed())
 		return
 	}
@@ -965,12 +1042,12 @@ func main() {
 	defer ticker.Stop()
 
 	// Initial fill
-	runFillCycle(cfg, state)
-	writeDashboard(cfg, state)
+	runFillCycle(cfg, state, ctrl, dash)
+	writeDashboard(cfg, state, ctrl)
 
 	for range ticker.C {
-		runFillCycle(cfg, state)
-		writeDashboard(cfg, state)
+		runFillCycle(cfg, state, ctrl, dash)
+		writeDashboard(cfg, state, ctrl)
 	}
 }
 

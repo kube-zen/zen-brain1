@@ -1,0 +1,125 @@
+# Queue Steward L1 — Template-Driven Pilot
+#
+# First template-driven workflow for zen-brain.
+# Demonstrates: AI step, structured output, post-action for follow-up dispatch.
+# Local inference: llama.cpp with enable_thinking=false (the only compliant path).
+
+name: queue-steward-l1
+display_name: Queue Steward (L1 Factory Floor)
+version: "1.0"
+description: |
+  Inspects Jira queue state, classifies ticket readiness, recommends dispatch
+  and reconciliation actions. Factory-floor supervisor role — NOT strategy.
+
+role: steward
+queue: mlq-level-1
+
+operation_type: provider
+target_model: qwen3.5:0.8b-q4
+max_concurrent: 1
+queue_level: 1
+priority: 3
+estimated_hours: 0.02
+
+inputs:
+  - name: QueueStateJSON
+    type: json
+    required: true
+    description: Current Jira queue state as JSON
+  - name: SafeConcurrency
+    type: string
+    required: false
+    default: "8"
+    description: Dynamic concurrency target from controller
+
+allowed_tools:
+  - jira_read
+  - jira_transition
+
+steps:
+  - name: inspect-queue
+    type: ai
+    description: Feed queue state to L1 for structured recommendations
+    prompt: |
+      You are the Queue Steward. Your job is to inspect the queue and produce structured recommendations.
+
+      INPUT (current queue state):
+      {{.QueueStateJSON}}
+
+      RULES:
+      - You are a factory-floor queue supervisor. You manage flow, not strategy.
+      - You do NOT change policy, worker counts, or approval gates.
+      - You do NOT move tickets to Done unless validation already passed.
+      - Underfilled factory with ready backlog is a bug — recommend dispatch.
+      - Classify each ready ticket by readiness: ready_for_execution, ready_with_review, blocked_missing_context, blocked_missing_governance, too_large_for_l1, duplicate_or_stale
+      - Stale tickets (in Selected/In Progress/RETRYING > 30 min) need action.
+      - Discovery throttle: if ready_backlog > 10, recommend throttling discovery.
+      - Target in_progress = min(safe_concurrency, ready_backlog + retrying)
+      - Work split: 70% remediation, 20% roadmap, 10% discovery
+
+      OUTPUT — respond with ONLY this JSON structure, no other text:
+      {
+        "queue_health_summary": "one sentence",
+        "target_in_progress": 0,
+        "actual_in_progress": 0,
+        "fill_ratio": 0.0,
+        "dispatch_recommendations": [
+          {"key": "ZB-XXXX", "action": "dispatch", "readiness": "ready_for_execution"}
+        ],
+        "stale_ticket_actions": [
+          {"key": "ZB-XXXX", "action": "requeue|pause|escalate", "reason": "stuck in X for Y minutes"}
+        ],
+        "retry_actions": [
+          {"key": "ZB-XXXX", "action": "retry|pause|escalate", "reason": "..."}
+        ],
+        "throttle_recommendation": {
+          "discovery_throttled": false,
+          "reason": "backlog count X <= threshold 10"
+        },
+        "tickets_needing_review": [],
+        "notes": "any queue bottleneck observations"
+      }
+    timeout_sec: 2700
+    max_retries: 1
+
+outputs:
+  - name: queue_health_summary
+    type: json
+    required: true
+    description: Structured queue health recommendation from L1
+  - name: dispatch_recommendations
+    type: json
+    required: false
+    description: List of tickets recommended for dispatch
+  - name: stale_ticket_actions
+    type: json
+    required: false
+    description: List of actions for stale tickets
+  - name: retry_actions
+    type: json
+    required: false
+    description: List of retry actions
+
+post_actions:
+  - type: enqueue
+    target: factory-fill
+    description: If L1 recommends dispatch, trigger factory-fill cycle
+    cond: dispatch_recommendations
+    priority: 3
+  - type: schedule
+    target: queue-steward-summary
+    description: Queue health snapshot for 30-minute summary cycle
+    cond: queue_health_summary
+
+config:
+  timeout: 2700
+  max_prompt_chars: 3000
+  max_context_bytes: 4000
+  require_warmup: false
+  require_tools: false
+
+labels:
+  - queue-steward
+  - ai:operations
+
+controlled_failure: false

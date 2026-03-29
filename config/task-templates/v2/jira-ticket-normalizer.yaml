@@ -1,0 +1,121 @@
+# Ticket Normalizer — Template-Driven Triage
+#
+# Inspects a Jira ticket, classifies its readiness for execution,
+# and produces structured output: either a pass-through or a
+# clarification request with missing-field analysis.
+#
+# This template demonstrates the template-first direction (G016):
+# templates own workflow behavior, the engine owns execution and policy.
+#
+# Local inference: llama.cpp with enable_thinking=false.
+
+name: jira-ticket-normalizer
+display_name: Jira Ticket Normalizer / Triage
+version: "1.0"
+description: |
+  Evaluates a Jira ticket against the executable contract (G013).
+  If the ticket lacks problem statement, scope, evidence, or acceptance criteria,
+  produces a structured clarification request instead of dispatching to workers.
+
+role: steward
+queue: mlq-level-1
+
+operation_type: provider
+target_model: qwen3.5:0.8b-q4
+max_concurrent: 1
+queue_level: 1
+priority: 1
+estimated_hours: 0.01
+
+inputs:
+  - name: TicketKey
+    type: string
+    required: true
+    description: Jira ticket key (e.g. ZB-1234)
+  - name: TicketTitle
+    type: string
+    required: true
+    description: Ticket summary/title
+  - name: TicketDescription
+    type: string
+    required: true
+    description: Full ticket description
+  - name: TicketLabels
+    type: string
+    required: false
+    default: "[]"
+    description: Comma-separated labels
+  - name: TicketComponent
+    type: string
+    required: false
+    default: ""
+    description: Affected component if known
+
+allowed_tools:
+  - jira_read
+  - jira_comment
+  - jira_transition
+
+steps:
+  - name: evaluate-readiness
+    type: ai
+    description: Classify ticket readiness against the executable contract
+    prompt: |
+      You are a ticket triage evaluator. Evaluate this Jira ticket for executability.
+
+      TICKET: {{.TicketKey}}
+      TITLE: {{.TicketTitle}}
+      DESCRIPTION: {{.TicketDescription}}
+      LABELS: {{.TicketLabels}}
+      COMPONENT: {{.TicketComponent}}
+
+      A ticket is EXECUTABLE only if it has ALL of:
+      1. Problem statement: what is broken, where, expected vs actual behavior
+      2. Scope: affected component/service/path
+      3. Evidence: log, repro steps, stack trace, screenshot, or user-visible symptom
+      4. Acceptance criteria: concrete end state — how we know it is fixed
+
+      Respond with ONLY this JSON, no other text:
+      {
+        "status": "ready" or "not_ready",
+        "score": 0-5,
+        "missing": [
+          {"criterion": "problem_statement|scope|evidence|acceptance_criteria", "detail": "what's missing"}
+        ],
+        "clarification_comment": "concise message asking for what's missing, or empty string if ready",
+        "recommended_action": "dispatch|move_to_needs_detail|request_clarification"
+      }
+    timeout_sec: 120
+    max_retries: 1
+
+outputs:
+  - name: readiness_status
+    type: json
+    required: true
+    description: ready or not_ready with score and missing fields
+  - name: clarification_comment
+    type: string
+    required: false
+    description: User-facing message if ticket is not ready
+
+post_actions:
+  - type: handoff
+    description: If not ready, route to triage queue (DO NOT dispatch to workers)
+    cond: readiness_status
+  - type: enqueue
+    target: factory-fill
+    description: If ready and backlog has capacity, queue for execution
+    cond: readiness_status
+
+config:
+  timeout: 2700
+  max_prompt_chars: 5000
+  max_context_bytes: 4000
+  require_warmup: false
+  require_tools: false
+
+labels:
+  - triage
+  - readiness-gate
+
+controlled_failure: false
