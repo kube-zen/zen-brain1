@@ -1,32 +1,93 @@
 # Provider Policy Configuration for zen-brain1
-# Version: 1.0
+# Version: 1.1
 # Status: Production
 #
 # IMPORTANT: Local CPU Inference Policy (ZB-023)
 # ================================================
+# CERTIFIED RUNTIME: llama.cpp (NOT Ollama)
+# ================================================
 # UNTIL EXPLICITLY OVERRIDDEN BY THE OPERATOR:
-# - qwen3.5:0.8b is the ONLY allowed local Ollama model
-# - Host Docker Ollama is the ONLY supported local CPU inference path
-# - In-cluster Ollama is FORBIDDEN for the active local path
+# - Qwen3.5-0.8B-Q4_K_M is the ONLY certified local CPU model
+# - Host llama.cpp (NOT in K8s) is the ONLY supported local CPU inference path
+# - Ollama is DEPRECATED - llama.cpp proved 2-3x faster in benchmarks
+# - In-cluster inference is FORBIDDEN (k3d performance issues)
 #
-# Any provider/model may serve any role if configured.
-# The strict "planner=GLM, worker=0.8b" split is outdated and removed.
-# Local CPU path is certified ONLY for qwen3.5:0.8b via host Docker Ollama.
+# INFERENCE ARCHITECTURE:
+# - L1 (primary): llama.cpp on host, port 56227, Qwen3.5-0.8B-Q4_K_M.gguf
+# - L2 (secondary): llama.cpp on host, port 60509, zen-go-q4_k_m.gguf
+# - Ollama (port 11434): DISABLED - legacy fallback only, not recommended
+#
+# See: docs/05-OPERATIONS/LLAMA_CPP_VS_OLLAMA_QWEN_0_8B_BENCHMARK.md
 
 providers:
-  # Local Ollama Provider (host Docker, NOT in-cluster)
-  - name: local-worker
-    display_name: "Local Ollama (Host Docker)"
+  # L1 Primary - llama.cpp on host (outside K8s for performance)
+  - name: local-worker-l1
+    display_name: "Local llama.cpp L1 (Host)"
     class: language-model
     enabled: true
-    provider_type: managed
+    provider_type: llama-cpp
+    api_endpoint: "http://host.k3d.internal:56227/v1/chat/completions"
+    local_cpu_certified: true
+    fail_if_other_model_requested: true
+    default_model: "Qwen3.5-0.8B-Q4_K_M"
+    models:
+      - name: "Qwen3.5-0.8B-Q4_K_M"
+        display_name: "Qwen 3.5 0.8B Q4_K_M (Local llama.cpp)"
+        class: chat
+        context_window: 32768
+        max_output_tokens: 2048
+        cost_per_1m_input_tokens: 0.0
+        cost_per_1m_output_tokens: 0.0
+        supports_streaming: true
+        supports_functions: false
+        supports_json_mode: false
+        max_batch_size: 10  # llama.cpp parallel=10
+        rate_limit_rpm: 120
+        rate_limit_rpd: 100000
+        certified_local_cpu: true
+    timeout_seconds: 2700  # ZB-024: 45 minutes
+    keep_alive: "45m"
+
+  # L2 Secondary - llama.cpp on host (larger model for complex tasks)
+  - name: local-worker-l2
+    display_name: "Local llama.cpp L2 (Host)"
+    class: language-model
+    enabled: true
+    provider_type: llama-cpp
+    api_endpoint: "http://host.k3d.internal:60509/v1/chat/completions"
+    local_cpu_certified: true
+    default_model: "zen-go-q4_k_m"
+    models:
+      - name: "zen-go-q4_k_m"
+        display_name: "Zen-Go Q4_K_M (Local llama.cpp L2)"
+        class: chat
+        context_window: 16384
+        max_output_tokens: 4096
+        cost_per_1m_input_tokens: 0.0
+        cost_per_1m_output_tokens: 0.0
+        supports_streaming: true
+        supports_functions: false
+        supports_json_mode: false
+        max_batch_size: 5
+        rate_limit_rpm: 60
+        rate_limit_rpd: 100000
+        certified_local_cpu: true
+    timeout_seconds: 2700
+    keep_alive: "45m"
+
+  # L0 Fallback - Ollama (DEPRECATED, emergency fallback only)
+  # WARNING: Ollama is 2-3x slower than llama.cpp. Use only when L1/L2 unavailable.
+  - name: local-worker-l0-fallback
+    display_name: "Local Ollama L0 Fallback (DEPRECATED)"
+    class: language-model
+    enabled: false  # DISABLED by default - llama.cpp is preferred
+    provider_type: ollama
     api_endpoint: "http://host.k3d.internal:11434"
-    local_cpu_certified: true  # FAIL-CLOSED: only qwen3.5:0.8b is certified
-    fail_if_other_model_requested: true  # FAIL-CLOSED: reject non-certified models
+    local_cpu_certified: false  # NOT certified - fallback only
     default_model: "qwen3.5:0.8b"
     models:
       - name: "qwen3.5:0.8b"
-        display_name: "Qwen 3.5 0.8B (Local)"
+        display_name: "Qwen 3.5 0.8B (Ollama - SLOW)"
         class: chat
         context_window: 32768
         max_output_tokens: 2048
@@ -35,12 +96,12 @@ providers:
         supports_streaming: true
         supports_functions: true
         supports_json_mode: false
-        max_batch_size: 20  # 20+ parallel workers validated
-        rate_limit_rpm: 120  # 20 workers * 6 requests/min each
+        max_batch_size: 20
+        rate_limit_rpm: 120
         rate_limit_rpd: 100000
-        certified_local_cpu: true  # Only this model is certified for local CPU
-    timeout_seconds: 2700  # ZB-024: 45 minutes for qwen3.5:0.8b normal lane
-    keep_alive: "45m"  # ZB-024: Keep model resident for 45 minutes
+        certified_local_cpu: false  # NOT certified - use llama.cpp instead
+    timeout_seconds: 2700
+    keep_alive: "45m"
 
   # GLM Provider (Z.AI) - Cloud-based
   - name: zen-glm
@@ -63,7 +124,7 @@ providers:
         max_batch_size: 1
         rate_limit_rpm: 60
         rate_limit_rpd: 100000
-        supports_thinking: true  # Chain-of-thought enabled
+        supports_thinking: true
 
   # OpenAI Provider - Cloud-based
   - name: openai
@@ -131,8 +192,24 @@ providers:
         rate_limit_rpm: 60
         rate_limit_rpd: 100000
 
-# FAIL-CLOSED: In-cluster Ollama is explicitly forbidden for active local CPU path
-in_cluster_ollama_allowed: false  # ZB-023: In-cluster Ollama forbidden
+# FAIL-CLOSED: In-cluster inference is explicitly forbidden (k3d performance issues)
+in_cluster_ollama_allowed: false  # ZB-023: In-cluster inference forbidden
+in_cluster_llama_cpp_allowed: false  # k3d has severe performance degradation
 
 # FAIL-CLOSED: Local CPU path thinking default (false unless explicitly overridden)
 local_cpu_thinking_enabled: false  # ZB-023: CPU path defaults to no thinking
+
+# Certified local inference endpoints (outside K8s)
+certified_local_endpoints:
+  l1:
+    endpoint: "http://host.k3d.internal:56227"
+    model: "Qwen3.5-0.8B-Q4_K_M.gguf"
+    runtime: "llama.cpp"
+    parallel: 10
+    ctx_size: 65536
+  l2:
+    endpoint: "http://host.k3d.internal:60509"
+    model: "zen-go-q4_k_m-latest.gguf"
+    runtime: "llama.cpp"
+    parallel: 1
+    ctx_size: 16384

@@ -2,15 +2,17 @@
 
 This directory contains policy configuration for zen-brain1 timeout, roles, tasks, MLQ levels, and chains.
 
-## Certified Runtime (PHASE 26)
+## Certified Runtime (PHASE 26+)
 
 | Lane | Model | Inference | Port | Timeout |
 |------|-------|-----------|------|---------|
-| L1 | qwen3.5:0.8b Q4_K_M | llama.cpp | 56227 | 300s per task |
-| L2 | qwen3.5:2b Q4_K_M | llama.cpp | 60509 | 600s per task |
-| L0 | qwen3.5:0.8b | Ollama | 11434 | Fallback only |
+| **L1** | Qwen3.5-0.8B-Q4_K_M | **llama.cpp** | 56227 | 300s per task |
+| **L2** | zen-go-q4_k_m | **llama.cpp** | 60509 | 600s per task |
+| ~~L0~~ | ~~qwen3.5:0.8b~~ | ~~Ollama~~ | ~~11434~~ | **DEPRECATED** |
 
-**Primary inference runtime is llama.cpp** (not Ollama). L0/Ollama is fallback only.
+**Primary inference runtime is llama.cpp** (NOT Ollama). 
+
+**Ollama is DEPRECATED** - llama.cpp proved 2-3x faster in benchmarks. Ollama should only be used as emergency fallback when L1/L2 are unavailable. See: `docs/05-OPERATIONS/LLAMA_CPP_VS_OLLAMA_QWEN_0_8B_BENCHMARK.md`
 
 ### Timeout Policy
 

@@ -3,27 +3,52 @@
 # This profile configures zen-brain1 for CPU-only local inference with long timeouts.
 # It is the runtime representation of ZB-023 policy enforcement.
 #
-# HARD TRUTHS:
-# - qwen3.5:0.8b is the ONLY allowed local model
-# - Host Docker Ollama is the ONLY supported local inference path
-# - In-cluster Ollama is FORBIDDEN for active local path
+# HARD TRUTHS (Updated 2026-03-30):
+# - llama.cpp is the ONLY certified local inference runtime (NOT Ollama)
+# - Qwen3.5-0.8B-Q4_K_M is the ONLY certified local model for L1
+# - Host llama.cpp (outside K8s) is the ONLY supported path (k3d has performance issues)
+# - In-cluster inference is FORBIDDEN
 # - thinking=false for local CPU path (unless explicitly overridden)
 # - Long timeouts (45m) are NORMAL and REQUIRED for CPU inference
 #
-# This profile MUST be used for all CPU-only local inference environments.
+# See: docs/05-OPERATIONS/LLAMA_CPP_VS_OLLAMA_QWEN_0_8B_BENCHMARK.md
 
 name: local-cpu-45m
-description: "CPU-only local inference profile with 45-minute timeout"
+description: "CPU-only local inference profile with 45-minute timeout (llama.cpp)"
 
-# Local Worker Configuration (qwen3.5:0.8b via host Docker Ollama)
-local_worker:
-  model: qwen3.5:0.8b
-  base_url: http://host.k3d.internal:11434  # Host Docker Ollama ONLY
+# L1 Primary - llama.cpp on host (NOT in K8s)
+l1_worker:
+  model: Qwen3.5-0.8B-Q4_K_M
+  base_url: http://host.k3d.internal:56227/v1/chat/completions
+  runtime: llama.cpp
   timeout_seconds: 2700  # 45 minutes - LONG TIMEOUT IS NORMAL FOR CPU
-  keep_alive: 45m        # Keep model resident for 45 minutes
-  supports_tools: true
+  parallel: 10           # llama.cpp parallelism
+  ctx_size: 65536
   max_cost: 0.01        # $0.01 max per task (essentially free)
   enable_thinking: false  # CPU path defaults to no thinking
+
+# L2 Secondary - llama.cpp on host (larger model for complex tasks)
+l2_worker:
+  model: zen-go-q4_k_m
+  base_url: http://host.k3d.internal:60509/v1/chat/completions
+  runtime: llama.cpp
+  timeout_seconds: 2700  # 45 minutes
+  parallel: 1
+  ctx_size: 16384
+  max_cost: 0.02
+  enable_thinking: false
+
+# Local Worker Configuration (DEPRECATED - use l1_worker/l2_worker)
+# Ollama is 2-3x slower than llama.cpp. Use only as emergency fallback.
+local_worker:
+  model: qwen3.5:0.8b
+  base_url: http://host.k3d.internal:11434  # DEPRECATED - use L1/L2 llama.cpp
+  timeout_seconds: 2700
+  keep_alive: 45m
+  supports_tools: true
+  max_cost: 0.01
+  enable_thinking: false
+  deprecated: true  # Use llama.cpp L1/L2 instead
 
 # Planner Configuration (cloud models for complex tasks)
 planner:
@@ -42,12 +67,14 @@ fallback:
 routing:
   policy: simple  # Simple cost-aware routing
   auto_escalate_complex_tasks: true
+  preferred_order: [l1_worker, l2_worker, local_worker]  # Prefer llama.cpp
 
 # Foreman Factory Configuration (ZB-022)
 factory:
   enable_llm: true
-  llm_base_url: http://host.k3d.internal:11434
-  llm_model: qwen3.5:0.8b
+  llm_l1_endpoint: http://host.k3d.internal:56227/v1/chat/completions
+  llm_l2_endpoint: http://host.k3d.internal:60509/v1/chat/completions
+  llm_model: Qwen3.5-0.8B-Q4_K_M
   llm_timeout_seconds: 2700  # 45 minutes
   llm_enable_thinking: false  # CPU path defaults to no thinking
 

@@ -28,8 +28,9 @@ def _repo_root() -> str:
 
 # Disallowed local model patterns (FAIL-CLOSED)
 # Note: These patterns are specific to avoid false positives with "ollama" (provider name)
+# Note: "llama.cpp" and "llama-cpp" are ALLOWED as runtime names (NOT model names)
 DISALLOWED_LOCAL_MODELS = [
-    r"\bllama\b",  # llama2, llama3, etc. (but NOT ollama)
+    r"\bllama\d*\b",  # llama2, llama3, etc. (standalone model names)
     r"\bmistral\b",
     r"\bgemma\b",
     r"\bphi\b",
@@ -37,6 +38,13 @@ DISALLOWED_LOCAL_MODELS = [
     r"\bcodellama\b",
     r"\bqwen3\.5:14b\b",
     r"\bqwen3\.5:\d+b",  # qwen3.5:7b, qwen3.5:32b, etc. (NOT 0.8b)
+]
+
+# Allowed runtime names (not model names)
+ALLOWED_RUNTIME_NAMES = [
+    "llama.cpp",
+    "llama-cpp",
+    "llama-server",
 ]
 
 # Certified local model (ONLY allowed)
@@ -121,6 +129,9 @@ def check_file_for_local_models(path: str) -> list[tuple[str, int, str]]:
             continue
         # Skip Go package imports and type definitions (like "ollama_provider")
         if path.endswith(".go") and ("package " in line or "import " in line or "type " in line or "func " in line):
+            continue
+        # Skip lines that reference allowed runtime names (not model names)
+        if any(runtime in lower_line for runtime in ALLOWED_RUNTIME_NAMES):
             continue
 
         # Check for disallowed local models (only in comments/docs, not code)

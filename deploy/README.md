@@ -1,9 +1,9 @@
-> **NOTE:** References to Ollama in this file describe the L0 fallback lane. The primary inference runtime is **llama.cpp** (L1/L2). Ollama in-cluster deployment is disabled by default.
+> **NOTE:** The primary inference runtime is **llama.cpp** (L1/L2 on host). Ollama is DEPRECATED and disabled by default - llama.cpp proved 2-3x faster in benchmarks.
 
 # zen-brain Deployment Guide
 
-**Version:** 1.0
-**Last Updated:** 2026-03-20
+**Version:** 1.1
+**Last Updated:** 2026-03-30
 
 ## Overview
 
@@ -13,12 +13,13 @@ This guide covers deploying zen-brain in production with policy-based configurat
 
 **UNTIL EXPLICITLY OVERRIDDEN BY THE OPERATOR:**
 
-### Certified Local CPU Path
+### Certified Local CPU Path (llama.cpp - NOT Ollama)
 
-- ✅ **ONLY allowed local model:** `qwen3.5:0.8b`
-- ✅ **ONLY supported local inference path:** Host Docker Ollama (http://host.k3d.internal:11434)
-- ❌ **FORBIDDEN:** In-cluster Ollama for active local CPU path
-- ❌ **FORBIDDEN:** Any other local model (e.g., qwen3.5:14b, llama*, mistral*)
+- ✅ **Certified runtime:** **llama.cpp** (NOT Ollama - 2-3x faster)
+- ✅ **L1 Primary:** `Qwen3.5-0.8B-Q4_K_M` on host, port 56227
+- ✅ **L2 Secondary:** `zen-go-q4_k_m` on host, port 60509
+- ❌ **FORBIDDEN:** In-cluster inference (k3d has severe performance issues)
+- ❌ **DEPRECATED:** Ollama (port 11434) - 2-3x slower than llama.cpp
 
 ### Provider/Model Flexibility
 
@@ -31,26 +32,33 @@ This guide covers deploying zen-brain in production with policy-based configurat
 ### Verification Commands (Post-Deployment)
 
 ```bash
-# 1. Check OLLAMA_BASE_URL points to host Docker (NOT in-cluster)
-kubectl exec -n zen-brain deploy/apiserver -- env | grep OLLAMA_BASE_URL
-# Expected: OLLAMA_BASE_URL=http://host.k3d.internal:11434
+# 1. Check L1_ENDPOINT points to host llama.cpp (NOT in-cluster)
+kubectl exec -n zen-brain deploy/factory-fill -- env | grep L1_ENDPOINT
+# Expected: L1_ENDPOINT=http://host.k3d.internal:56227
 
-# 2. Check local-worker lane is using host Docker Ollama with qwen3.5:0.8b
-kubectl logs -n zen-brain deploy/apiserver | grep -E 'local-worker lane|Ollama warmup'
-# Expected: [LLM Gateway] local-worker lane: Ollama at http://host.k3d.internal:11434 (model=qwen3.5:0.8b)
+# 2. Check L2_ENDPOINT for secondary lane
+kubectl exec -n zen-brain deploy/factory-fill -- env | grep L2_ENDPOINT
+# Expected: L2_ENDPOINT=http://host.k3d.internal:60509
 
-# 3. Verify host Docker Ollama has the 0.8b model
-kubectl exec -n zen-brain deploy/apiserver -- wget -qO- http://host.k3d.internal:11434/api/tags
-# Expected: JSON with "qwen3.5:0.8b" in models list
+# 3. Verify host llama.cpp L1 server is running
+ps aux | grep "llama-server.*56227"
+# Expected: llama-server process on port 56227
 
-# 4. Verify in-cluster Ollama is NOT running
-kubectl get pods -n zen-brain | grep ollama
-# Expected: No ollama pods (in-cluster Ollama disabled)
+# 4. Test L1 inference endpoint
+curl -s http://localhost:56227/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{"model":"Qwen3.5-0.8B-Q4_K_M","messages":[{"role":"user","content":"hi"}],"max_tokens":10}'
+# Expected: JSON response with completion
+
+# 5. Verify in-cluster Ollama is NOT running
+kubectl get pods -n zen-brain | grep -i ollama
+# Expected: No ollama pods (in-cluster inference disabled)
 ```
 
 ### See Also
 
-- `../docs/05-OPERATIONS/OLLAMA_08B_OPERATIONS_GUIDE.md` - Detailed operations guide
+- `../docs/05-OPERATIONS/LLAMA_CPP_VS_OLLAMA_QWEN_0_8B_BENCHMARK.md` - Benchmark showing llama.cpp 2-3x faster
+- `../docs/03-DESIGN/LOCAL_LLM_ESCALATION_LADDER.md` - L1/L2 llama.cpp lanes
 - `../config/policy/README.md` - Policy system documentation with local model rules
 
 ---
@@ -59,20 +67,17 @@ kubectl get pods -n zen-brain | grep ollama
 
 | Topic | Document | Purpose |
 |--------|----------|---------|
-| **Canonical Policy** | [SMALL_MODEL_STRATEGY.md](../docs/03-DESIGN/SMALL_MODEL_STRATEGY.md) | Local CPU inference policy (qwen3.5:0.8b ONLY) |
-| **Escalation ladder (design)** | [LOCAL_LLM_ESCALATION_LADDER.md](../docs/03-DESIGN/LOCAL_LLM_ESCALATION_LADDER.md) | 0.8B workhorse → optional local 2B → external models; subtask checkpoints & retries |
-| **2B local evaluation** | [QWEN_2B_LOCAL_EVALUATION.md](../docs/05-OPERATIONS/QWEN_2B_LOCAL_EVALUATION.md) | llama.cpp 0.8B vs 2B Q4_K_M throughput/RAM (ops sizing) |
-| **Operational Guide** | [OLLAMA_08B_OPERATIONS_GUIDE.md](../docs/05-OPERATIONS/OLLAMA_08B_OPERATIONS_GUIDE.md) | Operations for local Ollama (host Docker) |
-| **Warmup Runbook** | [OLLAMA_WARMUP_RUNBOOK.md](../docs/05-OPERATIONS/OLLAMA_WARMUP_RUNBOOK.md) | Warmup/keepalive procedures |
+| **Canonical Policy** | [SMALL_MODEL_STRATEGY.md](../docs/03-DESIGN/SMALL_MODEL_STRATEGY.md) | Local CPU inference policy (llama.cpp L1/L2 primary) |
+| **Escalation ladder (design)** | [LOCAL_LLM_ESCALATION_LADDER.md](../docs/03-DESIGN/LOCAL_LLM_ESCALATION_LADDER.md) | L1→L2→cloud escalation; subtask checkpoints & retries |
+| **Benchmark** | [LLAMA_CPP_VS_OLLAMA_QWEN_0_8B_BENCHMARK.md](../docs/05-OPERATIONS/LLAMA_CPP_VS_OLLAMA_QWEN_0_8B_BENCHMARK.md) | llama.cpp 2-3x faster than Ollama |
 | **Operator Runbook** | [ZB_023_LOCAL_CPU_INFERENCE_RULE.md](../docs/05-OPERATIONS/ZB_023_LOCAL_CPU_INFERENCE_RULE.md) | Troubleshooting and verification commands |
 | **Policy System** | [config/policy/README.md](../config/policy/README.md) | YAML-based policy configuration |
 
 **Documentation Hierarchy:**
 1. **SMALL_MODEL_STRATEGY.md** = Canonical policy/source of truth
-2. **OLLAMA_08B_OPERATIONS_GUIDE.md** = Operational implementation guide
-3. **OLLAMA_WARMUP_RUNBOOK.md** = Warmup/keepalive runbook only
-4. **ZB_023_LOCAL_CPU_INFERENCE_RULE.md** = Operator runbook (troubleshooting, verification)
-5. In-cluster Ollama docs/charts = **Legacy/unsupported** for active local CPU path
+2. **LLAMA_CPP_VS_OLLAMA_QWEN_0_8B_BENCHMARK.md** = Why llama.cpp is preferred
+3. **ZB_023_LOCAL_CPU_INFERENCE_RULE.md** = Operator runbook (troubleshooting, verification)
+4. Ollama references = **Legacy/deprecated** - use llama.cpp instead
 
 ---
 
