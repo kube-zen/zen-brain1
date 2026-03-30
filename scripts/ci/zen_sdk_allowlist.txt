@@ -92,3 +92,13 @@ internal/template/executor.go
 # Domain-specific to Zen-Brain's metric classification logic
 internal/metrics/types.go
 internal/metrics/classify.go
+
+# Worker memory monitoring: per-worker Go runtime memory stats
+# Domain-specific to Zen-Brain's worker pool resource management
+# Not an SDK concern — uses runtime.ReadMemStats for local process monitoring
+internal/workermem/monitor.go
+
+# Content-addressed storage: SHA-256 object store with gzip compression
+# Domain-specific to Zen-Brain's evidence and artifact management
+# Not an SDK concern — filesystem-based CAS for local dev artifacts
+internal/artifacts/cas.go
