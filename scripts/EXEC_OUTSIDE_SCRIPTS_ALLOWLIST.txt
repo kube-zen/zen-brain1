@@ -8,3 +8,4 @@
 Makefile  # Makefile may be executable; allow it
 deploy/preflight-checks.sh
 deploy/zen-lock/bootstrap-jira-zenlock-from-local.sh
+deploy/k8s/start-zen-brain.sh

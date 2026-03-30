@@ -1,0 +1,48 @@
+# CockroachDB Initialization Job
+# Run this once after the CockroachDB cluster is healthy
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: cockroachdb-init
+  namespace: zen-brain
+  labels:
+    app.kubernetes.io/name: zen-brain
+    app.kubernetes.io/component: cockroachdb-init
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: init
+        image: cockroachdb/cockroach:v24.1.0
+        command:
+        - /cockroach/cockroach
+        - init
+        - --insecure
+        - --host=zen-brain-crdb-cockroachdb-0.zen-brain-crdb-cockroachdb.zen-brain.svc.cluster.local:26257
+      backoffLimit: 5
+---
+# Create zenledger database after init
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: create-zenledger-db
+  namespace: zen-brain
+  labels:
+    app.kubernetes.io/name: zen-brain
+    app.kubernetes.io/component: cockroachdb-init
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: create-db
+        image: cockroachdb/cockroach:v24.1.0
+        command:
+        - /cockroach/cockroach
+        - sql
+        - --insecure
+        - --host=zen-brain-crdb-cockroachdb-0.zen-brain-crdb-cockroachdb.zen-brain.svc.cluster.local:26257
+        - -e
+        - "CREATE DATABASE IF NOT EXISTS zenledger; CREATE DATABASE IF NOT EXISTS zenjournal;"
+      backoffLimit: 5
