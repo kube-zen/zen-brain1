@@ -101,4 +101,9 @@ internal/workermem/monitor.go
 # Content-addressed storage: SHA-256 object store with gzip compression
 # Domain-specific to Zen-Brain's evidence and artifact management
 # Not an SDK concern — filesystem-based CAS for local dev artifacts
-internal/artifacts/cas.go
+internal/artifacts
+
+# Token cost tracking: provider pricing table and usage estimation
+# Domain-specific to Zen-Brain's token accounting and cost estimation
+# Not an SDK concern — pricing data and cost calculation logic
+internal/cost/cas.go
