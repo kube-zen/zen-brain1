@@ -9,7 +9,6 @@
 /foreman
 /zen-brain
 /controller
-/create-jira-issues
 /zen-brain1
 /mlq-dispatcher
 /metrics-report
@@ -33,10 +32,8 @@ cmd/admission-gate/admission-gate
 cmd/apiserver/apiserver
 cmd/foreman/foreman
 cmd/controller/controller
-cmd/create-jira-issues/create-jira-issues
 cmd/mlq-dispatcher/mlq-dispatcher
 cmd/metrics-report/metrics-report
-cmd/jira-ledger/jira-ledger
 
 # Go workspace file
 go.work

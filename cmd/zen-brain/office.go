@@ -3,10 +3,12 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -15,6 +17,7 @@ import (
 	"github.com/kube-zen/zen-brain1/internal/integration"
 	"github.com/kube-zen/zen-brain1/internal/office"
 	"github.com/kube-zen/zen-brain1/internal/office/jira"
+	"github.com/kube-zen/zen-brain1/pkg/contracts"
 )
 
 func runOfficeCommand() {
@@ -52,6 +55,10 @@ func runOfficeCommand() {
 		runOfficeRecover()
 	case "queue-query":
 		runOfficeQueueQuery()
+	case "ledger":
+		runOfficeLedger()
+	case "create-issues":
+		runOfficeCreateIssues()
 	default:
 		fmt.Printf("Unknown office subcommand: %s\n", sub)
 		printOfficeUsage()
@@ -75,6 +82,10 @@ func printOfficeUsage() {
 	fmt.Println("  status          Operator status check (workers, queue, recent tasks)")
 	fmt.Println("  recover         Recover from degraded/blocked state")
 	fmt.Println("  queue-query     Detailed queue state (grouped by status)")
+	fmt.Println()
+	fmt.Println("Jira Ledger (ZB-029):")
+	fmt.Println("  ledger <run-dir>        Create parent + child Jira issues from batch artifacts")
+	fmt.Println("  create-issues           Create pilot rescue issues from zen-brain 0.1")
 }
 
 func runOfficeDoctor() {
@@ -559,9 +570,9 @@ func runOfficeRecover() {
 		fmt.Println("⚠  Recovery check not yet implemented")
 		fmt.Println()
 		fmt.Println("Implementation requires:")
-			fmt.Println("  - Stuck task detection (>50m in Running)")
-			fmt.Println("  - Excessive retry detection (>5 retries)")
-			fmt.Println("  - High conflict rate detection (>50%)")
+		fmt.Println("  - Stuck task detection (>50m in Running)")
+		fmt.Println("  - Excessive retry detection (>5 retries)")
+		fmt.Println("  - High conflict rate detection (>50%)")
 	} else {
 		fmt.Println("Recovery actions:")
 		fmt.Println()
@@ -623,4 +634,411 @@ func truncate(s string, max int) string {
 		return s
 	}
 	return s[:max-3] + "..."
+}
+
+// runOfficeLedger implements jira-ledger functionality: creates parent + child
+// Jira issues from a completed batch run's artifacts.
+func runOfficeLedger() {
+	if len(os.Args) < 4 {
+		fmt.Println("Usage: zen-brain office ledger <run-dir>")
+		fmt.Println("  e.g.: zen-brain office ledger /var/lib/zen-brain1/runs/daily-sweep/20260326-174812")
+		os.Exit(1)
+	}
+	runDir := os.Args[3]
+
+	// Load config (same as office doctor)
+	cfg, cfgErr := config.LoadConfig("")
+	if cfgErr != nil {
+		log.Printf("Config: failed to load (%v), using defaults with env overrides", cfgErr)
+		cfg = config.DefaultConfig()
+		cfg.ApplyEnvOverrides()
+	}
+
+	jiraURL := cfg.Jira.BaseURL
+	jiraEmail := cfg.Jira.Email
+	jiraToken := cfg.Jira.APIToken
+	jiraProject := cfg.Jira.ProjectKey
+	if jiraProject == "" {
+		jiraProject = "ZB"
+	}
+
+	maxFindings := 5
+	if v := os.Getenv("MAX_FINDINGS"); v != "" {
+		if n, err := parseIntSimple(v); err == nil {
+			maxFindings = n
+		}
+	}
+	dryRun := os.Getenv("DRY_RUN") != ""
+
+	if dryRun {
+		log.Println("[LEDGER] DRY RUN MODE — no Jira calls will be made")
+	}
+
+	// Validate inputs
+	if !dryRun && (jiraURL == "" || jiraEmail == "" || jiraToken == "") {
+		log.Fatalf("[LEDGER] Jira credentials required. Set JIRA_URL, JIRA_EMAIL, JIRA_TOKEN (or DRY_RUN=1)")
+	}
+
+	// Load batch telemetry
+	telemetryPath := filepath.Join(runDir, "telemetry", "batch-index.json")
+	telemetry, err := loadBatchTelemetry(telemetryPath)
+	if err != nil {
+		log.Fatalf("[LEDGER] Failed to load telemetry: %v", err)
+	}
+
+	// Load artifacts
+	finalDir := filepath.Join(runDir, "final")
+	artifacts, err := loadArtifactsFromDir(finalDir)
+	if err != nil {
+		log.Fatalf("[LEDGER] Failed to load artifacts: %v", err)
+	}
+
+	log.Printf("[LEDGER] Run: %s (%s), %d/%d tasks, %d artifacts",
+		telemetry.BatchName, telemetry.BatchID,
+		telemetry.Succeeded, telemetry.Total, len(artifacts))
+
+	// Extract findings from artifacts
+	findings := extractFindingsFromArtifacts(artifacts, maxFindings)
+	log.Printf("[LEDGER] Extracted %d actionable findings", len(findings))
+
+	// Build parent issue
+	parentSummary := fmt.Sprintf("[zen-brain] %s — %s",
+		telemetry.BatchName, time.Now().Format("2006-01-02"))
+	parentBody := buildParentBody(telemetry, artifacts, findings)
+
+	if dryRun {
+		log.Println("[LEDGER] === DRY RUN: Would create ===")
+		log.Printf("[LEDGER] Parent: %s", parentSummary)
+		log.Printf("[LEDGER]   Project: %s, Labels: zen-brain, discovery, %s", jiraProject, telemetry.BatchName)
+		log.Printf("[LEDGER]   Body preview:\n%s", truncate(parentBody, 500))
+		log.Println("[LEDGER] === DRY RUN END ===")
+		return
+	}
+
+	// Use the office manager to create issues
+	mgr, err := integration.InitOfficeManagerFromConfig(cfg)
+	if err != nil {
+		log.Fatalf("[LEDGER] Office manager init failed: %v", err)
+	}
+	_ = mgr.RegisterForCluster("default", "jira")
+	conn, err := mgr.GetConnectorForCluster("default")
+	if err != nil {
+		log.Fatalf("[LEDGER] Failed to get connector: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	// Create parent issue
+	parentItem := &contracts.WorkItem{
+		Title:    parentSummary,
+		Body:     parentBody,
+		WorkType: contracts.WorkTypeImplementation,
+		Priority: contracts.PriorityMedium,
+		Tags: contracts.WorkTags{
+			Routing: []string{"zen-brain", "discovery", telemetry.BatchName},
+		},
+	}
+	parentCreated, err := conn.CreateWorkItem(ctx, "default", parentItem)
+	if err != nil {
+		log.Fatalf("[LEDGER] Failed to create parent issue: %v", err)
+	}
+	log.Printf("[LEDGER] ✅ Parent issue created: %s", parentCreated.ID)
+
+	// Write jira-mapping.json
+	mapping := jiraMapping{
+		BatchID:    telemetry.BatchID,
+		BatchName:  telemetry.BatchName,
+		RunDir:     runDir,
+		ParentKey:  parentCreated.ID,
+		CreatedAt:  time.Now().UTC().Format(time.RFC3339),
+		TotalTasks: telemetry.Total,
+		Succeeded:  telemetry.Succeeded,
+	}
+	writeJiraMapping(runDir, mapping)
+	log.Printf("[LEDGER] Mapping written to %s/jira-mapping.json", runDir)
+}
+
+// runOfficeCreateIssues creates pilot rescue issues from zen-brain 0.1.
+func runOfficeCreateIssues() {
+	cfg, cfgErr := config.LoadConfig("")
+	if cfgErr != nil {
+		log.Printf("Config: failed to load (%v), using defaults with env overrides", cfgErr)
+		cfg = config.DefaultConfig()
+		cfg.ApplyEnvOverrides()
+	}
+
+	log.Printf("Config loaded:")
+	log.Printf("  Jira URL: %s", cfg.Jira.BaseURL)
+	log.Printf("  Email: %s", cfg.Jira.Email)
+	log.Printf("  Project Key: %s", cfg.Jira.ProjectKey)
+	log.Printf("  Token present: %v (length=%d)", cfg.Jira.APIToken != "", len(cfg.Jira.APIToken))
+
+	if cfg.Jira.BaseURL == "" {
+		log.Println("WARNING: Jira URL is empty")
+	}
+
+	mgr, err := integration.InitOfficeManagerFromConfig(cfg)
+	if err != nil {
+		log.Fatalf("Office manager: init failed: %v", err)
+	}
+
+	if !cfg.Jira.Enabled {
+		log.Fatalf("Jira is not enabled in config")
+	}
+
+	_ = mgr.RegisterForCluster("default", "jira")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	clusterID := "default"
+	conn, err := mgr.GetConnectorForCluster(clusterID)
+	if err != nil {
+		log.Fatalf("Failed to get connector for cluster %s: %v", clusterID, err)
+	}
+
+	// Labels for dogfood and nightshift pilot
+	dogfoodTags := contracts.WorkTags{
+		Routing: []string{"zen-brain-dogfood", "zen-brain-nightshift"},
+	}
+
+	issues := []*contracts.WorkItem{
+		{
+			Title:    "ZB-MLQ-RESCUE: Rescue MLQ from zen-brain 0.1",
+			Body:     "Port MLQ (model/provider selection) architecture from zen-brain 0.1.",
+			WorkType: contracts.WorkTypeImplementation,
+			Priority: contracts.PriorityHigh,
+			Tags:     dogfoodTags,
+		},
+		{
+			Title:    "ZB-YAML-RESCUE: Rescue YAML roles from zen-brain 0.1",
+			Body:     "Port YAML roles/permissions system from zen-brain 0.1.",
+			WorkType: contracts.WorkTypeImplementation,
+			Priority: contracts.PriorityHigh,
+			Tags:     dogfoodTags,
+		},
+		{
+			Title:    "ZB-TEMPLATE-RESCUE: Rescue YAML task templates from zen-brain 0.1",
+			Body:     "Port YAML task templates from zen-brain 0.1.",
+			WorkType: contracts.WorkTypeImplementation,
+			Priority: contracts.PriorityHigh,
+			Tags:     dogfoodTags,
+		},
+		{
+			Title:    "ZB-SCHED-RESCUE: Rescue scheduling/cron from zen-brain 0.1",
+			Body:     "Port scheduling/cron behavior from zen-brain 0.1.",
+			WorkType: contracts.WorkTypeImplementation,
+			Priority: contracts.PriorityHigh,
+			Tags:     dogfoodTags,
+		},
+	}
+
+	log.Printf("Creating %d pilot issues...", len(issues))
+
+	for i, item := range issues {
+		log.Printf("Creating issue %d: %s", i+1, item.Title)
+		created, err := conn.CreateWorkItem(ctx, clusterID, item)
+		if err != nil {
+			log.Printf("Failed to create issue %d '%s': %v", i+1, item.Title, err)
+			fmt.Printf("Error: Failed to create issue %d: %v\n", i+1, err)
+		} else {
+			fmt.Printf("Created issue %d: %s - %s\n", i+1, created.ID, item.Title)
+			log.Printf("Successfully created issue %d: %s", i+1, created.ID)
+		}
+	}
+
+	fmt.Println("\nPilot issue creation complete")
+}
+
+// --- Ledger helper types and functions ---
+
+type batchTelemetry struct {
+	BatchID   string `json:"batch_id"`
+	BatchName string `json:"batch_name"`
+	Total     int    `json:"total"`
+	Succeeded int    `json:"succeeded"`
+	Failed    int    `json:"failed"`
+	WallMs    int64  `json:"wall_ms"`
+	Lane      string `json:"lane"`
+}
+
+type artifact struct {
+	Name    string
+	Path    string
+	Content string
+}
+
+type finding struct {
+	Type        string
+	Path        string
+	Description string
+	Severity    string
+}
+
+type jiraMapping struct {
+	BatchID    string `json:"batch_id"`
+	BatchName  string `json:"batch_name"`
+	RunDir     string `json:"run_dir"`
+	ParentKey  string `json:"parent_key"`
+	CreatedAt  string `json:"created_at"`
+	TotalTasks int    `json:"total_tasks"`
+	Succeeded  int    `json:"succeeded"`
+}
+
+func loadBatchTelemetry(path string) (*batchTelemetry, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var t batchTelemetry
+	if err := json.Unmarshal(data, &t); err != nil {
+		return nil, err
+	}
+	return &t, nil
+}
+
+func loadArtifactsFromDir(dir string) ([]artifact, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+	var artifacts []artifact
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Join(dir, e.Name()))
+		if err != nil {
+			continue
+		}
+		artifacts = append(artifacts, artifact{
+			Name:    e.Name(),
+			Path:    filepath.Join(dir, e.Name()),
+			Content: string(data),
+		})
+	}
+	return artifacts, nil
+}
+
+func extractFindingsFromArtifacts(artifacts []artifact, maxFindings int) []finding {
+	var findings []finding
+	severityOrder := map[string]int{"critical": 0, "high": 1, "medium": 2, "low": 3}
+
+	for _, a := range artifacts {
+		findingType := artifactToType(a.Name)
+		lines := strings.Split(a.Content, "\n")
+
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if line == "" || len(line) > 200 {
+				continue
+			}
+
+			sev := "medium"
+			lowerLine := strings.ToLower(line)
+			if strings.Contains(lowerLine, "critical") {
+				sev = "critical"
+			} else if strings.Contains(lowerLine, "high") {
+				sev = "high"
+			} else if strings.Contains(lowerLine, "low") {
+				sev = "low"
+			}
+
+			if strings.HasPrefix(line, "#") || strings.HasPrefix(line, "---") ||
+				strings.HasPrefix(line, "|") || strings.HasPrefix(line, "```") ||
+				strings.HasPrefix(line, "- [x]") || strings.HasPrefix(line, "- [ ]") ||
+				len(line) < 20 {
+				continue
+			}
+
+			findings = append(findings, finding{
+				Type:        findingType,
+				Path:        a.Name,
+				Description: truncate(line, 120),
+				Severity:    sev,
+			})
+
+			if len(findings) >= maxFindings*2 {
+				break
+			}
+		}
+	}
+
+	// Sort by severity
+	for i := 0; i < len(findings)-1; i++ {
+		for j := i + 1; j < len(findings); j++ {
+			if severityOrder[findings[i].Severity] > severityOrder[findings[j].Severity] {
+				findings[i], findings[j] = findings[j], findings[i]
+			}
+		}
+	}
+
+	if len(findings) > maxFindings {
+		findings = findings[:maxFindings]
+	}
+	return findings
+}
+
+func artifactToType(name string) string {
+	name = strings.TrimSuffix(name, ".md")
+	switch {
+	case strings.Contains(name, "defect") || strings.Contains(name, "bug"):
+		return "defect"
+	case strings.Contains(name, "dead_code") || strings.Contains(name, "dead-code"):
+		return "dead-code"
+	case strings.Contains(name, "tech_debt") || strings.Contains(name, "tech-debt"):
+		return "tech-debt"
+	case strings.Contains(name, "stub"):
+		return "stub"
+	case strings.Contains(name, "test_gap") || strings.Contains(name, "test-gaps"):
+		return "test-gap"
+	case strings.Contains(name, "config") || strings.Contains(name, "drift"):
+		return "config-drift"
+	case strings.Contains(name, "package") || strings.Contains(name, "hotspot"):
+		return "package-hotspot"
+	default:
+		return "finding"
+	}
+}
+
+func buildParentBody(t *batchTelemetry, artifacts []artifact, findings []finding) string {
+	var b strings.Builder
+	b.WriteString(fmt.Sprintf("h2. zen-brain Scheduled Discovery Run\n\n"))
+	b.WriteString(fmt.Sprintf("*Schedule:* %s\n", t.BatchName))
+	b.WriteString(fmt.Sprintf("*Run ID:* %s\n", t.BatchID))
+	b.WriteString(fmt.Sprintf("*Model Lane:* %s\n", t.Lane))
+	b.WriteString(fmt.Sprintf("*Results:* %d/%d tasks succeeded (%d failed)\n", t.Succeeded, t.Total, t.Failed))
+	b.WriteString(fmt.Sprintf("*Wall Time:* %v\n", time.Duration(t.WallMs)*time.Millisecond))
+	b.WriteString(fmt.Sprintf("*Artifacts:* %d reports produced\n\n", len(artifacts)))
+
+	b.WriteString("h3. Artifacts\n\n")
+	for _, a := range artifacts {
+		b.WriteString(fmt.Sprintf("* %s\n", a.Name))
+	}
+
+	if len(findings) > 0 {
+		b.WriteString("\nh3. Top Findings\n\n")
+		for i, f := range findings {
+			b.WriteString(fmt.Sprintf("%d. *[%s]* %s — %s\n", i+1, f.Severity, f.Type, truncate(f.Description, 100)))
+		}
+	}
+
+	return b.String()
+}
+
+func writeJiraMapping(runDir string, m jiraMapping) {
+	data, _ := json.MarshalIndent(m, "", "  ")
+	os.WriteFile(filepath.Join(runDir, "jira-mapping.json"), data, 0644)
+}
+
+func parseIntSimple(s string) (int, error) {
+	n := 0
+	for _, c := range s {
+		if c < '0' || c > '9' {
+			return 0, fmt.Errorf("not a number")
+		}
+		n = n*10 + int(c-'0')
+	}
+	return n, nil
 }
