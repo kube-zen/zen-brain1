@@ -81,6 +81,9 @@ func main() {
 	case "tools":
 		runToolsCommand()
 
+	case "worker":
+		runWorkerCommand()
+
 	case "version":
 		printVersion()
 
@@ -105,6 +108,7 @@ func printUsage() {
 	fmt.Println("  self-improvement Self-improvement loop: discover, claim, classify, execute safe tasks")
 	fmt.Println("  compliance      Governance/Compliance: reporter, gap-hunter (SR&ED/IRAP/ISO/SOC)")
 	fmt.Println("  tools          Diagnostic tools: metrics, diagnostics")
+	fmt.Println("  worker         Workers: remediate, batch, ticketize")
 	fmt.Println("  version        Print version information")
 	fmt.Println()
 	fmt.Println("For vertical-slice command:")

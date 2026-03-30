@@ -1,9 +1,7 @@
 # Binaries — root-level build outputs
 /factory-fill
-/remediation-worker
 /queue-steward
 /roadmap-steward
-/useful-batch
 /scheduler
 /apiserver
 /foreman
@@ -11,7 +9,6 @@
 /controller
 /zen-brain1
 /mlq-dispatcher
-/finding-ticketizer
 bin/
 *.exe
 *.exe~
@@ -23,10 +20,7 @@ bin/
 cmd/factory-fill/factory-fill
 cmd/queue-steward/queue-steward
 cmd/roadmap-steward/roadmap-steward
-cmd/remediation-worker/remediation-worker
-cmd/useful-batch/useful-batch
 cmd/scheduler/scheduler
-cmd/finding-ticketizer/finding-ticketizer
 cmd/admission-gate/admission-gate
 cmd/apiserver/apiserver
 cmd/foreman/foreman
