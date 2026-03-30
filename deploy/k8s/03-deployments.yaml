@@ -34,7 +34,7 @@ spec:
         - name: ARTIFACT_ROOT
           value: "/artifacts"
         - name: BATCH_BIN
-          value: "/useful-batch"
+          value: /usr/local/bin/useful-batch
         - name: METRICS_DIR
           value: "/metrics"
         - name: POLL_INTERVAL
