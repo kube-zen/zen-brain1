@@ -9,6 +9,7 @@ metadata:
     app.kubernetes.io/name: zen-brain
     app.kubernetes.io/component: cockroachdb-init
 spec:
+  backoffLimit: 5
   template:
     spec:
       restartPolicy: OnFailure
@@ -20,7 +21,6 @@ spec:
         - init
         - --insecure
         - --host=zen-brain-crdb-cockroachdb-0.zen-brain-crdb-cockroachdb.zen-brain.svc.cluster.local:26257
-      backoffLimit: 5
 ---
 # Create zenledger database after init
 apiVersion: batch/v1
@@ -32,6 +32,7 @@ metadata:
     app.kubernetes.io/name: zen-brain
     app.kubernetes.io/component: cockroachdb-init
 spec:
+  backoffLimit: 5
   template:
     spec:
       restartPolicy: OnFailure
@@ -45,4 +46,3 @@ spec:
         - --host=zen-brain-crdb-cockroachdb-0.zen-brain-crdb-cockroachdb.zen-brain.svc.cluster.local:26257
         - -e
         - "CREATE DATABASE IF NOT EXISTS zenledger; CREATE DATABASE IF NOT EXISTS zenjournal;"
-      backoffLimit: 5
