@@ -128,18 +128,27 @@ def main() -> int:
     root = _repo_root()
     allowed = load_allowlist(root)
     
+    def is_allowed(path: str) -> bool:
+        """Check if a file path is covered by an allowlist entry (exact or directory prefix)."""
+        if path in allowed:
+            return True
+        for entry in allowed:
+            if path.startswith(entry + "/") or path.startswith(entry + os.sep):
+                return True
+        return False
+    
     errors = []
     
     # 1. Check for SDK‑like directories
     dir_violations = find_sdk_like_directories(root)
     for viol in dir_violations:
-        if viol not in allowed:
+        if not is_allowed(viol):
             errors.append(f"Directory named like SDK package: {viol}")
     
     # 2. Check for SDK‑like files (keyword detection)
     file_violations = find_sdk_like_files(root)
     for viol in file_violations:
-        if viol not in allowed:
+        if not is_allowed(viol):
             errors.append(f"File implements SDK‑like functionality: {viol}")
     
     if errors:
