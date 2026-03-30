@@ -156,6 +156,21 @@ queue-steward
 roadmap-steward
 foreman
 
+# Dead code and result artifacts
+p17b_results/
+p17c_results/
+p18_results/
+src/
+
+# Rescue and test YAMLs (one-off experiments)
+rescue-*.yaml
+smoke-test-mlq.yaml
+mlq-rescue-*.yaml
+main.go.broken-policy
+
+# Memory logs (operational, not architecture)
+memory/
+
 # Compiled binaries (built on host, not committed)
 /scheduler
 /factory-fill
