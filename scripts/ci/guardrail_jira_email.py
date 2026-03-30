@@ -71,8 +71,7 @@ def scan_repo(repo_root):
 
             # Skip compiled binaries (false positives from embedded strings)
             if fname in ("roadmap-steward", "queue-steward", "scheduler",
-                         "factory-fill", "useful-batch", "zen-brain",
-                         "startup-logging", "test-jira-myself"):
+                         "factory-fill", "useful-batch", "zen-brain"):
                 continue
 
             if "_test.go" in fname:

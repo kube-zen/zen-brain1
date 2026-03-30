@@ -13,7 +13,7 @@
 /zen-brain1
 /mlq-dispatcher
 /metrics-report
-/run-mlq-rescue
+/finding-ticketizer
 bin/
 *.exe
 *.exe~
@@ -30,22 +30,13 @@ cmd/useful-batch/useful-batch
 cmd/scheduler/scheduler
 cmd/finding-ticketizer/finding-ticketizer
 cmd/admission-gate/admission-gate
-cmd/jira-ledger/jira-ledger
+cmd/apiserver/apiserver
+cmd/foreman/foreman
+cmd/controller/controller
 cmd/create-jira-issues/create-jira-issues
 cmd/mlq-dispatcher/mlq-dispatcher
 cmd/metrics-report/metrics-report
-cmd/run-mlq-rescue/run-mlq-rescue
-
-# Test binary, built with `go test -c`
-*.test
-
-# Output of the go coverage tool (canonical path: .artifacts/coverage/)
-*.out
-coverage.out
-.artifacts/
-
-# Dependency directories (remove the comment below to include it)
-vendor/
+cmd/jira-ledger/jira-ledger
 
 # Go workspace file
 go.work
@@ -146,15 +137,6 @@ secrets.d/
 deploy/zen-lock/jira-credentials.zenlock.yaml
 *.zenlock.yaml
 *.enc
-# Compiled binaries (built on host, not committed)
-scheduler
-factory-fill
-finding-ticketizer
-useful-batch
-remediation-worker
-queue-steward
-roadmap-steward
-foreman
 
 # Dead code and result artifacts
 p17b_results/
@@ -170,13 +152,3 @@ main.go.broken-policy
 
 # Memory logs (operational, not architecture)
 memory/
-
-# Compiled binaries (built on host, not committed)
-/scheduler
-/factory-fill
-/finding-ticketizer
-/useful-batch
-/remediation-worker
-/queue-steward
-/roadmap-steward
-/foreman
