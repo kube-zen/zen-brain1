@@ -11,6 +11,7 @@ require (
 	github.com/aws/smithy-go v1.24.2
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/lipgloss v1.1.0
+	github.com/golang-migrate/migrate/v4 v4.19.1
 	github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674
 	github.com/kube-zen/zen-sdk v0.3.0
 	github.com/lib/pq v1.12.0
@@ -22,7 +23,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.35.0
 	k8s.io/apimachinery v0.35.0
-	k8s.io/client-go v0.35.0
+	k8s.io/client-go v1.31.5
 	k8s.io/klog/v2 v2.130.1
 	sigs.k8s.io/controller-runtime v0.23.3
 	sigs.k8s.io/yaml v1.6.0

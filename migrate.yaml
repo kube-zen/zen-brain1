@@ -1,0 +1,14 @@
+# golang-migrate configuration for zen-brain1
+# Migrations are in migrations/ directory
+# Database: CockroachDB in k3d
+
+database:
+  host: host.k3d.internal
+  port: 26257
+  database: zenbrain
+  user: root
+  password: ""
+  sslmode: disable
+
+# Optional: Set via environment variables
+# MIGRATE_DATABASE_URL=postgresql://user:pass@host:port/database
