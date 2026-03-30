@@ -84,6 +84,9 @@ func main() {
 	case "worker":
 		runWorkerCommand()
 
+	case "dispatch":
+		runDispatchCommand()
+
 	case "version":
 		printVersion()
 
@@ -109,6 +112,7 @@ func printUsage() {
 	fmt.Println("  compliance      Governance/Compliance: reporter, gap-hunter (SR&ED/IRAP/ISO/SOC)")
 	fmt.Println("  tools          Diagnostic tools: metrics, diagnostics")
 	fmt.Println("  worker         Workers: remediate, batch, ticketize")
+	fmt.Println("  dispatch       Dispatch supervisors: scheduler, factory, mlq, queue, roadmap")
 	fmt.Println("  version        Print version information")
 	fmt.Println()
 	fmt.Println("For vertical-slice command:")
