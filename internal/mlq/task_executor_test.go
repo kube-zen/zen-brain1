@@ -2,6 +2,7 @@ package mlq
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 )

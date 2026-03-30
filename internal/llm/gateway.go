@@ -48,7 +48,7 @@ type GatewayConfig struct {
 
 	// Fallback chain configuration
 	EnableFallbackChain  bool `yaml:"enable_fallback_chain" json:"enable_fallback_chain"`
-	StrictPreferred      bool `yaml:"strict_preferred" json:"strict_preferred"`             // Only use preferred provider if true
+	StrictPreferred      bool `yaml:"strict_preferred" json:"strict_preferred"`               // Only use preferred provider if true
 	LocalWorkerMaxTokens int  `yaml:"local_worker_max_tokens" json:"local_worker_max_tokens"` // Skip local worker when estimated tokens exceed this (0 = no limit)
 }
 
@@ -60,10 +60,10 @@ func DefaultGatewayConfig() *GatewayConfig {
 		FallbackModel:            "glm-4.7",      // Fallback to cloud
 		LocalWorkerMaxCost:       0.01,           // $0.01 max for local worker
 		PlannerMinCost:           0.10,           // $0.10 min for planner (cloud costs)
-		LocalWorkerTimeout:       2700,            // 45 minutes - ZB-024: LONG TIMEOUT IS NORMAL FOR CPU
-		PlannerTimeout:           2700,            // 45 minutes - ZB-024: Long timeout for cloud too
-		RequestTimeout:           2700,            // 45 minutes overall - ZB-024: Unified timeout
-		LocalWorkerKeepAlive:     "45m",           // Keep model resident - ZB-024: 45 minutes
+		LocalWorkerTimeout:       2700,           // 45 minutes - ZB-024: LONG TIMEOUT IS NORMAL FOR CPU
+		PlannerTimeout:           2700,           // 45 minutes - ZB-024: Long timeout for cloud too
+		RequestTimeout:           2700,           // 45 minutes overall - ZB-024: Unified timeout
+		LocalWorkerKeepAlive:     "45m",          // Keep model resident - ZB-024: 45 minutes
 		LocalWorkerSupportsTools: true,           // Local models support tools
 		PlannerSupportsTools:     true,           // Cloud models support tools
 		AutoEscalateComplexTasks: true,           // Auto-escalate complex tasks
@@ -555,22 +555,22 @@ func (g *Gateway) recordTokenUsage(ctx context.Context, req llm.ChatRequest, res
 		taskID = "unknown"
 	}
 	record := ledger.TokenRecord{
-		SessionID:      sessionID,
-		TaskID:         taskID,
-		AgentRole:      "worker",
-		ModelID:        resp.Model,
-		InferenceType:  ledger.InferenceChat,
-		Source:         src,
-		TokensInput:    resp.Usage.InputTokens,
-		TokensOutput:   resp.Usage.OutputTokens,
-		TokensCached:   resp.Usage.CachedTokens,
-		CostUSD:        0, // Filled by ledger or pricing layer if needed
-		LatencyMs:      latencyMs,
-		Outcome:        ledger.OutcomeCompleted,
-		EvidenceClass:  ledger.EvidenceSummary,
-		SREDEligible:   true,
-		Timestamp:      time.Now(),
-		ClusterID:      req.ClusterID,
+		SessionID:     sessionID,
+		TaskID:        taskID,
+		AgentRole:     "worker",
+		ModelID:       resp.Model,
+		InferenceType: ledger.InferenceChat,
+		Source:        src,
+		TokensInput:   resp.Usage.InputTokens,
+		TokensOutput:  resp.Usage.OutputTokens,
+		TokensCached:  resp.Usage.CachedTokens,
+		CostUSD:       0, // Filled by ledger or pricing layer if needed
+		LatencyMs:     latencyMs,
+		Outcome:       ledger.OutcomeCompleted,
+		EvidenceClass: ledger.EvidenceSummary,
+		SREDEligible:  true,
+		Timestamp:     time.Now(),
+		ClusterID:     req.ClusterID,
 		ProjectID:     req.ProjectID,
 	}
 	if err := rec.Record(ctx, record); err != nil {
@@ -780,8 +780,21 @@ func (g *Gateway) GetStats() *GatewayStats {
 	g.stats.mu.RLock()
 	defer g.stats.mu.RUnlock()
 
-	// Return a copy
-	stats := *g.stats
+	// Return a copy without the mutex (avoids sync.RWMutex copy)
+	stats := GatewayStats{
+		TotalRequests:        g.stats.TotalRequests,
+		LocalWorkerRequests:  g.stats.LocalWorkerRequests,
+		PlannerRequests:      g.stats.PlannerRequests,
+		FallbackRequests:     g.stats.FallbackRequests,
+		TimeoutErrors:        g.stats.TimeoutErrors,
+		RoutingErrors:        g.stats.RoutingErrors,
+		TotalLatencyMs:       g.stats.TotalLatencyMs,
+		LocalWorkerLatencyMs: g.stats.LocalWorkerLatencyMs,
+		PlannerLatencyMs:     g.stats.PlannerLatencyMs,
+		LocalWorkerSuccess:   g.stats.LocalWorkerSuccess,
+		PlannerSuccess:       g.stats.PlannerSuccess,
+		FallbackSuccess:      g.stats.FallbackSuccess,
+	}
 	return &stats
 }
 

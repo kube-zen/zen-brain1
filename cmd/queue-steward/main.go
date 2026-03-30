@@ -29,18 +29,18 @@ import (
 // ─── Config ───
 
 type stewardConfig struct {
-	JiraURL       string
-	JiraEmail     string
-	JiraAPIToken  string
-	JiraProject   string
-	L1Endpoint    string
-	L1Model       string
-	SafeTarget    int
-	StaleMinutes  int
-	DiscoveryMax  int
-	ArtifactDir   string
-	DryRun        bool
-	Mode          string // "fast", "summary", "daily"
+	JiraURL      string
+	JiraEmail    string
+	JiraAPIToken string
+	JiraProject  string
+	L1Endpoint   string
+	L1Model      string
+	SafeTarget   int
+	StaleMinutes int
+	DiscoveryMax int
+	ArtifactDir  string
+	DryRun       bool
+	Mode         string // "fast", "summary", "daily"
 }
 
 func loadConfig() stewardConfig {
@@ -63,11 +63,11 @@ func loadConfig() stewardConfig {
 // ─── Jira State ───
 
 type jiraTicket struct {
-	Key    string `json:"key"`
-	Summary string `json:"summary"`
-	Status  string `json:"status"`
+	Key     string   `json:"key"`
+	Summary string   `json:"summary"`
+	Status  string   `json:"status"`
 	Labels  []string `json:"labels"`
-	Updated string `json:"updated"`
+	Updated string   `json:"updated"`
 }
 
 type queueSnapshot struct {
@@ -104,10 +104,12 @@ func jiraSearch(cfg stewardConfig, jql string, fields []string) ([]jiraTicket, e
 	defer resp.Body.Close()
 	var result struct {
 		Issues []struct {
-			Key     string `json:"key"`
-			Fields  struct {
-				Summary string   `json:"summary"`
-				Status  struct { Name string `json:"name"` } `json:"status"`
+			Key    string `json:"key"`
+			Fields struct {
+				Summary string `json:"summary"`
+				Status  struct {
+					Name string `json:"name"`
+				} `json:"status"`
 				Labels  []string `json:"labels"`
 				Updated string   `json:"updated"`
 			} `json:"fields"`
@@ -144,7 +146,9 @@ func jiraCount(cfg stewardConfig, jql string) int {
 		return 0
 	}
 	defer resp.Body.Close()
-	var result struct{ Total int `json:"total"` }
+	var result struct {
+		Total int `json:"total"`
+	}
 	json.NewDecoder(resp.Body).Decode(&result)
 	return result.Total
 }
@@ -158,7 +162,10 @@ func jiraTransition(cfg stewardConfig, key, targetName string) bool {
 	}
 	defer resp.Body.Close()
 	var tr struct {
-		Transitions []struct{ ID, Name string `json:"id,json:"` } `json:"transitions"`
+		Transitions []struct {
+			ID   string `json:"id"`
+			Name string `json:"name"`
+		} `json:"transitions"`
 	}
 	json.NewDecoder(resp.Body).Decode(&tr)
 	// Try again with different struct
@@ -268,10 +275,10 @@ func gatherSnapshot(cfg stewardConfig) queueSnapshot {
 // ─── L1 Call ───
 
 type stewardRecommendation struct {
-	QueueHealthSummary    string `json:"queue_health_summary"`
-	TargetInProgress      int    `json:"target_in_progress"`
-	ActualInProgress      int    `json:"actual_in_progress"`
-	FillRatio             float64 `json:"fill_ratio"`
+	QueueHealthSummary      string  `json:"queue_health_summary"`
+	TargetInProgress        int     `json:"target_in_progress"`
+	ActualInProgress        int     `json:"actual_in_progress"`
+	FillRatio               float64 `json:"fill_ratio"`
 	DispatchRecommendations []struct {
 		Key       string `json:"key"`
 		Action    string `json:"action"`
@@ -495,9 +502,9 @@ func writeArtifacts(cfg stewardConfig, snapshot queueSnapshot, rec *stewardRecom
 
 	// queue-actions.json
 	actionsJSON, _ := json.MarshalIndent(map[string]interface{}{
-		"run_id":      runID,
-		"timestamp":   snapshot.Timestamp,
-		"actions":     actions,
+		"run_id":          runID,
+		"timestamp":       snapshot.Timestamp,
+		"actions":         actions,
 		"recommendations": rec,
 	}, "", "  ")
 	os.WriteFile(filepath.Join(cfg.ArtifactDir, "queue-actions.json"), actionsJSON, 0644)
@@ -625,10 +632,10 @@ func main() {
 // heuristicRecommendation provides a deterministic fallback when L1 is unavailable.
 func heuristicRecommendation(cfg stewardConfig, snap queueSnapshot) *stewardRecommendation {
 	rec := &stewardRecommendation{
-		QueueHealthSummary:   fmt.Sprintf("L1 unavailable; heuristic: %d ready, %d in-progress, target=%d", len(snap.ReadyBacklog), len(snap.InProgress), snap.TargetInProgress),
-		TargetInProgress:     snap.TargetInProgress,
-		ActualInProgress:     snap.ActualInProgress,
-		FillRatio:            snap.FillRatio,
+		QueueHealthSummary: fmt.Sprintf("L1 unavailable; heuristic: %d ready, %d in-progress, target=%d", len(snap.ReadyBacklog), len(snap.InProgress), snap.TargetInProgress),
+		TargetInProgress:   snap.TargetInProgress,
+		ActualInProgress:   snap.ActualInProgress,
+		FillRatio:          snap.FillRatio,
 		ThrottleRecommendation: struct {
 			DiscoveryThrottled bool   `json:"discovery_throttled"`
 			Reason             string `json:"reason"`

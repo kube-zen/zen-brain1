@@ -7,6 +7,8 @@ import (
 	"context"
 	"testing"
 	"time"
+
+	zenllm "github.com/kube-zen/zen-brain1/pkg/llm"
 )
 
 // TestNewOllamaProviderCertifiedModel tests creating provider with certified model (qwen3.5:0.8b)
@@ -49,31 +51,31 @@ func TestNewOllamaProviderInClusterDetection(t *testing.T) {
 	testCases := []struct {
 		name         string
 		baseURL      string
-		expectDetect  bool
+		expectDetect bool
 	}{
 		{
-			name:        "host-docker-ollama",
-			baseURL:     "http://host.k3d.internal:11434",
+			name:         "host-docker-ollama",
+			baseURL:      "http://host.k3d.internal:11434",
 			expectDetect: false, // Host Docker is ALLOWED
 		},
 		{
-			name:        "in-cluster-ollama-service",
-			baseURL:     "http://ollama:11434",
+			name:         "in-cluster-ollama-service",
+			baseURL:      "http://ollama:11434",
 			expectDetect: true, // In-cluster is FORBIDDEN
 		},
 		{
-			name:        "in-cluster-ollama-namespace",
-			baseURL:     "http://ollama.zen-brain:11434",
+			name:         "in-cluster-ollama-namespace",
+			baseURL:      "http://ollama.zen-brain:11434",
 			expectDetect: true, // In-cluster is FORBIDDEN
 		},
 		{
-			name:        "in-cluster-ollama-full-fqdn",
-			baseURL:     "http://ollama.zen-brain.svc.cluster.local:11434",
+			name:         "in-cluster-ollama-full-fqdn",
+			baseURL:      "http://ollama.zen-brain.svc.cluster.local:11434",
 			expectDetect: true, // In-cluster is FORBIDDEN
 		},
 		{
-			name:        "localhost-ollama",
-			baseURL:     "http://localhost:11434",
+			name:         "localhost-ollama",
+			baseURL:      "http://localhost:11434",
 			expectDetect: true, // Might be in-cluster (conservative)
 		},
 	}
@@ -104,8 +106,8 @@ func TestOllamaProviderChatCertifiedModel(t *testing.T) {
 		t.Skip("Ollama provider not available (requires running Ollama)")
 	}
 
-	req := ChatRequest{
-		Messages: []Message{
+	req := zenllm.ChatRequest{
+		Messages: []zenllm.Message{
 			{Role: "user", Content: "Say hello"},
 		},
 	}
@@ -140,8 +142,8 @@ func TestOllamaProviderChatNonCertifiedModel(t *testing.T) {
 	}
 
 	// Try to request non-certified model (qwen3.5:14b)
-	req := ChatRequest{
-		Messages: []Message{
+	req := zenllm.ChatRequest{
+		Messages: []zenllm.Message{
 			{Role: "user", Content: "Say hello"},
 		},
 		Model: "qwen3.5:14b", // Non-certified model
@@ -194,7 +196,7 @@ func TestOllamaProviderTimeoutDefaults(t *testing.T) {
 
 // Helper function
 func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && (s[:len(substr)] == substr || s[len(s)-len(substr):] == substr || containsMiddle(s, substr))
+	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && (s[:len(substr)] == substr || s[len(s)-len(substr):] == substr || containsMiddle(s, substr)))
 }
 
 func containsMiddle(s, substr string) bool {

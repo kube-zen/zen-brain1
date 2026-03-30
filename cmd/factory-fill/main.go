@@ -209,7 +209,8 @@ func jiraTransition(jcfg jiraConfig, key, targetName string) bool {
 	}
 	var tr struct {
 		Transitions []struct {
-			ID, Name string `json:"id,json:"`
+			ID   string `json:"id"`
+			Name string `json:"name"`
 		}
 	}
 	// Manual parse — the struct tag is wrong, use generic
