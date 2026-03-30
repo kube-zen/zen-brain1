@@ -13,25 +13,25 @@ import (
 	"github.com/kube-zen/zen-brain1/internal/analyzer"
 	"github.com/kube-zen/zen-brain1/internal/config"
 	internalcontext "github.com/kube-zen/zen-brain1/internal/context"
-	"github.com/kube-zen/zen-brain1/internal/evidence"
-	"github.com/kube-zen/zen-brain1/internal/intelligence"
 	"github.com/kube-zen/zen-brain1/internal/context/tier1"
 	"github.com/kube-zen/zen-brain1/internal/context/tier3"
+	"github.com/kube-zen/zen-brain1/internal/evidence"
 	"github.com/kube-zen/zen-brain1/internal/factory"
-	llmgateway "github.com/kube-zen/zen-brain1/internal/llm"
 	"github.com/kube-zen/zen-brain1/internal/integration"
+	"github.com/kube-zen/zen-brain1/internal/intelligence"
+	internalLedger "github.com/kube-zen/zen-brain1/internal/ledger"
+	llmgateway "github.com/kube-zen/zen-brain1/internal/llm"
+	"github.com/kube-zen/zen-brain1/internal/messagebus/redis"
 	"github.com/kube-zen/zen-brain1/internal/office"
 	"github.com/kube-zen/zen-brain1/internal/office/jira"
-	"github.com/kube-zen/zen-brain1/internal/messagebus/redis"
-	internalLedger "github.com/kube-zen/zen-brain1/internal/ledger"
 	"github.com/kube-zen/zen-brain1/internal/planner"
 	"github.com/kube-zen/zen-brain1/internal/runtime"
 	"github.com/kube-zen/zen-brain1/internal/session"
-	"github.com/kube-zen/zen-brain1/pkg/messagebus"
 	zenctx "github.com/kube-zen/zen-brain1/pkg/context"
 	"github.com/kube-zen/zen-brain1/pkg/contracts"
 	"github.com/kube-zen/zen-brain1/pkg/ledger"
 	"github.com/kube-zen/zen-brain1/pkg/llm"
+	"github.com/kube-zen/zen-brain1/pkg/messagebus"
 )
 
 // Build-time variables (set via Makefile)
@@ -78,6 +78,9 @@ func main() {
 	case "compliance":
 		runComplianceCommand()
 
+	case "tools":
+		runToolsCommand()
+
 	case "version":
 		printVersion()
 
@@ -101,6 +104,7 @@ func printUsage() {
 	fmt.Println("  runtime        Runtime doctor, report, ping (Block 3 capabilities)")
 	fmt.Println("  self-improvement Self-improvement loop: discover, claim, classify, execute safe tasks")
 	fmt.Println("  compliance      Governance/Compliance: reporter, gap-hunter (SR&ED/IRAP/ISO/SOC)")
+	fmt.Println("  tools          Diagnostic tools: metrics, diagnostics")
 	fmt.Println("  version        Print version information")
 	fmt.Println()
 	fmt.Println("For vertical-slice command:")
@@ -1172,7 +1176,7 @@ func ledgerClientOrNil() ledger.ZenLedgerClient {
 		// No ledger configured - check if stub allowed
 		strictMode := runtime.IsStrictProfile()
 		allowStubLedger := os.Getenv("ZEN_BRAIN_OFFICE_ALLOW_STUB_LEDGER") == "1"
-		
+
 		if strictMode {
 			// In strict mode, we cannot use stub; return nil (fail-closed)
 			return nil
@@ -1294,11 +1298,11 @@ func publishVerticalSliceEvent(bus messagebus.MessageBus, stream, eventType, cor
 		return
 	}
 	ev := &messagebus.Event{
-		Type:         eventType,
-		Source:       "vertical-slice",
-		Correlation:  correlation,
-		Payload:      payloadBytes,
-		Timestamp:    time.Now(),
+		Type:        eventType,
+		Source:      "vertical-slice",
+		Correlation: correlation,
+		Payload:     payloadBytes,
+		Timestamp:   time.Now(),
 	}
 	if err := bus.Publish(context.Background(), stream, ev); err != nil {
 		log.Printf("Warning: message bus publish %s: %v", eventType, err)
@@ -1320,7 +1324,7 @@ func convertToFactoryTaskSpec(brainTask contracts.BrainTaskSpec, sessionID, work
 		WorkDomain:     brainTask.WorkDomain,
 		Priority:       brainTask.Priority,
 		TimeoutSeconds: 2700, // ZB-024: 45 minutes for qwen3.5:0.8b normal lane (only controlled-failure uses short timeout)
-		MaxRetries:     3,   // 3 retries default
+		MaxRetries:     3,    // 3 retries default
 		CreatedAt:      now,
 		UpdatedAt:      now,
 	}

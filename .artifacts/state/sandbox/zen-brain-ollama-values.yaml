@@ -1,0 +1,29 @@
+enabled: false
+kind: StatefulSet
+replicas: 1
+models:
+- qwen3.5:0.8b
+keepAlive: 45m  # ZB-024: 45 minutes for qwen3.5:0.8b normal lane
+persistence:
+  enabled: true
+  size: 50Gi
+  storageClassName: ''
+service:
+  port: 11434
+resources:
+  requests:
+    cpu: 500m
+    memory: 2Gi
+  limits:
+    cpu: '8'
+    memory: 32Gi
+vpa:
+  enabled: false
+  updateMode: Initial
+  minAllowed:
+    cpu: 500m
+    memory: 2Gi
+  maxAllowed:
+    cpu: '8'
+    memory: 32Gi
+extraEnv: []

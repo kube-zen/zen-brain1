@@ -1,0 +1,34 @@
+image:
+  repository: zen-registry:5000/zen-brain
+  tag: dev
+  pullPolicy: IfNotPresent
+ollama:
+  baseUrl: http://host.k3d.internal:11434
+  timeoutSeconds: 2700  # ZB-024: 45 minutes for qwen3.5:0.8b normal lane
+apiserver:
+  service:
+    type: LoadBalancer
+    externalPort: 8080
+  env:
+  - name: ZEN_RUNTIME_PROFILE
+    value: dev
+foreman:
+  env:
+  - name: ZEN_RUNTIME_PROFILE
+    value: dev
+  - name: ZEN_FOREMAN_ENABLE_LLM
+    value: "true"
+  - name: ZEN_FOREMAN_LLM_BASE_URL
+    value: "http://host.k3d.internal:11434"
+  - name: ZEN_FOREMAN_LLM_MODEL
+    value: "qwen3.5:0.8b"
+  - name: ZEN_FOREMAN_LLM_TIMEOUT_SECONDS
+    value: "2700"
+  - name: ZEN_FOREMAN_LLM_ENABLE_THINKING
+    value: "false"
+  - name: TIER1_REDIS_ADDR
+    value: "zencontext-redis.zen-context.svc.cluster.local:6379"
+  jiraZenLock:
+    enabled: true
+    secretName: jira-credentials
+    mountPath: /zen-lock/secrets
