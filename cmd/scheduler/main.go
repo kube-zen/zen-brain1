@@ -23,13 +23,21 @@ import (
 // Owns useful-task cadence. Systemd supervises the process; this decides what runs when.
 //
 // Loads schedule definitions from config/schedules/, determines due work,
-// submits batches through the proven useful-batch runtime, records status.
+// submits batches through the canonical zen-brain runtime, records status.
+//
+// CANONICAL EXECUTION MODEL:
+//   The scheduler uses `zen-brain` as the canonical executable.
+//   Schedule behavior is selected by mode + task class, not by binary paths.
+//
+//   mode=batch (default): runs `zen-brain worker batch` with TASKS env
+//   mode=dispatch:        runs `zen-brain dispatch <subcommand>` with args
 //
 // ENV VARS:
+//   CANONICAL_BIN  — path to zen-brain binary (default: zen-brain)
 //   SCHEDULE_DIR   — schedule definitions (default: config/schedules/)
 //   STATE_DIR      — scheduler state / last-run tracking (default: /var/lib/zen-brain1/scheduler)
 //   ARTIFACT_ROOT  — artifact output root (default: /var/lib/zen-brain1/runs)
-//   BATCH_BIN      — path to useful-batch binary (default: cmd/useful-batch/useful-batch)
+//   BATCH_BIN      — DEPRECATED: legacy override, prefer CANONICAL_BIN
 //   POLL_INTERVAL  — how often to check for due work (default: 60s)
 //   FORCE_RUN      — run all schedules once immediately, then exit (default: false)
 //   ONCE           — alias for FORCE_RUN
@@ -39,7 +47,7 @@ const (
 	defaultScheduleDir  = "config/schedules"
 	defaultStateDir     = "/var/lib/zen-brain1/scheduler"
 	defaultArtifactRoot = "/var/lib/zen-brain1/runs"
-	defaultBatchBin     = "cmd/useful-batch/useful-batch"
+	defaultCanonicalBin = "zen-brain"
 )
 
 // Schedule represents a recurring workload definition.
@@ -51,6 +59,16 @@ type Schedule struct {
 	// Workers overrides the default concurrency for this schedule.
 	// 0 or unset = use default (5). Set explicitly per schedule for evidence-based tuning.
 	Workers int `yaml:"workers" json:"workers"`
+	// Mode selects the execution mode:
+	//   "batch" (default) — run through batch worker (TASKS env)
+	//   "dispatch" — run as dispatch subcommand (e.g., queue, roadmap)
+	//   "steward" — alias for dispatch with queue-steward semantics
+	Mode string `yaml:"mode" json:"mode,omitempty"`
+	// DispatchSubcommand overrides the dispatch subcommand (for mode=dispatch).
+	// Defaults to deriving from the first task name (queue_steward → queue, roadmap_steward → roadmap).
+	DispatchSubcommand string `yaml:"dispatch_subcommand,omitempty" json:"dispatch_subcommand,omitempty"`
+	// StewardMode passes the steward mode flag (e.g., "fast", "summary", "hourly").
+	StewardMode string `yaml:"steward_mode,omitempty" json:"steward_mode,omitempty"`
 }
 
 // ScheduleState tracks when each schedule last ran.
@@ -87,7 +105,7 @@ func main() {
 	scheduleDir := envOr("SCHEDULE_DIR", defaultScheduleDir)
 	stateDir := envOr("STATE_DIR", defaultStateDir)
 	artifactRoot := envOr("ARTIFACT_ROOT", defaultArtifactRoot)
-	batchBin := envOr("BATCH_BIN", defaultBatchBin)
+	canonicalBin := envOr("CANONICAL_BIN", defaultCanonicalBin)
 	pollInterval := envDuration("POLL_INTERVAL", defaultPollInterval)
 	forceRun := os.Getenv("FORCE_RUN") != "" || os.Getenv("ONCE") != ""
 
@@ -129,7 +147,7 @@ func main() {
 
 	if forceRun {
 		log.Printf("[SCHED] FORCE_RUN mode: executing all schedules once")
-		runAllSchedules(schedules, stateDir, artifactRoot, batchBin)
+		runAllSchedules(schedules, stateDir, artifactRoot, canonicalBin)
 		writeStatus(schedules, stateDir, artifactRoot)
 		return
 	}
@@ -145,7 +163,7 @@ func main() {
 	for range ticker.C {
 		for _, s := range schedules {
 			if isDue(s, stateDir) {
-				runSchedule(s, stateDir, artifactRoot, batchBin)
+				runSchedule(s, stateDir, artifactRoot, canonicalBin)
 				writeStatus(schedules, stateDir, artifactRoot)
 			}
 		}
@@ -208,42 +226,23 @@ func isDue(s Schedule, stateDir string) bool {
 	return false
 }
 
-func runSchedule(s Schedule, stateDir, artifactRoot, batchBin string) {
+func runSchedule(s Schedule, stateDir, artifactRoot, canonicalBin string) {
 	log.Printf("[SCHED] 🚀 Running schedule: %s (%d tasks, cadence=%s)", s.Name, len(s.Tasks), s.Cadence)
 
 	start := time.Now()
 
-	tasks := ""
-	for i, t := range s.Tasks {
-		if i > 0 {
-			tasks += ","
-		}
-		tasks += t
+	mode := s.Mode
+	if mode == "" {
+		mode = "batch" // default
 	}
 
-	// Per-schedule WORKERS override (Phase B).
-	// If schedule sets Workers > 0, use that value. Otherwise default to 5.
-	defaultWorkers := 5
-	if envW := os.Getenv("WORKERS_OVERRIDE"); envW != "" {
-		if n, err := strconv.Atoi(envW); err == nil && n > 0 {
-			defaultWorkers = n
-		}
+	var cmd *exec.Cmd
+	switch mode {
+	case "dispatch", "steward":
+		cmd = buildDispatchCommand(canonicalBin, s, artifactRoot)
+	default: // "batch"
+		cmd = buildBatchCommand(canonicalBin, s, artifactRoot)
 	}
-	effectiveWorkers := defaultWorkers
-	if s.Workers > 0 {
-		effectiveWorkers = s.Workers
-	}
-	log.Printf("[SCHED] %s: effective WORKERS=%d (schedule=%d, default=%d)",
-		s.Name, effectiveWorkers, s.Workers, defaultWorkers)
-
-	cmd := exec.Command(batchBin)
-	cmd.Env = append(os.Environ(),
-		fmt.Sprintf("BATCH_NAME=%s", s.Name),
-		fmt.Sprintf("OUTPUT_ROOT=%s", artifactRoot),
-		fmt.Sprintf("TASKS=%s", tasks),
-		fmt.Sprintf("TIMEOUT=300"),
-		fmt.Sprintf("WORKERS=%d", effectiveWorkers),
-	)
 
 	output, err := cmd.CombinedOutput()
 	outputStr := string(output)
@@ -322,14 +321,90 @@ func runSchedule(s Schedule, stateDir, artifactRoot, batchBin string) {
 	}
 }
 
-func runAllSchedules(schedules []Schedule, stateDir, artifactRoot, batchBin string) {
+// buildBatchCommand constructs the canonical batch invocation:
+//
+//	zen-brain worker batch
+//
+// with TASKS, BATCH_NAME, OUTPUT_ROOT, WORKERS, TIMEOUT env vars.
+func buildBatchCommand(canonicalBin string, s Schedule, artifactRoot string) *exec.Cmd {
+	tasks := ""
+	for i, t := range s.Tasks {
+		if i > 0 {
+			tasks += ","
+		}
+		tasks += t
+	}
+
+	defaultWorkers := 5
+	if envW := os.Getenv("WORKERS_OVERRIDE"); envW != "" {
+		if n, err := strconv.Atoi(envW); err == nil && n > 0 {
+			defaultWorkers = n
+		}
+	}
+	effectiveWorkers := defaultWorkers
+	if s.Workers > 0 {
+		effectiveWorkers = s.Workers
+	}
+	log.Printf("[SCHED] %s: effective WORKERS=%d (schedule=%d, default=%d)",
+		s.Name, effectiveWorkers, s.Workers, defaultWorkers)
+
+	cmd := exec.Command(canonicalBin, "worker", "batch")
+	cmd.Env = append(os.Environ(),
+		fmt.Sprintf("BATCH_NAME=%s", s.Name),
+		fmt.Sprintf("OUTPUT_ROOT=%s", artifactRoot),
+		fmt.Sprintf("TASKS=%s", tasks),
+		fmt.Sprintf("TIMEOUT=300"),
+		fmt.Sprintf("WORKERS=%d", effectiveWorkers),
+	)
+	return cmd
+}
+
+// buildDispatchCommand constructs the canonical dispatch invocation:
+//
+//	zen-brain dispatch <subcommand> [args]
+//
+// The subcommand is derived from the task name or DispatchSubcommand field.
+func buildDispatchCommand(canonicalBin string, s Schedule, artifactRoot string) *exec.Cmd {
+	subcommand := s.DispatchSubcommand
+	if subcommand == "" {
+		// Derive from first task: queue_steward → queue, roadmap_steward → roadmap
+		if len(s.Tasks) > 0 {
+			taskName := s.Tasks[0]
+			switch {
+			case strings.HasPrefix(taskName, "queue"):
+				subcommand = "queue"
+			case strings.HasPrefix(taskName, "roadmap"):
+				subcommand = "roadmap"
+			default:
+				subcommand = taskName
+			}
+		}
+	}
+
+	args := []string{"dispatch", subcommand}
+	args = append(args, "--once")
+
+	log.Printf("[SCHED] %s: dispatch mode → %s %v", s.Name, subcommand, args[2:])
+
+	cmd := exec.Command(canonicalBin, args...)
+	envExtras := []string{
+		fmt.Sprintf("ARTIFACT_ROOT=%s", artifactRoot),
+	}
+	if s.StewardMode != "" {
+		envExtras = append(envExtras, fmt.Sprintf("STEWARD_MODE=%s", s.StewardMode))
+	}
+	cmd.Env = append(os.Environ(), envExtras...)
+	return cmd
+}
+
+func runAllSchedules(schedules []Schedule, stateDir, artifactRoot, canonicalBin string) {
 	var wg sync.WaitGroup
 	for _, s := range schedules {
 		s := s
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			runSchedule(s, stateDir, artifactRoot, batchBin)
+			runSchedule(s, stateDir, artifactRoot, canonicalBin)
 		}()
 	}
 	wg.Wait()
@@ -1226,32 +1301,16 @@ func truncate(b []byte, maxLen int) string {
 	return s
 }
 
-// runFindingTicketizer invokes the finding-ticketizer binary to convert
-// discovery findings into Jira tickets. Runs as a subprocess — failures
-// are logged but never block the batch or scheduler.
+// runFindingTicketizer invokes the finding-ticketizer via the canonical
+// zen-brain binary to convert discovery findings into Jira tickets.
+// Runs as a subprocess — failures are logged but never block the scheduler.
 func runFindingTicketizer(runDir, scheduleName string, jiraCfg jiraLedgerConfig) {
-	// K8s / container: binary at /usr/local/bin/finding-ticketizer (on PATH)
-	// Bare-metal: binary at ../finding-ticketizer/finding-ticketizer or same-dir subdir
-	candidates := []string{
-		"finding-ticketizer", // PATH lookup
-		filepath.Join(filepath.Dir(os.Args[0]), "finding-ticketizer"),                             // same dir
-		filepath.Join(filepath.Dir(os.Args[0]), "..", "finding-ticketizer", "finding-ticketizer"), // repo layout
-	}
-	var ticketizerBin string
-	for _, c := range candidates {
-		if _, err := os.Stat(c); err == nil {
-			ticketizerBin = c
-			break
-		}
-	}
-	if ticketizerBin == "" {
-		log.Printf("[TICKETIZER] binary not found (tried PATH, same-dir, repo-relative) — skipping")
-		return
-	}
+	// Canonical: use zen-brain worker ticketize (finds implementation binary on PATH)
+	canonicalBin := envOr("CANONICAL_BIN", defaultCanonicalBin)
 
 	log.Printf("[TICKETIZER] running for %s (run=%s)", scheduleName, filepath.Base(runDir))
 
-	cmd := exec.Command(ticketizerBin,
+	cmd := exec.Command(canonicalBin, "worker", "ticketize",
 		"-run-dir", runDir,
 		"-schedule", scheduleName,
 	)

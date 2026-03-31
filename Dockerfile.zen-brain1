@@ -1,13 +1,20 @@
 # Zen-brain1 multi-target Dockerfile
-# Scheduler image: scheduler + useful-batch + finding-ticketizer + queue-steward + roadmap-steward
-# Factory-fill image: factory-fill + remediation-worker
 #
-# Binaries are built on host (CGO_ENABLED=0 GOOS=linux) and COPY'd in.
-# Using debian-slim for shell access (needed for subprocess exec + debugging).
+# CANONICAL EXECUTION MODEL:
+#   zen-brain is the canonical executable. All schedule execution routes
+#   through it: batch, ticketize, dispatch (queue/roadmap).
+#   Implementation binaries are shipped alongside for the passthrough layer.
+#
+# Scheduler image: scheduler + zen-brain + implementation binaries
+# Factory-fill image: factory-fill + remediation-worker
 
 FROM debian:bookworm-slim AS scheduler
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
+# Canonical executable
+COPY zen-brain           /usr/local/bin/zen-brain
+# Scheduler daemon
 COPY scheduler           /usr/local/bin/scheduler
+# Implementation binaries (invoked via zen-brain passthrough)
 COPY useful-batch        /usr/local/bin/useful-batch
 COPY finding-ticketizer  /usr/local/bin/finding-ticketizer
 COPY queue-steward       /usr/local/bin/queue-steward

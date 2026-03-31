@@ -5,6 +5,7 @@
 name: queue-steward-fast
 cadence: custom
 interval_minutes: 5
+mode: dispatch
 description: |
   Fast queue hygiene cycle. Inspects queue state, recommends dispatch
   to keep factory filled, detects stuck tickets.

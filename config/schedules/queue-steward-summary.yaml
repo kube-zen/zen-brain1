@@ -5,6 +5,7 @@
 name: queue-steward-summary
 cadence: custom
 interval_minutes: 30
+mode: dispatch
 description: |
   Queue-health summary cycle. Produces structured queue-health artifact,
   reviews backlog composition, tracks fill ratio trends.

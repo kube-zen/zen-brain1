@@ -5,6 +5,7 @@
 name: roadmap-steward-hourly
 cadence: custom
 interval_minutes: 60
+mode: dispatch
 description: |
   Reads roadmap items from ROADMAP_ITEMS.md, creates or updates Jira tickets,
   respects dedup/cooldown/backpressure. Max 3 items per cycle.
