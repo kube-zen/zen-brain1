@@ -5,24 +5,21 @@
 #   through it: batch, ticketize, dispatch (queue/roadmap).
 #   Implementation binaries are shipped alongside for the passthrough layer.
 #
-# Scheduler image: scheduler + zen-brain + implementation binaries
-# Factory-fill image: factory-fill + remediation-worker
+# Binaries are pre-compiled locally and COPY'd from build/ directory.
 
 FROM debian:bookworm-slim AS scheduler
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
-# Canonical executable
-COPY zen-brain           /usr/local/bin/zen-brain
-# Scheduler daemon
-COPY scheduler           /usr/local/bin/scheduler
-# Implementation binaries (invoked via zen-brain passthrough)
-COPY useful-batch        /usr/local/bin/useful-batch
-COPY finding-ticketizer  /usr/local/bin/finding-ticketizer
-COPY queue-steward       /usr/local/bin/queue-steward
-COPY roadmap-steward     /usr/local/bin/roadmap-steward
+COPY build/zen-brain           /usr/local/bin/zen-brain
+COPY build/scheduler           /usr/local/bin/scheduler
+COPY build/useful-batch        /usr/local/bin/useful-batch
+COPY build/finding-ticketizer  /usr/local/bin/finding-ticketizer
+COPY build/queue-steward       /usr/local/bin/queue-steward
+COPY build/roadmap-steward     /usr/local/bin/roadmap-steward
 ENTRYPOINT ["/usr/local/bin/scheduler"]
 
 FROM debian:bookworm-slim AS factory-fill
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
-COPY factory-fill        /usr/local/bin/factory-fill
-COPY remediation-worker  /usr/local/bin/remediation-worker
+COPY build/zen-brain           /usr/local/bin/zen-brain
+COPY build/factory-fill        /usr/local/bin/factory-fill
+COPY build/remediation-worker  /usr/local/bin/remediation-worker
 ENTRYPOINT ["/usr/local/bin/factory-fill"]
