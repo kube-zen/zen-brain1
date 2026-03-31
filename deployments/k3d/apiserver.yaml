@@ -28,16 +28,15 @@ spec:
           env:
             - name: API_SERVER_PORT
               value: "8080"
-            # FALLBACK ONLY: Ollama L0 lane (primary: llama.cpp L1/L2)
-            - name: OLLAMA_BASE_URL
-              # Default for dev/sandbox: host Docker Ollama (http://host.k3d.internal:11434)
-              # In-cluster Ollama (http://ollama:11434) is optional/legacy/experimental
-              # See deploy/README.md for Ollama deployment model policy
-              value: "http://host.k3d.internal:11434"
-            - name: OLLAMA_TIMEOUT_SECONDS
-              value: "120"
-            - name: OLLAMA_KEEP_ALIVE
-              value: "30m"
+            # Ollama (L0) is DEPRECATED and FORBIDDEN for zen-brain1.
+            # Primary inference: llama.cpp (L1/L2). Do NOT set OLLAMA_BASE_URL.
+            # See: docs/03-DESIGN/SMALL_MODEL_STRATEGY.md
+            # - name: OLLAMA_BASE_URL
+            #   value: "http://host.k3d.internal:11434"
+            - name: L1_ENDPOINT
+              value: "http://host.k3d.internal:56227"
+            - name: L2_ENDPOINT
+              value: "http://host.k3d.internal:60509"
             # Optional: set ZEN_API_KEY (e.g. from a Secret) to enable API key auth.
             # - name: ZEN_API_KEY
             #   valueFrom:

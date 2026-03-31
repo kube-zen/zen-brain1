@@ -92,9 +92,9 @@ spec:
             - "-health-probe-bind-address=:8081"
             - "-workers=5"
             - "-factory-enable-llm=true"
-            # FALLBACK ONLY: Ollama L0 lane
-            - "-factory-llm-provider=ollama"
-            - "-factory-llm-base-url=http://host.k3d.internal:11434"
+            # Ollama is DEPRECATED and FORBIDDEN. Using llama.cpp via L1_ENDPOINT.
+            # - "-factory-llm-provider=ollama"
+            # - "-factory-llm-base-url=http://host.k3d.internal:11434"
             - "-factory-llm-model=qwen3.5:0.8b"
             - "-factory-llm-timeout-seconds=2700"
             - "-factory-llm-enable-thinking=false"

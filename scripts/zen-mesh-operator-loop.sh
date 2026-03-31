@@ -108,12 +108,12 @@ show_menu() {
 			$ZEN_BRAIN_DIR/bin/zen-brain runtime doctor
 			echo ""
 
-			echo "  3. Ollama Health"
-			curl -s http://127.0.0.1:11434/api/version
+			echo "  3. Llama.cpp L1 Health"
+			curl -s http://127.0.0.1:56227/v1/models
 			if [ $? -eq 0 ]; then
-				echo "  ✓ Ollama responding"
+				echo "  ✓ llama.cpp L1 responding"
 			else
-				echo "  ✗ Ollama not responding"
+				echo "  ✗ llama.cpp L1 not responding"
 			fi
 			echo ""
 

@@ -38,8 +38,9 @@ l2_workers:
     port: 60509
   endpoint: "http://localhost:60509"
 
+# DEPRECATED: L0 Ollama fallback disabled. Use llama.cpp L1/L2 instead.
 l0_fallback:
-  count: 1
-  endpoint: "http://localhost:11434"
-  provider: "ollama"
+  count: 0  # DISABLED: Ollama is forbidden
+  endpoint: "http://host.k3d.internal:56227"  # Was Ollama port 11434, now points to llama.cpp L1
+  provider: "llama.cpp"  # Was "ollama", now llama.cpp
   model: "qwen3.5:0.8b"

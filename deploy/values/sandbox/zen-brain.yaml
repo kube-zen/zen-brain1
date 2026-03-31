@@ -4,8 +4,15 @@ foreman:
       value: dev
     - name: ZEN_FOREMAN_ENABLE_LLM
       value: "true"
-    - name: ZEN_FOREMAN_LLM_BASE_URL
-      value: "http://host.k3d.internal:11434"
+    # Ollama is DEPRECATED and FORBIDDEN. Using llama.cpp via L1_ENDPOINT.
+    # - name: ZEN_FOREMAN_LLM_BASE_URL
+    #   value: "http://host.k3d.internal:11434"
+    - name: ZEN_FOREMAN_LLM_PROVIDER
+      value: "llama.cpp"
+    - name: L1_ENDPOINT
+      value: "http://host.k3d.internal:56227"
+    - name: L2_ENDPOINT
+      value: "http://host.k3d.internal:60509"
     - name: ZEN_FOREMAN_LLM_MODEL
       value: "qwen3.5:0.8b"
     - name: ZEN_FOREMAN_LLM_TIMEOUT_SECONDS

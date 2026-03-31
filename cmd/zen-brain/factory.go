@@ -52,7 +52,7 @@ func printFactoryUsage() {
 	fmt.Println("  cleanup [--all]     Clean up old workspaces (or all with --all)")
 	fmt.Println()
 	fmt.Println("Options:")
-	fmt.Println("  --llm               Enable LLM-powered code generation (requires OLLAMA_BASE_URL or llama.cpp endpoint)")
+	fmt.Println("  --llm               Enable LLM-powered code generation (requires L1_ENDPOINT or llama.cpp endpoint)")
 	fmt.Println("  --json              Output as JSON")
 	fmt.Println("  --full              Show complete proof details")
 }
@@ -74,16 +74,16 @@ func runFactoryExecute() {
 
 	// Create mock task spec for demonstration
 	spec := &factory.FactoryTaskSpec{
-		ID:         taskID,
-		SessionID:  "session-" + taskID,
-		WorkItemID: "WORK-" + taskID,
-		Title:      "Execute task " + taskID,
-		Objective:  "Demonstrate factory execution with proof-of-work",
-		WorkType:   contracts.WorkTypeImplementation,
-		Priority:   contracts.PriorityHigh,
+		ID:          taskID,
+		SessionID:   "session-" + taskID,
+		WorkItemID:  "WORK-" + taskID,
+		Title:       "Execute task " + taskID,
+		Objective:   "Demonstrate factory execution with proof-of-work",
+		WorkType:    contracts.WorkTypeImplementation,
+		Priority:    contracts.PriorityHigh,
 		TemplateKey: "default",
-		CreatedAt:  time.Now(),
-		UpdatedAt:  time.Now(),
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
 	}
 
 	ctx := context.Background()

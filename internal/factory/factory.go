@@ -12,9 +12,9 @@ import (
 
 	"github.com/kube-zen/zen-brain1/internal/intelligence"
 	"github.com/kube-zen/zen-brain1/internal/llm"
-	llmcontracts "github.com/kube-zen/zen-brain1/pkg/llm"
 	"github.com/kube-zen/zen-brain1/internal/mlq"
 	"github.com/kube-zen/zen-brain1/internal/worktree"
+	llmcontracts "github.com/kube-zen/zen-brain1/pkg/llm"
 )
 
 // RecommenderInterface is an alias for intelligence.FactoryRecommenderInterface.
@@ -45,22 +45,22 @@ type FactoryConfig struct {
 // FactoryImpl implements the Factory interface.
 // It orchestrates task execution with bounded loops and proof-of-work generation.
 type FactoryImpl struct {
-	config                 FactoryConfig // Factory configuration
-	workspaceManager       WorkspaceManager
-	executor               Executor
-	proofOfWorkManager     ProofOfWorkManager
-	templateManager        *TemplateManager
-	runtimeDir             string
-	tasks                  map[string]*FactoryTaskSpec
-	tasksMutex             sync.RWMutex
-	recommender            RecommenderInterface // Optional intelligence recommender for template auto-selection
-	preflightMode          PreflightMode       // Mode for preflight checks (default: strict)
-	postflightStrictMode   bool               // If true, postflight failures are fatal (default: false)
-	proofVerificationMode   bool               // If true, run enhanced proof verification (default: false)
-	llmGenerator           *LLMGenerator      // Optional LLM generator for code generation (default fallback)
-	llmEnabled             bool               // Whether LLM templates are enabled
-	mlq                    *mlq.MLQ            // Multi-Level Queue for backend selection
-	taskExecutor           *mlq.TaskExecutor   // Task-level retry/escalation executor
+	config                FactoryConfig // Factory configuration
+	workspaceManager      WorkspaceManager
+	executor              Executor
+	proofOfWorkManager    ProofOfWorkManager
+	templateManager       *TemplateManager
+	runtimeDir            string
+	tasks                 map[string]*FactoryTaskSpec
+	tasksMutex            sync.RWMutex
+	recommender           RecommenderInterface // Optional intelligence recommender for template auto-selection
+	preflightMode         PreflightMode        // Mode for preflight checks (default: strict)
+	postflightStrictMode  bool                 // If true, postflight failures are fatal (default: false)
+	proofVerificationMode bool                 // If true, run enhanced proof verification (default: false)
+	llmGenerator          *LLMGenerator        // Optional LLM generator for code generation (default fallback)
+	llmEnabled            bool                 // Whether LLM templates are enabled
+	mlq                   *mlq.MLQ             // Multi-Level Queue for backend selection
+	taskExecutor          *mlq.TaskExecutor    // Task-level retry/escalation executor
 }
 
 // NewFactory creates a new Factory instance with default configuration.
@@ -73,16 +73,16 @@ func NewFactory(
 	runtimeDir string,
 ) *FactoryImpl {
 	return &FactoryImpl{
-		workspaceManager:       workspaceManager,
-		executor:               executor,
-		proofOfWorkManager:     proofOfWorkManager,
-		templateManager:        NewTemplateManager(),
-		runtimeDir:             runtimeDir,
-		tasks:                  make(map[string]*FactoryTaskSpec),
-		recommender:            nil,
-		preflightMode:          PreflightModeStrict, // Default to strict mode
-		postflightStrictMode:   false,               // Default to non-strict postflight
-		proofVerificationMode:   false,               // Default to skip proof verification
+		workspaceManager:      workspaceManager,
+		executor:              executor,
+		proofOfWorkManager:    proofOfWorkManager,
+		templateManager:       NewTemplateManager(),
+		runtimeDir:            runtimeDir,
+		tasks:                 make(map[string]*FactoryTaskSpec),
+		recommender:           nil,
+		preflightMode:         PreflightModeStrict, // Default to strict mode
+		postflightStrictMode:  false,               // Default to non-strict postflight
+		proofVerificationMode: false,               // Default to skip proof verification
 	}
 }
 
@@ -127,17 +127,17 @@ func NewFactoryWithConfig(
 	}
 
 	return &FactoryImpl{
-		config:                 config,
-		workspaceManager:       workspaceManager,
-		executor:               executor,
-		proofOfWorkManager:     proofOfWorkManager,
-		templateManager:        NewTemplateManager(),
-		runtimeDir:             runtimeDir,
-		tasks:                  make(map[string]*FactoryTaskSpec),
-		recommender:            nil,
-		preflightMode:          PreflightModeStrict,
-		postflightStrictMode:   config.StrictProofMode,
-		proofVerificationMode:   config.StrictProofMode,
+		config:                config,
+		workspaceManager:      workspaceManager,
+		executor:              executor,
+		proofOfWorkManager:    proofOfWorkManager,
+		templateManager:       NewTemplateManager(),
+		runtimeDir:            runtimeDir,
+		tasks:                 make(map[string]*FactoryTaskSpec),
+		recommender:           nil,
+		preflightMode:         PreflightModeStrict,
+		postflightStrictMode:  config.StrictProofMode,
+		proofVerificationMode: config.StrictProofMode,
 	}, nil
 }
 
@@ -312,18 +312,18 @@ func (f *FactoryImpl) ExecuteTask(ctx context.Context, spec *FactoryTaskSpec) (*
 		// Execute with LLM-powered code generation
 		log.Printf("[Factory] Using LLM-powered execution for task %s (work_type=%s, model=%s)", spec.ID, spec.WorkType, f.llmGenerator.config.Model)
 		filesCreated, llmErr := f.executeWithLLM(ctx, spec, workspaceMetadata.Path)
-		
+
 		result = &ExecutionResult{
-			TaskID:         spec.ID,
-			SessionID:      spec.SessionID,
-			WorkItemID:     spec.WorkItemID,
-			WorkspacePath:  workspaceMetadata.Path,
-			TemplateKey:    spec.SelectedTemplate,
-			Status:         ExecutionStatusCompleted,
-			Success:        llmErr == nil,
-			CompletedAt:    time.Now(),
-			Duration:       time.Since(startTime),
-			FilesChanged:   filesCreated,
+			TaskID:        spec.ID,
+			SessionID:     spec.SessionID,
+			WorkItemID:    spec.WorkItemID,
+			WorkspacePath: workspaceMetadata.Path,
+			TemplateKey:   spec.SelectedTemplate,
+			Status:        ExecutionStatusCompleted,
+			Success:       llmErr == nil,
+			CompletedAt:   time.Now(),
+			Duration:      time.Since(startTime),
+			FilesChanged:  filesCreated,
 			// ZB-022D: Add observability for execution mode
 			Metadata: map[string]string{
 				"execution_mode": "llm",
@@ -542,7 +542,7 @@ func (f *FactoryImpl) GetTask(ctx context.Context, taskID string) (*FactoryTaskS
 func (f *FactoryImpl) createErrorResult(spec *FactoryTaskSpec, err error, message string) *ExecutionResult {
 	errorCode := "WORKSPACE_ERROR"
 	recommendation := "retry"
-	
+
 	// Extract structured error information if available
 	if fe, ok := err.(*FactoryError); ok {
 		errorCode = string(fe.Code)
@@ -558,7 +558,7 @@ func (f *FactoryImpl) createErrorResult(spec *FactoryTaskSpec, err error, messag
 			recommendation = "retry"
 		}
 	}
-	
+
 	return &ExecutionResult{
 		TaskID:         spec.ID,
 		SessionID:      spec.SessionID,
@@ -681,23 +681,23 @@ func (f *FactoryImpl) shouldUseLLMTemplate(spec *FactoryTaskSpec) bool {
 
 	// Also support aliases for robustness
 	llmWorkAliases := map[string]string{
-		"implementation": "implementation",
-		"implement":     "implementation",
-		"impl":          "implementation",
-		"feature":       "feature",
-		"new":           "feature",
-		"bugfix":        "bugfix",
-		"fix":           "bugfix",
-		"bug":           "bugfix",
-		"debug":         "debug",
-		"refactor":      "refactor",
-		"refactoring":   "refactor",
-		"test":          "test",
-		"testing":       "test",
-		"unit_test":     "test",
+		"implementation":   "implementation",
+		"implement":        "implementation",
+		"impl":             "implementation",
+		"feature":          "feature",
+		"new":              "feature",
+		"bugfix":           "bugfix",
+		"fix":              "bugfix",
+		"bug":              "bugfix",
+		"debug":            "debug",
+		"refactor":         "refactor",
+		"refactoring":      "refactor",
+		"test":             "test",
+		"testing":          "test",
+		"unit_test":        "test",
 		"integration_test": "test",
-		"migration":     "migration",
-		"migrate":       "migration",
+		"migration":        "migration",
+		"migrate":          "migration",
 	}
 
 	// Check direct match first
@@ -839,11 +839,14 @@ func (f *FactoryImpl) createGeneratorForLevel(ctx context.Context, spec *Factory
 	}
 
 	// Create provider instance
+	// DEPRECATED: Ollama case removed. Use llama.cpp only.
 	var providerProvider llmcontracts.Provider
 	switch selectedProvider {
 	case "ollama":
-		providerProvider = llm.NewOllamaProvider(selectedBaseURL, selectedModel, selectedTimeout, "45m")
-	case "llama-cpp":
+		// FORBIDDEN: Log warning and fall through to llama-cpp
+		log.Printf("[Factory] WARNING: provider=ollama is deprecated and forbidden. Using llama-cpp instead.")
+		fallthrough
+	case "llama-cpp", "llama.cpp":
 		providerProvider = llm.NewOpenAICompatibleProviderWithTimeout(
 			"llama-cpp", selectedBaseURL, selectedModel, "",
 			time.Duration(selectedTimeout)*time.Second,

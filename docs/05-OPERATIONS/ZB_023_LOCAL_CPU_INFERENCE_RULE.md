@@ -1,19 +1,24 @@
-> **NOTE:** This document references Ollama. The current primary inference runtime is **llama.cpp** (L1/L2 lanes). Ollama (L0) is fallback only.
+> ⛔ **DEPRECATION NOTICE:** This document references Ollama which is **FORBIDDEN** for zen-brain1.
+> The current and only supported local CPU inference runtime is **llama.cpp** (L1/L2 lanes).
+> Ollama (L0) is deprecated and must not be used. See [SMALL_MODEL_STRATEGY.md](../03-DESIGN/SMALL_MODEL_STRATEGY.md).
 
-# Runbook: Local CPU Inference Policy (ZB-023)
+# Runbook: Local CPU Inference Policy (ZB-023) — **UPDATED**
 
 **Task ID:** ZB-023
 **Effective:** 2026-03-20
-**Status:** Production-Ready
+**Status:** Production-Ready (Updated: Ollama forbidden, llama.cpp only)
+**Last Updated:** 2026-03-30 — Ollama fully deprecated
 
 ## 🚨 CRITICAL RULE (UNTIL EXPLICITLY OVERRIDDEN BY OPERATOR)
 
 ### Certified Local CPU Path
 
 - ✅ **ONLY allowed local model:** `qwen3.5:0.8b`
-- ✅ **ONLY supported local inference path:** Host Docker Ollama (http://host.k3d.internal:11434)
-- ❌ **FORBIDDEN:** In-cluster Ollama for active local CPU path
+- ✅ **ONLY supported local inference path:** llama.cpp (http://host.k3d.internal:56227 L1 / http://host.k3d.internal:60509 L2)
+- ❌ **FORBIDDEN:** Ollama (any endpoint, including host Docker at port 11434)
+- ❌ **FORBIDDEN:** In-cluster Ollama for any purpose
 - ❌ **FORBIDDEN:** Any other local model (e.g., qwen3.5:14b, llama*, mistral*)
+- ❌ **FORBIDDEN:** Setting `OLLAMA_BASE_URL` in any deployment
 
 ### Provider/Model Flexibility
 

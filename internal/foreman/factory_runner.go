@@ -16,6 +16,7 @@ import (
 	"github.com/kube-zen/zen-brain1/internal/llm"
 	"github.com/kube-zen/zen-brain1/internal/worktree"
 	"github.com/kube-zen/zen-brain1/pkg/contracts"
+	pkgllm "github.com/kube-zen/zen-brain1/pkg/llm"
 )
 
 // FactoryTaskRunnerConfig configures FactoryTaskRunner (Block 4 execution).
@@ -32,11 +33,11 @@ type FactoryTaskRunnerConfig struct {
 	ReuseSessionWorktree bool   // reuse one worktree per session when true
 
 	// LLM-powered Factory execution (ZB-022D)
-	EnableFactoryLLM    bool   // when true, Factory uses LLM-powered templates instead of shell-only
-	LLMBaseURL          string // Ollama endpoint (e.g. http://host.k3d.internal:11434)
-	LLMModel            string // model name (default qwen3.5:0.8b for CPU inference)
-	LLMTimeoutSeconds    int    // timeout for LLM requests (default 2700s=45m for qwen3.5:0.8b normal lane; only controlled-failure uses short timeout)
-	LLMEnableThinking   bool   // enable chain-of-thought (default false for CPU path)
+	EnableFactoryLLM  bool   // when true, Factory uses LLM-powered templates instead of shell-only
+	LLMBaseURL        string // LLM endpoint (e.g. http://host.k3d.internal:56227 for llama.cpp L1)
+	LLMModel          string // model name (default qwen3.5:0.8b for CPU inference)
+	LLMTimeoutSeconds int    // timeout for LLM requests (default 2700s=45m for qwen3.5:0.8b normal lane; only controlled-failure uses short timeout)
+	LLMEnableThinking bool   // enable chain-of-thought (default false for CPU path)
 }
 
 // FactoryTaskRunner runs a BrainTask by converting it to FactoryTaskSpec and calling Factory.ExecuteTask.
@@ -49,7 +50,7 @@ type FactoryTaskRunner struct {
 
 // NewFactoryTaskRunner builds a FactoryTaskRunner from config (creates/owns FactoryImpl).
 // When UseGitWorktree is true, uses real git worktrees from SourceRepoPath; otherwise uses WorkspaceHome/workspaces.
-// 
+//
 // FAIL CLOSED: RuntimeDir must be explicitly set (via ZEN_FOREMAN_RUNTIME_DIR or config).
 // No default /tmp fallback allowed, even in dev mode (consistent with cmd/foreman).
 func NewFactoryTaskRunner(cfg FactoryTaskRunnerConfig) (*FactoryTaskRunner, error) {
@@ -119,18 +120,28 @@ func NewFactoryTaskRunner(cfg FactoryTaskRunnerConfig) (*FactoryTaskRunner, erro
 			return nil, fmt.Errorf("LLM enabled but LLMBaseURL not set (set ZEN_FOREMAN_LLM_BASE_URL or config.LLMBaseURL)")
 		}
 
-		log.Printf("[FactoryTaskRunner] Creating Ollama provider: url=%s model=%s timeout=%ds thinking=%v",
-			cfg.LLMBaseURL, cfg.LLMModel, cfg.LLMTimeoutSeconds, cfg.LLMEnableThinking)
+		// Determine provider: llama.cpp is the only supported provider.
+		provider := "llama.cpp"
+		if provider == "" {
+			provider = "llama.cpp"
+		}
 
-		ollamaProvider := llm.NewOllamaProvider(
-			cfg.LLMBaseURL,
-			cfg.LLMModel,
-			cfg.LLMTimeoutSeconds,
-			"30m", // Keep-alive to match apiserver default
-		)
+		log.Printf("[FactoryTaskRunner] Creating %s provider: url=%s model=%s timeout=%ds thinking=%v",
+			provider, cfg.LLMBaseURL, cfg.LLMModel, cfg.LLMTimeoutSeconds, cfg.LLMEnableThinking)
+
+		var llmProviderInst pkgllm.Provider
+		switch provider {
+		case "llama.cpp":
+			llmProviderInst = llm.NewOpenAICompatibleProviderWithTimeout(
+				provider, cfg.LLMBaseURL, cfg.LLMModel, "",
+				time.Duration(cfg.LLMTimeoutSeconds)*time.Second,
+			)
+		default:
+			return nil, fmt.Errorf("unsupported LLM provider: %s (only llama.cpp is supported)", provider)
+		}
 
 		// Create LLM generator with enforced config
-		llmGenConfig := factory.DefaultLLMGeneratorConfig(ollamaProvider)
+		llmGenConfig := factory.DefaultLLMGeneratorConfig(llmProviderInst)
 		llmGenConfig.Model = cfg.LLMModel
 		llmGenConfig.EnableThinking = cfg.LLMEnableThinking
 		llmGenConfig.Timeout = time.Duration(cfg.LLMTimeoutSeconds) * time.Second
@@ -146,7 +157,7 @@ func NewFactoryTaskRunner(cfg FactoryTaskRunnerConfig) (*FactoryTaskRunner, erro
 
 		// Try to enable MLQ if config exists (ZB-MLQ-RESCUE: MLQ owns backend selection)
 		// Factory.executeWithLLM() will use MLQ.SelectLevel() for each task
-		// 
+		//
 		// MLQ config path resolution order:
 		// 1. ZEN_BRAIN_MLQ_CONFIG env var (explicit path - highest priority)
 		// 2. /config/policy/mlq-levels.yaml (Kubernetes ConfigMap mount)

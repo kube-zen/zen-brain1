@@ -129,10 +129,8 @@ def get_deploy_use_zencontext(env: str, config_path: str | None = None) -> bool:
 
 
 def get_deploy_use_ollama(env: str, config_path: str | None = None) -> bool:
-    """Whether to deploy ollama-in-cluster (Block 5 local-worker backend)."""
-    block = get_cluster_block(env, config_path)
-    deploy = block.get("deploy") or {}
-    return bool(deploy.get("use_ollama", False))
+    """⛔ DEPRECATED: Ollama is forbidden. Always returns False."""
+    return False
 
 
 def get_deploy_use_zen_glm(env: str, config_path: str | None = None) -> bool:
@@ -143,10 +141,8 @@ def get_deploy_use_zen_glm(env: str, config_path: str | None = None) -> bool:
 
 
 def get_deploy_host_ollama_base_url(env: str, config_path: str | None = None) -> str:
-    """Host Ollama base URL (e.g. http://host.k3d.internal:11434) for Docker-based Ollama."""
-    block = get_cluster_block(env, config_path)
-    deploy = block.get("deploy") or {}
-    return str(deploy.get("host_ollama_base_url") or "").strip()
+    """⛔ DEPRECATED: Ollama is forbidden. Always returns empty string."""
+    return ""
 
 
 def get_deploy_apiserver_external_port(env: str, config_path: str | None = None) -> int:
@@ -164,40 +160,19 @@ def get_zen_brain_tag(env: str, config_path: str | None = None) -> str:
 
 
 def get_deploy_ollama(env: str, config_path: str | None = None) -> dict:
-    """Full deploy.ollama block for Helm values (StatefulSet, VPA, keepAlive, etc.)."""
-    block = get_cluster_block(env, config_path)
-    deploy = block.get("deploy") or {}
-    ollama = deploy.get("ollama")
-    if not isinstance(ollama, dict):
-        return {
-            "enabled": False,
-            "kind": "StatefulSet",
-            "replicas": 1,
-            "models": [],
-            "keepAlive": "2m",
-            "persistence": {"enabled": True, "size": "50Gi", "storageClassName": ""},
-            "resources": {"requests": {"cpu": "500m", "memory": "2Gi"}, "limits": {"cpu": "8", "memory": "32Gi"}},
-            "vpa": {"enabled": True, "updateMode": "Initial", "minAllowed": {"cpu": "500m", "memory": "2Gi"}, "maxAllowed": {"cpu": "8", "memory": "32Gi"}},
-            "service": {"port": 11434},
-            "extraEnv": [],
-        }
-    out = {
-        "enabled": bool(deploy.get("use_ollama", False) or ollama.get("enabled", False)),
-        "kind": str(ollama.get("kind") or "StatefulSet"),
-        "replicas": int(ollama.get("replicas") or 1),
-        "models": list(ollama.get("models") or []),
-        "keepAlive": str(ollama.get("keepAlive") or "2m"),
-        "persistence": dict(ollama.get("persistence") or {"enabled": True, "size": "50Gi", "storageClassName": ""}),
-        "resources": dict(ollama.get("resources") or {"requests": {"cpu": "500m", "memory": "2Gi"}, "limits": {"cpu": "8", "memory": "32Gi"}}),
-        "vpa": dict(ollama.get("vpa") or {"enabled": True, "updateMode": "Initial", "minAllowed": {"cpu": "500m", "memory": "2Gi"}, "maxAllowed": {"cpu": "8", "memory": "32Gi"}}),
-        "service": dict(ollama.get("service") or {"port": 11434}),
-        "extraEnv": list(ollama.get("extraEnv") or []),
+    """⛔ DEPRECATED: Ollama is forbidden. Always returns disabled defaults."""
+    return {
+        "enabled": False,
+        "kind": "StatefulSet",
+        "replicas": 1,
+        "models": [],
+        "keepAlive": "2m",
+        "persistence": {"enabled": False, "size": "50Gi", "storageClassName": ""},
+        "resources": {"requests": {"cpu": "500m", "memory": "2Gi"}, "limits": {"cpu": "8", "memory": "32Gi"}},
+        "vpa": {"enabled": False, "updateMode": "Initial", "minAllowed": {"cpu": "500m", "memory": "2Gi"}, "maxAllowed": {"cpu": "8", "memory": "32Gi"}},
+        "service": {"port": 11434},
+        "extraEnv": [],
     }
-    if not out["resources"]:
-        out["resources"] = {"requests": {"cpu": "500m", "memory": "2Gi"}, "limits": {"cpu": "8", "memory": "32Gi"}}
-    if not out["vpa"]:
-        out["vpa"] = {"enabled": True, "updateMode": "Initial", "minAllowed": {"cpu": "500m", "memory": "2Gi"}, "maxAllowed": {"cpu": "8", "memory": "32Gi"}}
-    return out
 
 
 def get_k3d_k8s_image(env: str, config_path: str | None = None) -> str:

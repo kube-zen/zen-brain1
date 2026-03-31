@@ -101,10 +101,10 @@ mlq_levels:
   - migration
   - architecture-design
 - backend:
-    api_endpoint: http://localhost:11434
+    api_endpoint: http://host.k3d.internal:56227  # llama.cpp L1 endpoint (DEPRECATED: Ollama port 11434 forbidden)
     model_file: ''
     name: qwen3.5:0.8b
-    provider: ollama
+    provider: llama.cpp
     timeout_seconds: 2700
   capabilities:
     max_context_tokens: 32768

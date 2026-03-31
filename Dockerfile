@@ -5,28 +5,23 @@
 # Build stage
 FROM golang:1.25-alpine AS builder
 
-# Install build dependencies (git needed for go mod download)
-RUN apk add --no-cache git ca-certificates
+# Install build dependencies
+RUN apk add --no-cache ca-certificates
 
 # Set working directory
 WORKDIR /build
 
-# Copy go.mod, go.sum, and vendor directory for offline builds
-COPY go.mod go.sum ./
-COPY vendor/ ./vendor/
-
-# Copy source code
+# Copy everything (including vendor/)
 COPY . .
 
-# Build all in-cluster binaries (Block 6: foreman, apiserver, controller)
-# Use -mod=vendor for offline builds (avoids git authentication issues)
+# Build all in-cluster binaries using vendor directory (no network needed)
 ARG BUILD_SHA=""
 ARG VERSION="dev"
+ENV GONOSUMCHECK=github.com/kube-zen/*
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -mod=vendor -ldflags="-s -w -X main.version=${VERSION} -X main.buildCommit=${BUILD_SHA}" -o zen-brain ./cmd/zen-brain && \
     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -mod=vendor -ldflags="-s -w" -o foreman ./cmd/foreman && \
     CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -mod=vendor -ldflags="-s -w" -o apiserver ./cmd/apiserver && \
-    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -mod=vendor -ldflags="-s -w" -o controller ./cmd/controller && \
-    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -mod=vendor -ldflags="-s -w" -o create-jira-issues ./cmd/create-jira-issues
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -mod=vendor -ldflags="-s -w" -o controller ./cmd/controller
 
 # Runtime stage (minimal Alpine image)
 FROM alpine:3.19
@@ -38,7 +33,7 @@ RUN apk --no-cache add ca-certificates && \
 # In-cluster binaries under /app (Block 6 bootstrap)
 # Use --chown to set ownership during copy (eliminates separate chown layer)
 WORKDIR /app
-COPY --from=builder --chown=zenuser:zenuser /build/zen-brain /build/foreman /build/apiserver /build/controller /build/create-jira-issues .
+COPY --from=builder --chown=zenuser:zenuser /build/zen-brain /build/foreman /build/apiserver /build/controller .
 
 USER zenuser
 ENTRYPOINT ["./zen-brain"]

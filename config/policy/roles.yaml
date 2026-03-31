@@ -5,13 +5,13 @@
 # IMPORTANT: Local CPU Inference Policy (ZB-023)
 # ================================================
 # UNTIL EXPLICITLY OVERRIDDEN BY THE OPERATOR:
-# - qwen3.5:0.8b is the ONLY allowed local Ollama model
-# - Host Docker Ollama is the ONLY supported local CPU inference path
-# - In-cluster Ollama is FORBIDDEN for the active local path
+# - qwen3.5:0.8b is the local model via llama.cpp (L1 endpoint)
+# - llama.cpp (L1/L2) is the ONLY supported local CPU inference path
+# - Ollama is FORBIDDEN for zen-brain1
 #
 # Any provider/model may serve any role if configured.
 # The strict "planner=GLM, worker=0.8b" split is outdated and removed.
-# Local CPU path is certified ONLY for qwen3.5:0.8b via host Docker Ollama.
+# Local CPU path is certified for qwen3.5:0.8b via llama.cpp (L1 endpoint).
 
 roles:
   - name: worker

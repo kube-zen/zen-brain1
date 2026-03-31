@@ -93,15 +93,15 @@ mlq_levels:
   # Keep existing control path until llama.cpp MLQ is proven
   - level: 0
     name: "fallback-control"
-    display_name: "Fallback Control (Ollama)"
-    enabled: true
+    display_name: "Fallback Control (DEPRECATED — Ollama forbidden, use llama.cpp L1)"
+    enabled: false  # DISABLED: Ollama is deprecated and forbidden
 
     # Backend configuration
     backend:
-      provider: "ollama"
+      provider: "llama.cpp"
       name: "qwen3.5:0.8b"
       model_file: ""
-      api_endpoint: "http://host.k3d.internal:11434"  # Ollama endpoint
+      api_endpoint: "http://host.k3d.internal:56227"  # llama.cpp L1 endpoint
       timeout_seconds: 2700  # 45 minutes
 
     # Concurrency settings

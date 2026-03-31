@@ -34,38 +34,9 @@ clusters:
       zen_brain: "dev"
     deploy:
       use_zencontext: false
-      use_ollama: false  # k8s ollama disabled - using host Docker ollama
+      use_ollama: false  # FORBIDDEN: Ollama is deprecated. Use llama.cpp L1/L2 only.
       use_zen_glm: false
-      # Host Ollama (Docker) - apiserver connects to this instead of k8s ollama
-      host_ollama_base_url: "http://host.k3d.internal:11434"
-      ollama:
-        enabled: false  # k8s ollama disabled
-        kind: StatefulSet
-        replicas: 1
-        models: ["qwen3.5:0.8b"]
-        keepAlive: "30m"  # increased from 2m - was causing cold starts between requests
-        persistence:
-          enabled: true
-          size: 50Gi
-          storageClassName: ""
-        vpa:
-          enabled: false
-          updateMode: Initial
-          minAllowed:
-            cpu: "500m"
-            memory: "2Gi"
-          maxAllowed:
-            cpu: "8"
-            memory: "32Gi"
-        service:
-          port: 11434
-        resources:
-          requests:
-            cpu: "500m"
-            memory: "2Gi"
-          limits:
-            cpu: "8"
-            memory: "32Gi"
+      # ollama block removed — Ollama is forbidden for zen-brain1
       in_cluster: true
       apiserver_external_port: 8080
       require_destroy_confirm: true
@@ -97,23 +68,8 @@ clusters:
       zen_brain: "dev"
     deploy:
       use_zencontext: false
-      use_ollama: false
-      ollama:
-        enabled: false
-        kind: StatefulSet
-        replicas: 1
-        models: []
-        keepAlive: "2m"
-        persistence: { enabled: true, size: 50Gi, storageClassName: "" }
-        vpa:
-          enabled: true
-          updateMode: Initial
-          minAllowed: { cpu: "500m", memory: "2Gi" }
-          maxAllowed: { cpu: "8", memory: "32Gi" }
-        service: { port: 11434 }
-        resources:
-          requests: { cpu: "500m", memory: "2Gi" }
-          limits: { cpu: "8", memory: "32Gi" }
+      use_ollama: false  # FORBIDDEN: Ollama is deprecated. Use llama.cpp L1/L2 only.
+      # ollama block removed — Ollama is forbidden for zen-brain1
       in_cluster: true
       apiserver_external_port: 8080
       require_destroy_confirm: true
@@ -145,23 +101,8 @@ clusters:
       zen_brain: "dev"
     deploy:
       use_zencontext: false
-      use_ollama: false
-      ollama:
-        enabled: false
-        kind: StatefulSet
-        replicas: 1
-        models: []
-        keepAlive: "2m"
-        persistence: { enabled: true, size: 50Gi, storageClassName: "" }
-        vpa:
-          enabled: true
-          updateMode: Initial
-          minAllowed: { cpu: "500m", memory: "2Gi" }
-          maxAllowed: { cpu: "8", memory: "32Gi" }
-        service: { port: 11434 }
-        resources:
-          requests: { cpu: "500m", memory: "2Gi" }
-          limits: { cpu: "8", memory: "32Gi" }
+      use_ollama: false  # FORBIDDEN: Ollama is deprecated. Use llama.cpp L1/L2 only.
+      # ollama block removed — Ollama is forbidden for zen-brain1
       in_cluster: true
       apiserver_external_port: 8080
       require_destroy_confirm: true

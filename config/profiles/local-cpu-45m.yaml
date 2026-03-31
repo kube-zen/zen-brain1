@@ -39,10 +39,10 @@ l2_worker:
   enable_thinking: false
 
 # Local Worker Configuration (DEPRECATED - use l1_worker/l2_worker)
-# Ollama is 2-3x slower than llama.cpp. Use only as emergency fallback.
+# Ollama is DEPRECATED and FORBIDDEN for zen-brain1. Use llama.cpp L1/L2 only.
 local_worker:
   model: qwen3.5:0.8b
-  base_url: http://host.k3d.internal:11434  # DEPRECATED - use L1/L2 llama.cpp
+  base_url: http://host.k3d.internal:56227  # llama.cpp L1 endpoint (was Ollama 11434 — FORBIDDEN)
   timeout_seconds: 2700
   keep_alive: 45m
   supports_tools: true

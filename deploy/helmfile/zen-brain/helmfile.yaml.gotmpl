@@ -5,13 +5,30 @@ repositories:
 helmDefaults:
   createNamespace: false
 
+# H190B: KUBECONFIG ISOLATION — always use stack-scoped kubeconfig, never ~/.kube/config.
+#   KUBECONFIG=.zen/state/kubeconfigs/zen-brain-<env>.yaml \
+#     helmfile -f helmfile.yaml.gotmpl -e <env> apply
+# See docs/runbooks/kubeconfig-isolation.md for full policy.
+
 environments:
   sandbox:
     kubeContext: k3d-zen-brain-sandbox
+    values:
+      - stackIdentity:
+          product: zen-brain
+          stack: zen-brain
   staging:
     kubeContext: k3d-zen-brain-staging
+    values:
+      - stackIdentity:
+          product: zen-brain
+          stack: zen-brain
   uat:
     kubeContext: k3d-zen-brain-uat
+    values:
+      - stackIdentity:
+          product: zen-brain
+          stack: zen-brain
 
 ---
 # Releases (order: zen-brain releases)
@@ -62,14 +79,17 @@ releases:
       - ../../../charts/zen-brain-dependencies/values.yaml
       - ../../../.artifacts/state/{{ .Environment.Name }}/zen-brain-dependencies-values.yaml
 
-  - name: zen-brain-ollama
-    chart: ../../../charts/zen-brain-ollama
-    namespace: zen-brain
-    labels:
-      component: ollama
-    values:
-      - ../../../charts/zen-brain-ollama/values.yaml
-      - ../../../.artifacts/state/{{ .Environment.Name }}/zen-brain-ollama-values.yaml
+  # ⛔ DEPRECATED: zen-brain-ollama release is FORBIDDEN for zen-brain1.
+  # Ollama is deprecated and forbidden. This release is commented out.
+  # If you uncomment this, the CI ollama_forbidden_gate will fail.
+  # - name: zen-brain-ollama
+  #   chart: ../../../charts/deprecated/zen-brain-ollama
+  #   namespace: zen-brain
+  #   labels:
+  #     component: ollama
+  #   values:
+  #     - ../../../charts/deprecated/zen-brain-ollama/values.yaml
+  #     - ../../../.artifacts/state/{{ .Environment.Name }}/zen-brain-ollama-values.yaml
 
   - name: zen-brain-core
     chart: ../../../charts/zen-brain

@@ -2,9 +2,7 @@ image:
   repository: zen-registry:5000/zen-brain
   tag: dev
   pullPolicy: IfNotPresent
-ollama:
-  baseUrl: http://host.k3d.internal:11434
-  timeoutSeconds: 2700  # ZB-024: 45 minutes for qwen3.5:0.8b normal lane
+# ⛔ Ollama block removed — Ollama is forbidden for zen-brain1
 apiserver:
   service:
     type: LoadBalancer
@@ -18,8 +16,10 @@ foreman:
     value: dev
   - name: ZEN_FOREMAN_ENABLE_LLM
     value: "true"
+  - name: ZEN_FOREMAN_LLM_PROVIDER
+    value: "llama.cpp"
   - name: ZEN_FOREMAN_LLM_BASE_URL
-    value: "http://host.k3d.internal:11434"
+    value: "http://host.k3d.internal:56227"
   - name: ZEN_FOREMAN_LLM_MODEL
     value: "qwen3.5:0.8b"
   - name: ZEN_FOREMAN_LLM_TIMEOUT_SECONDS

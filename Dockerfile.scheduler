@@ -1,0 +1,12 @@
+FROM debian:bookworm-slim AS scheduler
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
+COPY scheduler           /usr/local/bin/scheduler
+COPY useful-batch        /usr/local/bin/useful-batch
+COPY finding-ticketizer  /usr/local/bin/finding-ticketizer
+ENTRYPOINT ["/usr/local/bin/scheduler"]
+
+FROM debian:bookworm-slim AS factory-fill
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
+COPY factory-fill        /usr/local/bin/factory-fill
+COPY remediation-worker  /usr/local/bin/remediation-worker
+ENTRYPOINT ["/usr/local/bin/factory-fill"]

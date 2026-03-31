@@ -14,8 +14,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/kube-zen/zen-sdk/pkg/observability"
 	zenlog "github.com/kube-zen/zen-sdk/pkg/logging"
+	"github.com/kube-zen/zen-sdk/pkg/observability"
 
 	"github.com/kube-zen/zen-brain1/internal/apiserver"
 	"github.com/kube-zen/zen-brain1/internal/config"
@@ -26,9 +26,9 @@ import (
 )
 
 var (
-	logger         = zenlog.NewLogger("zen-brain.apiserver")
-	setupLogger    = zenlog.NewLogger("setup")
-	otelShutdown   func(context.Context) error
+	logger       = zenlog.NewLogger("zen-brain.apiserver")
+	setupLogger  = zenlog.NewLogger("setup")
+	otelShutdown func(context.Context) error
 )
 
 func main() {
@@ -135,8 +135,8 @@ func main() {
 	var healthChecker *runtime.LiveHealthChecker
 	if strictRT != nil {
 		healthChecker = runtime.NewLiveHealthChecker(&runtime.LiveHealthCheckerConfig{
-			StrictRuntime:  strictRT,
-			RefreshPeriod:   30e9, // 30 seconds
+			StrictRuntime: strictRT,
+			RefreshPeriod: 30e9, // 30 seconds
 		})
 		if err := healthChecker.Start(ctx); err != nil {
 			logger.Warn("Live health checker failed to start",
@@ -196,12 +196,11 @@ func main() {
 		gwCfg.LocalWorkerKeepAlive = s
 	}
 	gateway, errGW := llm.NewGateway(gwCfg)
-	var warmup *llm.OllamaWarmupCoordinator
 	if errGW != nil {
 		logger.Warn("LLM gateway not available",
 			zenlog.Error(errGW),
 		)
-		srv.Handle("/api/v1/chat", apiserver.ChatHandler(nil, nil))
+		srv.Handle("/api/v1/chat", apiserver.ChatHandler(nil))
 	} else {
 		// ZB-024: Log local CPU profile clearly
 		logger.Info("ZB-024: Local CPU inference profile active",
@@ -210,36 +209,15 @@ func main() {
 			zenlog.Int("request_timeout", gwCfg.RequestTimeout),
 			zenlog.String("keep_alive", gwCfg.LocalWorkerKeepAlive),
 		)
+		// Ollama warmup is DEPRECATED and FORBIDDEN for zen-brain1.
+		// Primary inference uses llama.cpp (L1/L2). OLLAMA_BASE_URL should not be set.
+		// If set accidentally, log a warning and do NOT start warmup.
 		if baseURL := os.Getenv("OLLAMA_BASE_URL"); baseURL != "" {
-			model := gwCfg.LocalWorkerModel
-			keepAlive := os.Getenv("OLLAMA_KEEP_ALIVE")
-			if keepAlive == "" {
-				keepAlive = llm.DefaultKeepAlive
-			}
-			warmupSec := gwCfg.LocalWorkerTimeout
-			if warmupSec <= 0 {
-				warmupSec = 300
-			}
-			warmup = llm.NewOllamaWarmupCoordinator(baseURL, model, keepAlive, warmupSec)
-
-			go func() {
-				logger.Info("Starting Ollama warmup",
-					zenlog.String("model", model),
-					zenlog.Int("warmup_sec", warmupSec),
-				)
-				warmup.DoWarmup(context.Background())
-			}()
-
-			// Mark the gateway's provider as warmed after warmup completes
-			go func() {
-				warmup.WaitReady(context.Background(), 0) // Wait forever for warmup
-				if result, done := warmup.Result(); done && result.Success {
-					gateway.MarkLocalWorkerWarmed()
-					logger.Info("Marked local-worker as warmed after startup warmup")
-				}
-			}()
+			logger.Warn("OLLAMA_BASE_URL is set but Ollama is deprecated and forbidden. "+
+				"Remove OLLAMA_BASE_URL from deployment. Using llama.cpp L1/L2 instead.",
+				zenlog.String("url", baseURL))
 		}
-		srv.Handle("/api/v1/chat", apiserver.ChatHandler(gateway, warmup))
+		srv.Handle("/api/v1/chat", apiserver.ChatHandler(gateway))
 	}
 
 	if v := os.Getenv("API_VERSION"); v != "" {

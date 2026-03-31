@@ -456,7 +456,7 @@ func buildAnalyzerWithHistory() (*analyzer.DefaultAnalyzer, analyzer.AnalysisHis
 		fmt.Fprintf(os.Stderr, "Warning: could not create history store at %s: %v (analysis history disabled)\n", historyDir, err)
 		return a, nil, nil
 	}
-	
+
 	historyStore, err := analyzer.NewFileAnalysisStore(historyDir)
 	if err != nil {
 		// Non-fatal: continue without history
@@ -469,18 +469,27 @@ func buildAnalyzerWithHistory() (*analyzer.DefaultAnalyzer, analyzer.AnalysisHis
 }
 
 func buildLLMProvider(cfg *config.Config) llm.Provider {
-	// FAIL CLOSED: Require explicit OLLAMA_BASE_URL
-	// Do not default to localhost:11434 in any mode (consistent with other dev-default cleanup)
-	ollamaURL := os.Getenv("OLLAMA_BASE_URL")
-	if ollamaURL == "" {
-		log.Fatalf("[Analyzer] FAIL CLOSED: OLLAMA_BASE_URL not set (set OLLAMA_BASE_URL to continue, cannot use default localhost:11434)")
+	// DEPRECATED: Ollama is forbidden. Use llama.cpp L1/L2 endpoints.
+	endpoint := os.Getenv("L1_ENDPOINT")
+	if endpoint == "" {
+		endpoint = "http://localhost:56227" // llama.cpp L1 default
 	}
-	model := "llama3"
+	model := os.Getenv("L1_MODEL")
+	if model == "" {
+		model = "qwen3.5:0.8b"
+	}
 	timeoutSecs := 120
-	apiKey := ""
 
-	// Create Ollama provider
-	provider := internalllm.NewOllamaProvider(ollamaURL, model, timeoutSecs, apiKey)
+	// If someone still sets OLLAMA_BASE_URL, log a warning and ignore it.
+	if os.Getenv("OLLAMA_BASE_URL") != "" {
+		log.Printf("[Analyzer] WARNING: OLLAMA_BASE_URL is set but Ollama is deprecated and forbidden. Using llama.cpp L1 instead.")
+	}
+
+	// Create llama.cpp provider (OpenAI-compatible)
+	provider := internalllm.NewOpenAICompatibleProviderWithTimeout(
+		"llama.cpp", endpoint, model, "",
+		time.Duration(timeoutSecs)*time.Second,
+	)
 	return provider
 }
 

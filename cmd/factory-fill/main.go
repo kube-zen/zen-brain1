@@ -350,13 +350,26 @@ func dispatchTicket(cfg factoryConfig, ticket ClassifiedTicket) bool {
 	staleResult := filepath.Join(resultDir, ticket.Key+".json")
 	os.Remove(staleResult)
 
-	// Run remediation-worker as subprocess for this single ticket
-	workerBin := filepath.Join(filepath.Dir(os.Args[0]), "remediation-worker")
-	if _, err := os.Stat(workerBin); err != nil {
-		workerBin = filepath.Join(cfg.RepoRoot, "cmd/remediation-worker/remediation-worker")
+	// Run remediation via canonical zen-brain entrypoint
+	// Canonical: zen-brain worker remediate --ticket-key <key>
+	// Falls back to standalone remediation-worker binary on PATH
+	canonicalBin := envOr("CANONICAL_BIN", "zen-brain")
+	workerBin := canonicalBin
+	workerArgs := []string{"worker", "remediate", "--ticket-key", ticket.Key}
+
+	// Transitional: if zen-brain not found, try standalone binary
+	if _, err := exec.LookPath(canonicalBin); err != nil {
+		standalone := "remediation-worker"
+		if _, err2 := exec.LookPath(standalone); err2 == nil {
+			workerBin = standalone
+			workerArgs = nil // standalone reads PILOT_KEYS env
+			log.Printf("[DISPATCH] %s: zen-brain not found, using standalone %s", ticket.Key, standalone)
+		} else {
+			log.Printf("[DISPATCH] %s: neither zen-brain nor remediation-worker found on PATH", ticket.Key)
+		}
 	}
 
-	cmd := exec.Command(workerBin)
+	cmd := exec.Command(workerBin, workerArgs...)
 	cmd.Env = append(os.Environ(),
 		"MODE=pilot",
 		"PILOT_KEYS="+ticket.Key,

@@ -8,11 +8,11 @@ This directory contains policy configuration for zen-brain1 timeout, roles, task
 |------|-------|-----------|------|---------|
 | **L1** | Qwen3.5-0.8B-Q4_K_M | **llama.cpp** | 56227 | 300s per task |
 | **L2** | zen-go-q4_k_m | **llama.cpp** | 60509 | 600s per task |
-| ~~L0~~ | ~~qwen3.5:0.8b~~ | ~~Ollama~~ | ~~11434~~ | **DEPRECATED** |
+| ~~L0~~ | ~~qwen3.5:0.8b~~ | ~~Ollama~~ | ~~11434~~ | **FORBIDDEN** |
 
-**Primary inference runtime is llama.cpp** (NOT Ollama). 
+**Primary (and only) local CPU inference runtime is llama.cpp.**
 
-**Ollama is DEPRECATED** - llama.cpp proved 2-3x faster in benchmarks. Ollama should only be used as emergency fallback when L1/L2 are unavailable. See: `docs/05-OPERATIONS/LLAMA_CPP_VS_OLLAMA_QWEN_0_8B_BENCHMARK.md`
+**Ollama is FORBIDDEN for zen-brain1.** Setting `OLLAMA_BASE_URL` in any deployment will produce a startup warning and will NOT activate any inference path. Remove all Ollama references from your configuration. See: `docs/05-OPERATIONS/LLAMA_CPP_VS_OLLAMA_QWEN_0_8B_BENCHMARK.md` for benchmark evidence.
 
 ### Timeout Policy
 

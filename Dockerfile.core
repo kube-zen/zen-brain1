@@ -1,0 +1,12 @@
+# Zen-brain1 core image: apiserver + foreman + controller
+# Binaries built on host, COPY'd into minimal runtime image.
+FROM alpine:3.19
+
+RUN apk --no-cache add ca-certificates && \
+    adduser -D -s /bin/sh -u 1000 zenuser
+
+WORKDIR /app
+COPY --chmod=755 bin/apiserver bin/foreman bin/controller ./
+
+USER zenuser
+ENTRYPOINT ["./apiserver"]

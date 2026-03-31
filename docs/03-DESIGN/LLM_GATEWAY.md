@@ -1,3 +1,7 @@
+> ⛔ **DEPRECATED:** This document references Ollama (L0), which is now FORBIDDEN for zen-brain1.
+> The current primary inference runtime is **llama.cpp** (L1/L2). Ollama has been removed from all active paths.
+> Retained for historical/architectural reference only.
+
 > **NOTE:** This document references Ollama. The current primary inference runtime is **llama.cpp** (L1/L2 lanes). Ollama (L0) is fallback only. See `docs/03-DESIGN/LOCAL_LLM_ESCALATION_LADDER.md`.
 
 # LLM Gateway Design

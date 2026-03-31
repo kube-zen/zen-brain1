@@ -42,23 +42,23 @@ func DefaultJiraToBrainTaskConfig() *JiraToBrainTaskConfig {
 		DefaultNamespace: "zen-brain",
 		DefaultQueueName: "dogfood",
 		WorkTypeMapping: map[string]contracts.WorkType{
-			"Task":           contracts.WorkTypeImplementation,
-			"Story":          contracts.WorkTypeImplementation,
-			"Bug":            contracts.WorkTypeDebug,
-			"Improvement":    contracts.WorkTypeRefactor,
-			"Sub-task":       contracts.WorkTypeImplementation,
-			"Documentation":  contracts.WorkTypeDocumentation,
-			"Test":           contracts.WorkTypeTesting,
+			"Task":          contracts.WorkTypeImplementation,
+			"Story":         contracts.WorkTypeImplementation,
+			"Bug":           contracts.WorkTypeDebug,
+			"Improvement":   contracts.WorkTypeRefactor,
+			"Sub-task":      contracts.WorkTypeImplementation,
+			"Documentation": contracts.WorkTypeDocumentation,
+			"Test":          contracts.WorkTypeTesting,
 		},
 		WorkDomainMapping: map[string]contracts.WorkDomain{
-			"core":          contracts.DomainCore,
-			"api":           contracts.DomainIntegration,
-			"factory":       contracts.DomainFactory,
-			"office":        contracts.DomainOffice,
-			"foreman":       contracts.DomainFactory,
-			"policy":        contracts.DomainPolicy,
-			"observability": contracts.DomainObservability,
-			"docs":          contracts.DomainOffice,
+			"core":           contracts.DomainCore,
+			"api":            contracts.DomainIntegration,
+			"factory":        contracts.DomainFactory,
+			"office":         contracts.DomainOffice,
+			"foreman":        contracts.DomainFactory,
+			"policy":         contracts.DomainPolicy,
+			"observability":  contracts.DomainObservability,
+			"docs":           contracts.DomainOffice,
 			"infrastructure": contracts.DomainInfrastructure,
 		},
 		PriorityMapping: map[string]contracts.Priority{
@@ -184,7 +184,7 @@ func (s *JiraToBrainTaskService) issueToBrainTask(issue *contracts.WorkItem) *v1
 	// Determine timeout: 2700s for normal lane, short timeout only for controlled failure test
 	timeoutSeconds := int64(2700) // ZB-024: 45 minutes for qwen3.5:0.8b normal lane
 	if strings.Contains(strings.ToLower(issue.Title), "timeout") ||
-	   strings.Contains(strings.ToLower(issue.Title), "failure test") {
+		strings.Contains(strings.ToLower(issue.Title), "failure test") {
 		timeoutSeconds = 60 // Short timeout for controlled failure testing
 	}
 
@@ -194,37 +194,37 @@ func (s *JiraToBrainTaskService) issueToBrainTask(issue *contracts.WorkItem) *v1
 			Name:      name,
 			Namespace: s.config.DefaultNamespace,
 			Labels: map[string]string{
-				"zen.kube-zen.com/source":     "jira",
-				"zen.kube-zen.com/jira-key":   issue.ID,
-				"zen.kube-zen.com/work-type":  string(workType),
+				"zen.kube-zen.com/source":      "jira",
+				"zen.kube-zen.com/jira-key":    issue.ID,
+				"zen.kube-zen.com/work-type":   string(workType),
 				"zen.kube-zen.com/work-domain": string(workDomain),
 			},
 		},
 		Spec: v1alpha1.BrainTaskSpec{
-			ID:                name,
-			WorkItemID:        issue.ID,
-			SessionID:         fmt.Sprintf("jira-session-%s", issue.ID),
-			SourceKey:         issue.ID, // Jira key (e.g., PROJ-123)
-			Title:             issue.Title,
-			Description:       issue.Body,
-			WorkType:          workType,
-			WorkDomain:        workDomain,
-			Priority:          priority,
-			Objective:         objective,
+			ID:                 name,
+			WorkItemID:         issue.ID,
+			SessionID:          fmt.Sprintf("jira-session-%s", issue.ID),
+			SourceKey:          issue.ID, // Jira key (e.g., PROJ-123)
+			Title:              issue.Title,
+			Description:        issue.Body,
+			WorkType:           workType,
+			WorkDomain:         workDomain,
+			Priority:           priority,
+			Objective:          objective,
 			AcceptanceCriteria: acceptanceCriteria,
 			Constraints: []string{
 				"Use only safe bounded operations",
 				"Prefer real repo changes over synthetic defaults",
-				"Local Ollama must use qwen3.5:0.8b only",
+				"Local CPU must use qwen3.5:0.8b via llama.cpp L1 only",
 			},
 			EvidenceRequirement: contracts.EvidenceSummary,
 			SREDTags: []contracts.SREDTag{
 				contracts.SREDExperimentalGeneral,
 			},
-			TimeoutSeconds:    timeoutSeconds, // ZB-024: 2700s for normal lane, short for controlled failure
-			MaxRetries:        1,
-			EstimatedCostUSD:  0.05, // Rough estimate
-			QueueName:         s.config.DefaultQueueName,
+			TimeoutSeconds:   timeoutSeconds, // ZB-024: 2700s for normal lane, short for controlled failure
+			MaxRetries:       1,
+			EstimatedCostUSD: 0.05, // Rough estimate
+			QueueName:        s.config.DefaultQueueName,
 		},
 		Status: v1alpha1.BrainTaskStatus{
 			Phase: v1alpha1.BrainTaskPhasePending,

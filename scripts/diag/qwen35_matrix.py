@@ -30,7 +30,9 @@ import time
 import urllib.request
 import urllib.error
 
-OLLAMA_URL = "http://localhost:11434/api/chat"
+# ⛔ DEPRECATED: This diagnostic uses Ollama API format. Update to llama.cpp OpenAI-compatible API.
+# L1_ENDPOINT = "http://localhost:56227/v1/chat/completions"
+OLLAMA_URL = "http://localhost:11434/api/chat"  # DEPRECATED: Ollama forbidden
 MODEL = "qwen3.5:0.8b"
 RUNS_PER_CELL = 5
 

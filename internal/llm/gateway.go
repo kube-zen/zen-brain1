@@ -231,32 +231,26 @@ func NewGateway(config *GatewayConfig) (*Gateway, error) {
 }
 
 // registerBuiltinProviders registers the built-in providers.
-// When OLLAMA_BASE_URL is set, the local-worker lane uses a real Ollama provider; otherwise the simulated LocalWorkerProvider is used.
-// When ZEN_GLM_API_KEY is set, the zen-glm provider is registered (Z.AI GLM-5).
+// Ollama (L0) is DEPRECATED and FORBIDDEN for zen-brain1. When OLLAMA_BASE_URL
+// is set, a warning is logged but NO Ollama provider is created. Use llama.cpp
+// (L1/L2) via L1_ENDPOINT/L2_ENDPOINT instead.
 //
 // ZB-023: Local CPU Inference Policy - Startup Validation
 // - Only qwen3.5:0.8b is certified for local CPU inference
-// - Host Docker Ollama (http://host.k3d.internal:11434) is ONLY supported path
-// - In-cluster Ollama is FORBIDDEN for active local path
+// - llama.cpp is the ONLY supported local inference path
+// - In-cluster Ollama is FORBIDDEN
 func (g *Gateway) registerBuiltinProviders() error {
 	var localWorker llm.Provider
-	if baseURL := os.Getenv("OLLAMA_BASE_URL"); baseURL != "" {
-		keepAlive := g.config.LocalWorkerKeepAlive
-		if keepAlive == "" {
-			keepAlive = DefaultKeepAlive
-		}
-		localWorker = NewOllamaProvider(baseURL, g.config.LocalWorkerModel, g.config.LocalWorkerTimeout, keepAlive)
 
-		// ZB-023: Log certified local path clearly
-		if g.config.LocalWorkerModel == "qwen3.5:0.8b" {
-			log.Printf("[LLM Gateway] ZB-023: Local worker lane - Ollama at %s (model=%s, CERTIFIED local CPU path)", baseURL, g.config.LocalWorkerModel)
-		} else {
-			log.Printf("[LLM Gateway] ZB-023 WARNING: Local worker lane - Ollama at %s (model=%s, NOT CERTIFIED - only qwen3.5:0.8b is certified)", baseURL, g.config.LocalWorkerModel)
-		}
-	} else {
-		localWorker = NewLocalWorkerProvider(g.config.LocalWorkerModel, g.config.LocalWorkerTimeout)
-		log.Printf("[LLM Gateway] local-worker lane: simulated (set OLLAMA_BASE_URL for real Ollama)")
+	// DEPRECATED: Ollama provider creation removed.
+	// If OLLAMA_BASE_URL is still set in env, log a warning.
+	if baseURL := os.Getenv("OLLAMA_BASE_URL"); baseURL != "" {
+		log.Printf("[LLM Gateway] WARNING: OLLAMA_BASE_URL is set (%s) but Ollama is deprecated and forbidden. "+
+			"Remove OLLAMA_BASE_URL from deployment. Using simulated local-worker.", baseURL)
 	}
+
+	localWorker = NewLocalWorkerProvider(g.config.LocalWorkerModel, g.config.LocalWorkerTimeout)
+	log.Printf("[LLM Gateway] local-worker lane: simulated (use L1/L2 llama.cpp endpoints for real inference)")
 	if err := g.RegisterProvider("local-worker", localWorker); err != nil {
 		return fmt.Errorf("failed to register local worker provider: %w", err)
 	}
@@ -799,19 +793,9 @@ func (g *Gateway) GetStats() *GatewayStats {
 }
 
 // MarkLocalWorkerWarmed marks the local-worker provider's model as warmed.
-// Call this after external warmup (e.g., warmup coordinator) to prevent duplicate warmup probes.
+// DEPRECATED: No-op since Ollama provider is no longer used. Retained for API compatibility.
 func (g *Gateway) MarkLocalWorkerWarmed() {
-	g.mu.RLock()
-	provider, exists := g.providers["local-worker"]
-	g.mu.RUnlock()
-
-	if !exists {
-		return
-	}
-
-	if ollamaProvider, ok := provider.(*OllamaProvider); ok {
-		ollamaProvider.MarkWarmed(g.config.LocalWorkerModel)
-	}
+	// No-op: Ollama warmup removed. llama.cpp handles its own model loading.
 }
 
 // Helper function

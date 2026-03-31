@@ -78,16 +78,16 @@ providers:
   # L0 Fallback - Ollama (DEPRECATED, emergency fallback only)
   # WARNING: Ollama is 2-3x slower than llama.cpp. Use only when L1/L2 unavailable.
   - name: local-worker-l0-fallback
-    display_name: "Local Ollama L0 Fallback (DEPRECATED)"
+    display_name: "Local Ollama L0 Fallback (DEPRECATED — FORBIDDEN)"
     class: language-model
-    enabled: false  # DISABLED by default - llama.cpp is preferred
-    provider_type: ollama
-    api_endpoint: "http://host.k3d.internal:11434"
+    enabled: false  # DISABLED: Ollama is forbidden for zen-brain1
+    provider_type: llama.cpp  # Was "ollama" — changed to llama.cpp
+    api_endpoint: "http://host.k3d.internal:56227"  # Was Ollama 11434 — now llama.cpp L1
     local_cpu_certified: false  # NOT certified - fallback only
     default_model: "qwen3.5:0.8b"
     models:
       - name: "qwen3.5:0.8b"
-        display_name: "Qwen 3.5 0.8B (Ollama - SLOW)"
+        display_name: "Qwen 3.5 0.8B (llama.cpp L1)"
         class: chat
         context_window: 32768
         max_output_tokens: 2048

@@ -6,7 +6,7 @@ set -euo pipefail
 
 L1_PORT=56227
 L2_PORT=60509
-L0_PORT=11434
+# L0/Ollama removed — Ollama is forbidden for zen-brain1
 
 ok()  { echo "✅ $1"; }
 fail() { echo "❌ $1"; exit 1; }
@@ -61,23 +61,14 @@ else
     L2_SLOTS="L2: DOWN"
 fi
 
-# Check L0 (optional fallback)
-L0_UP=0
-if check_port "L0" $L0_PORT; then
-    L0_UP=1
-else
-    L0_UP=0
-fi
-
 if [[ $JSON_MODE -eq 1 ]]; then
     cat << EOF
-{"l1":{"up":$L1_UP,"port":$L1_PORT,"slots":"$L1_SLOTS"},"l2":{"up":$L2_UP,"port":$L2_PORT,"slots":"$L2_SLOTS"},"l0":{"up":$L0_UP,"port":$L0_PORT,"role":"fallback"},"timestamp":"$(date -u +%Y-%m-%dT%H:%M:%SZ)"}
+{"l1":{"up":$L1_UP,"port":$L1_PORT,"slots":"$L1_SLOTS"},"l2":{"up":$L2_UP,"port":$L2_PORT,"slots":"$L2_SLOTS"},"timestamp":"$(date -u +%Y-%m-%dT%H:%M:%SZ)"}
 EOF
 else
     echo "=== zen-brain1 Worker Health ==="
     if [[ $L1_UP -eq 1 ]]; then ok "L1 (llama.cpp 0.8B): port $L1_PORT — $L1_SLOTS"; else fail "L1 (llama.cpp 0.8B): port $L1_PORT — DOWN"; fi
     if [[ $L2_UP -eq 1 ]]; then ok "L2 (llama.cpp 2B):   port $L2_PORT — $L2_SLOTS"; else warn "L2 (llama.cpp 2B):   port $L2_PORT — DOWN"; fi
-    if [[ $L0_UP -eq 1 ]]; then warn "L0 (Ollama):          port $L0_PORT — UP (fallback only)"; else echo "   L0 (Ollama):          port $L0_PORT — down (fallback, non-critical)"; fi
     echo ""
     if [[ $L1_UP -eq 1 ]]; then
         echo "Status: READY for useful work"

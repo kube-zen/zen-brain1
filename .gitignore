@@ -9,6 +9,12 @@
 /controller
 /zen-brain1
 /mlq-dispatcher
+/admission-gate
+/finding-ticketizer
+/migrate-wrapper
+/remediation-worker
+/useful-batch
+/zen-brain-worker
 bin/
 *.exe
 *.exe~
@@ -26,6 +32,8 @@ cmd/apiserver/apiserver
 cmd/foreman/foreman
 cmd/controller/controller
 cmd/mlq-dispatcher/mlq-dispatcher
+cmd/finding-ticketizer/finding-ticketizer
+cmd/useful-batch/useful-batch
 
 # Go workspace file
 go.work

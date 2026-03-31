@@ -1,13 +1,17 @@
 # Zen-Brain Troubleshooting Guide
 
-**Last Updated:** 2026-03-11
+**Last Updated:** 2026-03-30
 
-## Ollama Runtime Policy
+## ⛔ Local Inference Policy (UPDATED)
 
-- **Dev/sandbox default:** Host Docker Ollama (outside Kubernetes), accessed via `host.k3d.internal:11434`
-- **Kubernetes Ollama:** Optional, legacy, experimental — not the default path
-- **Reasoning:** In-cluster Ollama has shown performance issues; host Docker Ollama provides better GPU passthrough and isolation
-- **For details:** See `deploy/README.md` (Ollama deployment model section)
+> **Ollama is DEPRECATED and FORBIDDEN for zen-brain1.**
+> The only supported local CPU inference path is **llama.cpp** (L1/L2 lanes).
+> Do NOT set `OLLAMA_BASE_URL`. Do NOT start Ollama containers.
+> If you see "Ollama warmup failed" in logs, remove `OLLAMA_BASE_URL` from your deployment.
+> See: `docs/03-DESIGN/SMALL_MODEL_STRATEGY.md`
+
+- **Active inference:** llama.cpp (L1: port 56227, L2: port 60509)
+- **Ollama (port 11434):** DEPRECATED and FORBIDDEN
 
 ---
 

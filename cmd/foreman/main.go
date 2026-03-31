@@ -25,12 +25,12 @@ import (
 	internalcontext "github.com/kube-zen/zen-brain1/internal/context"
 	"github.com/kube-zen/zen-brain1/internal/evidence"
 	"github.com/kube-zen/zen-brain1/internal/feedback"
-	internalllm "github.com/kube-zen/zen-brain1/internal/llm"
 	"github.com/kube-zen/zen-brain1/internal/foreman"
-	"github.com/kube-zen/zen-brain1/internal/office/jira"
 	"github.com/kube-zen/zen-brain1/internal/gate"
 	internalguardian "github.com/kube-zen/zen-brain1/internal/guardian"
 	internalledger "github.com/kube-zen/zen-brain1/internal/ledger"
+	internalllm "github.com/kube-zen/zen-brain1/internal/llm"
+	"github.com/kube-zen/zen-brain1/internal/office/jira"
 	internalruntime "github.com/kube-zen/zen-brain1/internal/runtime"
 	gatepkg "github.com/kube-zen/zen-brain1/pkg/gate"
 	"github.com/kube-zen/zen-brain1/pkg/guardian"
@@ -72,8 +72,8 @@ func main() {
 	var llmTimeoutSeconds int
 	var llmEnableThinking bool
 	flag.BoolVar(&enableFactoryLLM, "factory-enable-llm", envBool("ZEN_FOREMAN_ENABLE_LLM", false), "Enable LLM-powered Factory execution (ZB-022G).")
-	flag.StringVar(&llmProvider, "factory-llm-provider", envStr("ZEN_FOREMAN_LLM_PROVIDER", ""), "LLM provider (default ollama, options: ollama, llama.cpp).")
-	flag.StringVar(&llmBaseURL, "factory-llm-base-url", envStr("ZEN_FOREMAN_LLM_BASE_URL", ""), "LLM endpoint for Factory (e.g. http://host.k3d.internal:11434).")
+	flag.StringVar(&llmProvider, "factory-llm-provider", envStr("ZEN_FOREMAN_LLM_PROVIDER", "llama.cpp"), "LLM provider (options: llama.cpp). Ollama is deprecated and forbidden.")
+	flag.StringVar(&llmBaseURL, "factory-llm-base-url", envStr("ZEN_FOREMAN_LLM_BASE_URL", ""), "LLM endpoint for Factory (e.g. http://host.k3d.internal:56227 for llama.cpp L1).")
 	flag.StringVar(&llmModel, "factory-llm-model", envStr("ZEN_FOREMAN_LLM_MODEL", "qwen3.5:0.8b"), "LLM model for Factory (default qwen3.5:0.8b for CPU inference).")
 	flag.IntVar(&llmTimeoutSeconds, "factory-llm-timeout-seconds", envInt("ZEN_FOREMAN_LLM_TIMEOUT_SECONDS", 2700), "LLM request timeout in seconds (default 2700s=45m for CPU path).")
 	flag.BoolVar(&llmEnableThinking, "factory-llm-enable-thinking", envBool("ZEN_FOREMAN_LLM_ENABLE_THINKING", false), "Enable chain-of-thought reasoning (default false for CPU path).")
@@ -226,19 +226,19 @@ func main() {
 	log.Printf("Foreman: manager created, health probe server on %s", probeAddr)
 
 	cfg := foreman.FactoryTaskRunnerConfig{
-		RuntimeDir:            runtimeDir,
-		WorkspaceHome:         workspaceHome,
-		PreferRealTemplates:   preferRealTemplates,
-		UseGitWorktree:        useGitWorktree,
-		SourceRepoPath:        sourceRepoPath,
-		WorktreeBasePath:      worktreeBasePath,
-		SourceRef:             sourceRef,
-		ReuseSessionWorktree:  reuseSessionWorktree,
+		RuntimeDir:           runtimeDir,
+		WorkspaceHome:        workspaceHome,
+		PreferRealTemplates:  preferRealTemplates,
+		UseGitWorktree:       useGitWorktree,
+		SourceRepoPath:       sourceRepoPath,
+		WorktreeBasePath:     worktreeBasePath,
+		SourceRef:            sourceRef,
+		ReuseSessionWorktree: reuseSessionWorktree,
 		EnableFactoryLLM:     enableFactoryLLM,
-		LLMBaseURL:          llmBaseURL,
-		LLMModel:            llmModel,
+		LLMBaseURL:           llmBaseURL,
+		LLMModel:             llmModel,
 		LLMTimeoutSeconds:    llmTimeoutSeconds,
-		LLMEnableThinking:     llmEnableThinking,
+		LLMEnableThinking:    llmEnableThinking,
 	}
 	runner, err := foreman.NewFactoryTaskRunner(cfg)
 	if err != nil {
@@ -276,13 +276,13 @@ func main() {
 			log.Printf("Foreman: ReMe enabled (ZenContext Redis, cluster=%s)", clusterID)
 		}
 	}
-	
+
 	// ZB-027G: Initialize Jira feedback service
 	if feedbackSvc := foremanFeedbackService(mgr.GetClient(), appCfg); feedbackSvc != nil {
 		worker.FeedbackService = feedbackSvc
 		log.Printf("Foreman: Jira feedback enabled (task results will be reported to Jira)")
 	}
-	
+
 	worker.Start(ctx)
 
 	// Re-enqueue tasks stuck in Scheduled phase (pod restart recovery)
@@ -393,7 +393,7 @@ func foremanFeedbackService(k8sClient client.Client, cfg *config.Config) foreman
 		log.Printf("Foreman: Jira feedback disabled (missing Jira credentials)")
 		return nil
 	}
-	
+
 	// Create Jira connection
 	jiraConfig := &jira.Config{
 		BaseURL:    cfg.Jira.BaseURL,
@@ -401,13 +401,13 @@ func foremanFeedbackService(k8sClient client.Client, cfg *config.Config) foreman
 		APIToken:   cfg.Jira.APIToken,
 		ProjectKey: cfg.Jira.ProjectKey,
 	}
-	
+
 	jiraConn, err := jira.New("foreman-feedback", "default", jiraConfig)
 	if err != nil {
 		log.Printf("Warning: failed to create Jira connection for feedback: %v", err)
 		return nil
 	}
-	
+
 	// Create and return feedback service
 	feedbackConfig := feedback.DefaultBrainTaskToJiraConfig()
 	return feedback.NewBrainTaskToJiraService(k8sClient, jiraConn, feedbackConfig)

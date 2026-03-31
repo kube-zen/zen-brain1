@@ -4,7 +4,7 @@
 summary: "Rescue MLQ (Model/Provider Selection) from zen-brain 0.1"
 description: |
   Port MLQ architecture from zen-brain 0.1 to zen-brain1.
-  MLQ owns model/provider selection (Ollama, llama.cpp, future providers).
+  MLQ owns model/provider selection (llama.cpp L1/L2, future providers).
   
   Scope:
   - internal/mlq/* - MLQ selection layer
@@ -13,7 +13,7 @@ description: |
   
   Requirements:
   - MLQ selects backend based on criteria (provider, model, timeout)
-  - Current Ollama/qwen3.5:0.8b L0 fallback path must remain working (primary: llama.cpp L1/L2)
+  - llama.cpp L1/L2 is the primary and only supported local inference path
   - Backend selection is MLQ concern, not ad-hoc factory logic
 
 labels:
@@ -30,7 +30,7 @@ allowed_paths:
 acceptance_criteria:
   - MLQ types exist (Backend, SelectionCriteria, MLQ selector)
   - Factory runner uses MLQ for provider selection
-  - Logs show "[MLQ] Selected backend: provider=ollama model=qwen3.5:0.8b"
+  - Logs show "[MLQ] Selected backend: provider=llama.cpp model=qwen3.5:0.8b"
   - Current runtime behavior unchanged
 
 verification:

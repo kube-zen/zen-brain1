@@ -1,11 +1,16 @@
 #!/usr/bin/env python3
 """
+⛔ DEPRECATED: This gate references Ollama policy. See ollama_forbidden_gate.py for the current enforcement.
+
 Gate: ZB-023 Local Model Policy Enforcement
 
 Zen-Brain rule (ZB-023):
-- qwen3.5:0.8b is the ONLY allowed local Ollama model
-- Host Docker Ollama is the ONLY supported local CPU inference path
-- In-cluster Ollama is FORBIDDEN for the active local CPU path
+- Ollama is FORBIDDEN for zen-brain1
+- llama.cpp (L1/L2) is the ONLY supported local CPU inference path
+- qwen3.5:0.8b is the local model via llama.cpp (NOT Ollama)
+
+This gate is retained for backward compatibility but its Ollama-specific
+checks are superseded by ollama_forbidden_gate.py.
 
 This gate fails CI if:
 1. Active-path files contain local model refs other than qwen3.5:0.8b

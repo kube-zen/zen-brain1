@@ -5,15 +5,9 @@ image:
   tag: mlq-enabled
   pullPolicy: IfNotPresent
 
-# Ollama deployment model:
-# - Dev/sandbox default: Host Docker Ollama (http://host.k3d.internal:11434)
-# - In-cluster Ollama (http://ollama:11434): Optional, legacy, experimental
-# - See deploy/README.md for Ollama deployment model policy
-ollama:
-  baseUrl: ""       # Default for dev/sandbox: http://host.k3d.internal:11434
-                      # In-cluster: http://ollama:11434 (optional/legacy/experimental)
-  timeoutSeconds: 2700 # local-worker/Ollama HTTP timeout; qwen3.5:0.8b on CPU needs 45m (2700s) for normal lane
-  keepAlive: "45m"    # OLLAMA_KEEP_ALIVE: keep model resident (45m for qwen3.5:0.8b normal lane; only controlled-failure path uses short timeout)
+# ⛔ Ollama is DEPRECATED and FORBIDDEN for zen-brain1.
+# Primary inference uses llama.cpp (L1/L2). Do NOT configure Ollama.
+# The ollama block has been removed. If present, it will be ignored.
 
 apiserver:
   port: 8080
@@ -36,8 +30,9 @@ apiserver:
 foreman:
   workerCount: 5  # Number of parallel workers (pilot default: 5)
   # LLM configuration for Factory execution (ZB-024: qwen3.5:0.8b, 45min timeout)
+  # Ollama is DEPRECATED and FORBIDDEN. Using llama.cpp L1 endpoint.
   enableFactoryLLM: true
-  llmBaseURL: "http://host.k3d.internal:11434"
+  llmBaseURL: "" # DEPRECATED: Do NOT set. Use L1_ENDPOINT for llama.cpp.
   llmModel: "qwen3.5:0.8b"
   llmTimeoutSeconds: 2700
   llmEnableThinking: false
@@ -46,8 +41,15 @@ foreman:
       value: dev
     - name: ZEN_FOREMAN_ENABLE_LLM
       value: "true"
-    - name: ZEN_FOREMAN_LLM_BASE_URL
-      value: "http://host.k3d.internal:11434"
+    # DEPRECATED: ZEN_FOREMAN_LLM_BASE_URL should not be set (Ollama forbidden)
+    # - name: ZEN_FOREMAN_LLM_BASE_URL
+    #   value: "http://host.k3d.internal:11434"
+    - name: ZEN_FOREMAN_LLM_PROVIDER
+      value: "llama.cpp"
+    - name: L1_ENDPOINT
+      value: "http://host.k3d.internal:56227"
+    - name: L2_ENDPOINT
+      value: "http://host.k3d.internal:60509"
     - name: ZEN_FOREMAN_LLM_MODEL
       value: "qwen3.5:0.8b"
     - name: ZEN_FOREMAN_LLM_TIMEOUT_SECONDS
