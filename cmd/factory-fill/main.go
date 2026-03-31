@@ -300,6 +300,8 @@ func loadConfig() factoryConfig {
 
 // WorkerTerminalResult mirrors the struct from remediation-worker.
 // This is the contract between worker subprocess and factory-fill dispatcher.
+// WorkerTerminalResult is the authoritative terminal classification from the worker.
+// PHASE 0 FIX: Added git evidence fields. Success requires git-backed execution.
 type WorkerTerminalResult struct {
 	JiraKey       string `json:"jira_key"`
 	TerminalClass string `json:"terminal_class"`
@@ -311,6 +313,24 @@ type WorkerTerminalResult struct {
 	BlockerReason string `json:"blocker_reason,omitempty"`
 	GateLogPath   string `json:"gate_log_path,omitempty"`
 	Timestamp     string `json:"timestamp"`
+
+	// PHASE 0 FIX: Git evidence fields — required for success
+	ExecutionMode    string   `json:"execution_mode"`          // "proposal_only" | "git_backed_execution"
+	GitBranch        string   `json:"git_branch,omitempty"`    // local branch name
+	RemoteBranch     string   `json:"remote_branch,omitempty"` // pushed branch (origin/zb/...)
+	GitCommit        string   `json:"git_commit,omitempty"`    // SHA
+	FilesChanged     []string `json:"files_changed,omitempty"`
+	DiffStatPath     string   `json:"diff_stat_path,omitempty"`
+	ValidationReport string   `json:"validation_report_path,omitempty"`
+	ProofOfWorkPath  string   `json:"proof_of_work_path,omitempty"`
+}
+
+// HasGitEvidence returns true if this result represents real git-backed work.
+func (r *WorkerTerminalResult) HasGitEvidence() bool {
+	return r.ExecutionMode == "git_backed_execution" &&
+		r.GitCommit != "" &&
+		r.RemoteBranch != "" &&
+		len(r.FilesChanged) > 0
 }
 
 // readWorkerTerminalResult reads the terminal classification file for a ticket.
@@ -352,20 +372,26 @@ func dispatchTicket(cfg factoryConfig, ticket ClassifiedTicket) bool {
 
 	// Run remediation via canonical zen-brain entrypoint
 	// Canonical: zen-brain worker remediate --ticket-key <key>
-	// Falls back to standalone remediation-worker binary on PATH
+	// PHASE 0 FIX: Fail closed if worker binary not found
 	canonicalBin := envOr("CANONICAL_BIN", "zen-brain")
 	workerBin := canonicalBin
 	workerArgs := []string{"worker", "remediate", "--ticket-key", ticket.Key}
 
-	// Transitional: if zen-brain not found, try standalone binary
+	// Check if canonical entrypoint exists
 	if _, err := exec.LookPath(canonicalBin); err != nil {
+		// Try standalone fallback
 		standalone := "remediation-worker"
 		if _, err2 := exec.LookPath(standalone); err2 == nil {
 			workerBin = standalone
 			workerArgs = nil // standalone reads PILOT_KEYS env
 			log.Printf("[DISPATCH] %s: zen-brain not found, using standalone %s", ticket.Key, standalone)
 		} else {
-			log.Printf("[DISPATCH] %s: neither zen-brain nor remediation-worker found on PATH", ticket.Key)
+			// PHASE 0 FIX: No worker binary available → FAIL CLOSED
+			log.Printf("[DISPATCH] %s: ❌ FAIL CLOSED — neither zen-brain nor remediation-worker found on PATH", ticket.Key)
+			jiraTransition(jcfg, ticket.Key, "PAUSED")
+			// Write a terminal result so next cycle knows why
+			writeMissingWorkerResult(resultDir, ticket.Key)
+			return false
 		}
 	}
 
@@ -406,15 +432,10 @@ func dispatchTicket(cfg factoryConfig, ticket ClassifiedTicket) bool {
 	// PHASE A FIX: Read explicit terminal classification instead of scraping stdout
 	termResult, readErr := readWorkerTerminalResult(resultDir, ticket.Key)
 	if readErr != nil {
-		// No terminal result file — fall back to stdout heuristics
-		log.Printf("[DISPATCH] %s: no terminal result file, using stdout heuristics", ticket.Key)
-		if strings.Contains(outputStr, "REJECTED") || strings.Contains(outputStr, "BLOCKED") {
-			log.Printf("[DISPATCH] %s: quality gate rejected (stdout heuristic)", ticket.Key)
-			jiraTransition(jcfg, ticket.Key, "PAUSED")
-			return false
-		}
-		log.Printf("[DISPATCH] %s: ✅ completed (stdout heuristic)", ticket.Key)
-		return true
+		// PHASE 0 FIX: No terminal result file → FAIL CLOSED (no stdout heuristics)
+		log.Printf("[DISPATCH] %s: ❌ FAIL CLOSED — no terminal result file after worker exit", ticket.Key)
+		jiraTransition(jcfg, ticket.Key, "RETRYING")
+		return false
 	}
 
 	return handleTerminalResult(jcfg, ticket.Key, termResult)
@@ -428,11 +449,23 @@ func handleTerminalResult(jcfg jiraConfig, key string, result *WorkerTerminalRes
 
 	switch result.TerminalClass {
 	case "done":
-		log.Printf("[DISPATCH] %s: ✅ done", key)
+		// PHASE 0 FIX: done requires git evidence
+		if !result.HasGitEvidence() {
+			log.Printf("[DISPATCH] %s: ⚠️ 'done' without git evidence → treating as proposal_only", key)
+			jiraTransition(jcfg, key, "PAUSED")
+			return false
+		}
+		log.Printf("[DISPATCH] %s: ✅ done (git-backed: commit=%s branch=%s)", key, shortSHA(result.GitCommit), result.RemoteBranch)
 		return true
 
 	case "needs_review":
-		log.Printf("[DISPATCH] %s: ✅ done (needs review)", key)
+		// PHASE 0 FIX: needs_review requires git evidence (pushed branch awaiting human review)
+		if !result.HasGitEvidence() {
+			log.Printf("[DISPATCH] %s: ⚠️ 'needs_review' without git evidence → treating as proposal_only", key)
+			jiraTransition(jcfg, key, "PAUSED")
+			return false
+		}
+		log.Printf("[DISPATCH] %s: ✅ needs_review (git-backed: commit=%s branch=%s)", key, shortSHA(result.GitCommit), result.RemoteBranch)
 		return true
 
 	case "paused":
@@ -486,6 +519,29 @@ func lastNLines(s string, n int) string {
 		return s
 	}
 	return strings.Join(lines[len(lines)-n:], "\n")
+}
+
+// shortSHA returns first 7 chars of a git SHA for logging.
+func shortSHA(sha string) string {
+	if len(sha) > 7 {
+		return sha[:7]
+	}
+	return sha
+}
+
+// writeMissingWorkerResult creates a terminal result file when no worker binary was found.
+// This ensures the next dispatch cycle knows why the ticket was paused.
+func writeMissingWorkerResult(resultDir, jiraKey string) {
+	result := WorkerTerminalResult{
+		JiraKey:       jiraKey,
+		TerminalClass: "paused",
+		QualityPassed: false,
+		BlockerReason: "no worker binary found on PATH (neither zen-brain nor remediation-worker)",
+		Timestamp:     time.Now().UTC().Format(time.RFC3339),
+	}
+	data, _ := json.Marshal(result)
+	path := filepath.Join(resultDir, jiraKey+".json")
+	os.WriteFile(path, data, 0644)
 }
 
 // ─── Fill Loop ───────────────────────────────────────────────────────
