@@ -3,6 +3,8 @@
 **Date:** 2026-03-09
 **Status:** High-Priority Integration Complete ✅
 
+> **DEPRECATED:** This document references `zen.kube-zen.com` API groups. These are migrating to `brain.zen-mesh.io` / `platform.zen-mesh.io`. See [ADR-0010](ADR/0010_API_GROUP_MIGRATION.md).
+
 ## Completed This Session
 
 ### 1. All 4 Regressions Fixed ✅

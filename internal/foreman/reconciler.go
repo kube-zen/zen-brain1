@@ -13,6 +13,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/kube-zen/zen-brain1/api/v1alpha1"
+	"github.com/kube-zen/zen-brain1/internal/labels"
 	"github.com/kube-zen/zen-brain1/pkg/gate"
 	"github.com/kube-zen/zen-brain1/pkg/guardian"
 	"github.com/kube-zen/zen-brain1/pkg/policy"
@@ -111,15 +112,15 @@ func (r *Reconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Resu
 		}
 		if r.Gate != nil {
 			admissionReq := gate.AdmissionRequest{
-				RequestID:   string(task.UID),
-				WorkItemID:  task.Spec.WorkItemID,
-				SessionID:   task.Spec.SessionID,
-				TaskID:      task.Name,
-				Action:      policy.ActionExecuteTask,
-				Resource:    policy.Resource{Type: "task", ID: task.Name, Attributes: map[string]interface{}{"estimated_cost_usd": task.Spec.EstimatedCostUSD}},
-				Subject:     policy.Subject{Type: "system", ID: "foreman"},
-				Payload:     map[string]interface{}{"model_id": task.Annotations["zen.kube-zen.com/planned-model"]},
-				Timestamp:   time.Now(),
+				RequestID:  string(task.UID),
+				WorkItemID: task.Spec.WorkItemID,
+				SessionID:  task.Spec.SessionID,
+				TaskID:     task.Name,
+				Action:     policy.ActionExecuteTask,
+				Resource:   policy.Resource{Type: "task", ID: task.Name, Attributes: map[string]interface{}{"estimated_cost_usd": task.Spec.EstimatedCostUSD}},
+				Subject:    policy.Subject{Type: "system", ID: "foreman"},
+				Payload:    map[string]interface{}{"model_id": labels.GetPlannedModel(task.Annotations)},
+				Timestamp:  time.Now(),
 			}
 			resp, err := r.Gate.Admit(ctx, admissionReq)
 			if err != nil {

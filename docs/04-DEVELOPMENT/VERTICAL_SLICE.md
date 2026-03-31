@@ -1,5 +1,7 @@
 # Zen-Brain Vertical Slice
 
+> **DEPRECATED:** This document references `zen.kube-zen.com` API groups. These are migrating to `brain.zen-mesh.io` / `platform.zen-mesh.io`. See [ADR-0010](../01-ARCHITECTURE/ADR/0010_API_GROUP_MIGRATION.md).
+
 This guide demonstrates the complete end-to-end pipeline for zen-brain 1.0.
 
 ## Overview

@@ -13,6 +13,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/kube-zen/zen-brain1/api/v1alpha1"
+	"github.com/kube-zen/zen-brain1/internal/labels"
 	"github.com/kube-zen/zen-brain1/internal/office/jira"
 	"github.com/kube-zen/zen-brain1/pkg/contracts"
 )
@@ -173,7 +174,7 @@ func (s *BrainTaskToJiraService) updateJiraIssue(ctx context.Context, task *v1al
 
 	// Map transition string to WorkStatus
 	status := contracts.WorkStatus(transition)
-	
+
 	// Update issue status
 	if err := s.jiraConn.UpdateStatus(ctx, "default", task.Spec.SourceKey, status); err != nil {
 		return fmt.Errorf("failed to update Jira issue status: %w", err)
@@ -231,21 +232,17 @@ func (s *BrainTaskToJiraService) WatchAndReport(ctx context.Context, taskName st
 }
 
 // isReported checks if a BrainTask has already been reported to Jira.
+// Uses labels.GetReportedToJira which reads the new brain.zen-mesh.io key first
+// and falls back to the legacy zen.kube-zen.com key.
 func (s *BrainTaskToJiraService) isReported(task *v1alpha1.BrainTask) bool {
-	// Check if "reported-to-jira" label exists
-	if task.Labels == nil {
-		return false
-	}
-	return task.Labels["zen.kube-zen.com/reported-to-jira"] == "true"
+	return labels.GetReportedToJira(task.Labels)
 }
 
 // markReported marks a BrainTask as reported to Jira.
 func (s *BrainTaskToJiraService) markReported(ctx context.Context, task *v1alpha1.BrainTask) error {
 	// Add label
-	if task.Labels == nil {
-		task.Labels = make(map[string]string)
-	}
-	task.Labels["zen.kube-zen.com/reported-to-jira"] = "true"
+	task.Labels = labels.EnsureLabels(task.Labels)
+	labels.SetReportedToJira(task.Labels)
 
 	// Update task
 	if err := s.k8sClient.Update(ctx, task); err != nil {

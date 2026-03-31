@@ -1,5 +1,7 @@
 > **NOTE:** This document references Ollama. The current primary inference runtime is **llama.cpp** (L1/L2 lanes). Ollama (L0) is fallback only. See `docs/03-DESIGN/LOCAL_LLM_ESCALATION_LADDER.md`.
 
+> **DEPRECATED:** This document references `zen.kube-zen.com` API groups. These are migrating to `brain.zen-mesh.io` / `platform.zen-mesh.io`. See [ADR-0010](ADR/0010_API_GROUP_MIGRATION.md).
+
 # Zen-Brain 1.0 Construction Plan
 
 > **Canonical Plan Location:** This is the authoritative construction plan for zen-brain 1.0.

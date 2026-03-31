@@ -4,6 +4,8 @@
 
 **Accepted** (2026‑03‑07)
 
+> **DEPRECATED:** This document references `zen.kube-zen.com` API groups. These are migrating to `brain.zen-mesh.io` / `platform.zen-mesh.io`. See [ADR-0010](0010_API_GROUP_MIGRATION.md).
+
 ## Context
 
 In the initial Zen‑Brain 0.1 design, each task spawned a fresh Kubernetes Pod that pulled the container image, started the container, loaded the model, executed the task, then terminated. This **destroy/recreate pattern** had significant overhead:
