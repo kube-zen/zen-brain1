@@ -141,3 +141,9 @@ main.go.broken-policy
 
 # Memory logs (operational, not architecture)
 memory/
+
+# Deprecated/archived content (not needed in remote)
+deprecated/
+99-ARCHIVE/
+**/zen-brain-ollama-values.yaml
+vendor/
