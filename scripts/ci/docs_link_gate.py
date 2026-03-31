@@ -57,10 +57,13 @@ def normalize_link(src_path: str, link: str) -> str:
 
 
 def find_markdown_files(root: str) -> list[str]:
-    """Return list of .md files relative to root. Skip .git, vendor, and .backup."""
+    """Return list of .md files relative to root. Skip .git, vendor, .backup,
+    deprecated dirs, and archive dirs."""
+    SKIP_DIRS = {".git", "vendor", ".backup", "deprecated", "99-ARCHIVE"}
     md_files = []
     for dirpath, _, filenames in os.walk(root):
-        if ".git" in dirpath or "vendor" in dirpath or ".backup" in dirpath:
+        # Skip blacklisted directory names at any depth
+        if any(skip in dirpath.split(os.sep) for skip in SKIP_DIRS):
             continue
         for f in filenames:
             if f.endswith(".md"):

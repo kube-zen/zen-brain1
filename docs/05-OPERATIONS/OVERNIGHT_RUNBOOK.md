@@ -217,8 +217,6 @@ kubectl describe braintask <task-name> -n zen-brain | grep -A10 "Message:"
 
 ## Related Documentation
 
-- [OLLAMA_08B_OPERATIONS_GUIDE.md](./OLLAMA_08B_OPERATIONS_GUIDE.md) - Ollama operations
-- [OLLAMA_WARMUP_RUNBOOK.md](./OLLAMA_WARMUP_RUNBOOK.md) - Model warmup procedures
 - [SMALL_MODEL_STRATEGY.md](../03-DESIGN/SMALL_MODEL_STRATEGY.md) - Local model policy
 
 ## Change History

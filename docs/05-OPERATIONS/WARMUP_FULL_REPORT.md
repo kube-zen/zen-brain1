@@ -25,7 +25,7 @@ Warmup is one or more **minimal requests** sent to Ollama **before** the first r
 
 | System | Pattern | When it runs |
 |--------|---------|----------------|
-| **zen-brain1 apiserver** | Preload via `POST /api/generate` + verify via `POST /api/chat` with `keep_alive`. Single-flight at startup. | At apiserver startup when `OLLAMA_BASE_URL` is set. See [OLLAMA_WARMUP_RUNBOOK.md](./OLLAMA_WARMUP_RUNBOOK.md). |
+| **zen-brain1 apiserver** | Preload via `POST /api/generate` + verify via `POST /api/chat` with `keep_alive`. Single-flight at startup. | At apiserver startup when `OLLAMA_BASE_URL` is set. |
 | **zen-brain gateway** | One-shot probe: `POST baseURL/chat/completions` with `max_tokens: 1` (or TTL-based per-request probe). | Before first task run, on `/ai set workhorse`, `/diag warmup`, queue init, etc. |
 
 This report focuses on **how to warm up manually** (curl, scripts) and **how to troubleshoot** (ports, HTTP 000, timeouts). For apiserver startup behavior, use the runbook above.
@@ -246,7 +246,6 @@ curl -s -w "\nHTTP_CODE:%{http_code}\n" -X POST "http://127.0.1.6:11434/api/chat
   - `POST /api/generate` with `model`, empty `prompt`, `keep_alive`
   - Then `POST /api/chat` with one message and `keep_alive`
 - **First request:** Local-worker requests can wait on this warmup (WaitReady) so the first user request does not race cold load.
-- **Details:** [OLLAMA_WARMUP_RUNBOOK.md](./OLLAMA_WARMUP_RUNBOOK.md).
 
 ### 5.2 zen-brain (gateway)
 
@@ -276,7 +275,6 @@ A more detailed call-site report for zen-brain lives in the zen-brain repo (e.g.
 
 | Document | Content |
 |----------|---------|
-| [OLLAMA_WARMUP_RUNBOOK.md](./OLLAMA_WARMUP_RUNBOOK.md) | zen-brain1 apiserver warmup at startup, config, single-flight, keep_alive. |
 | zen-brain `docs/0.8B_WARMUP_AND_CALLS_REPORT.md` | All warmup call sites in zen-brain Go code and where 0.8B is referenced. |
 
 ---
