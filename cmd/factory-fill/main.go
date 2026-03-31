@@ -482,8 +482,11 @@ func runFillCycle(cfg factoryConfig, state *FactoryState, ctrl *concurrency.Cont
 
 	log.Printf("[FACTORY] Cycle start: active=%d", active)
 
-	// Fetch backlog tickets
-	tickets, err := fetchBacklogTickets(cfg.Jcfg, cfg.MaxDispatch)
+	// Fetch backlog tickets — use a larger window than MaxDispatch to avoid
+	// starvation where ready tickets are beyond the fetch limit.
+	// MaxDispatch still caps actual dispatches below (after readiness filtering).
+	const candidateFetchLimit = 50
+	tickets, err := fetchBacklogTickets(cfg.Jcfg, candidateFetchLimit)
 	if err != nil {
 		log.Printf("[FACTORY] Failed to fetch backlog: %v", err)
 		return

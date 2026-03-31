@@ -1,5 +1,5 @@
 # Zen-brain1 multi-target Dockerfile
-# Scheduler image: scheduler + useful-batch + finding-ticketizer
+# Scheduler image: scheduler + useful-batch + finding-ticketizer + queue-steward + roadmap-steward
 # Factory-fill image: factory-fill + remediation-worker
 #
 # Binaries are built on host (CGO_ENABLED=0 GOOS=linux) and COPY'd in.
@@ -10,6 +10,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
 COPY scheduler           /usr/local/bin/scheduler
 COPY useful-batch        /usr/local/bin/useful-batch
 COPY finding-ticketizer  /usr/local/bin/finding-ticketizer
+COPY queue-steward       /usr/local/bin/queue-steward
+COPY roadmap-steward     /usr/local/bin/roadmap-steward
 ENTRYPOINT ["/usr/local/bin/scheduler"]
 
 FROM debian:bookworm-slim AS factory-fill
