@@ -55,7 +55,8 @@ start_all() {
     kill_existing $L1_PORT "L1"
     kill_existing $L2_PORT "L2"
     sleep 1
-    start_worker "l1" "$L1_MODEL" $L1_PORT "--parallel 10 --ctx-size 65536"
+    # 393216 total → ~39k tokens/slot (10 parallel); covers OpenClaw long sessions + foreman (~4k).
+    start_worker "l1" "$L1_MODEL" $L1_PORT "--parallel 10 --ctx-size 393216"
     start_worker "l2" "$L2_MODEL" $L2_PORT "--ctx-size 16384"
     echo ""
     echo "Waiting for warmup..."
