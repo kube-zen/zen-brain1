@@ -370,30 +370,21 @@ func dispatchTicket(cfg factoryConfig, ticket ClassifiedTicket) bool {
 	staleResult := filepath.Join(resultDir, ticket.Key+".json")
 	os.Remove(staleResult)
 
-	// Run remediation via canonical zen-brain entrypoint
-	// Canonical: zen-brain worker remediate --ticket-key <key>
-	// PHASE 0 FIX: Fail closed if worker binary not found
+	// PHASE 0.5 FIX: Single canonical invocation path — no fallback
+	// The only valid execution path is: zen-brain worker remediate --ticket-key <key>
+	// If zen-brain is not available, fail closed immediately.
 	canonicalBin := envOr("CANONICAL_BIN", "zen-brain")
+
+	if _, err := exec.LookPath(canonicalBin); err != nil {
+		// PHASE 0.5 FIX: No worker binary → FAIL CLOSED, no fallback
+		log.Printf("[DISPATCH] %s: ❌ FAIL CLOSED — zen-brain not found on PATH", ticket.Key)
+		jiraTransition(jcfg, ticket.Key, "PAUSED")
+		writeMissingWorkerResult(resultDir, ticket.Key)
+		return false
+	}
+
 	workerBin := canonicalBin
 	workerArgs := []string{"worker", "remediate", "--ticket-key", ticket.Key}
-
-	// Check if canonical entrypoint exists
-	if _, err := exec.LookPath(canonicalBin); err != nil {
-		// Try standalone fallback
-		standalone := "remediation-worker"
-		if _, err2 := exec.LookPath(standalone); err2 == nil {
-			workerBin = standalone
-			workerArgs = nil // standalone reads PILOT_KEYS env
-			log.Printf("[DISPATCH] %s: zen-brain not found, using standalone %s", ticket.Key, standalone)
-		} else {
-			// PHASE 0 FIX: No worker binary available → FAIL CLOSED
-			log.Printf("[DISPATCH] %s: ❌ FAIL CLOSED — neither zen-brain nor remediation-worker found on PATH", ticket.Key)
-			jiraTransition(jcfg, ticket.Key, "PAUSED")
-			// Write a terminal result so next cycle knows why
-			writeMissingWorkerResult(resultDir, ticket.Key)
-			return false
-		}
-	}
 
 	cmd := exec.Command(workerBin, workerArgs...)
 	cmd.Env = append(os.Environ(),
