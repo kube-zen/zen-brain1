@@ -528,22 +528,52 @@ func fetchJiraTicket(cfg RemediationConfig, key string) (*JiraTicket, error) {
 }
 
 // determineTargetFile extracts the target file path from ticket context.
+// Searches the raw description string for file path patterns.
 func determineTargetFile(ticket *JiraTicket) string {
-	// Look for file references in description
 	desc := ticket.Description
-	// Common patterns: "config/", "internal/", "cmd/", "docs/"
-	patterns := []string{"config/", "internal/", "cmd/", "docs/", "scripts/"}
-	for _, p := range patterns {
-		if idx := strings.Index(desc, p); idx >= 0 {
-			// Extract until whitespace or end
+	if desc == "" {
+		return ""
+	}
+
+	// Strategy 1: Look for file paths matching common patterns
+	// Match patterns like: docs/01-ARCHITECTURE/PROJECT_STRUCTURE.md
+	// The description is often ADF JSON, so file paths are embedded in "text" values.
+	// Look for path-like strings: starts with a known prefix, ends with a file extension.
+	pathPrefixes := []string{"docs/", "internal/", "cmd/", "config/", "scripts/", "pkg/"}
+	fileExts := []string{".go", ".yaml", ".yml", ".md", ".json", ".toml", ".txt", ".sh", ".py"}
+
+	for _, prefix := range pathPrefixes {
+		idx := strings.Index(desc, prefix)
+		for idx >= 0 {
+			// Extract from this position
 			rest := desc[idx:]
-			end := strings.IndexAny(rest, " \n\t,;)")
-			if end > 0 {
-				return rest[:end]
+			// Find end of path (stop at whitespace, quote, comma, backslash, or closing brace)
+			end := len(rest)
+			for i, c := range rest {
+				if c == ' ' || c == '\n' || c == '\t' || c == '"' || c == ',' || c == '\\' || c == '}' || c == ')' || c == ']' {
+					end = i
+					break
+				}
 			}
-			return rest
+			candidate := rest[:end]
+			// Check if it ends with a known file extension
+			for _, ext := range fileExts {
+				if strings.HasSuffix(candidate, ext) && len(candidate) > len(prefix)+2 {
+					// Validate it looks like a path (contains / and has a filename)
+					if strings.Count(candidate, "/") >= 1 && !strings.Contains(candidate, " ") {
+						return candidate
+					}
+				}
+			}
+			// Try next occurrence
+			nextIdx := strings.Index(rest[len(prefix):], prefix)
+			if nextIdx < 0 {
+				break
+			}
+			idx = idx + len(prefix) + nextIdx
 		}
 	}
+
 	return ""
 }
 
