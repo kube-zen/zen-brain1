@@ -5,6 +5,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -317,16 +318,27 @@ type TerminalResult struct {
 	JiraKey          string   `json:"jira_key"`
 	TerminalClass    string   `json:"terminal_class"`
 	ExecutionMode    string   `json:"execution_mode"`
+	ProposalOnly     bool     `json:"proposal_only"`
 	QualityPassed    bool     `json:"quality_passed"`
+	ResultClass      string   `json:"result_class,omitempty"`
 	GitBranch        string   `json:"git_branch,omitempty"`
 	RemoteBranch     string   `json:"remote_branch,omitempty"`
 	GitCommit        string   `json:"git_commit,omitempty"`
 	FilesChanged     []string `json:"files_changed,omitempty"`
 	ValidationReport string   `json:"validation_report_path,omitempty"`
 	ProofOfWorkPath  string   `json:"proof_of_work_path,omitempty"`
+	OriginalHash     string   `json:"original_hash,omitempty"`
+	NewHash          string   `json:"new_hash,omitempty"`
 	BlockerReason    string   `json:"blocker_reason,omitempty"`
+	FailureReason    string   `json:"failure_reason,omitempty"`
 	JiraState        string   `json:"jira_state"`
 	Timestamp        string   `json:"timestamp"`
+}
+
+// fileHash returns a short SHA-256 hash of file content for change detection.
+func fileHash(content []byte) string {
+	h := sha256.Sum256(content)
+	return fmt.Sprintf("%x", h[:])[:16]
 }
 
 // runBoundedExecution implements the full git-backed remediation flow.
@@ -364,17 +376,49 @@ func runBoundedExecution(cfg RemediationConfig, ticket *JiraTicket) error {
 	if err != nil {
 		return fmt.Errorf("read target file: %w", err)
 	}
+	originalHash := fileHash(existingContent)
+	log.Printf("[REMEDIATE] Original hash: %s (%d bytes)", originalHash, len(existingContent))
 
 	// 4. Call L1 for full replacement content
 	log.Printf("[REMEDIATE] Calling L1 for bounded fix...")
-	newContent, err := callL1ForBoundedFix(ctx, cfg, ticket.Key, targetFile, string(existingContent))
+	newContentStr, intendedDelta, err := callL1ForBoundedFix(ctx, cfg, ticket.Key, targetFile, string(existingContent))
 	if err != nil {
 		return fmt.Errorf("L1 call failed: %w", err)
 	}
+	newContent := []byte(newContentStr)
+	newHash := fileHash(newContent)
+	log.Printf("[REMEDIATE] Generated hash: %s (%d bytes)", newHash, len(newContent))
+	log.Printf("[REMEDIATE] Intended delta: %s", truncate(intendedDelta, 200))
 
-	// 5. Write file atomically
+	// 5. No-op detection: if content is identical, stop cleanly
+	if originalHash == newHash {
+		log.Printf("[REMEDIATE] No effective change detected (hashes match)")
+		// Clean up: switch back to main, delete the no-op branch
+		exec.CommandContext(ctx, "git", "-C", cfg.RepoRoot, "checkout", "main").Run()
+		exec.CommandContext(ctx, "git", "-C", cfg.RepoRoot, "branch", "-D", branchName).Run()
+
+		noopResult := TerminalResult{
+			JiraKey:       ticket.Key,
+			TerminalClass: "retrying",
+			ExecutionMode: "git_backed_execution",
+			ProposalOnly:  false,
+			QualityPassed: false,
+			ResultClass:   "no_effective_change",
+			FailureReason: "model_output_identical_to_target",
+			FilesChanged:  []string{},
+			OriginalHash:  originalHash,
+			NewHash:       newHash,
+			BlockerReason: fmt.Sprintf("no effective change: original=%s new=%s target=%s delta=%q", originalHash, newHash, targetFile, intendedDelta),
+			JiraState:     "RETRYING",
+			Timestamp:     time.Now().UTC().Format(time.RFC3339),
+		}
+		writeTerminalResult(resultDir, noopResult)
+		return nil // Clean exit, not a crash
+	}
+
+	// 6. Write file atomically
 	tmpPath := absTargetPath + ".tmp"
-	if err := ioutil.WriteFile(tmpPath, []byte(newContent), 0644); err != nil {
+	if err := ioutil.WriteFile(tmpPath, newContent, 0644); err != nil {
 		return fmt.Errorf("write temp file: %w", err)
 	}
 	if err := os.Rename(tmpPath, absTargetPath); err != nil {
@@ -382,7 +426,37 @@ func runBoundedExecution(cfg RemediationConfig, ticket *JiraTicket) error {
 	}
 	log.Printf("[REMEDIATE] File written: %s", targetFile)
 
-	// 6. Run validation
+	// 7. Verify with git diff
+	diffCmd := exec.CommandContext(ctx, "git", "-C", cfg.RepoRoot, "diff", "--exit-code", "--", targetFile)
+	if diffOut, diffErr := diffCmd.CombinedOutput(); diffErr == nil {
+		// exit code 0 means no diff — git confirms no change
+		log.Printf("[REMEDIATE] git diff confirms no change, cleaning up branch")
+		exec.CommandContext(ctx, "git", "-C", cfg.RepoRoot, "checkout", "--", targetFile).Run()
+		exec.CommandContext(ctx, "git", "-C", cfg.RepoRoot, "checkout", "main").Run()
+		exec.CommandContext(ctx, "git", "-C", cfg.RepoRoot, "branch", "-D", branchName).Run()
+
+		noopResult := TerminalResult{
+			JiraKey:       ticket.Key,
+			TerminalClass: "retrying",
+			ExecutionMode: "git_backed_execution",
+			ProposalOnly:  false,
+			QualityPassed: false,
+			ResultClass:   "no_effective_change",
+			FailureReason: "git_diff_confirms_no_change",
+			FilesChanged:  []string{},
+			OriginalHash:  originalHash,
+			NewHash:       newHash,
+			BlockerReason: fmt.Sprintf("hashes differed but git diff confirmed no effective change: original=%s new=%s", originalHash, newHash),
+			JiraState:     "RETRYING",
+			Timestamp:     time.Now().UTC().Format(time.RFC3339),
+		}
+		writeTerminalResult(resultDir, noopResult)
+		return nil
+	} else {
+		log.Printf("[REMEDIATE] git diff confirms changes: %s", truncate(string(diffOut), 300))
+	}
+
+	// 8. Run validation
 	validationCmd := determineValidationCommand(targetFile)
 	validationPassed := false
 	validationOutput := ""
@@ -399,7 +473,7 @@ func runBoundedExecution(cfg RemediationConfig, ticket *JiraTicket) error {
 		validationPassed = true
 	}
 
-	// 7. Commit and push
+	// 9. Commit and push
 	commitSHA := ""
 	remoteBranch := ""
 	if validationPassed {
@@ -419,20 +493,24 @@ func runBoundedExecution(cfg RemediationConfig, ticket *JiraTicket) error {
 		}
 	}
 
-	// 8. Write diff stat
+	// 10. Write diff stat
 	diffStatPath := filepath.Join(resultDir, ticket.Key+"-diff.txt")
 	publisher.WriteDiffStat(ctx, "HEAD~1", diffStatPath)
 
-	// 9. Write terminal result
+	// 11. Write terminal result
 	result := TerminalResult{
-		JiraKey:          ticket.Key,
-		TerminalClass:    "needs_review",
-		ExecutionMode:    "git_backed_execution",
-		QualityPassed:    validationPassed,
-		GitBranch:        branchName,
-		RemoteBranch:     remoteBranch,
-		GitCommit:        commitSHA,
-		FilesChanged:     []string{targetFile},
+		JiraKey:       ticket.Key,
+		TerminalClass: "needs_review",
+		ExecutionMode: "git_backed_execution",
+		ProposalOnly:  false,
+		QualityPassed: validationPassed,
+		ResultClass:   "remediation_complete",
+		GitBranch:     branchName,
+		RemoteBranch:  remoteBranch,
+		GitCommit:     commitSHA,
+		FilesChanged:  []string{targetFile},
+		OriginalHash:  originalHash,
+		NewHash:       newHash,
 		ValidationReport: validationOutput,
 		ProofOfWorkPath:  diffStatPath,
 		JiraState:        "Needs Review",
@@ -441,13 +519,14 @@ func runBoundedExecution(cfg RemediationConfig, ticket *JiraTicket) error {
 
 	if !validationPassed {
 		result.TerminalClass = "paused"
+		result.ResultClass = "validation_failed"
 		result.BlockerReason = "validation failed"
 		result.JiraState = "PAUSED"
 	}
 
 	writeTerminalResult(resultDir, result)
 
-	// 10. Post Jira comment
+	// 12. Post Jira comment
 	postJiraComment(cfg, ticket.Key, buildProofComment(result))
 
 	log.Printf("[REMEDIATE] Complete: class=%s commit=%s", result.TerminalClass, shortSHA(commitSHA))
@@ -599,7 +678,8 @@ func determineValidationCommand(filePath string) string {
 }
 
 // callL1ForBoundedFix requests full file replacement content.
-func callL1ForBoundedFix(ctx context.Context, cfg RemediationConfig, jiraKey, targetFile, existingContent string) (string, error) {
+// Returns: (fullReplacementContent, intendedDeltaSummary, error)
+func callL1ForBoundedFix(ctx context.Context, cfg RemediationConfig, jiraKey, targetFile, existingContent string) (string, string, error) {
 	systemPrompt := fmt.Sprintf(`You are a bounded remediation worker. Your task is to produce the COMPLETE replacement content for exactly ONE file.
 
 TARGET FILE: %s
@@ -611,9 +691,11 @@ RULES:
 - Apply ONLY the specific fix needed
 - Do NOT add new imports or dependencies
 - Do NOT change package declarations
-- If you cannot determine the fix, return the existing content unchanged
+- You MUST make at least one meaningful change to the file content
+- Return the entire updated file with at least one necessary functional or textual change if a valid fix exists
+- If you truly cannot determine any needed change, return the file content with a single comment line added at the top indicating "no change identified"
 
-Return the full file content only.`, targetFile)
+BEFORE the file content, on the FIRST LINE, provide a short summary of what you changed (the "intended delta"). Then a blank line, then the complete file content.`, targetFile)
 
 	userPrompt := fmt.Sprintf(`Ticket: %s
 Summary: Fix the issue described in the ticket
@@ -621,7 +703,7 @@ Summary: Fix the issue described in the ticket
 EXISTING CONTENT:
 %s
 
-Return the complete modified file content only.`, jiraKey, truncate(existingContent, 6000))
+Return a one-line intended delta summary, then a blank line, then the complete modified file content.`, jiraKey, truncate(existingContent, 6000))
 
 	payload := map[string]interface{}{
 		"model": cfg.L1Model,
@@ -641,13 +723,13 @@ Return the complete modified file content only.`, jiraKey, truncate(existingCont
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	defer resp.Body.Close()
 
 	body, _ := ioutil.ReadAll(resp.Body)
 	if resp.StatusCode != 200 {
-		return "", fmt.Errorf("L1 returned %d: %s", resp.StatusCode, string(body))
+		return "", "", fmt.Errorf("L1 returned %d: %s", resp.StatusCode, string(body))
 	}
 
 	var llmResp struct {
@@ -659,19 +741,30 @@ Return the complete modified file content only.`, jiraKey, truncate(existingCont
 	}
 	json.Unmarshal(body, &llmResp)
 	if len(llmResp.Choices) == 0 {
-		return "", fmt.Errorf("empty L1 response")
+		return "", "", fmt.Errorf("empty L1 response")
 	}
 
-	content := llmResp.Choices[0].Message.Content
-	// Strip markdown fences if present
-	content = strings.TrimSpace(content)
-	content = strings.TrimPrefix(content, "```go")
-	content = strings.TrimPrefix(content, "```yaml")
-	content = strings.TrimPrefix(content, "```")
-	content = strings.TrimSuffix(content, "```")
-	content = strings.TrimSpace(content)
+	fullResponse := strings.TrimSpace(llmResp.Choices[0].Message.Content)
 
-	return content, nil
+	// Split into delta summary (first line) and file content (rest)
+	var intendedDelta string
+	var fileContent string
+	if idx := strings.Index(fullResponse, "\n"); idx >= 0 {
+		intendedDelta = strings.TrimSpace(fullResponse[:idx])
+		fileContent = strings.TrimSpace(fullResponse[idx+1:])
+	} else {
+		intendedDelta = "no delta summary provided"
+		fileContent = fullResponse
+	}
+
+	// Strip markdown fences if present
+	fileContent = strings.TrimPrefix(fileContent, "```go")
+	fileContent = strings.TrimPrefix(fileContent, "```yaml")
+	fileContent = strings.TrimPrefix(fileContent, "```")
+	fileContent = strings.TrimSuffix(fileContent, "```")
+	fileContent = strings.TrimSpace(fileContent)
+
+	return fileContent, intendedDelta, nil
 }
 
 // writeTerminalResult writes the outcome to JSON for factory-fill.
