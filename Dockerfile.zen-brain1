@@ -18,7 +18,11 @@ COPY build/roadmap-steward     /usr/local/bin/roadmap-steward
 ENTRYPOINT ["/usr/local/bin/scheduler"]
 
 FROM debian:bookworm-slim AS factory-fill
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
+# PHASE 1 FIX: git required for bounded remediation execution
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    git \
+    && rm -rf /var/lib/apt/lists/*
 COPY build/zen-brain           /usr/local/bin/zen-brain
 COPY build/factory-fill        /usr/local/bin/factory-fill
 COPY build/remediation-worker  /usr/local/bin/remediation-worker
