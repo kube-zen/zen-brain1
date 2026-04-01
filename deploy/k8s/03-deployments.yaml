@@ -96,6 +96,14 @@ spec:
 # NOT one Job per task — uses goroutine pool for work-conserving behavior.
 # Each goroutine invokes remediation-worker as subprocess.
 # Adaptive concurrency (R035–R041): dynamic W based on CPU, backlog, reserved slots.
+#
+# DEPLOYMENT MODEL (Priority 2+3):
+#   - Init container clones the service-owned repo into a persistent volume
+#   - Main container has read-write access to the cloned repo
+#   - Git push credentials mounted from secret (HTTPS token)
+#   - Readiness probe verifies repo + auth before accepting work
+#   - Branch-per-ticket model: zb/<jira-key>-<timestamp>
+#   - Never direct push to main
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -117,6 +125,52 @@ spec:
         app.kubernetes.io/component: factory-fill
     spec:
       serviceAccountName: zen-brain
+      # ── Init Container: Clone service-owned repo ──────────────────
+      initContainers:
+      - name: clone-repo
+        image: zen-registry:5000/zen-brain-factory-fill:latest
+        imagePullPolicy: Never
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            set -e
+            REPO_DIR="/workspace/repo"
+            BRANCH="main"
+
+            # Read GitHub token from secret
+            GITHUB_TOKEN=$(cat /git-auth/github-token)
+
+            echo "[INIT] Cloning repo via HTTPS..."
+            HTTPS_URL="https://x-access-token:${GITHUB_TOKEN}@github.com/kube-zen/zen-brain1.git"
+
+            if [ -d "$REPO_DIR/.git" ]; then
+                echo "[INIT] Repo exists, fetching latest..."
+                cd "$REPO_DIR"
+                git fetch origin
+                git reset --hard "origin/$BRANCH"
+            else
+                git clone --branch "$BRANCH" --single-branch "$HTTPS_URL" "$REPO_DIR"
+            fi
+
+            echo "[INIT] Configuring remote for push..."
+            cd "$REPO_DIR"
+            git remote set-url origin "$HTTPS_URL"
+
+            echo "[INIT] Verifying remote..."
+            git remote get-url origin | sed 's/x-access-token:.*@/x-access-token:***@/'
+            git rev-parse HEAD
+
+            echo "[INIT] Configuring git identity..."
+            git config user.name "zen-brain1"
+            git config user.email "zen-brain1@kube-zen.io"
+
+            echo "[INIT] ✅ Repo ready: $(git rev-parse --short HEAD)"
+        volumeMounts:
+        - name: repo-storage
+          mountPath: /workspace/repo
+        - name: git-push-credentials
+          mountPath: /git-auth
+          readOnly: true
       containers:
       - name: factory-fill
         image: zen-registry:5000/zen-brain-factory-fill:latest
@@ -124,6 +178,20 @@ spec:
         env:
         - name: REPO_ROOT
           value: "/workspace"
+        - name: ZEN_EXECUTION_REPO
+          value: "/workspace/repo"
+        - name: ZEN_WORKTREE_BASE
+          value: "/workspace/worktrees"
+        - name: ZEN_RESULTS_DIR
+          value: "/workspace/results"
+        - name: ZEN_GIT_REMOTE
+          value: "origin"
+        - name: ZEN_GIT_PUSH_ENABLED
+          value: "true"
+        - name: ZEN_GIT_AUTHOR_NAME
+          value: "zen-brain1"
+        - name: ZEN_GIT_AUTHOR_EMAIL
+          value: "zen-brain1@kube-zen.io"
         - name: ARTIFACT_ROOT
           value: "/artifacts"
         - name: EVIDENCE_ROOT
@@ -148,7 +216,7 @@ spec:
         - name: TIMEOUT_SEC
           value: "120"
         - name: RESULT_DIR
-          value: "/results"
+          value: "/workspace/results"
         - name: POD_NAMESPACE
           valueFrom:
             fieldRef:
@@ -158,8 +226,11 @@ spec:
         - secretRef:
             name: jira-credentials-runtime
         volumeMounts:
-        - name: workspace
-          mountPath: /workspace
+        - name: repo-storage
+          mountPath: /workspace/repo
+        - name: git-push-credentials
+          mountPath: /git-auth
+          readOnly: true
         - name: artifacts
           mountPath: /artifacts
         - name: evidence
@@ -167,10 +238,27 @@ spec:
         - name: metrics
           mountPath: /metrics
         - name: results
-          mountPath: /results
+          mountPath: /workspace/results
+        - name: worktrees
+          mountPath: /workspace/worktrees
         - name: templates
           mountPath: /config/templates
           readOnly: true
+        # Readiness probe: verify repo + git push auth are available
+        readinessProbe:
+          exec:
+            command:
+              - /bin/sh
+              - -c
+              - |
+                test -d /workspace/repo/.git && \
+                test -f /git-auth/github-token && \
+                cd /workspace/repo && git rev-parse HEAD >/dev/null 2>&1 && \
+                git ls-remote --exit-code origin HEAD >/dev/null 2>&1
+          initialDelaySeconds: 10
+          periodSeconds: 30
+          timeoutSeconds: 15
+          failureThreshold: 3
         resources:
           requests:
             cpu: "200m"
@@ -179,8 +267,12 @@ spec:
             cpu: "1000m"
             memory: "512Mi"
       volumes:
-      - name: workspace
-        emptyDir: {}
+      - name: repo-storage
+        persistentVolumeClaim:
+          claimName: zen-brain-repo
+      - name: git-push-credentials
+        secret:
+          secretName: git-push-credentials
       - name: artifacts
         emptyDir: {}
       - name: evidence
@@ -188,6 +280,8 @@ spec:
       - name: metrics
         emptyDir: {}
       - name: results
+        emptyDir: {}
+      - name: worktrees
         emptyDir: {}
       - name: templates
         configMap:

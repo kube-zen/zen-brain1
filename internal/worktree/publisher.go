@@ -22,7 +22,7 @@ type Publisher struct {
 }
 
 // NewPublisher creates a Publisher for git-backed remediation.
-func NewPublisher(repoPath, authorName, authorEmail string, pushEnabled bool) (*Publisher, error) {
+func NewPublisher(repoPath, authorName, authorEmail string, pushEnabled bool, remoteName ...string) (*Publisher, error) {
 	if repoPath == "" {
 		return nil, fmt.Errorf("worktree: repoPath is required")
 	}
@@ -35,11 +35,15 @@ func NewPublisher(repoPath, authorName, authorEmail string, pushEnabled bool) (*
 	if authorEmail == "" {
 		authorEmail = "zen-brain1@kube-zen.io"
 	}
+	rn := "origin"
+	if len(remoteName) > 0 && remoteName[0] != "" {
+		rn = remoteName[0]
+	}
 	return &Publisher{
 		repoPath:    repoPath,
 		authorName:  authorName,
 		authorEmail: authorEmail,
-		remoteName:  "origin",
+		remoteName:  rn,
 		pushEnabled: pushEnabled,
 	}, nil
 }

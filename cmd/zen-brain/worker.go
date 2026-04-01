@@ -63,6 +63,10 @@ func printWorkerUsage() {
 
 // runWorkerRemediate implements PHASE 1 bounded git-backed execution.
 // This is the canonical remediation path - no fallback to legacy binaries.
+//
+// PRIORITY 1: If git-backed execution is required (ProposalOnlyMode=false)
+// and the repo or push credentials are missing, the worker FAILS CLOSED.
+// It does NOT silently degrade to proposal-only mode.
 func runWorkerRemediate() {
 	// Parse --task-key flag
 	taskKey := ""
@@ -93,12 +97,23 @@ func runWorkerRemediate() {
 		os.Exit(1)
 	}
 
-	// Determine if git-backed execution is possible
-	if cfg.RepoRoot == "" || !isGitRepo(cfg.RepoRoot) {
-		log.Printf("[REMEDIATE] No git repo available — proposal-only mode")
+	// PRIORITY 1: Explicit proposal-only mode
+	if cfg.ProposalOnlyMode {
+		log.Printf("[REMEDIATE] Proposal-only mode (ZEN_PROPOSAL_ONLY=true)")
 		runProposalOnly(cfg, ticket)
 		return
 	}
+
+	// PRIORITY 1 + 6: Hard runtime preflight
+	// If git-backed execution is the default mode, repo + push MUST be available.
+	// No silent fallback. No hidden degradation.
+	preflight := runRuntimePreflight(cfg)
+	if !preflight.Passed() {
+		log.Printf("[REMEDIATE] ❌ PREFLIGHT FAILED: %s", preflight.Summary())
+		writeTerminalResultPreflightFail(cfg.ResultDir, taskKey, preflight)
+		os.Exit(1)
+	}
+	log.Printf("[REMEDIATE] ✅ Preflight passed: %s", preflight.Summary())
 
 	// Git-backed execution path
 	err = runBoundedExecution(cfg, ticket)
@@ -108,22 +123,176 @@ func runWorkerRemediate() {
 	}
 }
 
+// ─── Runtime Preflight (Priority 6) ────────────────────────────────────
+
+// PreflightCheck represents a single preflight check result.
+type PreflightCheck struct {
+	Name   string
+	Passed bool
+	Reason string
+}
+
+// PreflightResult aggregates all preflight checks.
+type PreflightResult struct {
+	Checks []PreflightCheck
+}
+
+// Passed returns true if all checks passed.
+func (pr *PreflightResult) Passed() bool {
+	for _, c := range pr.Checks {
+		if !c.Passed {
+			return false
+		}
+	}
+	return true
+}
+
+// Summary returns a human-readable summary of all checks.
+func (pr *PreflightResult) Summary() string {
+	passed := 0
+	failed := []string{}
+	for _, c := range pr.Checks {
+		if c.Passed {
+			passed++
+		} else {
+			failed = append(failed, c.Name)
+		}
+	}
+	return fmt.Sprintf("%d/%d passed, failed: %v", passed, len(pr.Checks), failed)
+}
+
+// runRuntimePreflight validates all prerequisites for git-backed execution.
+// Any failure here means the worker CANNOT proceed — no fallback.
+func runRuntimePreflight(cfg RemediationConfig) PreflightResult {
+	var checks []PreflightCheck
+
+	// 1. Repo mount present and is a git repo
+	repoCheck := PreflightCheck{Name: "repo_mount"}
+	if cfg.RepoRoot == "" {
+		repoCheck.Passed = false
+		repoCheck.Reason = "ZEN_EXECUTION_REPO/REPO_ROOT not set"
+	} else if !isGitRepo(cfg.RepoRoot) {
+		repoCheck.Passed = false
+		repoCheck.Reason = "not a git repo: " + cfg.RepoRoot
+	} else {
+		repoCheck.Passed = true
+		repoCheck.Reason = cfg.RepoRoot
+	}
+	checks = append(checks, repoCheck)
+
+	// 2. Git identity present
+	identityCheck := PreflightCheck{Name: "git_identity"}
+	if cfg.GitAuthorName == "" || cfg.GitAuthorEmail == "" {
+		identityCheck.Passed = false
+		identityCheck.Reason = "GIT_AUTHOR_NAME or GIT_AUTHOR_EMAIL not set"
+	} else {
+		identityCheck.Passed = true
+		identityCheck.Reason = cfg.GitAuthorName + " <" + cfg.GitAuthorEmail + ">"
+	}
+	checks = append(checks, identityCheck)
+
+	// 3. Push enabled
+	pushCheck := PreflightCheck{Name: "push_enabled"}
+	if !cfg.GitPushEnabled {
+		pushCheck.Passed = false
+		pushCheck.Reason = "ZEN_GIT_PUSH_ENABLED not set to true"
+	} else {
+		pushCheck.Passed = true
+		pushCheck.Reason = "enabled"
+	}
+	checks = append(checks, pushCheck)
+
+	// 4. Push credentials present (verify with a non-destructive ls-remote)
+	credCheck := PreflightCheck{Name: "push_credentials"}
+	if cfg.GitPushEnabled && cfg.RepoRoot != "" && isGitRepo(cfg.RepoRoot) {
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		cmd := exec.CommandContext(ctx, "git", "-C", cfg.RepoRoot, "ls-remote", "--exit-code", cfg.GitRemote, "HEAD")
+		if out, err := cmd.CombinedOutput(); err != nil {
+			credCheck.Passed = false
+			credCheck.Reason = "ls-remote failed: " + string(out)
+		} else {
+			credCheck.Passed = true
+			credCheck.Reason = "ls-remote OK"
+		}
+	} else if !cfg.GitPushEnabled {
+		credCheck.Passed = false
+		credCheck.Reason = "push not enabled"
+	} else {
+		credCheck.Passed = false
+		credCheck.Reason = "repo not available"
+	}
+	checks = append(checks, credCheck)
+
+	// 5. Results directory writable
+	resultsCheck := PreflightCheck{Name: "results_dir"}
+	os.MkdirAll(cfg.ResultDir, 0755)
+	testFile := filepath.Join(cfg.ResultDir, ".preflight-write-test")
+	if err := ioutil.WriteFile(testFile, []byte("test"), 0644); err != nil {
+		resultsCheck.Passed = false
+		resultsCheck.Reason = "not writable: " + err.Error()
+	} else {
+		os.Remove(testFile)
+		resultsCheck.Passed = true
+		resultsCheck.Reason = cfg.ResultDir
+	}
+	checks = append(checks, resultsCheck)
+
+	// 6. Worktree base writable (if configured)
+	worktreeCheck := PreflightCheck{Name: "worktree_base"}
+	os.MkdirAll(cfg.WorktreeBase, 0755)
+	testFile = filepath.Join(cfg.WorktreeBase, ".preflight-write-test")
+	if err := ioutil.WriteFile(testFile, []byte("test"), 0644); err != nil {
+		worktreeCheck.Passed = false
+		worktreeCheck.Reason = "not writable: " + err.Error()
+	} else {
+		os.Remove(testFile)
+		worktreeCheck.Passed = true
+		worktreeCheck.Reason = cfg.WorktreeBase
+	}
+	checks = append(checks, worktreeCheck)
+
+	return PreflightResult{Checks: checks}
+}
+
+// writeTerminalResultPreflightFail writes a terminal result when preflight fails.
+func writeTerminalResultPreflightFail(dir, jiraKey string, preflight PreflightResult) {
+	failedChecks := []string{}
+	for _, c := range preflight.Checks {
+		if !c.Passed {
+			failedChecks = append(failedChecks, c.Name+": "+c.Reason)
+		}
+	}
+	writeTerminalResult(dir, TerminalResult{
+		JiraKey:       jiraKey,
+		TerminalClass: "failed",
+		ExecutionMode: "none",
+		QualityPassed: false,
+		BlockerReason: "preflight failed: " + strings.Join(failedChecks, "; "),
+		JiraState:     "RETRYING",
+		Timestamp:     time.Now().UTC().Format(time.RFC3339),
+	})
+}
+
 // loadRemediationConfig reads configuration from environment.
 func loadRemediationConfig() RemediationConfig {
 	return RemediationConfig{
-		JiraURL:        envOr("JIRA_URL", ""),
-		JiraEmail:      envOr("JIRA_EMAIL", ""),
-		JiraToken:      envOr("JIRA_API_TOKEN", ""),
-		JiraProject:    envOr("JIRA_PROJECT_KEY", "ZB"),
-		L1Endpoint:     envOr("L1_ENDPOINT", "http://localhost:56227"),
-		L1Model:        envOr("L1_MODEL", "Qwen3.5-0.8B-Q4_K_M.gguf"),
-		RepoRoot:       envOr("REPO_ROOT", ""),
-		ResultDir:      envOr("RESULT_DIR", "/tmp/zen-brain1-worker-results"),
-		EvidenceRoot:   envOr("EVIDENCE_ROOT", "/var/lib/zen-brain1/evidence"),
-		TimeoutSec:     envIntOr("REMEDIATION_TIMEOUT", 120),
-		GitAuthorName:  envOr("GIT_AUTHOR_NAME", "zen-brain1"),
-		GitAuthorEmail: envOr("GIT_AUTHOR_EMAIL", "zen-brain1@kube-zen.io"),
-		GitPushEnabled: envOr("ZEN_GIT_PUSH_ENABLED", "false") == "true",
+		JiraURL:          envOr("JIRA_URL", ""),
+		JiraEmail:        envOr("JIRA_EMAIL", ""),
+		JiraToken:        envOr("JIRA_API_TOKEN", ""),
+		JiraProject:      envOr("JIRA_PROJECT_KEY", "ZB"),
+		L1Endpoint:       envOr("L1_ENDPOINT", "http://localhost:56227"),
+		L1Model:          envOr("L1_MODEL", "Qwen3.5-0.8B-Q4_K_M.gguf"),
+		RepoRoot:         envOr("ZEN_EXECUTION_REPO", envOr("REPO_ROOT", "")),
+		WorktreeBase:     envOr("ZEN_WORKTREE_BASE", "/workspace/worktrees"),
+		ResultDir:        envOr("ZEN_RESULTS_DIR", envOr("RESULT_DIR", "/tmp/zen-brain1-worker-results")),
+		EvidenceRoot:     envOr("EVIDENCE_ROOT", "/var/lib/zen-brain1/evidence"),
+		TimeoutSec:       envIntOr("REMEDIATION_TIMEOUT", 120),
+		GitAuthorName:    envOr("GIT_AUTHOR_NAME", "zen-brain1"),
+		GitAuthorEmail:   envOr("GIT_AUTHOR_EMAIL", "zen-brain1@kube-zen.io"),
+		GitPushEnabled:   envOr("ZEN_GIT_PUSH_ENABLED", "false") == "true",
+		GitRemote:        envOr("ZEN_GIT_REMOTE", "origin"),
+		ProposalOnlyMode: envOr("ZEN_PROPOSAL_ONLY", "false") == "true",
 	}
 }
 
@@ -132,9 +301,15 @@ type RemediationConfig struct {
 	JiraURL, JiraEmail, JiraToken, JiraProject string
 	L1Endpoint, L1Model                        string
 	RepoRoot, ResultDir, EvidenceRoot          string
+	WorktreeBase                               string
 	TimeoutSec                                 int
 	GitAuthorName, GitAuthorEmail              string
 	GitPushEnabled                             bool
+	GitRemote                                  string
+	// ProposalOnlyMode is an explicit flag. When true, the worker may
+	// produce proposals without git-backed execution. When false (default),
+	// missing repo or push credentials is a fatal blocker.
+	ProposalOnlyMode bool
 }
 
 // TerminalResult is the outcome of bounded execution.
@@ -166,7 +341,7 @@ func runBoundedExecution(cfg RemediationConfig, ticket *JiraTicket) error {
 	branchName := worktree.GenerateBranchName(ticket.Key)
 	log.Printf("[REMEDIATE] Creating branch: %s", branchName)
 
-	publisher, err := worktree.NewPublisher(cfg.RepoRoot, cfg.GitAuthorName, cfg.GitAuthorEmail, cfg.GitPushEnabled)
+	publisher, err := worktree.NewPublisher(cfg.RepoRoot, cfg.GitAuthorName, cfg.GitAuthorEmail, cfg.GitPushEnabled, cfg.GitRemote)
 	if err != nil {
 		return fmt.Errorf("create publisher: %w", err)
 	}
@@ -279,7 +454,9 @@ func runBoundedExecution(cfg RemediationConfig, ticket *JiraTicket) error {
 	return nil
 }
 
-// runProposalOnly executes when no git repo is available.
+// runProposalOnly executes when explicitly configured as proposal-only mode (ZEN_PROPOSAL_ONLY=true).
+// WARNING: This should NEVER be the default path in production.
+// If proposal-only is triggered by implicit fallback (missing repo), that is a bug.
 func runProposalOnly(cfg RemediationConfig, ticket *JiraTicket) {
 	// Fall back to standalone remediation-worker binary for proposal generation
 	bin := findImplementationBinary("remediation-worker")

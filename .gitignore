@@ -155,3 +155,6 @@ deprecated/
 99-ARCHIVE/
 **/zen-brain-ollama-values.yaml
 vendor/
+build/
+cmd/*/zen-brain
+cmd/*/remediation-worker

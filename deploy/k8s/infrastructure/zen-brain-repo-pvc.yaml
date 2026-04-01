@@ -1,0 +1,18 @@
+# Persistent volume claim for the zen-brain1 execution repo.
+# The init container clones the repo here; the worker reads/writes from here.
+# Uses local-path storage class (available in k3d).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: zen-brain-repo
+  namespace: zen-brain
+  labels:
+    app.kubernetes.io/name: zen-brain
+    app.kubernetes.io/component: factory-fill
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 1Gi
