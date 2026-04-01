@@ -18,6 +18,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/kube-zen/zen-brain1/internal/mlq"
 	"github.com/kube-zen/zen-brain1/internal/worktree"
 )
 
@@ -333,6 +334,17 @@ type TerminalResult struct {
 	FailureReason    string   `json:"failure_reason,omitempty"`
 	JiraState        string   `json:"jira_state"`
 	Timestamp        string   `json:"timestamp"`
+	// MLQ metadata (populated when ZEN_MLQ_ENABLED=true)
+	MLQTaskID         string `json:"mlq_task_id,omitempty"`
+	MLQSelectedLevel  int    `json:"mlq_selected_level,omitempty"`
+	MLQSelectedModel  string `json:"mlq_selected_model,omitempty"`
+	MLQAttemptCount   int    `json:"mlq_attempt_count,omitempty"`
+	MLQRetryCount     int    `json:"mlq_retry_count,omitempty"`
+	MLQEscalated      bool   `json:"mlq_escalated,omitempty"`
+	MLQEscalatedFrom  int    `json:"mlq_escalated_from,omitempty"`
+	MLQFinalModel     string `json:"mlq_final_model,omitempty"`
+	MLQWorkerEndpoint string `json:"mlq_worker_endpoint,omitempty"`
+	MLQFailureClass   string `json:"mlq_failure_class,omitempty"`
 }
 
 // fileHash returns a short SHA-256 hash of file content for change detection.
@@ -381,6 +393,8 @@ func runBoundedExecution(cfg RemediationConfig, ticket *JiraTicket) error {
 
 	// 4. Call L1 for full replacement content (or use deterministic canary injection)
 	var newContentStr, intendedDelta string
+	var mlqMeta map[string]interface{}
+
 	if os.Getenv("ZEN_DETERMINISTIC_CANARY") != "" {
 		// PRIORITY 2A: Deterministic plumbing proof — skip L1, inject known change
 		log.Printf("[REMEDIATE] Deterministic canary mode: injecting known change")
@@ -389,10 +403,12 @@ func runBoundedExecution(cfg RemediationConfig, ticket *JiraTicket) error {
 		injectLine := fmt.Sprintf("\n## Canary Entry — %s\n\nProof run for %s. Bounded execution pipeline verified.\nTarget file: %s\nTimestamp: %s\n", ticket.Key, ticket.Key, targetFile, timestamp)
 		// Append to the last section (before final closing tag, or at end)
 		newContentStr = string(existingContent) + injectLine
+		mlqMeta = map[string]interface{}{"mlq_enabled": false, "mode": "deterministic_canary"}
 	} else {
-		log.Printf("[REMEDIATE] Calling L1 for bounded fix...")
+		// Standard bounded execution with optional MLQ retry/escalation
+		log.Printf("[REMEDIATE] Calling L1 for bounded fix (MLQ enabled: %v)...", os.Getenv("ZEN_MLQ_ENABLED") != "")
 		var err error
-		newContentStr, intendedDelta, err = callL1ForBoundedFix(ctx, cfg, ticket.Key, targetFile, string(existingContent))
+		newContentStr, intendedDelta, mlqMeta, err = executeBoundedWithMLQ(ctx, cfg, ticket, targetFile, string(existingContent))
 		if err != nil {
 			return fmt.Errorf("L1 call failed: %w", err)
 		}
@@ -511,22 +527,38 @@ func runBoundedExecution(cfg RemediationConfig, ticket *JiraTicket) error {
 
 	// 11. Write terminal result
 	result := TerminalResult{
-		JiraKey:       ticket.Key,
-		TerminalClass: "needs_review",
-		ExecutionMode: "git_backed_execution",
-		ProposalOnly:  false,
-		QualityPassed: validationPassed,
-		ResultClass:   "remediation_complete",
-		GitBranch:     branchName,
-		RemoteBranch:  remoteBranch,
-		GitCommit:     commitSHA,
-		FilesChanged:  []string{targetFile},
-		OriginalHash:  originalHash,
-		NewHash:       newHash,
+		JiraKey:          ticket.Key,
+		TerminalClass:    "needs_review",
+		ExecutionMode:    "git_backed_execution",
+		ProposalOnly:     false,
+		QualityPassed:    validationPassed,
+		ResultClass:      "remediation_complete",
+		GitBranch:        branchName,
+		RemoteBranch:     remoteBranch,
+		GitCommit:        commitSHA,
+		FilesChanged:     []string{targetFile},
+		OriginalHash:     originalHash,
+		NewHash:          newHash,
 		ValidationReport: validationOutput,
 		ProofOfWorkPath:  diffStatPath,
 		JiraState:        "Needs Review",
 		Timestamp:        time.Now().UTC().Format(time.RFC3339),
+	}
+
+	// Populate MLQ metadata if available
+	if mlqMeta != nil {
+		if v, ok := mlqMeta["mlq_enabled"].(bool); ok && v {
+			result.MLQTaskID, _ = mlqMeta["mlq_task_id"].(string)
+			result.MLQSelectedLevel, _ = mlqMeta["mlq_selected_level"].(int)
+			result.MLQSelectedModel, _ = mlqMeta["mlq_selected_model"].(string)
+			result.MLQAttemptCount, _ = mlqMeta["mlq_attempt_count"].(int)
+			result.MLQRetryCount, _ = mlqMeta["mlq_retry_count"].(int)
+			result.MLQEscalated, _ = mlqMeta["mlq_escalated"].(bool)
+			result.MLQEscalatedFrom, _ = mlqMeta["mlq_escalated_from"].(int)
+			result.MLQFinalModel, _ = mlqMeta["mlq_final_model"].(string)
+			result.MLQWorkerEndpoint, _ = mlqMeta["mlq_worker_endpoint"].(string)
+			result.MLQFailureClass, _ = mlqMeta["mlq_failure_class"].(string)
+		}
 	}
 
 	if !validationPassed {
@@ -777,6 +809,146 @@ Return a one-line intended delta summary, then a blank line, then the complete m
 	fileContent = strings.TrimSpace(fileContent)
 
 	return fileContent, intendedDelta, nil
+}
+
+// executeBoundedWithMLQ wraps bounded remediation with MLQ retry/escalation.
+// When ZEN_MLQ_ENABLED is set, uses TaskExecutor.ExecuteWithRetry().
+// Otherwise falls back to direct callL1ForBoundedFix.
+func executeBoundedWithMLQ(ctx context.Context, cfg RemediationConfig, ticket *JiraTicket, targetFile, existingContent string) (newContent, intendedDelta string, mlqMeta map[string]interface{}, err error) {
+	mlqMeta = make(map[string]interface{})
+
+	// Check if MLQ is enabled
+	if os.Getenv("ZEN_MLQ_ENABLED") == "" {
+		// MLQ not enabled - use direct L1 call (existing behavior)
+		log.Printf("[REMEDIATE] MLQ not enabled, using direct L1 call")
+		newContent, intendedDelta, err = callL1ForBoundedFix(ctx, cfg, ticket.Key, targetFile, existingContent)
+		mlqMeta["mlq_enabled"] = false
+		return
+	}
+
+	// MLQ enabled - load config and create executor
+	mlqConfigPath := os.Getenv("ZEN_MLQ_CONFIG")
+	if mlqConfigPath == "" {
+		mlqConfigPath = "/etc/zen-brain1/mlq-levels.yaml"
+	}
+
+	mlqInstance, err := mlq.NewMLQFromConfig(mlqConfigPath)
+	if err != nil {
+		log.Printf("[REMEDIATE] Failed to load MLQ config: %v, falling back to direct L1", err)
+		newContent, intendedDelta, err = callL1ForBoundedFix(ctx, cfg, ticket.Key, targetFile, existingContent)
+		mlqMeta["mlq_enabled"] = false
+		mlqMeta["mlq_error"] = err.Error()
+		return
+	}
+
+	// Build worker pools from MLQ config
+	workerPools := make(map[int]*mlq.WorkerPool)
+	for _, level := range mlqInstance.ListLevels() {
+		l, ok := mlqInstance.GetLevel(level)
+		if !ok || !l.Enabled {
+			continue
+		}
+		// Single endpoint per level for now (can extend to multiple)
+		endpoints := []string{l.Backend.APIEndpoint}
+		workerPools[level] = mlq.NewWorkerPool(l, endpoints)
+		log.Printf("[REMEDIATE] Created worker pool for level %d: %s", level, l.Backend.APIEndpoint)
+	}
+
+	// Create task executor
+	executor := mlq.NewTaskExecutor(mlqInstance, workerPools)
+
+	// Determine task class based on file type/issue
+	taskClass := "bounded-execution"
+	if strings.HasSuffix(targetFile, ".md") {
+		taskClass = "documentation"
+	} else if strings.Contains(ticket.Summary, "bug") || strings.Contains(ticket.Summary, "fix") {
+		taskClass = "bugfix"
+	}
+
+	log.Printf("[REMEDIATE] MLQ executing with taskClass=%s", taskClass)
+
+	// Track generated content across attempts
+	var generatedContent, generatedDelta string
+
+	// Execute with retry
+	telemetry := executor.ExecuteWithRetry(ctx, ticket.Key, taskClass, ticket.Key,
+		func(ctx context.Context, workerEndpoint string) (string, error) {
+			log.Printf("[REMEDIATE] MLQ attempt on endpoint: %s", workerEndpoint)
+
+			// Temporarily override L1 endpoint for this attempt
+			originalEndpoint := cfg.L1Endpoint
+			cfg.L1Endpoint = workerEndpoint
+
+			content, delta, attemptErr := callL1ForBoundedFix(ctx, cfg, ticket.Key, targetFile, existingContent)
+
+			cfg.L1Endpoint = originalEndpoint // Restore
+
+			if attemptErr != nil {
+				return "", attemptErr
+			}
+
+			// Store successful content
+			generatedContent = content
+			generatedDelta = delta
+
+			// Return artifact path (the content itself for now)
+			return "content-generated", nil
+		})
+
+	// Populate MLQ metadata
+	mlqMeta["mlq_enabled"] = true
+	mlqMeta["mlq_task_id"] = telemetry.TaskID
+	mlqMeta["mlq_selected_level"] = telemetry.InitialLevel
+	mlqMeta["mlq_final_level"] = telemetry.FinalLevel
+	mlqMeta["mlq_attempt_count"] = len(telemetry.Attempts)
+	mlqMeta["mlq_retry_count"] = telemetry.TotalRetries
+	mlqMeta["mlq_escalated"] = telemetry.Escalated
+	mlqMeta["mlq_fallback_used"] = telemetry.FallbackUsed
+	mlqMeta["mlq_final_result"] = telemetry.FinalResult
+
+	if len(telemetry.Attempts) > 0 {
+		lastAttempt := telemetry.Attempts[len(telemetry.Attempts)-1]
+		mlqMeta["mlq_worker_endpoint"] = lastAttempt.WorkerEndpoint
+		if lastAttempt.Error != "" {
+			mlqMeta["mlq_failure_class"] = classifyMLQFailure(lastAttempt.Error)
+		}
+	}
+
+	// Check if MLQ succeeded
+	if telemetry.FinalResult != "success" {
+		err = fmt.Errorf("MLQ execution failed: %s", telemetry.FinalResult)
+		mlqMeta["mlq_failure_class"] = telemetry.FinalResult
+		return
+	}
+
+	// Use the stored content from the successful attempt
+	newContent = generatedContent
+	intendedDelta = generatedDelta
+
+	log.Printf("[REMEDIATE] MLQ complete: level=%d attempts=%d escalated=%v",
+		telemetry.FinalLevel, len(telemetry.Attempts), telemetry.Escalated)
+	return
+}
+
+// classifyMLQFailure categorizes failure types for telemetry.
+func classifyMLQFailure(errStr string) string {
+	lower := strings.ToLower(errStr)
+	switch {
+	case strings.Contains(lower, "timeout") || strings.Contains(lower, "deadline exceeded"):
+		return "timeout"
+	case strings.Contains(lower, "empty") || strings.Contains(lower, "no content"):
+		return "empty_output"
+	case strings.Contains(lower, "parse") || strings.Contains(lower, "json"):
+		return "parse_failure"
+	case strings.Contains(lower, "no effective change"):
+		return "no_effective_change"
+	case strings.Contains(lower, "auth") || strings.Contains(lower, "forbidden"):
+		return "auth_failure"
+	case strings.Contains(lower, "connection") || strings.Contains(lower, "unreachable"):
+		return "infra_failure"
+	default:
+		return "unknown"
+	}
 }
 
 // writeTerminalResult writes the outcome to JSON for factory-fill.
