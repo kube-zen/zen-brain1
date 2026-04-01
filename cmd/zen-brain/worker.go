@@ -479,7 +479,7 @@ func runProposalOnly(cfg RemediationConfig, ticket *JiraTicket) {
 type JiraTicket struct {
 	Key         string
 	Summary     string
-	Description string
+	Description string // Raw JSON string of ADF description (may contain nested objects)
 	Priority    string
 	Labels      []string
 }
@@ -505,25 +505,31 @@ func fetchJiraTicket(cfg RemediationConfig, key string) (*JiraTicket, error) {
 		return nil, fmt.Errorf("Jira returned %d", resp.StatusCode)
 	}
 
-	var data struct {
-		Key    string `json:"key"`
-		Fields struct {
-			Summary     string `json:"summary"`
-			Description string `json:"description"`
-			Priority    struct {
-				Name string `json:"name"`
-			} `json:"priority"`
-			Labels []string `json:"labels"`
-		} `json:"fields"`
+	body, _ := ioutil.ReadAll(resp.Body)
+
+	// Parse manually to handle ADF description (which is a JSON object, not a string)
+	var raw struct {
+		Key    string          `json:"key"`
+		Fields json.RawMessage `json:"fields"`
 	}
-	json.NewDecoder(resp.Body).Decode(&data)
+	json.Unmarshal(body, &raw)
+
+	var fields struct {
+		Summary     string          `json:"summary"`
+		Description json.RawMessage `json:"description"`
+		Priority    struct {
+			Name string `json:"name"`
+		} `json:"priority"`
+		Labels []string `json:"labels"`
+	}
+	json.Unmarshal(raw.Fields, &fields)
 
 	return &JiraTicket{
-		Key:         data.Key,
-		Summary:     data.Fields.Summary,
-		Description: data.Fields.Description,
-		Priority:    data.Fields.Priority.Name,
-		Labels:      data.Fields.Labels,
+		Key:         key,
+		Summary:     fields.Summary,
+		Description: string(fields.Description), // raw JSON bytes as string, searchable for file paths
+		Priority:    fields.Priority.Name,
+		Labels:      fields.Labels,
 	}, nil
 }
 
