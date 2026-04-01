@@ -401,6 +401,7 @@ func dispatchTicket(cfg factoryConfig, ticket ClassifiedTicket) bool {
 		"JIRA_PROJECT_KEY="+jcfg.project,
 		fmt.Sprintf("REMEDIATION_TIMEOUT=%d", cfg.TimeoutSec),
 		"RESULT_DIR="+resultDir,
+		"ZEN_DETERMINISTIC_CANARY="+os.Getenv("ZEN_DETERMINISTIC_CANARY"),
 	)
 
 	output, err := cmd.CombinedOutput()

@@ -214,7 +214,7 @@ spec:
         - name: MAX_DISPATCH
           value: "8"
         - name: TIMEOUT_SEC
-          value: "120"
+          value: "300"
         - name: RESULT_DIR
           value: "/workspace/results"
         - name: POD_NAMESPACE

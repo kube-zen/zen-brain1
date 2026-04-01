@@ -288,7 +288,7 @@ func loadRemediationConfig() RemediationConfig {
 		WorktreeBase:     envOr("ZEN_WORKTREE_BASE", "/workspace/worktrees"),
 		ResultDir:        envOr("ZEN_RESULTS_DIR", envOr("RESULT_DIR", "/tmp/zen-brain1-worker-results")),
 		EvidenceRoot:     envOr("EVIDENCE_ROOT", "/var/lib/zen-brain1/evidence"),
-		TimeoutSec:       envIntOr("REMEDIATION_TIMEOUT", 120),
+		TimeoutSec:       envIntOr("REMEDIATION_TIMEOUT", 300),
 		GitAuthorName:    envOr("GIT_AUTHOR_NAME", "zen-brain1"),
 		GitAuthorEmail:   envOr("GIT_AUTHOR_EMAIL", "zen-brain1@kube-zen.io"),
 		GitPushEnabled:   envOr("ZEN_GIT_PUSH_ENABLED", "false") == "true",
@@ -379,11 +379,23 @@ func runBoundedExecution(cfg RemediationConfig, ticket *JiraTicket) error {
 	originalHash := fileHash(existingContent)
 	log.Printf("[REMEDIATE] Original hash: %s (%d bytes)", originalHash, len(existingContent))
 
-	// 4. Call L1 for full replacement content
-	log.Printf("[REMEDIATE] Calling L1 for bounded fix...")
-	newContentStr, intendedDelta, err := callL1ForBoundedFix(ctx, cfg, ticket.Key, targetFile, string(existingContent))
-	if err != nil {
-		return fmt.Errorf("L1 call failed: %w", err)
+	// 4. Call L1 for full replacement content (or use deterministic canary injection)
+	var newContentStr, intendedDelta string
+	if os.Getenv("ZEN_DETERMINISTIC_CANARY") != "" {
+		// PRIORITY 2A: Deterministic plumbing proof — skip L1, inject known change
+		log.Printf("[REMEDIATE] Deterministic canary mode: injecting known change")
+		timestamp := time.Now().UTC().Format(time.RFC3339)
+		intendedDelta = fmt.Sprintf("deterministic canary injection at %s", timestamp)
+		injectLine := fmt.Sprintf("\n## Canary Entry — %s\n\nProof run for %s. Bounded execution pipeline verified.\nTarget file: %s\nTimestamp: %s\n", ticket.Key, ticket.Key, targetFile, timestamp)
+		// Append to the last section (before final closing tag, or at end)
+		newContentStr = string(existingContent) + injectLine
+	} else {
+		log.Printf("[REMEDIATE] Calling L1 for bounded fix...")
+		var err error
+		newContentStr, intendedDelta, err = callL1ForBoundedFix(ctx, cfg, ticket.Key, targetFile, string(existingContent))
+		if err != nil {
+			return fmt.Errorf("L1 call failed: %w", err)
+		}
 	}
 	newContent := []byte(newContentStr)
 	newHash := fileHash(newContent)
