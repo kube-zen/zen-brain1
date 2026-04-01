@@ -78,8 +78,8 @@ func (p *Publisher) CommitChanges(ctx context.Context, files []string, message s
 		fmt.Sprintf("GIT_COMMITTER_EMAIL=%s", p.authorEmail),
 	)
 
-	// Commit
-	cmd := exec.CommandContext(ctx, "git", "-C", p.repoPath, "commit", "-m", message)
+	// Commit (with --no-verify to bypass pre-commit hooks for automated commits)
+	cmd := exec.CommandContext(ctx, "git", "-C", p.repoPath, "commit", "--no-verify", "-m", message)
 	cmd.Env = env
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return "", fmt.Errorf("git commit: %w (output: %s)", err, string(out))
