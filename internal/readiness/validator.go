@@ -2,11 +2,11 @@
 //
 // A Jira item may enter READY / executable queues only if it meets the
 // minimum executable contract (G013):
-//   1. Problem statement (what is broken, where, expected vs actual)
-//   2. Scope (affected component/service/path)
-//   3. Evidence (log, repro steps, stack trace, or user-visible symptom)
-//   4. Acceptance criteria (concrete end state)
-//   5. Constraints / risk notes (if relevant)
+//  1. Problem statement (what is broken, where, expected vs actual)
+//  2. Scope (affected component/service/path)
+//  3. Evidence (log, repro steps, stack trace, or user-visible symptom)
+//  4. Acceptance criteria (concrete end state)
+//  5. Constraints / risk notes (if relevant)
 //
 // Tickets that fail are routed to triage, not dispatched to workers.
 // "In Progress" with no executable contract is a process bug.
@@ -33,29 +33,29 @@ const (
 type FailureReason string
 
 const (
-	MissingProblemStatement  FailureReason = "missing_problem_statement"
-	MissingScope             FailureReason = "missing_scope"
-	MissingEvidence          FailureReason = "missing_repro_or_evidence"
+	MissingProblemStatement   FailureReason = "missing_problem_statement"
+	MissingScope              FailureReason = "missing_scope"
+	MissingEvidence           FailureReason = "missing_repro_or_evidence"
 	MissingAcceptanceCriteria FailureReason = "missing_acceptance_criteria"
-	TitleTooGeneric          FailureReason = "title_too_generic"
-	DescriptionTooShort      FailureReason = "description_too_short"
+	TitleTooGeneric           FailureReason = "title_too_generic"
+	DescriptionTooShort       FailureReason = "description_too_short"
 )
 
 // CheckResult holds the result of a ticket readiness check.
 type CheckResult struct {
-	Status  ReadinessStatus  `json:"status"`
-	Reasons []FailureReason  `json:"reasons,omitempty"`
-	Score   int              `json:"score"`       // 0-5, how many criteria met
-	Total   int              `json:"total"`       // always 5
-	Action  string           `json:"action,omitempty"`
-	Comment string           `json:"comment,omitempty"`
+	Status  ReadinessStatus `json:"status"`
+	Reasons []FailureReason `json:"reasons,omitempty"`
+	Score   int             `json:"score"` // 0-5, how many criteria met
+	Total   int             `json:"total"` // always 5
+	Action  string          `json:"action,omitempty"`
+	Comment string          `json:"comment,omitempty"`
 }
 
 // RecommendedAction for non-executable tickets.
 const (
-	ActionMoveToNeedsDetail     = "move_to: NEEDS-DETAIL"
-	ActionRequestClarification  = "comment: request_missing_information"
-	ActionDoNotDispatch         = "do_not_dispatch: true"
+	ActionMoveToNeedsDetail    = "move_to: NEEDS-DETAIL"
+	ActionRequestClarification = "comment: request_missing_information"
+	ActionDoNotDispatch        = "do_not_dispatch: true"
 )
 
 // ClarificationTemplate is the user-facing message for non-executable tickets.
@@ -95,26 +95,26 @@ type Validator struct {
 	mu sync.RWMutex
 
 	// Metrics
-	TotalChecked    int                `json:"total_checked"`
-	PassedCount     int                `json:"passed_count"`
-	RejectedCount   int                `json:"rejected_count"`
-	RejectionReasons map[string]int     `json:"rejection_reasons"`
-	AutoNormalized  int                `json:"auto_normalized_count"`
-	SentBackCount   int                `json:"sent_back_count"`
+	TotalChecked     int            `json:"total_checked"`
+	PassedCount      int            `json:"passed_count"`
+	RejectedCount    int            `json:"rejected_count"`
+	RejectionReasons map[string]int `json:"rejection_reasons"`
+	AutoNormalized   int            `json:"auto_normalized_count"`
+	SentBackCount    int            `json:"sent_back_count"`
 
 	// Configuration
-	RequireScope             bool `json:"require_scope"`             // always true
-	RequireConstraints       bool `json:"require_constraints"`       // false — optional
-	MinDescriptionLength     int  `json:"min_description_length"`
-	MinTitleLength           int  `json:"min_title_length"`
+	RequireScope         bool `json:"require_scope"`       // always true
+	RequireConstraints   bool `json:"require_constraints"` // false — optional
+	MinDescriptionLength int  `json:"min_description_length"`
+	MinTitleLength       int  `json:"min_title_length"`
 }
 
 // NewValidator creates a readiness validator with default settings.
 func NewValidator() *Validator {
 	return &Validator{
-		RejectionReasons:    make(map[string]int),
-		RequireScope:        true,
-		RequireConstraints:  false, // constraints are encouraged but not blocking
+		RejectionReasons:     make(map[string]int),
+		RequireScope:         true,
+		RequireConstraints:   false, // constraints are encouraged but not blocking
 		MinDescriptionLength: minDescriptionLength,
 		MinTitleLength:       minTitleLength,
 	}
@@ -123,12 +123,12 @@ func NewValidator() *Validator {
 // TicketInput is the input for readiness validation.
 // Designed to be populated from Jira issue fields.
 type TicketInput struct {
-	Key         string `json:"key"`
-	Title       string `json:"title"`
-	Description string `json:"description"`
+	Key         string   `json:"key"`
+	Title       string   `json:"title"`
+	Description string   `json:"description"`
 	Labels      []string `json:"labels,omitempty"`
-	Priority    string `json:"priority,omitempty"`
-	Component   string `json:"component,omitempty"`
+	Priority    string   `json:"priority,omitempty"`
+	Component   string   `json:"component,omitempty"`
 }
 
 // Check evaluates a ticket against the executable contract.
@@ -144,7 +144,9 @@ func (v *Validator) Check(ticket TicketInput) CheckResult {
 	// ── Criterion 1: Problem Statement ──
 	// Title must not be too generic, description must not be empty
 	titleLower := strings.ToLower(strings.TrimSpace(ticket.Title))
-	descLower := strings.ToLower(strings.TrimSpace(ticket.Description))
+	// Extract plain text from ADF description if present
+	descriptionText := extractTextFromADF(ticket.Description)
+	descLower := strings.ToLower(strings.TrimSpace(descriptionText))
 
 	titleGeneric := false
 	if len(strings.TrimSpace(ticket.Title)) < v.MinTitleLength {
@@ -234,6 +236,12 @@ func (v *Validator) Check(ticket TicketInput) CheckResult {
 			break
 		}
 	}
+	// Also match "evidence:" and "acceptance:" with colon
+	if !hasEvidence {
+		if strings.Contains(descLower, "evidence:") || strings.Contains(descLower, "evidence ") {
+			hasEvidence = true
+		}
+	}
 	// Also check for structured evidence (code blocks, logs)
 	if strings.Contains(descLower, "```") || strings.Contains(descLower, "traceback") {
 		hasEvidence = true
@@ -258,6 +266,12 @@ func (v *Validator) Check(ticket TicketInput) CheckResult {
 		if strings.Contains(descLower, indicator) {
 			hasAcceptance = true
 			break
+		}
+	}
+	// Also match "acceptance criteria:" with colon
+	if !hasAcceptance {
+		if strings.Contains(descLower, "acceptance criteria:") || strings.Contains(descLower, "acceptance criteria ") {
+			hasAcceptance = true
 		}
 	}
 	// Title mentioning "should" or "must" counts lightly
@@ -380,24 +394,24 @@ func (v *Validator) Metrics() ValidatorMetrics {
 	defer v.mu.RUnlock()
 
 	return ValidatorMetrics{
-		TotalChecked:    v.TotalChecked,
-		PassedCount:     v.PassedCount,
-		RejectedCount:   v.RejectedCount,
+		TotalChecked:     v.TotalChecked,
+		PassedCount:      v.PassedCount,
+		RejectedCount:    v.RejectedCount,
 		RejectionReasons: copyMap(v.RejectionReasons),
-		AutoNormalized:  v.AutoNormalized,
-		SentBackCount:   v.SentBackCount,
+		AutoNormalized:   v.AutoNormalized,
+		SentBackCount:    v.SentBackCount,
 	}
 }
 
 // ValidatorMetrics is the observable state of the readiness validator.
 type ValidatorMetrics struct {
-	TotalChecked    int            `json:"total_checked"`
-	PassedCount     int            `json:"passed_count"`
-	RejectedCount   int            `json:"rejected_count"`
+	TotalChecked     int            `json:"total_checked"`
+	PassedCount      int            `json:"passed_count"`
+	RejectedCount    int            `json:"rejected_count"`
 	RejectionReasons map[string]int `json:"rejection_reasons,omitempty"`
-	AutoNormalized  int            `json:"auto_normalized_count"`
-	SentBackCount   int            `json:"sent_back_count"`
-	Timestamp       string         `json:"timestamp"`
+	AutoNormalized   int            `json:"auto_normalized_count"`
+	SentBackCount    int            `json:"sent_back_count"`
+	Timestamp        string         `json:"timestamp"`
 }
 
 // RecordMetrics writes metrics to a JSON file for observability.
@@ -417,4 +431,65 @@ func copyMap(m map[string]int) map[string]int {
 		out[k] = v
 	}
 	return out
+}
+
+// extractTextFromADF converts Jira ADF (Atlassian Document Format) to plain text.
+// ADF is a JSON array of document nodes like:
+//
+//	[{"type":"paragraph","content":[{"type":"text","text":"Actual text"}]}]
+//
+// This function recursively extracts all "text" fields from the ADF structure.
+func extractTextFromADF(adf interface{}) string {
+	var sb strings.Builder
+
+	switch v := adf.(type) {
+	case string:
+		// If it's already a string (not ADF), return it as-is
+		return v
+
+	case []interface{}:
+		// ADF is typically an array of nodes
+		for _, item := range v {
+			sb.WriteString(extractTextFromADF(item))
+		}
+
+	case map[string]interface{}:
+		// ADF node: look for "type" and "content" fields
+		if nodeType, ok := v["type"].(string); ok {
+			switch nodeType {
+			case "paragraph", "heading", "listItem", "codeBlock", "blockquote":
+				// Extract content recursively
+				if content, ok := v["content"]; ok {
+					sb.WriteString(extractTextFromADF(content))
+					sb.WriteString("\n")
+				}
+				// codeBlock has direct text field
+				if nodeType == "codeBlock" {
+					if text, ok := v["text"].(string); ok {
+						sb.WriteString(text)
+						sb.WriteString("\n")
+					}
+				}
+			case "text":
+				// Direct text node - extract the "text" field
+				if text, ok := v["text"].(string); ok {
+					sb.WriteString(text)
+					sb.WriteString(" ")
+				}
+			case "inlineCard", "bulletList", "orderedList", "rule", "panel":
+				// These nodes have content but just extract it
+				if content, ok := v["content"]; ok {
+					sb.WriteString(extractTextFromADF(content))
+					sb.WriteString("\n")
+				}
+			case "hardBreak":
+				sb.WriteString("\n\n")
+			}
+		}
+
+	case nil:
+		// Ignore null values
+	}
+
+	return sb.String()
 }
