@@ -1,6 +1,6 @@
 # L1/L2 Lane Runbook — Updated for PHASE 34/35
 
-**Last updated:** 2026-03-27
+**Last updated:** 2026-04-02
 
 ## L1 Lane (qwen3.5:0.8B — llama.cpp, port 56227)
 
