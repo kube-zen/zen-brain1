@@ -375,7 +375,24 @@ func runBoundedExecution(cfg RemediationConfig, ticket *JiraTicket) error {
 	}
 
 	// 2. Determine target file (bounded: single file only)
-	targetFile := determineTargetFile(ticket)
+	// PHASE 4: Check for normalized packet from factory-fill first
+	var targetFile string
+	normalizedPacket := os.Getenv("ZEN_NORMALIZED_PACKET")
+	if normalizedPacket != "" {
+		log.Printf("[REMEDIATE] Found normalized execution packet (%d bytes)", len(normalizedPacket))
+		targetFile = extractTargetFileFromPacket(normalizedPacket)
+		if targetFile != "" {
+			log.Printf("[REMEDIATE] Using target file from normalized packet: %s", targetFile)
+		} else {
+			log.Printf("[REMEDIATE] ⚠️  Normalized packet present but no target file extracted, falling back to inference")
+		}
+	}
+	
+	// Fallback: infer from ticket description
+	if targetFile == "" {
+		targetFile = determineTargetFile(ticket)
+	}
+	
 	if targetFile == "" {
 		return fmt.Errorf("no target file determined")
 	}
@@ -703,6 +720,33 @@ func determineTargetFile(ticket *JiraTicket) string {
 		}
 	}
 
+	return ""
+}
+
+// extractTargetFileFromPacket extracts the first target file path from a normalized packet
+func extractTargetFileFromPacket(packet string) string {
+	// Simple YAML parsing - look for "path:" field
+	lines := strings.Split(packet, "\n")
+	for _, line := range lines {
+		if strings.Contains(line, "- path:") {
+			// Extract the path value
+			parts := strings.SplitN(line, "- path:", 2)
+			if len(parts) == 2 {
+				path := strings.TrimSpace(parts[1])
+				// Remove quotes if present
+				path = strings.Trim(path, "\"'")
+				// Skip directories (paths ending with /)
+				if strings.HasSuffix(path, "/") {
+					log.Printf("[REMEDIATE] Skipping directory path: %s", path)
+					continue
+				}
+				if path != "" && !strings.Contains(path, " ") {
+					log.Printf("[REMEDIATE] Extracted target file from packet: %s", path)
+					return path
+				}
+			}
+		}
+	}
 	return ""
 }
 
