@@ -11,6 +11,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -44,12 +45,13 @@ const (
 )
 
 type ClassifiedTicket struct {
-	Key       string
-	Summary   string
-	Labels    []string
-	Priority  string
-	Status    string
-	Readiness TicketReadiness
+	Key         string
+	Summary     string
+	Description string // Extracted from ADF
+	Labels      []string
+	Priority    string
+	Status      string
+	Readiness   TicketReadiness
 }
 
 type jiraIssue struct {
@@ -84,12 +86,16 @@ func loadJiraConfig() jiraConfig {
 }
 
 func classifyTicket(issue jiraIssue) ClassifiedTicket {
+	// Extract plain text from ADF description
+	description := extractTextFromADF(issue.Fields.Description)
+	
 	ct := ClassifiedTicket{
-		Key:      issue.Key,
-		Summary:  issue.Fields.Summary,
-		Labels:   issue.Fields.Labels,
-		Priority: issue.Fields.Priority.Name,
-		Status:   issue.Fields.Status.Name,
+		Key:         issue.Key,
+		Summary:     issue.Fields.Summary,
+		Description: description,
+		Labels:      issue.Fields.Labels,
+		Priority:    issue.Fields.Priority.Name,
+		Status:      issue.Fields.Status.Name,
 	}
 
 	for _, l := range ct.Labels {
@@ -356,6 +362,27 @@ func resultDir() string {
 
 func dispatchTicket(cfg factoryConfig, ticket ClassifiedTicket) bool {
 	jcfg := cfg.Jcfg
+	log.Printf("[DISPATCH][%s] === ENTER dispatchTicket (summary len=%d, desc len=%d, readiness=%s) ===", 
+		ticket.Key, len(ticket.Summary), len(ticket.Description), ticket.Readiness)
+	
+	// PHASE 3 NORMALIZATION: Auto-enrich ticket with bounded execution packet
+	// before dispatching to worker
+	log.Printf("[DISPATCH][%s] PHASE: before normalizeTicket", ticket.Key)
+	if err := normalizeTicket(jcfg, ticket); err != nil {
+		log.Printf("[NORMALIZE][%s] ❌ FAILED: %v", ticket.Key, err)
+		// Check if this is a "no valid files" error - skip dispatch
+		if strings.Contains(err.Error(), "no valid target files") {
+			log.Printf("[DISPATCH][%s] ❌ SKIPPING - ticket lacks valid target files, marking needs_human_context", ticket.Key)
+			jiraTransition(jcfg, ticket.Key, "needs_human_context")
+			writeMissingTargetFileResult(resultDir(), ticket.Key)
+			return false
+		}
+		// For other errors, continue - worker will try to determine target file itself
+	} else {
+		log.Printf("[NORMALIZE][%s] ✅ SUCCESS: enriched with execution packet", ticket.Key)
+	}
+	log.Printf("[DISPATCH][%s] PHASE: after normalizeTicket", ticket.Key)
+	
 	log.Printf("[DISPATCH] %s: moving to In Progress (%s, readiness=%s)", ticket.Key, ticket.Summary[:min(len(ticket.Summary), 50)], ticket.Readiness)
 
 	// Move to In Progress so Jira reflects reality
@@ -387,6 +414,17 @@ func dispatchTicket(cfg factoryConfig, ticket ClassifiedTicket) bool {
 	workerArgs := []string{"worker", "remediate", "--ticket-key", ticket.Key}
 
 	cmd := exec.Command(workerBin, workerArgs...)
+	
+	// PHASE 4 FALLBACK: Inject normalized packet if available
+	normalizedPacket := os.Getenv("ZEN_NORMALIZED_PACKET_" + ticket.Key)
+	
+	log.Printf("[DISPATCH][%s] PHASE: before worker launch (normalized packet len=%d)", ticket.Key, len(normalizedPacket))
+	if normalizedPacket != "" {
+		log.Printf("[DISPATCH][%s] normalized packet present, first 200 chars: %s", ticket.Key, truncate(normalizedPacket, 200))
+	} else {
+		log.Printf("[DISPATCH][%s] ⚠️  NO normalized packet - worker will need to infer target file", ticket.Key)
+	}
+	
 	cmd.Env = append(os.Environ(),
 		"MODE=pilot",
 		"PILOT_KEYS="+ticket.Key,
@@ -402,10 +440,14 @@ func dispatchTicket(cfg factoryConfig, ticket ClassifiedTicket) bool {
 		fmt.Sprintf("REMEDIATION_TIMEOUT=%d", cfg.TimeoutSec),
 		"RESULT_DIR="+resultDir,
 		"ZEN_DETERMINISTIC_CANARY="+os.Getenv("ZEN_DETERMINISTIC_CANARY"),
+		// PHASE 4: Pass normalized packet to worker
+		"ZEN_NORMALIZED_PACKET="+normalizedPacket,
 	)
 
 	output, err := cmd.CombinedOutput()
 	outputStr := string(output)
+	
+	log.Printf("[DISPATCH][%s] PHASE: after worker launch (exit code=%v, output len=%d)", ticket.Key, err, len(outputStr))
 
 	if err != nil {
 		log.Printf("[DISPATCH] %s: worker process error: %v\n%s", ticket.Key, err, lastNLines(outputStr, 3))
@@ -529,6 +571,21 @@ func writeMissingWorkerResult(resultDir, jiraKey string) {
 		TerminalClass: "paused",
 		QualityPassed: false,
 		BlockerReason: "no worker binary found on PATH (neither zen-brain nor remediation-worker)",
+		Timestamp:     time.Now().UTC().Format(time.RFC3339),
+	}
+	data, _ := json.Marshal(result)
+	path := filepath.Join(resultDir, jiraKey+".json")
+	os.WriteFile(path, data, 0644)
+}
+
+// writeMissingTargetFileResult creates a terminal result file when no valid target files were inferred.
+// This ensures the next dispatch cycle knows why the ticket was marked needs_human_context.
+func writeMissingTargetFileResult(resultDir, jiraKey string) {
+	result := WorkerTerminalResult{
+		JiraKey:       jiraKey,
+		TerminalClass: "needs_human_context",
+		QualityPassed: false,
+		BlockerReason: "inferred component(s) from ticket but no matching file paths found in current repository",
 		Timestamp:     time.Now().UTC().Format(time.RFC3339),
 	}
 	data, _ := json.Marshal(result)
@@ -766,6 +823,280 @@ func reconcileDispatchedStates(cfg factoryConfig, dispatched []ClassifiedTicket)
 	if fixed > 0 {
 		log.Printf("[RECONCILE] Fixed %d/%d tickets with incorrect terminal states", fixed, len(dispatched))
 	}
+}
+
+// normalizeTicket enriches a ticket with a canonical bounded execution packet
+// PHASE 3: Automatic normalization before worker dispatch
+func normalizeTicket(jcfg jiraConfig, ticket ClassifiedTicket) error {
+	log.Printf("[NORMALIZE] %s: starting normalization (summary=%d bytes, description=%d bytes)", 
+		ticket.Key, len(ticket.Summary), len(ticket.Description))
+	
+	// PHASE 1 FIX: Use in-memory ticket data - NO redundant Jira fetch
+	if ticket.Description == "" {
+		log.Printf("[NORMALIZE] %s: ❌ FAILED - no description in ticket data", ticket.Key)
+		return fmt.Errorf("no description in in-memory ticket data")
+	}
+	
+	// Infer target files from in-memory ticket context
+	targetFiles := inferTargetFiles(ticket.Summary, ticket.Description)
+	
+	if len(targetFiles) == 0 {
+		log.Printf("[NORMALIZE] %s: ❌ FAILED - no valid target files exist in repository", ticket.Key)
+		// Mark ticket as needing human context - do not dispatch
+		log.Printf("[NORMALIZE] %s: marking as needs_human_context - inferred component but no matching files found", ticket.Key)
+		return fmt.Errorf("no valid target files in repository for inferred component")
+	}
+	
+	log.Printf("[NORMALIZE] %s: inferred %d validated target file(s): %v", ticket.Key, len(targetFiles), targetFiles)
+	
+	// Generate canonical execution packet
+	packet := generateExecutionPacket(ticket, targetFiles)
+	
+	// PHASE 4 FALLBACK: Try Jira writeback, but don't fail if it doesn't work
+	// For now, we'll inject the packet in-process for the worker
+	// Store packet in environment variable for worker to consume
+	os.Setenv("ZEN_NORMALIZED_PACKET_"+ticket.Key, packet)
+	
+	log.Printf("[NORMALIZE] %s: ✅ SUCCESS - execution packet created and injected in-process", ticket.Key)
+	log.Printf("[NORMALIZE] %s: packet preview:\n%s", ticket.Key, truncate(packet, 300))
+	
+	return nil
+}
+
+// inferTargetFiles extracts candidate file paths from ticket text using repository-true inference
+func inferTargetFiles(summary, description string) []string {
+	var candidates []string
+	text := strings.ToLower(summary + " " + description)
+	
+	log.Printf("[NORMALIZE-INFERENCE] searching for file paths in %d bytes of text", len(text))
+	
+	// Repository-true component mappings - verified against actual repo structure
+	// These paths exist in the current checkout
+	componentFiles := map[string][]string{
+		"scheduler":    {"cmd/scheduler/main.go"},
+		"factory-fill": {"cmd/factory-fill/main.go"},
+		"foreman":      {"cmd/foreman/main.go"},
+		"readiness":    {"internal/readiness/validator.go"},
+		"docs":         {"docs/README.md"},
+		"config":       {"config/policy/README.md"},
+		"validator":     {"internal/readiness/validator.go"},
+		"auth":         {"internal/apiserver/auth.go", "internal/office/jira/auth_check.go"},
+		"api":          {"internal/apiserver/auth.go", "internal/apiserver/server.go"},
+		"worker":       {"cmd/zen-brain/worker.go"},
+		"analyzer":     {"internal/analyzer/analyzer.go"},
+		"factory":      {"internal/factory/factory.go"},
+		"agent":        {"internal/agent/binding.go"},
+		"jira":         {"internal/office/jira/auth_check.go"},
+	}
+	
+	// Check for component mentions in ticket text
+	for component, paths := range componentFiles {
+		if strings.Contains(text, component) {
+			candidates = append(candidates, paths...)
+			log.Printf("[NORMALIZE-INFERENCE] found component keyword '%s' -> %v", component, paths)
+		}
+	}
+	
+	// Check for explicit file path mentions in description
+	pathPatterns := []string{"docs/", "internal/", "cmd/", "config/"}
+	
+	for _, pattern := range pathPatterns {
+		idx := strings.Index(text, pattern)
+		for idx >= 0 && len(candidates) < 10 { // Limit candidates
+			rest := text[idx:]
+			// Find end of path (stop at whitespace, punctuation, or quote)
+			end := len(rest)
+			for i, c := range rest {
+				if c == ' ' || c == '\n' || c == '\t' || c == '"' || c == ',' || c == ')' || c == '}' {
+					end = i
+					break
+				}
+			}
+			
+			candidate := rest[:end]
+			// Check if it looks like a valid file path
+			if strings.Contains(candidate, ".") && !strings.Contains(candidate, " ") && len(candidate) > len(pattern)+3 {
+				// Restore original case from description
+				origIdx := strings.Index(strings.ToLower(description), candidate)
+				if origIdx >= 0 {
+					candidate = description[origIdx : origIdx+len(candidate)]
+				}
+				candidates = append(candidates, candidate)
+				log.Printf("[NORMALIZE-INFERENCE] found explicit path pattern '%s' -> %s", pattern, candidate)
+			}
+			
+			// Find next occurrence
+			nextIdx := strings.Index(text[idx+len(pattern):], pattern)
+			if nextIdx < 0 {
+				break
+			}
+			idx = idx + len(pattern) + nextIdx
+		}
+	}
+	
+	// VALIDATION: Check each candidate against actual repository
+	var validFiles []string
+	var discarded []string
+	
+	for _, f := range candidates {
+		// Skip directories (paths ending with /)
+		if strings.HasSuffix(f, "/") {
+			log.Printf("[NORMALIZE-INFERENCE] discard (directory): %s", f)
+			discarded = append(discarded, fmt.Sprintf("directory: %s", f))
+			continue
+		}
+		
+		// Check if file exists in repository
+		if fileExists(f) {
+			validFiles = append(validFiles, f)
+			log.Printf("[NORMALIZE-INFERENCE] ✓ validated: %s", f)
+		} else {
+			log.Printf("[NORMALIZE-INFERENCE] discard (not found): %s", f)
+			discarded = append(discarded, fmt.Sprintf("not found: %s", f))
+		}
+	}
+	
+	// Deduplicate valid files
+	seen := make(map[string]bool)
+	var result []string
+	for _, f := range validFiles {
+		if !seen[f] {
+			seen[f] = true
+			result = append(result, f)
+		}
+	}
+	
+	log.Printf("[NORMALIZE-INFERENCE] discarded %d candidates: %v", len(discarded), discarded)
+	log.Printf("[NORMALIZE-INFERENCE] final validated result: %d unique file(s): %v", len(result), result)
+	return result
+}
+
+// fileExists checks if a file exists in the repository
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
+}
+
+// generateExecutionPacket creates the canonical bounded execution packet
+func generateExecutionPacket(ticket ClassifiedTicket, targetFiles []string) string {
+	var sb strings.Builder
+	
+	sb.WriteString("BOUNDED_EXECUTION:\n")
+	sb.WriteString(fmt.Sprintf("  version: \"1.0\"\n"))
+	sb.WriteString("  target_files:\n")
+	
+	for _, f := range targetFiles {
+		sb.WriteString(fmt.Sprintf("    - path: %s\n", f))
+		sb.WriteString(fmt.Sprintf("      confidence: 0.85\n"))
+		sb.WriteString("      reason: \"Inferred from ticket context (summary + description)\"\n")
+	}
+	
+	sb.WriteString(fmt.Sprintf("  scope:\n"))
+	sb.WriteString(fmt.Sprintf("    blast_radius: low\n"))
+	sb.WriteString(fmt.Sprintf("    execution_class: bounded_fix\n"))
+	sb.WriteString(fmt.Sprintf("    bounded: true\n"))
+	
+	sb.WriteString(fmt.Sprintf("  inference_metadata:\n"))
+	sb.WriteString(fmt.Sprintf("    generated_by: factory-fill-normalizer-v1\n"))
+	sb.WriteString(fmt.Sprintf("    generated_at: %s\n", time.Now().Format(time.RFC3339)))
+	sb.WriteString(fmt.Sprintf("    overall_confidence: 0.80\n"))
+	sb.WriteString(fmt.Sprintf("    source: in-memory-ticket-data\n"))
+	
+	return sb.String()
+}
+
+// truncate safely truncates a string
+func truncate(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen] + "..."
+}
+
+// jiraGetIssue fetches a single issue from Jira
+func jiraGetIssue(jcfg jiraConfig, key string) (*jiraIssue, error) {
+	req, _ := http.NewRequest("GET", jcfg.url+"/rest/api/2/issue/"+key+"?fields=summary,description", nil)
+	req.SetBasicAuth(jcfg.email, jcfg.token)
+	req.Header.Set("Accept", "application/json")
+	
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("HTTP %d", resp.StatusCode)
+	}
+	
+	var issue jiraIssue
+	if err := json.NewDecoder(resp.Body).Decode(&issue); err != nil {
+		return nil, err
+	}
+	
+	return &issue, nil
+}
+
+// jiraUpdateDescription updates the description field of a Jira issue
+func jiraUpdateDescription(jcfg jiraConfig, key, description string) error {
+	payload := map[string]interface{}{
+		"fields": map[string]interface{}{
+			"description": description,
+		},
+	}
+	
+	data, _ := json.Marshal(payload)
+	req, _ := http.NewRequest("PUT", jcfg.url+"/rest/api/2/issue/"+key, bytes.NewReader(data))
+	req.SetBasicAuth(jcfg.email, jcfg.token)
+	req.Header.Set("Content-Type", "application/json")
+	
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != 204 && resp.StatusCode != 200 {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body[:min(len(body), 200)]))
+	}
+	
+	return nil
+}
+
+// extractTextFromADF extracts plain text from Jira ADF (Atlassian Document Format)
+func extractTextFromADF(adf json.RawMessage) string {
+	var parse func(interface{}) string
+	parse = func(v interface{}) string {
+		var sb strings.Builder
+		
+		switch val := v.(type) {
+		case string:
+			return val
+		case []interface{}:
+			for _, item := range val {
+				sb.WriteString(parse(item))
+			}
+		case map[string]interface{}:
+			if text, ok := val["text"].(string); ok {
+				sb.WriteString(text)
+				sb.WriteString(" ")
+			}
+			if content, ok := val["content"]; ok {
+				sb.WriteString(parse(content))
+				sb.WriteString("\n")
+			}
+		}
+		
+		return sb.String()
+	}
+	
+	var parsed interface{}
+	if err := json.Unmarshal(adf, &parsed); err != nil {
+		return string(adf)
+	}
+	
+	return parse(parsed)
 }
 
 func fetchBacklogTickets(jcfg jiraConfig, max int) ([]jiraIssue, error) {
