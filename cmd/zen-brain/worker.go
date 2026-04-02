@@ -506,16 +506,25 @@ func runBoundedExecution(cfg RemediationConfig, ticket *JiraTicket) error {
 	validationPassed := false
 	validationOutput := ""
 	if validationCmd != "" {
-		log.Printf("[REMEDIATE] Running validation: %s", validationCmd)
-		cmd := exec.CommandContext(ctx, "sh", "-c", validationCmd)
-		cmd.Dir = cfg.RepoRoot
-		output, err := cmd.CombinedOutput()
-		validationOutput = string(output)
-		validationPassed = err == nil
-		log.Printf("[REMEDIATE] Validation: passed=%v output=%s", validationPassed, truncate(validationOutput, 200))
-	} else {
-		// No validation command — accept the change
+		// Pre-flight: check if required validation tools are available
+		if !validationToolsAvailable(targetFile) {
+			log.Printf("[REMEDIATE] ⚠️  Validation tools not available, skipping validation")
+			validationCmd = ""
+		} else {
+			log.Printf("[REMEDIATE] Running validation: %s", validationCmd)
+			cmd := exec.CommandContext(ctx, "sh", "-c", validationCmd)
+			cmd.Dir = cfg.RepoRoot
+			output, err := cmd.CombinedOutput()
+			validationOutput = string(output)
+			validationPassed = err == nil
+			log.Printf("[REMEDIATE] Validation: passed=%v output=%s", validationPassed, truncate(validationOutput, 200))
+		}
+	}
+	
+	// No validation command — accept the change
+	if validationCmd == "" {
 		validationPassed = true
+		log.Printf("[REMEDIATE] No validation required or tools unavailable, accepting change")
 	}
 
 	// 9. Commit and push
@@ -762,6 +771,36 @@ func determineValidationCommand(filePath string) string {
 		return "" // No validation for markdown
 	default:
 		return ""
+	}
+}
+
+// validationToolsAvailable checks if required validation tools are installed
+func validationToolsAvailable(filePath string) bool {
+	ext := filepath.Ext(filePath)
+	switch ext {
+	case ".go":
+		// Check if Go is installed
+		if _, err := exec.LookPath("go"); err != nil {
+			log.Printf("[REMEDIATE] Go compiler not found in PATH")
+			return false
+		}
+		// Verify Go is actually executable
+		cmd := exec.Command("go", "version")
+		if err := cmd.Run(); err != nil {
+			log.Printf("[REMEDIATE] Go not executable: %v", err)
+			return false
+		}
+		return true
+	case ".yaml", ".yml":
+		// Check if python3 is available
+		if _, err := exec.LookPath("python3"); err != nil {
+			log.Printf("[REMEDIATE] python3 not found in PATH")
+			return false
+		}
+		return true
+	default:
+		// No validation needed
+		return true
 	}
 }
 
