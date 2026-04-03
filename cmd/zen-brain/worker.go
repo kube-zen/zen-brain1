@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/kube-zen/zen-brain1/internal/mlq"
+	"github.com/kube-zen/zen-brain1/internal/secrets"
 	"github.com/kube-zen/zen-brain1/internal/worktree"
 )
 
@@ -278,11 +279,22 @@ func writeTerminalResultPreflightFail(dir, jiraKey string, preflight PreflightRe
 
 // loadRemediationConfig reads configuration from environment.
 func loadRemediationConfig() RemediationConfig {
+	// ZB-CREDENTIAL-RAILS: Use canonical resolver for Jira credentials
+	clusterMode := os.Getenv("KUBERNETES_SERVICE_HOST") != ""
+	jiraCreds, err := secrets.ResolveJira(context.Background(), secrets.JiraResolveOptions{
+		ClusterMode:      clusterMode,
+		DirPath:          "",
+		AllowEnvFallback: !clusterMode,
+	})
+	if err != nil {
+		log.Printf("[WARN] Jira credential resolution failed: %v", err)
+	}
+
 	return RemediationConfig{
-		JiraURL:          envOr("JIRA_URL", ""),
-		JiraEmail:        envOr("JIRA_EMAIL", ""),
-		JiraToken:        envOr("JIRA_API_TOKEN", ""),
-		JiraProject:      envOr("JIRA_PROJECT_KEY", "ZB"),
+		JiraURL:          jiraCreds.BaseURL,
+		JiraEmail:        jiraCreds.Email,
+		JiraToken:        jiraCreds.APIToken,
+		JiraProject:      jiraCreds.ProjectKey,
 		L1Endpoint:       envOr("L1_ENDPOINT", "http://localhost:56227"),
 		L1Model:          envOr("L1_MODEL", "Qwen3.5-0.8B-Q4_K_M.gguf"),
 		RepoRoot:         envOr("ZEN_EXECUTION_REPO", envOr("REPO_ROOT", "")),
@@ -387,12 +399,12 @@ func runBoundedExecution(cfg RemediationConfig, ticket *JiraTicket) error {
 			log.Printf("[REMEDIATE] ⚠️  Normalized packet present but no target file extracted, falling back to inference")
 		}
 	}
-	
+
 	// Fallback: infer from ticket description
 	if targetFile == "" {
 		targetFile = determineTargetFile(ticket)
 	}
-	
+
 	if targetFile == "" {
 		return fmt.Errorf("no target file determined")
 	}
@@ -520,7 +532,7 @@ func runBoundedExecution(cfg RemediationConfig, ticket *JiraTicket) error {
 			log.Printf("[REMEDIATE] Validation: passed=%v output=%s", validationPassed, truncate(validationOutput, 200))
 		}
 	}
-	
+
 	// No validation command — accept the change
 	if validationCmd == "" {
 		validationPassed = true

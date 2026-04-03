@@ -135,20 +135,20 @@ kubectl apply -f deploy/zen-lock/jira-zenlock.yaml
 
 ### Method B: Host Runtime (Local Dev Only)
 
-For local development outside Kubernetes, you may use:
-- `~/.zen-brain/jira-credentials.env` (NOT `secrets/jira.yaml`)
+For local development outside Kubernetes, use the canonical resolver:
+- `internal/secrets/jira.go:ResolveJira()` with `AllowEnvFallback: true`
 
-**WARNING:** This is for local dev ONLY. Never use in cluster mode.
+**WARNING:** The scripts `scripts/load_jira_credentials.py` and `scripts/install_jira_credentials.py` are **QUARANTINED** and will hard-fail. Use the canonical bootstrap script instead.
 
 ```bash
-cat > ~/.zen-brain/jira-credentials.env << 'EOF'
-JIRA_URL="https://zen-mesh.atlassian.net"
-JIRA_EMAIL="zen@kube-zen.io"
-JIRA_TOKEN="ATATT3..."
-JIRA_PROJECT_KEY="ZB"
-EOF
+# Use canonical bootstrap
+./deploy/zen-lock/bootstrap-jira-zenlock-from-local.sh
 
-python3 scripts/load_jira_credentials.py
+# Or use env vars directly (local dev only, not recommended)
+export JIRA_URL="https://zen-mesh.atlassian.net"
+export JIRA_EMAIL="zen@zen-mesh.io"
+export JIRA_API_TOKEN="ATATT3..."
+export JIRA_PROJECT_KEY="ZB"
 ```
 
 ## Service Account Access
@@ -203,39 +203,29 @@ kubectl get zenlock jira-credentials -n zen-brain -o jsonpath='{.status.phase}'
 
 ## Setup: Host Runtime
 
-### Step 1: Create Credential File
-
-Create `~/.zen-brain/jira-credentials.env`:
+### Step 1: Use Canonical Bootstrap
 
 ```bash
-JIRA_URL="https://zen-mesh.atlassian.net"
-JIRA_EMAIL="zen@kube-zen.io"
-JIRA_TOKEN="ATATT3..."
-JIRA_PROJECT_KEY="ZB"
+# This script handles everything:
+# - Reads token from ~/zen/DONOTASKMOREFORTHISSHIT.txt
+# - Encrypts with AGE key at ~/zen/keys/zen-brain/credentials.key
+# - Stores encrypted bundle at ~/zen/keys/zen-brain/secrets.d/jira.enc
+./deploy/zen-lock/bootstrap-jira-zenlock-from-local.sh
 ```
 
 **IMPORTANT:**
-- Never commit this file to Git
-- Add `~/.zen-brain/jira-credentials.env` to `.gitignore`
+- Never commit plaintext credentials to Git
+- Delete `~/zen/DONOTASKMOREFORTHISSHIT.txt` after bootstrap
+- The encrypted bundle is safe to keep
 
-### Step 2: Load Credentials
-
-```bash
-python3 scripts/load_jira_credentials.py
-```
-
-This will:
-- Check for credential file
-- Load credentials into environment
-- Validate all fields are present
-- Display confirmation
-
-### Step 3: Validate
+### Step 2: Validate
 
 ```bash
 ./bin/zen-brain office doctor
 ./bin/zen-brain office fetch ZB-XXX
 ```
+
+**Note:** The scripts `scripts/load_jira_credentials.py` and `scripts/install_jira_credentials.py` are **QUARANTINED** and will hard-fail with deprecation messages. Use the canonical bootstrap script instead.
 
 ## Rotation and Updates
 
@@ -255,13 +245,16 @@ kubectl apply -f deploy/zen-lock/jira-zenlock.yaml
 ### Host Runtime
 
 ```bash
-# 1. Edit credential file
-vi ~/.zen-brain/jira-credentials.env
+# 1. Update token file
+vi ~/zen/DONOTASKMOREFORTHISSHIT.txt
 
-# 2. Reload
-python3 scripts/load_jira_credentials.py
+# 2. Re-run bootstrap (migrates to encrypted store)
+./deploy/zen-lock/bootstrap-jira-zenlock-from-local.sh
 
-# 3. Validate
+# 3. Delete plaintext token after verification
+rm ~/zen/DONOTASKMOREFORTHISSHIT.txt
+
+# 4. Validate
 ./bin/zen-brain office doctor
 ```
 

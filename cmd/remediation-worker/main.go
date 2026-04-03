@@ -8,7 +8,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -16,6 +15,7 @@ import (
 	"time"
 
 	"github.com/kube-zen/zen-brain1/internal/metrics"
+	"github.com/kube-zen/zen-brain1/internal/secrets"
 )
 
 // ─── Configuration ────────────────────────────────────────────────────
@@ -184,60 +184,29 @@ func envIntOr(key string, fallback int) int {
 }
 
 func loadJiraConfig() jiraConfig {
+	// ZB-CREDENTIAL-RAILS: Use canonical resolver for Jira credentials
+	// Detect cluster mode by checking for Kubernetes service host
+	clusterMode := os.Getenv("KUBERNETES_SERVICE_HOST") != ""
+
+	jiraCreds, err := secrets.ResolveJira(context.Background(), secrets.JiraResolveOptions{
+		ClusterMode:      clusterMode,
+		DirPath:          "",
+		AllowEnvFallback: !clusterMode,
+	})
+
 	jcfg := jiraConfig{
-		url:     envOr("JIRA_URL", ""),
-		email:   envOr("JIRA_EMAIL", ""),
-		token:   envOr("JIRA_API_TOKEN", ""),
-		project: envOr("JIRA_PROJECT_KEY", "ZB"),
+		url:     jiraCreds.BaseURL,
+		email:   jiraCreds.Email,
+		token:   jiraCreds.APIToken,
+		project: jiraCreds.ProjectKey,
+		enabled: jiraCreds.BaseURL != "" && jiraCreds.Email != "" && jiraCreds.APIToken != "",
 	}
-	// Try ZenLock-mounted secrets
-	for _, path := range []string{
-		"/zen-lock/secrets/JIRA_URL",
-		"/zen-lock/secrets/JIRA_EMAIL",
-		"/zen-lock/secrets/JIRA_API_TOKEN",
-		"/zen-lock/secrets/JIRA_PROJECT_KEY",
-	} {
-		if data, err := os.ReadFile(path); err == nil && len(data) > 0 {
-			val := strings.TrimSpace(string(data))
-			switch filepath.Base(path) {
-			case "JIRA_URL":
-				jcfg.url = val
-			case "JIRA_EMAIL":
-				jcfg.email = val
-			case "JIRA_API_TOKEN":
-				jcfg.token = val
-			case "JIRA_PROJECT_KEY":
-				jcfg.project = val
-			}
-		}
+
+	if err != nil {
+		log.Printf("[WARN] Jira credential resolution failed: %v", err)
+		jcfg.enabled = false
 	}
-	// Fallback to env from sudo cat
-	if jcfg.url == "" {
-		if data, err := exec.Command("sudo", "cat", "/etc/zen-brain1/jira.env").Output(); err == nil {
-			for _, line := range strings.Split(string(data), "\n") {
-				line = strings.TrimSpace(line)
-				if strings.HasPrefix(line, "export ") {
-					line = strings.TrimPrefix(line, "export ")
-				}
-				parts := strings.SplitN(line, "=", 2)
-				if len(parts) == 2 {
-					key := strings.TrimSpace(parts[0])
-					val := strings.Trim(parts[1], "\"")
-					switch key {
-					case "JIRA_URL":
-						jcfg.url = val
-					case "JIRA_EMAIL":
-						jcfg.email = val
-					case "JIRA_API_TOKEN":
-						jcfg.token = val
-					case "JIRA_PROJECT_KEY":
-						jcfg.project = val
-					}
-				}
-			}
-		}
-	}
-	jcfg.enabled = jcfg.url != "" && jcfg.email != "" && jcfg.token != "" && jcfg.project != ""
+
 	return jcfg
 }
 

@@ -13,6 +13,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -25,44 +26,69 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/kube-zen/zen-brain1/internal/secrets"
 )
 
 // ─── Config ───
 
 type stewardConfig struct {
-	JiraURL        string
-	JiraEmail      string
-	JiraAPIToken   string
-	JiraProject    string
-	L1Endpoint     string
-	L1Model        string
-	RoadmapSource  string
-	LedgerPath     string
-	ArtifactDir    string
-	MaxItems       int
-	BacklogMax     int
-	CooldownHours  int
-	DryRun         bool
-	Mode           string
+	JiraURL       string
+	JiraEmail     string
+	JiraAPIToken  string
+	JiraProject   string
+	L1Endpoint    string
+	L1Model       string
+	RoadmapSource string
+	LedgerPath    string
+	ArtifactDir   string
+	MaxItems      int
+	BacklogMax    int
+	CooldownHours int
+	DryRun        bool
+	Mode          string
 }
 
 func loadConfig() stewardConfig {
-	return stewardConfig{
-		JiraURL:        envOr("JIRA_URL", "https://zen-mesh.atlassian.net"),
-		JiraEmail:      envOr("JIRA_EMAIL", "zen@zen-mesh.io"),
-		JiraAPIToken:   envOr("JIRA_API_TOKEN", envOr("JIRA_TOKEN", "")),
-		JiraProject:    envOr("JIRA_PROJECT_KEY", "ZB"),
-		L1Endpoint:     envOr("L1_ENDPOINT", "http://localhost:56227"),
-		L1Model:        envOr("L1_MODEL", "Qwen3.5-0.8B-Q4_K_M.gguf"),
-		RoadmapSource:  envOr("ROADMAP_SOURCE", "ROADMAP_ITEMS.md"),
-		LedgerPath:     envOr("LEDGER_PATH", "/var/lib/zen-brain1/ticketizer/roadmap-ledger.json"),
-		ArtifactDir:    envOr("ARTIFACT_DIR", "/var/lib/zen-brain1/evidence/roadmap-steward"),
-		MaxItems:       envIntOr("MAX_ROADMAP_ITEMS", 3),
-		BacklogMax:     envIntOr("BACKLOG_MAX", 10),
-		CooldownHours:  envIntOr("COOLDOWN_HOURS", 24),
-		DryRun:         os.Getenv("DRY_RUN") != "",
-		Mode:           envOr("STEWARD_MODE", "hourly"),
+	// ZB-CREDENTIAL-RAILS: Use canonical resolver for Jira credentials
+	jiraCreds, err := secrets.ResolveJira(context.Background(), secrets.JiraResolveOptions{
+		ClusterMode:      false,
+		DirPath:          "",
+		AllowEnvFallback: true,
+	})
+	if err != nil {
+		log.Printf("[WARN] Jira credential resolution failed: %v, using env fallback", err)
 	}
+
+	cfg := stewardConfig{
+		JiraURL:       jiraCreds.BaseURL,
+		JiraEmail:     jiraCreds.Email,
+		JiraAPIToken:  jiraCreds.APIToken,
+		JiraProject:   jiraCreds.ProjectKey,
+		L1Endpoint:    envOr("L1_ENDPOINT", "http://localhost:56227"),
+		L1Model:       envOr("L1_MODEL", "Qwen3.5-0.8B-Q4_K_M.gguf"),
+		RoadmapSource: envOr("ROADMAP_SOURCE", "ROADMAP_ITEMS.md"),
+		LedgerPath:    envOr("LEDGER_PATH", "/var/lib/zen-brain1/ticketizer/roadmap-ledger.json"),
+		ArtifactDir:   envOr("ARTIFACT_DIR", "/var/lib/zen-brain1/evidence/roadmap-steward"),
+		MaxItems:      envIntOr("MAX_ROADMAP_ITEMS", 3),
+		BacklogMax:    envIntOr("BACKLOG_MAX", 10),
+		CooldownHours: envIntOr("COOLDOWN_HOURS", 24),
+		DryRun:        os.Getenv("DRY_RUN") != "",
+		Mode:          envOr("STEWARD_MODE", "hourly"),
+	}
+
+	// Apply defaults if resolver returned empty values
+	if cfg.JiraURL == "" {
+		cfg.JiraURL = "https://zen-mesh.atlassian.net"
+	}
+	if cfg.JiraEmail == "" {
+		cfg.JiraEmail = "zen@zen-mesh.io"
+	}
+	if cfg.JiraProject == "" {
+		cfg.JiraProject = "ZB"
+	}
+
+	return cfg
 }
 
 // ─── Data Types ───
@@ -109,15 +135,15 @@ type decisionRecord struct {
 }
 
 type stewardRunResult struct {
-	RunID           string          `json:"run_id"`
-	Timestamp       string          `json:"timestamp"`
-	Mode            string          `json:"mode"`
-	ItemsConsidered int             `json:"items_considered"`
+	RunID           string           `json:"run_id"`
+	Timestamp       string           `json:"timestamp"`
+	Mode            string           `json:"mode"`
+	ItemsConsidered int              `json:"items_considered"`
 	Backpressure    backpressureInfo `json:"backpressure"`
 	Decisions       []decisionRecord `json:"decisions"`
-	Created         int             `json:"created"`
-	Updated         int             `json:"updated"`
-	Skipped         int             `json:"skipped"`
+	Created         int              `json:"created"`
+	Updated         int              `json:"updated"`
+	Skipped         int              `json:"skipped"`
 }
 
 type backpressureInfo struct {
@@ -280,7 +306,9 @@ func jiraCreateTicket(cfg stewardConfig, title, summary string, labels []string)
 		return ""
 	}
 	defer resp.Body.Close()
-	var result struct{ Key string `json:"key"` }
+	var result struct {
+		Key string `json:"key"`
+	}
 	json.NewDecoder(resp.Body).Decode(&result)
 	return result.Key
 }
@@ -353,7 +381,9 @@ Respond with ONLY this JSON:
 
 	var llmResp struct {
 		Choices []struct {
-			Message struct{ Content string `json:"content"` } `json:"message"`
+			Message struct {
+				Content string `json:"content"`
+			} `json:"message"`
 		} `json:"choices"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&llmResp); err != nil {
@@ -449,9 +479,9 @@ func main() {
 
 	runID := time.Now().Format("20060102-150405")
 	result := stewardRunResult{
-		RunID:     runID,
-		Timestamp: time.Now().Format(time.RFC3339),
-		Mode:      cfg.Mode,
+		RunID:        runID,
+		Timestamp:    time.Now().Format(time.RFC3339),
+		Mode:         cfg.Mode,
 		Backpressure: backpressureInfo{Threshold: cfg.BacklogMax},
 	}
 

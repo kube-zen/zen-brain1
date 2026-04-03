@@ -13,6 +13,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/fs"
@@ -24,6 +25,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/kube-zen/zen-brain1/internal/secrets"
 )
 
 // ─── Config ───
@@ -44,11 +47,21 @@ type stewardConfig struct {
 }
 
 func loadConfig() stewardConfig {
-	return stewardConfig{
-		JiraURL:      envOr("JIRA_URL", "https://zen-mesh.atlassian.net"),
-		JiraEmail:    envOr("JIRA_EMAIL", "zen@zen-mesh.io"),
-		JiraAPIToken: envOr("JIRA_API_TOKEN", envOr("JIRA_TOKEN", "")),
-		JiraProject:  envOr("JIRA_PROJECT_KEY", "ZB"),
+	// ZB-CREDENTIAL-RAILS: Use canonical resolver for Jira credentials
+	jiraCreds, err := secrets.ResolveJira(context.Background(), secrets.JiraResolveOptions{
+		ClusterMode:      false,
+		DirPath:          "",
+		AllowEnvFallback: true,
+	})
+	if err != nil {
+		log.Printf("[WARN] Jira credential resolution failed: %v, using env fallback", err)
+	}
+
+	cfg := stewardConfig{
+		JiraURL:      jiraCreds.BaseURL,
+		JiraEmail:    jiraCreds.Email,
+		JiraAPIToken: jiraCreds.APIToken,
+		JiraProject:  jiraCreds.ProjectKey,
 		L1Endpoint:   envOr("L1_ENDPOINT", "http://localhost:56227"),
 		L1Model:      envOr("L1_MODEL", "Qwen3.5-0.8B-Q4_K_M.gguf"),
 		SafeTarget:   envIntOr("SAFE_L1_CONCURRENCY", 5),
@@ -58,6 +71,19 @@ func loadConfig() stewardConfig {
 		DryRun:       os.Getenv("DRY_RUN") != "",
 		Mode:         envOr("STEWARD_MODE", "fast"),
 	}
+
+	// Apply defaults if resolver returned empty values
+	if cfg.JiraURL == "" {
+		cfg.JiraURL = "https://zen-mesh.atlassian.net"
+	}
+	if cfg.JiraEmail == "" {
+		cfg.JiraEmail = "zen@zen-mesh.io"
+	}
+	if cfg.JiraProject == "" {
+		cfg.JiraProject = "ZB"
+	}
+
+	return cfg
 }
 
 // ─── Jira State ───
