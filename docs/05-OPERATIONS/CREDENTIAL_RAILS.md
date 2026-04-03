@@ -174,9 +174,6 @@ token := os.Getenv("JIRA_API_TOKEN")
 // ❌ FORBIDDEN: Deprecated constructor
 client := jira.NewFromEnv()
 
-// ❌ FORBIDDEN: Alternate credential files
-creds, _ := os.ReadFile("~/.env.jira.local")
-
 // ✅ CANONICAL: Use resolver
 creds := secrets.ResolveJira(opts)
 ```
@@ -283,7 +280,6 @@ The following scripts are **HARD-FAIL DEPRECATED** and will block execution:
 | `~/zen/ZENBRAINPUBLICKEYNEVERDELETETHISSHIT.age` | Legacy keypair | `~/zen/keys/zen-brain/credentials.pub` |
 | `~/.zen-brain/secrets/jira.yaml` | ❌ FORBIDDEN | `~/zen/keys/zen-brain/secrets.d/jira.enc` |
 | `~/.zen-lock/private-key.age` | ❌ FORBIDDEN | `~/zen/keys/zen-brain/credentials.key` |
-| `~/.zen-brain/jira-credentials.env` | ❌ FORBIDDEN | `/zen-lock/secrets/*` (cluster) |
 | `zen@kube-zen.io` | ❌ WRONG EMAIL | `zen@zen-mesh.io` |
 
 ---
