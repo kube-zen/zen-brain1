@@ -2,8 +2,9 @@
 
 **This file is the authoritative source of truth for all agents (human and AI) working on zen-brain.**
 
-**Last Updated**: 2026-03-23
+**Last Updated**: 2026-04-02
 **Status**: LOCKED - Changes require explicit operator approval
+**Credential Rails**: Version 3.0 Enforced (Layers 1-2 Complete)
 
 ---
 
@@ -155,9 +156,9 @@ This email MUST be used for all Jira operations. Do NOT use:
    - Email in secret MUST be `zen@zen-mesh.io`
 
 2. **Bootstrap/Rotation Only**:
-   - `~/zen/DONOTASKMOREFORTHISSHIT.txt` (token file)
-   - `~/zen/ZENBRAINPRIVATEKEYNEVERDELETETHISSHIT.age` (AGE private key)
-   - `~/zen/ZENBRAINPUBLICKEYNEVERDELETETHISSHIT.age` (AGE public key)
+   - `~/zen/DONOTASKMOREFORTHISSHIT.txt` (token file, ephemeral)
+   - `~/zen/keys/zen-brain/credentials.key` (AGE private key, canonical)
+   - `~/zen/keys/zen-brain/credentials.pub` (AGE public key, canonical)
    - Script: `~/zen/zen-brain1/deploy/zen-lock/bootstrap-jira-zenlock-from-local.sh`
 
 3. **Local Dev Only** (when cluster not available):
@@ -207,6 +208,7 @@ Legacy project keys (e.g., `SCRUM`) are DEPRECATED. Do NOT use.
 2. **Use legacy secret paths**
    - `~/.zen-brain/secrets/jira.yaml` - FORBIDDEN
    - `~/.zen-lock/private-key.age` - FORBIDDEN
+   - `~/zen/ZENBRAINPRIVATEKEYNEVERDELETETHISSHIT.age` - Legacy, use `~/zen/keys/zen-brain/credentials.key`
    - Random `.env.jira.local` files - FORBIDDEN
 
 3. **Use wrong Jira email**
@@ -273,12 +275,37 @@ kubectl exec -n zen-brain deployment/foreman -- /tmp/test-auth
 
 ## CI Guardrails
 
+### Default Suite (17 gates)
+
+Run all gates:
+```bash
+python3 scripts/ci/run.py
+```
+
+### Credential Rails Suite (5 gates)
+
+Run credential-specific gates:
+```bash
+python3 scripts/ci/run.py --suite credentials
+```
+
+| Gate | Purpose |
+|------|---------|
+| `canonical_credential_access_gate.py` | Block raw credential access outside allowlist |
+| `no_secret_echo_gate.py` | Block secret exposure patterns |
+| `no_alt_credential_rails_gate.py` | Block alternate credential files/paths |
+| `zenlock_mount_only_gate.py` | Enforce ZenLock mount-only in K8s manifests |
+| `docs_drift_credential_rails_gate.py` | Ensure docs consistency |
+
+### All CI Gates
+
 CI MUST fail if:
 
 1. **AGENTS.md missing**
 2. **Legacy secret paths in active docs/code**
    - `~/.zen-brain/secrets/jira.yaml`
    - `~/.zen-lock/private-key.age`
+   - `~/zen/ZENBRAINPRIVATEKEYNEVERDELETETHISSHIT.age` (use canonical key)
 3. **Active docs/code claim Jira is optional in normal mode**
 4. **Project key drift**
    - Multiple project keys in active paths
@@ -287,6 +314,12 @@ CI MUST fail if:
    - 0.8b path uses timeout < 2700s
 6. **Wrong Jira email in metadata**
    - `deploy/zen-lock/jira-metadata.yaml` must have `email: zen@zen-mesh.io`
+7. **Direct env access outside resolver**
+   - `os.Getenv("JIRA_*")` in non-allowlisted files
+   - `jira.NewFromEnv()` usage (hard-fail disabled)
+8. **K8s manifest violations**
+   - `envFrom: secretRef` for Jira credentials
+   - `zen-lock/inject-env: "true"` for Jira/Git
 
 ---
 

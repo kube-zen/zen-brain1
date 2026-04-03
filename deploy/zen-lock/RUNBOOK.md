@@ -13,9 +13,13 @@
 
 | File | Purpose | Never Commit |
 |------|---------|--------------|
-| `~/zen/ZENBRAINPRIVATEKEYNEVERDELETETHISSHIT.age` | AGE private key | ✓ |
-| `~/zen/ZENBRAINPUBLICKEYNEVERDELETETHISSHIT.age` | AGE public key | ✓ |
-| `~/zen/DONOTASKMOREFORTHISSHIT.txt` | Jira API token | ✓ |
+| `~/zen/keys/zen-brain/credentials.key` | AGE private key (canonical) | ✓ |
+| `~/zen/keys/zen-brain/credentials.pub` | AGE public key (canonical) | ✓ |
+| `~/zen/DONOTASKMOREFORTHISSHIT.txt` | Jira API token (ephemeral) | ✓ |
+
+**Legacy keys (still exist but deprecated):**
+- `~/zen/ZENBRAINPRIVATEKEYNEVERDELETETHISSHIT.age` → Use `~/zen/keys/zen-brain/credentials.key`
+- `~/zen/ZENBRAINPUBLICKEYNEVERDELETETHISSHIT.age` → Use `~/zen/keys/zen-brain/credentials.pub`
 
 ## Non-Negotiable Rules
 
@@ -29,7 +33,7 @@
 
 ### ✓ DO
 - **DO** use canonical bootstrap script: `deploy/zen-lock/bootstrap-jira-zenlock-from-local.sh`
-- **DO** store AGE keys in: `~/zen/ZENBRAINPRIVATEKEYNEVERDELETETHISSHIT.age`
+- **DO** store AGE keys in: `~/zen/keys/zen-brain/credentials.key` (canonical)
 - **DO** use plaintext token file for bootstrap only: `~/zen/DONOTASKMOREFORTHISSHIT.txt`
 - **DO** delete plaintext token after successful bootstrap verification
 - **DO** use ZenLock injection for cluster runtime: pod annotation `zen-lock/inject: jira-credentials`
@@ -40,7 +44,7 @@
 - **DON'T** use `~/.zen-lock/private-key.age` (legacy path, not supported)
 - **DON'T** use `~/.zen-brain/secrets/jira.yaml` (legacy path, not supported)
 - **DON'T** use `.env.jira.local` files for secrets (only for non-secret config)
-- **DON'T** use scripts in `scripts/` directory for bootstrap (deprecated)
+- **DON'T** use quarantined scripts: `install_jira_credentials.py`, `load_jira_credentials.py`, `zen-lock-source.sh`
 - **DON'T** use `--from-literal` for AGE key secret creation (stores path string, not contents)
 - **DON'T** keep plaintext token file after successful bootstrap
 - **DON'T** fallback to environment variables for credentials in cluster mode

@@ -32,6 +32,10 @@ ALLOWED_FILES = {
     # Gate scripts themselves (document patterns, don't use them)
     'scripts/ci/no_alt_credential_rails_gate.py',
     'scripts/ci/canonical_credential_access_gate.py',
+    # Quarantined scripts (hard-fail messages reference forbidden patterns)
+    'scripts/install_jira_credentials.py',
+    'scripts/load_jira_credentials.py',
+    'scripts/zen-lock-source.sh',
     # TEMPORARY: Docs being updated to remove legacy references
     'AGENTS.md',
     'deploy/zen-lock/RUNBOOK.md',

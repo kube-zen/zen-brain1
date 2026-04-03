@@ -14,12 +14,16 @@ Jira credentials are managed through **ZenLock** as the ONLY source of truth in 
 **CANONICAL PATHS (USE THESE):**
 
 **Local bootstrap (operator setup):**
-- `~/zen/DONOTASKMOREFORTHISSHIT.txt` - Contains JIRA_API_TOKEN
-- `~/zen/ZENBRAINPRIVATEKEYNEVERDELETETHISSHIT.age` - AGE private key
-- `~/zen/ZENBRAINPUBLICKEYNEVERDELETETHISSHIT.age` - AGE public key
+- `~/zen/DONOTASKMOREFORTHISSHIT.txt` - Contains JIRA_API_TOKEN (ephemeral)
+- `~/zen/keys/zen-brain/credentials.key` - AGE private key (canonical)
+- `~/zen/keys/zen-brain/credentials.pub` - AGE public key (canonical)
 
 **Runtime (cluster):**
 - `/zen-lock/secrets` - Mounted by ZenLock, ONLY allowed source
+
+**Legacy keys (deprecated but still exist):**
+- `~/zen/ZENBRAINPRIVATEKEYNEVERDELETETHISSHIT.age` → Use `~/zen/keys/zen-brain/credentials.key`
+- `~/zen/ZENBRAINPUBLICKEYNEVERDELETETHISSHIT.age` → Use `~/zen/keys/zen-brain/credentials.pub`
 
 **Setup command:**
 ```bash
@@ -68,9 +72,13 @@ cat > ~/zen/DONOTASKMOREFORTHISSHIT.txt << 'EOF'
 ATATT3...your-full-token-here...
 EOF
 
-# Generate AGE keypair (if not exists)
-age-keygen -o ~/zen/ZENBRAINPRIVATEKEYNEVERDELETETHISSHIT.age
-age-keygen -y ~/zen/ZENBRAINPRIVATEKEYNEVERDELETETHISSHIT.age > ~/zen/ZENBRAINPUBLICKEYNEVERDELETETHISSHIT.age
+# Generate AGE keypair (if not exists) - CANONICAL PATH
+mkdir -p ~/zen/keys/zen-brain
+age-keygen -o ~/zen/keys/zen-brain/credentials.key
+age-keygen -y ~/zen/keys/zen-brain/credentials.key > ~/zen/keys/zen-brain/credentials.pub
+
+# Legacy path (deprecated, but still works for backward compatibility)
+# age-keygen -o ~/zen/ZENBRAINPRIVATEKEYNEVERDELETETHISSHIT.age
 ```
 
 **NOTE:**

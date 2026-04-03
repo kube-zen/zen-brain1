@@ -60,6 +60,7 @@ def main():
     allowlist = {
         'AGENTS.md',
         'deploy/zen-lock/RUNBOOK.md',
+        'docs/05-OPERATIONS/CREDENTIAL_RAILS.md',  # References forbidden patterns as examples
     }
     
     for doc_name in CANONICAL_DOCS:
