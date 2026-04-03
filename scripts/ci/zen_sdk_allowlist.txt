@@ -107,3 +107,8 @@ internal/artifacts
 # Domain-specific to Zen-Brain's token accounting and cost estimation
 # Not an SDK concern — pricing data and cost calculation logic
 internal/cost/cas.go
+
+# Normalization: ticket normalization and bounded execution packet generation
+# Domain-specific to Zen-Brain's Jira ticket normalization workflow
+# Not an SDK concern — infers target files from ticket text and generates execution packets
+internal/normalizer/packet.go
