@@ -27,6 +27,7 @@ import (
 
 	"github.com/kube-zen/zen-brain1/internal/concurrency"
 	"github.com/kube-zen/zen-brain1/internal/readiness"
+	"github.com/kube-zen/zen-brain1/internal/creds"
 )
 
 // ─── Ticket Readiness Classification (PHASE 1) ───────────────────────
@@ -1425,6 +1426,20 @@ func main() {
 		cfg.ConcurrencyCfg.TotalSlots, cfg.ConcurrencyCfg.ReservedSlots,
 		cfg.ConcurrencyCfg.TotalSlots-cfg.ConcurrencyCfg.ReservedSlots,
 		cfg.PollInterval, cfg.L1Endpoint)
+
+	// PHASE 4: Emit startup capability summary (no secrets exposed)
+	jiraCap, err := creds.ResolveJiraCapabilities()
+	if err != nil {
+		log.Printf("[CAPABILITY] Jira resolver error: %v", err)
+	} else {
+		log.Printf("[CAPABILITY] Jira Token Source: %s", jiraCap.TokenSource)
+		log.Printf("[CAPABILITY] Jira Read Allowed: %v", jiraCap.ReadAllowed)
+		log.Printf("[CAPABILITY] Jira Update Allowed: %v", jiraCap.UpdateAllowed)
+		log.Printf("[CAPABILITY] Jira Create Allowed: %v", jiraCap.CreateAllowed)
+		if !jiraCap.CreateAllowed {
+			log.Printf("[CAPABILITY] WARNING: Jira token present but CREATE permission MISSING")
+		}
+	}
 
 	// State reconciliation: always run before fill cycle to fix any tickets stuck In Progress
 	// from previous cycles where the worker exited clean but quality gate rejected.
