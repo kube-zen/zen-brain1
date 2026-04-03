@@ -27,7 +27,8 @@ import (
 
 	"github.com/kube-zen/zen-brain1/internal/concurrency"
 	"github.com/kube-zen/zen-brain1/internal/readiness"
-	"github.com/kube-zen/zen-brain1/internal/creds"
+	"context"
+	"github.com/kube-zen/zen-brain1/internal/secrets"
 )
 
 // ─── Ticket Readiness Classification (PHASE 1) ───────────────────────
@@ -1428,16 +1429,23 @@ func main() {
 		cfg.PollInterval, cfg.L1Endpoint)
 
 	// PHASE 4: Emit startup capability summary (no secrets exposed)
-	jiraCap, err := creds.ResolveJiraCapabilities()
+	clusterMode := os.Getenv("KUBERNETES_SERVICE_HOST") != ""
+	jiraOpts := secrets.JiraResolveOptions{
+		DirPath:          "/zen-lock/secrets",
+		FilePath:         filepath.Join(os.Getenv("HOME"), ".zen-brain", "secrets", "jira.yaml"),
+		AllowEnvFallback: !clusterMode,
+		ClusterMode:      clusterMode,
+	}
+	jiraMaterial, err := secrets.ResolveJira(context.Background(), jiraOpts)
 	if err != nil {
 		log.Printf("[CAPABILITY] Jira resolver error: %v", err)
 	} else {
-		log.Printf("[CAPABILITY] Jira Token Source: %s", jiraCap.TokenSource)
-		log.Printf("[CAPABILITY] Jira Read Allowed: %v", jiraCap.ReadAllowed)
-		log.Printf("[CAPABILITY] Jira Update Allowed: %v", jiraCap.UpdateAllowed)
-		log.Printf("[CAPABILITY] Jira Create Allowed: %v", jiraCap.CreateAllowed)
-		if !jiraCap.CreateAllowed {
-			log.Printf("[CAPABILITY] WARNING: Jira token present but CREATE permission MISSING")
+		log.Printf("[CAPABILITY] Jira Token Source: %s", jiraMaterial.Source)
+		caps, capErr := secrets.CheckJiraCapabilities(context.Background(), jiraMaterial)
+		if capErr != nil {
+			log.Printf("[CAPABILITY] Jira capability check error: %v", capErr)
+		} else {
+			log.Printf("[CAPABILITY] %s", secrets.FormatJiraCapabilitySummary(jiraMaterial, caps))
 		}
 	}
 

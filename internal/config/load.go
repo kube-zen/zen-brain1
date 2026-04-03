@@ -223,46 +223,58 @@ func findConfigPath() string {
 	return filepath.Join(HomeDir(), "config.yaml")
 }
 
-// loadFromEnv loads sensitive configuration from environment variables.
-// Supports both legacy and unified Jira env names: JIRA_URL, JIRA_EMAIL, JIRA_USERNAME,
-// JIRA_TOKEN, JIRA_API_TOKEN, JIRA_PROJECT_KEY. APIToken prefers JIRA_API_TOKEN then JIRA_TOKEN;
-// Email prefers JIRA_EMAIL then JIRA_USERNAME.
+// loadFromEnv loads sensitive configuration from canonical secret resolvers.
+// DEPRECATED: Direct environment variable access is no longer supported.
+// This function now uses secrets.ResolveJira() and secrets.ResolveGit() for
+// canonical credential resolution.
+//
+// Cluster mode: Uses /zen-lock/secrets only (no env fallback)
+// Local mode: Uses ~/.zen-brain/secrets/jira.yaml with optional env fallback
 func (c *Config) loadFromEnv() {
-	// Jira: unified env support
-	if c.Jira.BaseURL == "" {
-		c.Jira.BaseURL = os.Getenv("JIRA_URL")
-	}
-	if c.Jira.Email == "" {
-		c.Jira.Email = os.Getenv("JIRA_EMAIL")
-	}
-	if c.Jira.Email == "" {
-		c.Jira.Email = os.Getenv("JIRA_USERNAME")
-	}
-	if c.Jira.Username == "" {
-		c.Jira.Username = os.Getenv("JIRA_USERNAME")
-	}
-	if c.Jira.APIToken == "" {
-		c.Jira.APIToken = os.Getenv("JIRA_API_TOKEN")
-	}
-	if c.Jira.APIToken == "" {
-		c.Jira.APIToken = os.Getenv("JIRA_TOKEN")
-	}
-	if c.Jira.ProjectKey == "" {
-		c.Jira.ProjectKey = os.Getenv("JIRA_PROJECT_KEY")
-	}
-	// Compatibility: Project -> ProjectKey if ProjectKey empty
-	if c.Jira.ProjectKey == "" && c.Jira.Project != "" {
-		c.Jira.ProjectKey = c.Jira.Project
-	}
-	if c.Jira.Email == "" && c.Jira.Username != "" {
-		c.Jira.Email = c.Jira.Username
+	// Determine cluster mode from environment
+	clusterMode := os.Getenv("KUBERNETES_SERVICE_HOST") != "" || os.Getenv("ZEN_CLUSTER_MODE") == "true"
+
+	// Jira: Use canonical resolver
+	jiraOpts := secrets.JiraResolveOptions{
+		DirPath:          "/zen-lock/secrets", // Canonical ZenLock mount path
+		FilePath:         filepath.Join(HomeDir(), ".zen-brain", "secrets", "jira.yaml"),
+		AllowEnvFallback: !clusterMode, // Only allow env fallback in local mode
+		ClusterMode:      clusterMode,
 	}
 
-	// Confluence credentials
+	jiraMaterial, err := secrets.ResolveJira(context.Background(), jiraOpts)
+	if err != nil {
+		if clusterMode {
+			// In cluster mode, this is a hard error
+			fmt.Fprintf(os.Stderr, "[Config] CRITICAL: Failed to load Jira credentials in cluster mode: %v\n", err)
+			fmt.Fprintf(os.Stderr, "[Config] Ensure ZenLock mount exists at /zen-lock/secrets\n")
+			os.Exit(1)
+		}
+		// In local mode, log warning but continue
+		fmt.Fprintf(os.Stderr, "[Config] Warning: Jira credentials not loaded: %v\n", err)
+	} else if jiraMaterial != nil && jiraMaterial.Source != "none" {
+		// Apply resolved credentials
+		if jiraMaterial.BaseURL != "" {
+			c.Jira.BaseURL = jiraMaterial.BaseURL
+		}
+		if jiraMaterial.Email != "" {
+			c.Jira.Email = jiraMaterial.Email
+		}
+		if jiraMaterial.APIToken != "" {
+			c.Jira.APIToken = jiraMaterial.APIToken
+		}
+		if jiraMaterial.ProjectKey != "" {
+			c.Jira.ProjectKey = jiraMaterial.ProjectKey
+		}
+	}
+
+	// Confluence: Use canonical resolver (similar pattern - TODO: implement secrets.ConfluenceResolve)
+	// For now, keep env fallback for Confluence until canonical resolver implemented
 	c.Confluence.Username = os.Getenv("CONFLUENCE_USERNAME")
 	c.Confluence.APIToken = os.Getenv("CONFLUENCE_API_TOKEN")
 
-	// AWS credentials for S3
+	// AWS: Use canonical resolver (similar pattern - TODO: implement secrets.AWSResolve)
+	// For now, keep env fallback for AWS until canonical resolver implemented
 	if c.ZenContext.Tier3S3.AccessKeyID == "" {
 		c.ZenContext.Tier3S3.AccessKeyID = os.Getenv("AWS_ACCESS_KEY_ID")
 	}

@@ -12,7 +12,6 @@ import (
 
 	"github.com/kube-zen/zen-brain1/internal/analyzer"
 	"github.com/kube-zen/zen-brain1/internal/config"
-	"github.com/kube-zen/zen-brain1/internal/creds"
 	internalcontext "github.com/kube-zen/zen-brain1/internal/context"
 	"github.com/kube-zen/zen-brain1/internal/context/tier1"
 	"github.com/kube-zen/zen-brain1/internal/context/tier3"

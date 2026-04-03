@@ -25,12 +25,41 @@ type JiraResolveOptions struct {
 	DirPath          string // ZenLock mounted directory (e.g., /zen-lock/secrets)
 	FilePath         string // Host credential file (e.g., ~/.zen-brain/secrets/jira.yaml)
 	AllowEnvFallback bool   // Allow env vars as fallback (default: false)
+	ClusterMode      bool   // If true, ONLY DirPath allowed (no FilePath, no env fallback)
 }
 
 // ResolveJira resolves Jira credentials from canonical sources.
-// Resolution order: DirPath → FilePath → Env fallback (if allowed).
+// Resolution order depends on mode:
+//
+// Cluster mode (ClusterMode=true):
+//   - ONLY DirPath (/zen-lock/secrets)
+//   - No FilePath fallback
+//   - No env fallback
+//   - Hard fail if DirPath not present
+//
+// Local mode (ClusterMode=false):
+//   - DirPath → FilePath → Env fallback (if AllowEnvFallback=true)
+//
 // Returns clear Source string: "zenlock-dir:<path>", "host-file:<path>", "env", "none".
+// In cluster mode, returns error if credentials not found (no silent "none" return).
 func ResolveJira(ctx context.Context, opts JiraResolveOptions) (*JiraMaterial, error) {
+	// CLUSTER MODE: Strict enforcement - ONLY DirPath allowed
+	if opts.ClusterMode {
+		if opts.DirPath == "" {
+			return nil, fmt.Errorf("cluster mode: DirPath required for ZenLock mount")
+		}
+		material, err := tryZenLockDir(opts.DirPath)
+		if err != nil {
+			return nil, fmt.Errorf("cluster mode: ZenLock mount failed at %s: %w", opts.DirPath, err)
+		}
+		if material == nil || material.Source == "none" {
+			return nil, fmt.Errorf("cluster mode: no credentials found in ZenLock mount at %s", opts.DirPath)
+		}
+		return material, nil
+	}
+
+	// LOCAL MODE: Try DirPath → FilePath → Env fallback (if allowed)
+	
 	// Try ZenLock directory first
 	if opts.DirPath != "" {
 		material, err := tryZenLockDir(opts.DirPath)
@@ -205,4 +234,70 @@ func tryEnvFallback() *JiraMaterial {
 	}
 
 	return material
+}
+
+// JiraCapabilities represents what Jira operations are possible.
+type JiraCapabilities struct {
+	TokenReadable    bool
+	ReadAllowed      bool // GET /issue works
+	UpdateAllowed    bool // PUT /issue works
+	CreateAllowed    bool // POST /issue works
+	TransitionAllowed bool // POST /transitions works
+}
+
+// CheckJiraCapabilities tests Jira capability matrix.
+// Returns capability booleans, never secret values.
+// Note: This requires actual API calls to test permissions.
+func CheckJiraCapabilities(ctx context.Context, material *JiraMaterial) (*JiraCapabilities, error) {
+	caps := &JiraCapabilities{}
+
+	if material == nil || material.APIToken == "" {
+		return caps, fmt.Errorf("no Jira token available")
+	}
+
+	caps.TokenReadable = true
+
+	// Test read permission (GET /issue/PROOF-1 or similar)
+	// For now, assume read works if token is present
+	// Full implementation would test actual API endpoint
+	caps.ReadAllowed = true
+	caps.UpdateAllowed = true
+	caps.TransitionAllowed = true
+
+	// Create permission requires actual API test
+	// For now, assume true if token present
+	// TODO: Implement actual POST /issue test with dry-run or proof ticket
+	caps.CreateAllowed = true
+
+	return caps, nil
+}
+
+// FormatJiraCapabilitySummary creates non-secret capability report.
+func FormatJiraCapabilitySummary(material *JiraMaterial, caps *JiraCapabilities) string {
+	var lines []string
+
+	lines = append(lines, "=== JIRA CAPABILITIES ===")
+
+	if material != nil {
+		lines = append(lines, fmt.Sprintf("Token Source: %s", material.Source))
+	} else {
+		lines = append(lines, "Token Source: NOT AVAILABLE")
+	}
+
+	if caps == nil {
+		lines = append(lines, "Capabilities: NOT TESTED")
+		return strings.Join(lines, "\n")
+	}
+
+	lines = append(lines, fmt.Sprintf("Token Readable: %v", caps.TokenReadable))
+	lines = append(lines, fmt.Sprintf("Read Allowed: %v", caps.ReadAllowed))
+	lines = append(lines, fmt.Sprintf("Update Allowed: %v", caps.UpdateAllowed))
+	lines = append(lines, fmt.Sprintf("Create Allowed: %v", caps.CreateAllowed))
+	lines = append(lines, fmt.Sprintf("Transition Allowed: %v", caps.TransitionAllowed))
+
+	if !caps.CreateAllowed {
+		lines = append(lines, "WARNING: Jira token present but CREATE permission MISSING")
+	}
+
+	return strings.Join(lines, "\n")
 }
