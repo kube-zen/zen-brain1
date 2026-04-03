@@ -1436,7 +1436,7 @@ func main() {
 
 	cfg := loadConfig()
 	if !cfg.Jcfg.enabled {
-		log.Fatalf("[FACTORY-FILL] Jira not configured — set JIRA_URL, JIRA_EMAIL, JIRA_API_TOKEN")
+		log.Fatalf("[FACTORY-FILL] Jira not configured — ensure canonical source is available (ZenLock mount at /zen-lock/secrets for cluster, or env fallback for local dev)")
 	}
 
 	os.MkdirAll(cfg.MetricsDir, 0755)

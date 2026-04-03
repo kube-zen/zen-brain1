@@ -123,7 +123,7 @@ spec:
   containers:
   - name: test
     image: busybox:1.36
-    command: ["sh", "-c", "ls -la /zen-lock/secrets && cat /zen-lock/secrets/JIRA_PROJECT_KEY"]
+    command: ["sh", "-c", "ls -la /zen-lock/secrets && test -f /zen-lock/secrets/JIRA_PROJECT_KEY && echo 'JIRA_PROJECT_KEY: present'"]
     volumeMounts:
     - name: zen-secrets
       mountPath: /zen-lock/secrets
@@ -156,11 +156,15 @@ JIRA_PROJECT_KEY
 JIRA_URL
 ```
 
-### Check values are correct
+### Check values are correct (safe methods)
 
 ```bash
-kubectl exec -n zen-brain deployment/foreman -- cat /zen-lock/secrets/JIRA_PROJECT_KEY
-# Expected: ZB
+# Method 1: Check capability matrix in logs (safe - no secret printed)
+kubectl logs -n zen-brain deployment/foreman | grep -i "jira project"
+# Expected: shows project key ZB
+
+# Method 2: Check file exists (safe - existence only)
+kubectl exec -n zen-brain deployment/foreman -- test -f /zen-lock/secrets/JIRA_PROJECT_KEY && echo "JIRA_PROJECT_KEY: present"
 ```
 
 ---

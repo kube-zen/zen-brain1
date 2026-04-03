@@ -114,9 +114,12 @@ All runtime Jira credentials come from ZenLock-injected secrets:
 
 ### Proof Command (verify from cluster)
 ```bash
-# From live pod
-kubectl exec -n zen-brain deployment/foreman -- cat /zen-lock/secrets/JIRA_EMAIL
-# Expected: zen@zen-mesh.io
+# From live pod - check file exists (safe, no secret value printed)
+kubectl exec -n zen-brain deployment/foreman -- test -f /zen-lock/secrets/JIRA_EMAIL && echo "JIRA_EMAIL present"
+
+# Check capability matrix (safe - shows source, not value)
+kubectl logs -n zen-brain deployment/foreman | grep -i "jira.*loaded from"
+# Expected: "[JIRA] ✅ Credentials loaded from zenlock-dir:/zen-lock/secrets"
 
 kubectl exec -n zen-brain deployment/foreman -- zen-brain office doctor
 # Expected: Jira auth OK
@@ -124,10 +127,9 @@ kubectl exec -n zen-brain deployment/foreman -- zen-brain office doctor
 
 ### Proof Command (local, with token)
 ```bash
-export JIRA_URL=https://zen-mesh.atlassian.net
-export JIRA_EMAIL=zen@zen-mesh.io
-export JIRA_TOKEN=<fresh-token>
-curl -sf -u "$JIRA_EMAIL:$JIRA_TOKEN" "$JIRA_URL/rest/api/3/myself" | python3 -c "import json,sys; d=json.load(sys.stdin); print(f'OK: {d[\"displayName\"]}')"
+# Use canonical resolver test (safe - no secret printed)
+./bin/zen-brain office doctor
+# Shows: credential source, email, project key (NOT token value)
 ```
 
 ### Mandatory Preflight Before Any Jira-Backed Run
@@ -236,19 +238,20 @@ Legacy project keys (e.g., `SCRUM`) are DEPRECATED. Do NOT use.
 ### From Live Foreman Pod
 
 ```bash
-# 1. Check credentials mounted
-kubectl exec -n zen-brain deployment/foreman -- cat /zen-lock/secrets/JIRA_EMAIL
-# Should output: zen@zen-mesh.io
+# 1. Check credentials mounted (safe - existence only, no value)
+kubectl exec -n zen-brain deployment/foreman -- test -f /zen-lock/secrets/JIRA_EMAIL && echo "JIRA_EMAIL: present"
+kubectl exec -n zen-brain deployment/foreman -- test -f /zen-lock/secrets/JIRA_API_TOKEN && echo "JIRA_API_TOKEN: present"
 
-# 2. Test auth
+# 2. Test auth (safe - capability matrix, no secret values)
 kubectl exec -n zen-brain deployment/foreman -- /app/zen-brain office doctor
 # Should show:
 #   Auth check: PASS
 #   Project check: PASS (project ZB accessible)
+#   Credential source: zenlock-dir:/zen-lock/secrets
 
-# 3. Test API directly (debugging only)
-kubectl exec -n zen-brain deployment/foreman -- /tmp/test-auth
-# Tests both emails, shows which works
+# 3. Check startup logs (safe - shows source path, not values)
+kubectl logs -n zen-brain deployment/foreman | grep -i "jira.*loaded"
+# Expected: "[JIRA] ✅ Credentials loaded from zenlock-dir:/zen-lock/secrets"
 ```
 
 ### Preflight Checks
@@ -344,11 +347,16 @@ Must contain:
 
 ### "Jira auth fails with 401"
 
-1. **Check email from live Foreman pod**:
+1. **Check email from capability matrix (safe - no secret printed)**:
    ```bash
-   kubectl exec -n zen-brain deployment/foreman -- cat /zen-lock/secrets/JIRA_EMAIL
+   kubectl logs -n zen-brain deployment/foreman | grep -i "jira email"
    ```
-   Must be `zen@zen-mesh.io`
+   Must show `zen@zen-mesh.io`
+
+   Or check mounted file exists (existence only):
+   ```bash
+   kubectl exec -n zen-brain deployment/foreman -- test -f /zen-lock/secrets/JIRA_EMAIL && echo "JIRA_EMAIL: present"
+   ```
 
 2. **If wrong email**:
    - Update `deploy/zen-lock/jira-metadata.yaml`

@@ -759,7 +759,7 @@ func main() {
 		url:     "",
 		email:   "",
 		token:   "",
-		project: envOr("JIRA_PROJECT_KEY", "ZB"),
+		project: "",
 		enabled: false,
 	}
 
@@ -767,6 +767,7 @@ func main() {
 		jcfg.url = material.BaseURL
 		jcfg.email = material.Email
 		jcfg.token = material.APIToken
+		jcfg.project = material.ProjectKey
 		jcfg.enabled = true
 		log.Printf("[JIRA] ✅ Credentials loaded from %s", material.Source)
 	} else {

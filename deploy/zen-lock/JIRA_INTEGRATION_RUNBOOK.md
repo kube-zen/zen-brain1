@@ -141,13 +141,14 @@ For local development outside Kubernetes, use the canonical resolver:
 **WARNING:** The scripts `scripts/load_jira_credentials.py` and `scripts/install_jira_credentials.py` are **QUARANTINED** and will hard-fail. Use the canonical bootstrap script instead.
 
 ```bash
-# Use canonical bootstrap
+# Use canonical bootstrap (RECOMMENDED)
 ./deploy/zen-lock/bootstrap-jira-zenlock-from-local.sh
 
-# Or use env vars directly (local dev only, not recommended)
+# Local dev only: env fallback (NOT for cluster, NOT recommended)
+# The canonical resolver will read these if AllowEnvFallback: true
 export JIRA_URL="https://zen-mesh.atlassian.net"
 export JIRA_EMAIL="zen@zen-mesh.io"
-export JIRA_API_TOKEN="ATATT3..."
+export JIRA_API_TOKEN="<your-token>"  # Never commit this
 export JIRA_PROJECT_KEY="ZB"
 ```
 
@@ -311,8 +312,8 @@ kubectl describe zenlock jira-credentials -n zen-brain
 - AllowedSubjects references non-existent ServiceAccount
 
 **Fix:**
-1. Regenerate keypair: `zen-lock keygen --output ~/.zen-lock/private-key.age`
-2. Re-run: `python3 scripts/generate_jira_secret.py`
+1. Regenerate keypair: `zen-lock keygen --output ~/zen/keys/zen-brain/credentials.key`
+2. Re-run bootstrap: `./deploy/zen-lock/bootstrap-jira-zenlock-from-local.sh`
 3. Re-apply: `kubectl apply -f deploy/zen-lock/jira-zenlock.yaml`
 
 ### office doctor: Credentials not present
@@ -320,10 +321,14 @@ kubectl describe zenlock jira-credentials -n zen-brain
 **Kubernetes runtime:**
 - Check Pod has `zenbrain-sa` or allowed SA
 - Check ZenLock `status.phase` is `Ready`
+- Check mount at `/zen-lock/secrets` exists
 
 **Host runtime:**
-- Check `~/.zen-brain/jira-credentials.env` exists
-- Run: `python3 scripts/load_jira_credentials.py`
+- Check encrypted bundle exists: `~/zen/keys/zen-brain/secrets.d/jira.enc`
+- Check canonical key exists: `~/zen/keys/zen-brain/credentials.key`
+- Run bootstrap if missing: `./deploy/zen-lock/bootstrap-jira-zenlock-from-local.sh`
+
+**Note:** The scripts `scripts/load_jira_credentials.py` and `scripts/install_jira_credentials.py` are **QUARANTINED** and will hard-fail. Use the canonical bootstrap script instead.
 
 ### office doctor: API reachability failed
 

@@ -21,11 +21,11 @@ import (
 // The gate checks auth, packet structure, context budgets, and evidence contracts.
 // Results are recorded in a durable failure ledger for empirical routing.
 //
-// ENV VARS:
-//   JIRA_URL      — Jira base URL (empty = skip Jira preflight)
-//   JIRA_EMAIL    — Jira email
-//   JIRA_TOKEN    — Jira API token
-//   JIRA_PROJECT  — Jira project key (default: ZB)
+// Jira credentials resolved via canonical resolver (internal/secrets/jira.go):
+//   - Cluster mode: /zen-lock/secrets/* only
+//   - Local mode: env fallback allowed (JIRA_URL, JIRA_EMAIL, JIRA_API_TOKEN, JIRA_PROJECT_KEY)
+//
+// Other env vars:
 //   L1_ENDPOINT   — L1 health endpoint (default: http://localhost:56227/health)
 //   LEDGER_DIR    — failure ledger directory (default: /var/lib/zen-brain1/ledger)
 //   STRICT        — fail on any warning (default: true)
@@ -260,8 +260,6 @@ func checkAuth() PreflightResult {
 		ClusterMode:      clusterMode,
 	})
 
-	jiraProject := envOr("JIRA_PROJECT", "ZB")
-
 	// If no Jira config, skip (not blocking)
 	if err != nil || material.Source == "none" {
 		return PreflightResult{
@@ -275,9 +273,14 @@ func checkAuth() PreflightResult {
 	if material.BaseURL == "" || material.Email == "" || material.APIToken == "" {
 		return PreflightResult{
 			Name: "jira-auth", Passed: false, Blocked: true,
-			Message:  "Jira partially configured (need JIRA_URL, JIRA_EMAIL, JIRA_API_TOKEN)",
+			Message:  "Jira partially configured (missing base URL, email, or API token)",
 			Duration: time.Since(start).String(),
 		}
+	}
+
+	jiraProject := material.ProjectKey
+	if jiraProject == "" {
+		jiraProject = "ZB"
 	}
 
 	// Verify endpoint reachable + token authenticates
