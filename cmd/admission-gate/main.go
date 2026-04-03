@@ -254,10 +254,9 @@ func checkAuth() PreflightResult {
 
 	// Use canonical resolver
 	material, err := secrets.ResolveJira(context.Background(), secrets.JiraResolveOptions{
-		DirPath:          dirPath,
-		FilePath:         "",
-		AllowEnvFallback: !clusterMode,
-		ClusterMode:      clusterMode,
+		DirPath:     dirPath,
+		FilePath:    "",
+		ClusterMode: clusterMode,
 	})
 
 	// If no Jira config, skip (not blocking)

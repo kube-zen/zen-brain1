@@ -252,14 +252,6 @@ func (v *ConfigValidator) validateJira(cfg *Config, result *ValidationResult) {
 		})
 	}
 
-	// Warn if env fallback is enabled
-	if cfg.Jira.AllowEnvFallback {
-		result.Warnings = append(result.Warnings, ValidationWarning{
-			Field:   "jira.allow_env_fallback",
-			Message: "env fallback is enabled - consider using canonical sources (credentials_dir or credentials_file)",
-		})
-	}
-
 	// Validate credential paths exist
 	if cfg.Jira.CredentialsFile != "" {
 		if _, err := os.Stat(cfg.Jira.CredentialsFile); os.IsNotExist(err) {

@@ -286,7 +286,6 @@ kubectl exec -n zen-brain $FOREMAN_POD -- /app/zen-brain office doctor 2>&1 | gr
    - `~/zen/ZENBRAINPRIVATEKEYNEVERDELETETHISSHIT.age`
    - `~/zen/ZENBRAINPUBLICKEYNEVERDELETETHISSHIT.age`
    - `~/zen/DONOTASKMOREFORTHISSHIT.txt`
-   - `~/.env.jira.local`
 
 2. **ALWAYS use encrypted ZenLock manifests:**
    - Stored in repo as `jira-credentials.zenlock.yaml`
@@ -303,7 +302,6 @@ Ensure these patterns are in `.gitignore`:
 
 ```gitignore
 # Zen-Lock credentials (NEVER COMMIT)
-.env.jira.local
 DONOTASKMOREFORTHISSHIT.txt
 ZENBRAIN*NEVERDELETETHISSHIT.age
 zen-lock-private-key.age

@@ -87,10 +87,9 @@ func loadJiraConfig() jiraConfig {
 
 	// Use canonical resolver
 	material, err := secrets.ResolveJira(context.Background(), secrets.JiraResolveOptions{
-		DirPath:          dirPath,
-		FilePath:         "",           // No host file in cluster
-		AllowEnvFallback: !clusterMode, // Allow env fallback only in local mode
-		ClusterMode:      clusterMode,
+		DirPath:     dirPath,
+		FilePath:    "", // No host file in cluster
+		ClusterMode: clusterMode,
 	})
 
 	if err != nil {
@@ -1457,10 +1456,9 @@ func main() {
 	// PHASE 4: Emit startup capability summary (no secrets exposed)
 	clusterMode := os.Getenv("KUBERNETES_SERVICE_HOST") != ""
 	jiraOpts := secrets.JiraResolveOptions{
-		DirPath:          "/zen-lock/secrets",
-		FilePath:         filepath.Join(os.Getenv("HOME"), ".zen-brain", "secrets", "jira.yaml"),
-		AllowEnvFallback: !clusterMode,
-		ClusterMode:      clusterMode,
+		DirPath:     "/zen-lock/secrets",
+		FilePath:    filepath.Join(os.Getenv("HOME"), ".zen-brain", "secrets", "jira.yaml"),
+		ClusterMode: clusterMode,
 	}
 	jiraMaterial, err := secrets.ResolveJira(context.Background(), jiraOpts)
 	if err != nil {

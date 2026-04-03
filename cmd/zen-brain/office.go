@@ -107,10 +107,9 @@ func runOfficeDoctor() {
 		mgr = office.NewManager()
 		// Try canonical resolver fallback
 		material, err := secrets.ResolveJira(context.Background(), secrets.JiraResolveOptions{
-			DirPath:          "",
-			FilePath:         "",
-			AllowEnvFallback: true,
-			ClusterMode:      false,
+			DirPath:     "",
+			FilePath:    "",
+			ClusterMode: false,
 		})
 		if err == nil && material.Source != "none" {
 			// Create a minimal Jira connector using resolved credentials
@@ -625,10 +624,9 @@ func getOfficeManager() (*office.Manager, error) {
 	mgr := office.NewManager()
 	// Use canonical resolver
 	material, err := secrets.ResolveJira(context.Background(), secrets.JiraResolveOptions{
-		DirPath:          "",
-		FilePath:         "",
-		AllowEnvFallback: true,
-		ClusterMode:      false,
+		DirPath:     "",
+		FilePath:    "",
+		ClusterMode: false,
 	})
 	if err != nil || material.Source == "none" {
 		return nil, fmt.Errorf("no Jira credentials available")

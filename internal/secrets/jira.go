@@ -22,10 +22,10 @@ type JiraMaterial struct {
 
 // JiraResolveOptions controls credential resolution behavior.
 type JiraResolveOptions struct {
-	DirPath          string // ZenLock mounted directory (e.g., /zen-lock/secrets)
-	FilePath         string // Host credential file (e.g., ~/.zen-brain/secrets/jira.yaml)
-	AllowEnvFallback bool   // Allow env vars as fallback (default: false)
-	ClusterMode      bool   // If true, ONLY DirPath allowed (no FilePath, no env fallback)
+	DirPath  string // ZenLock mounted directory (e.g., /zen-lock/secrets)
+	FilePath string // Host credential file (e.g., ~/.zen-brain/secrets/jira.yaml)
+
+	ClusterMode bool // If true, ONLY DirPath allowed (no FilePath, no env fallback)
 }
 
 // ResolveJira resolves Jira credentials from canonical sources.
@@ -38,7 +38,7 @@ type JiraResolveOptions struct {
 //   - Hard fail if DirPath not present
 //
 // Local mode (ClusterMode=false):
-//   - DirPath → FilePath → Env fallback (if AllowEnvFallback=true)
+//   - DirPath → FilePath (no env fallback allowed)
 //
 // Returns clear Source string: "zenlock-dir:<path>", "host-file:<path>", "env", "none".
 // In cluster mode, returns error if credentials not found (no silent "none" return).
@@ -59,7 +59,7 @@ func ResolveJira(ctx context.Context, opts JiraResolveOptions) (*JiraMaterial, e
 	}
 
 	// LOCAL MODE: Try DirPath → FilePath → Env fallback (if allowed)
-	
+
 	// Try ZenLock directory first
 	if opts.DirPath != "" {
 		material, err := tryZenLockDir(opts.DirPath)
@@ -79,14 +79,6 @@ func ResolveJira(ctx context.Context, opts JiraResolveOptions) (*JiraMaterial, e
 		}
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
-		}
-	}
-
-	// Try env fallback only if explicitly allowed
-	if opts.AllowEnvFallback {
-		material := tryEnvFallback()
-		if material != nil {
-			return material, nil
 		}
 	}
 
@@ -200,48 +192,12 @@ func tryHostFile(filePath string) (*JiraMaterial, error) {
 	return material, nil
 }
 
-// tryEnvFallback attempts to read credentials from environment variables.
-// Only used when AllowEnvFallback is explicitly true.
-// Supports: JIRA_API_TOKEN/JIRA_TOKEN, JIRA_EMAIL/JIRA_USERNAME, JIRA_URL, JIRA_PROJECT_KEY
-func tryEnvFallback() *JiraMaterial {
-	material := &JiraMaterial{
-		Source: "env",
-	}
-
-	// Read from env
-	if material.BaseURL == "" {
-		material.BaseURL = os.Getenv("JIRA_URL")
-	}
-	if material.Email == "" {
-		material.Email = os.Getenv("JIRA_EMAIL")
-		if material.Email == "" {
-			material.Email = os.Getenv("JIRA_USERNAME")
-		}
-	}
-	if material.APIToken == "" {
-		material.APIToken = os.Getenv("JIRA_API_TOKEN")
-		if material.APIToken == "" {
-			material.APIToken = os.Getenv("JIRA_TOKEN")
-		}
-	}
-	if material.ProjectKey == "" {
-		material.ProjectKey = os.Getenv("JIRA_PROJECT_KEY")
-	}
-
-	// Validate that at least some credentials are present
-	if material.BaseURL == "" && material.APIToken == "" {
-		return nil
-	}
-
-	return material
-}
-
 // JiraCapabilities represents what Jira operations are possible.
 type JiraCapabilities struct {
-	TokenReadable    bool
-	ReadAllowed      bool // GET /issue works
-	UpdateAllowed    bool // PUT /issue works
-	CreateAllowed    bool // POST /issue works
+	TokenReadable     bool
+	ReadAllowed       bool // GET /issue works
+	UpdateAllowed     bool // PUT /issue works
+	CreateAllowed     bool // POST /issue works
 	TransitionAllowed bool // POST /transitions works
 }
 

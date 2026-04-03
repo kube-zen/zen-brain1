@@ -52,9 +52,8 @@ type stewardConfig struct {
 func loadConfig() stewardConfig {
 	// ZB-CREDENTIAL-RAILS: Use canonical resolver for Jira credentials
 	jiraCreds, err := secrets.ResolveJira(context.Background(), secrets.JiraResolveOptions{
-		ClusterMode:      false,
-		DirPath:          "",
-		AllowEnvFallback: true,
+		ClusterMode: false,
+		DirPath:     "",
 	})
 	if err != nil {
 		log.Printf("[WARN] Jira credential resolution failed: %v, using env fallback", err)

@@ -24,8 +24,7 @@ func TestResolveJira_ZenLockDir(t *testing.T) {
 	os.WriteFile(filepath.Join(tempDir, "JIRA_PROJECT_KEY"), []byte(testProject), 0600)
 
 	opts := JiraResolveOptions{
-		DirPath:          tempDir,
-		AllowEnvFallback: false,
+		DirPath: tempDir,
 	}
 
 	material, err := ResolveJira(ctx, opts)
@@ -64,8 +63,7 @@ func TestResolveJira_HostFileStringData(t *testing.T) {
 	os.WriteFile(tempFile, []byte(yamlContent), 0600)
 
 	opts := JiraResolveOptions{
-		FilePath:         tempFile,
-		AllowEnvFallback: false,
+		FilePath: tempFile,
 	}
 
 	material, err := ResolveJira(ctx, opts)
@@ -103,8 +101,7 @@ JIRA_PROJECT_KEY: "TEST"
 	os.WriteFile(tempFile, []byte(yamlContent), 0600)
 
 	opts := JiraResolveOptions{
-		FilePath:         tempFile,
-		AllowEnvFallback: false,
+		FilePath: tempFile,
 	}
 
 	material, err := ResolveJira(ctx, opts)
@@ -132,9 +129,7 @@ func TestResolveJira_EnvFallbackEnabled(t *testing.T) {
 		os.Unsetenv("JIRA_PROJECT_KEY")
 	}()
 
-	opts := JiraResolveOptions{
-		AllowEnvFallback: true,
-	}
+	opts := JiraResolveOptions{}
 
 	material, err := ResolveJira(ctx, opts)
 	if err != nil {
@@ -164,9 +159,7 @@ func TestResolveJira_EnvFallbackDisabled(t *testing.T) {
 		os.Unsetenv("JIRA_PROJECT_KEY")
 	}()
 
-	opts := JiraResolveOptions{
-		AllowEnvFallback: false, // Disabled by default
-	}
+	opts := JiraResolveOptions{}
 
 	material, err := ResolveJira(ctx, opts)
 	if err != nil {
@@ -199,8 +192,7 @@ func TestResolveJira_SourcePriority(t *testing.T) {
 
 	// Test: ZenLock dir should take priority over env
 	opts := JiraResolveOptions{
-		DirPath:          tempDir,
-		AllowEnvFallback: true,
+		DirPath: tempDir,
 	}
 
 	material, err := ResolveJira(ctx, opts)
@@ -225,8 +217,7 @@ func TestResolveJira_EmptyCredentials(t *testing.T) {
 
 	// Create ZenLock directory but without credentials
 	opts := JiraResolveOptions{
-		DirPath:          tempDir,
-		AllowEnvFallback: false,
+		DirPath: tempDir,
 	}
 
 	material, err := ResolveJira(ctx, opts)
@@ -248,8 +239,7 @@ func TestResolveJira_ContextCancellation(t *testing.T) {
 
 	tempDir := t.TempDir()
 	opts := JiraResolveOptions{
-		DirPath:          tempDir,
-		AllowEnvFallback: false,
+		DirPath: tempDir,
 	}
 
 	material, err := ResolveJira(ctx, opts)

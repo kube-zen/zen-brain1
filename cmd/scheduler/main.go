@@ -527,10 +527,9 @@ func loadJiraLedgerConfig() jiraLedgerConfig {
 
 	// Use canonical resolver
 	material, err := secrets.ResolveJira(context.Background(), secrets.JiraResolveOptions{
-		DirPath:          dirPath,
-		FilePath:         "",           // No host file in cluster
-		AllowEnvFallback: !clusterMode, // Allow env fallback only in local mode
-		ClusterMode:      clusterMode,
+		DirPath:     dirPath,
+		FilePath:    "", // No host file in cluster
+		ClusterMode: clusterMode,
 	})
 
 	if err != nil {

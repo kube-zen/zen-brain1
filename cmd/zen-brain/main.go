@@ -291,10 +291,9 @@ func runVerticalSlice() {
 	if jiraMode == "" && !useMock {
 		// Use canonical resolver
 		material, err := secrets.ResolveJira(context.Background(), secrets.JiraResolveOptions{
-			DirPath:          "",
-			FilePath:         "",
-			AllowEnvFallback: true,
-			ClusterMode:      false,
+			DirPath:     "",
+			FilePath:    "",
+			ClusterMode: false,
 		})
 		if err != nil || material.Source == "none" {
 			log.Fatalf("  ✗ Jira connector initialization failed: no credentials available\n  Use --mock flag for testing without Jira")

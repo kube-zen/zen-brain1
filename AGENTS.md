@@ -211,7 +211,6 @@ Legacy project keys (e.g., `SCRUM`) are DEPRECATED. Do NOT use.
    - `~/.zen-brain/secrets/jira.yaml` - FORBIDDEN
    - `~/.zen-lock/private-key.age` - FORBIDDEN
    - `~/zen/ZENBRAINPRIVATEKEYNEVERDELETETHISSHIT.age` - Legacy, use `~/zen/keys/zen-brain/credentials.key`
-   - Random `.env.jira.local` files - FORBIDDEN
 
 3. **Use wrong Jira email**
    - zen@zen-mesh.io - FORBIDDEN (causes 401)

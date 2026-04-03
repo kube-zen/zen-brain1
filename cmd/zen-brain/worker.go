@@ -282,9 +282,8 @@ func loadRemediationConfig() RemediationConfig {
 	// ZB-CREDENTIAL-RAILS: Use canonical resolver for Jira credentials
 	clusterMode := os.Getenv("KUBERNETES_SERVICE_HOST") != ""
 	jiraCreds, err := secrets.ResolveJira(context.Background(), secrets.JiraResolveOptions{
-		ClusterMode:      clusterMode,
-		DirPath:          "",
-		AllowEnvFallback: !clusterMode,
+		ClusterMode: clusterMode,
+		DirPath:     "",
 	})
 	if err != nil {
 		log.Printf("[WARN] Jira credential resolution failed: %v", err)

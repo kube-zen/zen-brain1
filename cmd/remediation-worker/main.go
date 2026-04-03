@@ -189,9 +189,8 @@ func loadJiraConfig() jiraConfig {
 	clusterMode := os.Getenv("KUBERNETES_SERVICE_HOST") != ""
 
 	jiraCreds, err := secrets.ResolveJira(context.Background(), secrets.JiraResolveOptions{
-		ClusterMode:      clusterMode,
-		DirPath:          "",
-		AllowEnvFallback: !clusterMode,
+		ClusterMode: clusterMode,
+		DirPath:     "",
 	})
 
 	jcfg := jiraConfig{

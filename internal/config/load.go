@@ -83,10 +83,9 @@ type JiraConfig struct {
 	CustomFieldMapping map[string]string `yaml:"custom_field_mapping"`
 
 	// Canonical secret source fields
-	CredentialsFile   string `yaml:"credentials_file"`   // Path to host credential file (default: ~/.zen-brain/secrets/jira.yaml)
-	CredentialsDir    string `yaml:"credentials_dir"`    // Path to ZenLock mounted dir (default: /zen-lock/secrets)
-	AllowEnvFallback  bool   `yaml:"allow_env_fallback"` // Allow env vars as fallback (default: false)
-	CredentialsSource string `yaml:"-"`                  // Populated after resolution
+	CredentialsFile   string `yaml:"credentials_file"` // Path to host credential file (default: ~/.zen-brain/secrets/jira.yaml)
+	CredentialsDir    string `yaml:"credentials_dir"`  // Path to ZenLock mounted dir (default: /zen-lock/secrets)
+	CredentialsSource string `yaml:"-"`                // Populated after resolution
 }
 
 // ConfluenceConfig holds Confluence integration configuration.
@@ -204,9 +203,6 @@ func LoadConfig(path string) (*Config, error) {
 		return nil, fmt.Errorf("failed to parse config file %s: %w", path, err)
 	}
 
-	// Load sensitive values from environment variables
-	config.loadFromEnv()
-
 	// Load Jira credentials from canonical sources
 	config.loadJiraCredentials()
 
@@ -223,51 +219,9 @@ func findConfigPath() string {
 	return filepath.Join(HomeDir(), "config.yaml")
 }
 
-// loadFromEnv loads sensitive configuration from canonical secret resolvers.
-// DEPRECATED: Direct environment variable access is no longer supported.
-// This function now uses secrets.ResolveJira() and secrets.ResolveGit() for
-// canonical credential resolution.
-//
-// Cluster mode: Uses /zen-lock/secrets only (no env fallback)
-// Local mode: Uses ~/.zen-brain/secrets/jira.yaml with optional env fallback
+// loadFromEnv loads non-Jira environment variables (Confluence, AWS, Redis, etc.).
+// Jira credentials are loaded via loadJiraCredentials() using the canonical resolver.
 func (c *Config) loadFromEnv() {
-	// Determine cluster mode from environment
-	clusterMode := os.Getenv("KUBERNETES_SERVICE_HOST") != "" || os.Getenv("ZEN_CLUSTER_MODE") == "true"
-
-	// Jira: Use canonical resolver
-	jiraOpts := secrets.JiraResolveOptions{
-		DirPath:          "/zen-lock/secrets", // Canonical ZenLock mount path
-		FilePath:         filepath.Join(HomeDir(), ".zen-brain", "secrets", "jira.yaml"),
-		AllowEnvFallback: !clusterMode, // Only allow env fallback in local mode
-		ClusterMode:      clusterMode,
-	}
-
-	jiraMaterial, err := secrets.ResolveJira(context.Background(), jiraOpts)
-	if err != nil {
-		if clusterMode {
-			// In cluster mode, this is a hard error
-			fmt.Fprintf(os.Stderr, "[Config] CRITICAL: Failed to load Jira credentials in cluster mode: %v\n", err)
-			fmt.Fprintf(os.Stderr, "[Config] Ensure ZenLock mount exists at /zen-lock/secrets\n")
-			os.Exit(1)
-		}
-		// In local mode, log warning but continue
-		fmt.Fprintf(os.Stderr, "[Config] Warning: Jira credentials not loaded: %v\n", err)
-	} else if jiraMaterial != nil && jiraMaterial.Source != "none" {
-		// Apply resolved credentials
-		if jiraMaterial.BaseURL != "" {
-			c.Jira.BaseURL = jiraMaterial.BaseURL
-		}
-		if jiraMaterial.Email != "" {
-			c.Jira.Email = jiraMaterial.Email
-		}
-		if jiraMaterial.APIToken != "" {
-			c.Jira.APIToken = jiraMaterial.APIToken
-		}
-		if jiraMaterial.ProjectKey != "" {
-			c.Jira.ProjectKey = jiraMaterial.ProjectKey
-		}
-	}
-
 	// Confluence: Use canonical resolver (similar pattern - TODO: implement secrets.ConfluenceResolve)
 	// For now, keep env fallback for Confluence until canonical resolver implemented
 	c.Confluence.Username = os.Getenv("CONFLUENCE_USERNAME")
@@ -303,17 +257,12 @@ func (c *Config) loadFromEnv() {
 	if c.ZenContext.ClusterID == "" {
 		c.ZenContext.ClusterID = os.Getenv("CLUSTER_ID")
 	}
-
-	// Check for explicit env fallback override
-	if os.Getenv("ZEN_BRAIN_ALLOW_ENV_SECRETS") == "1" {
-		c.Jira.AllowEnvFallback = true
-	}
 }
 
 // loadJiraCredentials resolves Jira credentials from canonical sources.
 // In cluster mode: ONLY accepts credentials from /zen-lock/secrets.
 // In local dev mode: MAY use credentials_file for debugging only.
-// Resolution order: credentials_dir → credentials_file → env fallback (if allowed).
+// Resolution order: credentials_dir → credentials_file.
 // Populates BaseURL, Email, APIToken, ProjectKey, and CredentialsSource.
 func (c *Config) loadJiraCredentials() {
 	ctx := context.Background()
@@ -322,9 +271,6 @@ func (c *Config) loadJiraCredentials() {
 	inClusterMode := os.Getenv("KUBERNETES_SERVICE_HOST") != "" ||
 		os.Getenv("CONTAINER_NAME") != "" ||
 		os.Getenv("CLUSTER_ID") != ""
-
-	// Check if env fallback is explicitly enabled via env var
-	allowEnvFallback := c.Jira.AllowEnvFallback || os.Getenv("ZEN_BRAIN_ALLOW_ENV_SECRETS") == "1"
 
 	// Set defaults for credential paths
 	if c.Jira.CredentialsDir == "" {
@@ -367,20 +313,18 @@ func (c *Config) loadJiraCredentials() {
 		fmt.Fprintf(os.Stderr, "  InClusterMode: %v\n", inClusterMode)
 		fmt.Fprintf(os.Stderr, "  CredentialsFile: %s\n", c.Jira.CredentialsFile)
 		fmt.Fprintf(os.Stderr, "  CredentialsDir: %s\n", c.Jira.CredentialsDir)
-		fmt.Fprintf(os.Stderr, "  AllowEnvFallback: %v\n", allowEnvFallback)
 	}
 
 	// ZB-025A: In cluster mode, ONLY use credentials_dir, never credentials_file
 	opts := secrets.JiraResolveOptions{
-		DirPath:          c.Jira.CredentialsDir,
-		FilePath:         "", // Empty in cluster mode
-		AllowEnvFallback: false, // Never allowed in cluster mode
+		DirPath:     c.Jira.CredentialsDir,
+		FilePath:    "", // Empty in cluster mode
+		ClusterMode: inClusterMode,
 	}
 
-	// In local dev mode, allow credentials_file and env fallback
+	// In local dev mode, allow credentials_file
 	if !inClusterMode {
 		opts.FilePath = c.Jira.CredentialsFile
-		opts.AllowEnvFallback = allowEnvFallback
 	}
 
 	// Resolve credentials from canonical sources
@@ -483,7 +427,6 @@ func (c *Config) setDefaults() {
 	// ZB-025A: DO NOT set default credentials_file path
 	// This eliminates ambiguity and prevents silent fallback
 	// If credentials_file is needed for local debug, operator must explicitly set it
-	// AllowEnvFallback defaults to false (already set by struct tag)
 }
 
 // ApplyEnvOverrides applies environment variable overrides and loads Jira credentials.
