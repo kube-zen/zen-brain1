@@ -21,10 +21,6 @@ Jira credentials are managed through **ZenLock** as the ONLY source of truth in 
 **Runtime (cluster):**
 - `/zen-lock/secrets` - Mounted by ZenLock, ONLY allowed source
 
-**Legacy keys (deprecated but still exist):**
-- `~/zen/ZENBRAINPRIVATEKEYNEVERDELETETHISSHIT.age` → Use `~/zen/keys/zen-brain/credentials.key`
-- `~/zen/ZENBRAINPUBLICKEYNEVERDELETETHISSHIT.age` → Use `~/zen/keys/zen-brain/credentials.pub`
-
 **Setup command:**
 ```bash
 deploy/zen-lock/bootstrap-jira-zenlock-from-local.sh
@@ -56,7 +52,7 @@ Jira credentials are managed through **ZenLock** as the source of truth. Access 
 | Field | Description |
 |--------|-------------|
 | JIRA_URL | Base URL (e.g., `https://zen-mesh.atlassian.net`) |
-| JIRA_EMAIL | User email (e.g., `zen@kube-zen.io`) |
+| JIRA_EMAIL | User email (e.g., `zen@zen-mesh.io`) |
 | JIRA_API_TOKEN | API token (user-level `ATATT3...`) |
 | JIRA_PROJECT_KEY | Project key (e.g., `ZB`) |
 

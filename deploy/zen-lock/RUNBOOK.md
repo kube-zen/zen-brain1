@@ -15,11 +15,10 @@
 |------|---------|--------------|
 | `~/zen/keys/zen-brain/credentials.key` | AGE private key (canonical) | ✓ |
 | `~/zen/keys/zen-brain/credentials.pub` | AGE public key (canonical) | ✓ |
-| `~/zen/DONOTASKMOREFORTHISSHIT.txt` | Jira API token (ephemeral) | ✓ |
+| `~/zen/DONOTASKMOREFORTHISSHIT.txt` | Jira API token (ephemeral, deleted after bootstrap) | ✓ |
 
-**Legacy keys (still exist but deprecated):**
-- `~/zen/ZENBRAINPRIVATEKEYNEVERDELETETHISSHIT.age` → Use `~/zen/keys/zen-brain/credentials.key`
-- `~/zen/ZENBRAINPUBLICKEYNEVERDELETETHISSHIT.age` → Use `~/zen/keys/zen-brain/credentials.pub`
+**One Canonical Path Only**
+There is only one valid credential path. Any other filename or location is invalid and will fail.
 
 ## Non-Negotiable Rules
 
@@ -154,11 +153,15 @@ kubectl -n zen-lock-system logs -l app.kubernetes.io/component=webhook
 ### Credentials not loading
 
 ```bash
-# Check mounted secrets
-kubectl exec -n zen-brain deployment/foreman -- ls -la /zen-lock/secrets/
+# Check mounted secrets (existence only, no values printed)
+kubectl exec -n zen-brain deployment/foreman -- test -f /zen-lock/secrets/JIRA_EMAIL && echo "JIRA_EMAIL: present"
 
-# Check config file
-kubectl exec -n zen-brain deployment/foreman -- cat /home/zenuser/.zen-brain/config.yaml
+# Verify capability matrix (shows source path, not secret values)
+kubectl logs -n zen-brain deployment/foreman | grep -i "jira.*loaded"
+# Expected: "[JIRA] ✅ Credentials loaded from zenlock-dir:/zen-lock/secrets"
+
+# Verify with doctor command
+kubectl exec -n zen-brain deployment/foreman -- /app/zen-brain office doctor
 ```
 
 ## Files Reference
