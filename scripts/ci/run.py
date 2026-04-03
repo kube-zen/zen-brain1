@@ -33,18 +33,28 @@ GATES = {
     "vertical_slice_contract": "scripts/ci/vertical_slice_contract_gate.py",
     "local_model_policy": "scripts/ci/local_model_policy_gate.py",  # ZB-023: Enforce local CPU inference policy
     "local_cpu_profile": "scripts/ci/local_cpu_profile_gate.py",  # ZB-024: Enforce 45m timeout profile
+    # LAYER 2: Credential rails gates
+    "canonical_credential_access": "scripts/ci/canonical_credential_access_gate.py",
+    "no_secret_echo": "scripts/ci/no_secret_echo_gate.py",
+    "no_alt_credential_rails": "scripts/ci/no_alt_credential_rails_gate.py",
+    "zenlock_mount_only": "scripts/ci/zenlock_mount_only_gate.py",
+    "docs_drift_credential_rails": "scripts/ci/docs_drift_credential_rails_gate.py",
 }
 
 SUITES = {
     "default": ["no_shell_scripts", "python_placement", "repo_layout",
                 "executable_sprawl", "no_binaries", "docs_links", "canonical_plan", "zen_sdk_ownership", "kb_qmd_direction", "model_facing_policy",
-                "local_model_policy", "local_cpu_profile"],  # ZB-023, ZB-024: Always check local model and profile
+                "local_model_policy", "local_cpu_profile",
+                "canonical_credential_access", "no_secret_echo", "no_alt_credential_rails", "zenlock_mount_only", "docs_drift_credential_rails"],  # LAYER 2: Credential gates always run
     "governance": ["no_shell_scripts", "python_placement", "repo_layout",
                    "executable_sprawl", "zen_sdk_ownership", "model_facing_policy",
-                   "local_model_policy", "local_cpu_profile"],  # ZB-023, ZB-024: Governance includes local model and profile checks
+                   "local_model_policy", "local_cpu_profile",
+                   "canonical_credential_access", "no_alt_credential_rails"],  # LAYER 2: Credential access and alt rails
     "docs": ["repo_layout", "docs_links", "canonical_plan", "kb_qmd_direction",
-              "local_model_policy", "local_cpu_profile"],  # ZB-023, ZB-024: Docs include local model and profile checks
+              "local_model_policy", "local_cpu_profile",
+              "docs_drift_credential_rails"],  # LAYER 2: Docs drift check
     "binaries": ["no_binaries"],
+    "credentials": ["canonical_credential_access", "no_secret_echo", "no_alt_credential_rails", "zenlock_mount_only", "docs_drift_credential_rails"],  # LAYER 2: All credential gates
     "all": list(GATES.keys()),
 }
 
