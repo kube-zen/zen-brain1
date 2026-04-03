@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,6 +11,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/kube-zen/zen-brain1/internal/secrets"
 )
 
 // zen-brain fail-closed admission gate.
@@ -35,37 +38,37 @@ const (
 // --- Packet structure (workorder) ---
 
 type TaskPacket struct {
-	TaskID     string `json:"task_id"`
-	Intent     string `json:"intent"`
-	Phase      string `json:"phase"`
-	MaxSteps   int    `json:"max_steps"`
-	MaxTools  int    `json:"max_tool_calls"`
+	TaskID      string   `json:"task_id"`
+	Intent      string   `json:"intent"`
+	Phase       string   `json:"phase"`
+	MaxSteps    int      `json:"max_steps"`
+	MaxTools    int      `json:"max_tool_calls"`
 	TargetFiles []string `json:"target_files"`
-	Acceptance string `json:"acceptance_criteria"`
-	Evidence   string `json:"evidence_needed"`
-	Rollback   string `json:"rollback_plan"`
-	TaskClass  string `json:"task_class"`
-	Lane       string `json:"target_lane"`
+	Acceptance  string   `json:"acceptance_criteria"`
+	Evidence    string   `json:"evidence_needed"`
+	Rollback    string   `json:"rollback_plan"`
+	TaskClass   string   `json:"task_class"`
+	Lane        string   `json:"target_lane"`
 }
 
 // --- Preflight results ---
 
 type PreflightResult struct {
-	Name      string `json:"name"`
-	Passed    bool   `json:"passed"`
-	Blocked   bool   `json:"blocked"` // true = hard fail, false = warning
-	Message   string `json:"message"`
-	Duration  string `json:"duration"`
+	Name     string `json:"name"`
+	Passed   bool   `json:"passed"`
+	Blocked  bool   `json:"blocked"` // true = hard fail, false = warning
+	Message  string `json:"message"`
+	Duration string `json:"duration"`
 }
 
 type AdmissionDecision struct {
-	Allowed        bool             `json:"allowed"`
-	Reason         string           `json:"reason"`
-	CauseClass     string           `json:"cause_class"` // infra, auth, packet, tool, model, none
-	Preflights     []PreflightResult `json:"preflights"`
-	TaskID         string           `json:"task_id"`
-	DecisionTime   string           `json:"decision_time"`
-	Lane           string           `json:"lane"`
+	Allowed      bool              `json:"allowed"`
+	Reason       string            `json:"reason"`
+	CauseClass   string            `json:"cause_class"` // infra, auth, packet, tool, model, none
+	Preflights   []PreflightResult `json:"preflights"`
+	TaskID       string            `json:"task_id"`
+	DecisionTime string            `json:"decision_time"`
+	Lane         string            `json:"lane"`
 }
 
 // --- Failure ledger ---
@@ -114,9 +117,9 @@ func main() {
 		if err := json.Unmarshal(data, &packet); err != nil {
 			// No valid packet = rejected
 			decision := AdmissionDecision{
-				Allowed:    false,
-				Reason:     fmt.Sprintf("Invalid packet JSON: %v", err),
-				CauseClass: "packet",
+				Allowed:      false,
+				Reason:       fmt.Sprintf("Invalid packet JSON: %v", err),
+				CauseClass:   "packet",
 				DecisionTime: time.Now().UTC().Format(time.RFC3339),
 			}
 			printDecision(decision)
@@ -240,38 +243,52 @@ func runPreflights(strict bool, taskID string) AdmissionDecision {
 
 func checkAuth() PreflightResult {
 	start := time.Now()
-	jiraURL := os.Getenv("JIRA_URL")
-	jiraEmail := os.Getenv("JIRA_EMAIL")
-	jiraToken := os.Getenv("JIRA_TOKEN")
+
+	// Detect cluster mode
+	clusterMode := os.Getenv("KUBERNETES_SERVICE_HOST") != ""
+
+	var dirPath string
+	if clusterMode {
+		dirPath = "/zen-lock/secrets"
+	}
+
+	// Use canonical resolver
+	material, err := secrets.ResolveJira(context.Background(), secrets.JiraResolveOptions{
+		DirPath:          dirPath,
+		FilePath:         "",
+		AllowEnvFallback: !clusterMode,
+		ClusterMode:      clusterMode,
+	})
+
 	jiraProject := envOr("JIRA_PROJECT", "ZB")
 
 	// If no Jira config, skip (not blocking)
-	if jiraURL == "" && jiraEmail == "" && jiraToken == "" {
+	if err != nil || material.Source == "none" {
 		return PreflightResult{
 			Name: "jira-auth", Passed: true, Blocked: false,
-			Message: "Jira not configured, skipping auth check",
+			Message:  "Jira not configured, skipping auth check",
 			Duration: time.Since(start).String(),
 		}
 	}
 
 	// If partial config, that's an error
-	if jiraURL == "" || jiraEmail == "" || jiraToken == "" {
+	if material.BaseURL == "" || material.Email == "" || material.APIToken == "" {
 		return PreflightResult{
 			Name: "jira-auth", Passed: false, Blocked: true,
-			Message: "Jira partially configured (need JIRA_URL, JIRA_EMAIL, JIRA_TOKEN)",
+			Message:  "Jira partially configured (need JIRA_URL, JIRA_EMAIL, JIRA_API_TOKEN)",
 			Duration: time.Since(start).String(),
 		}
 	}
 
 	// Verify endpoint reachable + token authenticates
-	req, _ := http.NewRequest("GET", strings.TrimSuffix(jiraURL, "/")+"/rest/api/3/myself", nil)
-	req.SetBasicAuth(jiraEmail, jiraToken)
+	req, _ := http.NewRequest("GET", strings.TrimSuffix(material.BaseURL, "/")+"/rest/api/3/myself", nil)
+	req.SetBasicAuth(material.Email, material.APIToken)
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
 		return PreflightResult{
 			Name: "jira-auth", Passed: false, Blocked: true,
-			Message: fmt.Sprintf("Jira unreachable: %v", err),
+			Message:  fmt.Sprintf("Jira unreachable: %v", err),
 			Duration: time.Since(start).String(),
 		}
 	}
@@ -280,21 +297,21 @@ func checkAuth() PreflightResult {
 	if resp.StatusCode == 401 {
 		return PreflightResult{
 			Name: "jira-auth", Passed: false, Blocked: true,
-			Message: "Jira authentication failed (401) — token expired or invalid",
+			Message:  "Jira authentication failed (401) — token expired or invalid",
 			Duration: time.Since(start).String(),
 		}
 	}
 	if resp.StatusCode != 200 {
 		return PreflightResult{
 			Name: "jira-auth", Passed: false, Blocked: true,
-			Message: fmt.Sprintf("Jira returned %d — unexpected", resp.StatusCode),
+			Message:  fmt.Sprintf("Jira returned %d — unexpected", resp.StatusCode),
 			Duration: time.Since(start).String(),
 		}
 	}
 
 	return PreflightResult{
 		Name: "jira-auth", Passed: true, Blocked: false,
-		Message: fmt.Sprintf("Jira authenticated (project: %s)", jiraProject),
+		Message:  fmt.Sprintf("Jira authenticated (project: %s)", jiraProject),
 		Duration: time.Since(start).String(),
 	}
 }
@@ -308,7 +325,7 @@ func checkL1() PreflightResult {
 	if err != nil {
 		return PreflightResult{
 			Name: "l1-health", Passed: false, Blocked: true,
-			Message: fmt.Sprintf("L1 unreachable: %v", err),
+			Message:  fmt.Sprintf("L1 unreachable: %v", err),
 			Duration: time.Since(start).String(),
 		}
 	}
@@ -317,14 +334,14 @@ func checkL1() PreflightResult {
 	if resp.StatusCode != 200 {
 		return PreflightResult{
 			Name: "l1-health", Passed: false, Blocked: true,
-			Message: fmt.Sprintf("L1 returned %d", resp.StatusCode),
+			Message:  fmt.Sprintf("L1 returned %d", resp.StatusCode),
 			Duration: time.Since(start).String(),
 		}
 	}
 
 	return PreflightResult{
 		Name: "l1-health", Passed: true, Blocked: false,
-		Message: "L1 healthy",
+		Message:  "L1 healthy",
 		Duration: time.Since(start).String(),
 	}
 }
@@ -399,21 +416,21 @@ func checkEvidenceContract(packet TaskPacket, strict bool) PreflightResult {
 	if packet.Evidence == "" && strict {
 		return PreflightResult{
 			Name: "evidence-contract", Passed: false, Blocked: true,
-			Message: "evidence_needed is required in strict mode",
+			Message:  "evidence_needed is required in strict mode",
 			Duration: time.Since(start).String(),
 		}
 	}
 	if packet.Acceptance == "" && strict {
 		return PreflightResult{
 			Name: "evidence-contract", Passed: false, Blocked: true,
-			Message: "acceptance_criteria is required in strict mode",
+			Message:  "acceptance_criteria is required in strict mode",
 			Duration: time.Since(start).String(),
 		}
 	}
 
 	return PreflightResult{
 		Name: "evidence-contract", Passed: true, Blocked: false,
-		Message: "evidence contract present",
+		Message:  "evidence contract present",
 		Duration: time.Since(start).String(),
 	}
 }
@@ -459,8 +476,10 @@ func printLedgerSummary(dir string) {
 			}
 			total++
 			switch e.FinalResult {
-			case "admitted": admitted++
-			case "blocked": blocked++
+			case "admitted":
+				admitted++
+			case "blocked":
+				blocked++
 			}
 			causes[e.CauseClass]++
 		}
@@ -511,9 +530,9 @@ func readInput(path string) ([]byte, error) {
 
 func printDecision(d AdmissionDecision) {
 	icon := "✅"
-if !d.Allowed {
-	icon = "❌"
-}
+	if !d.Allowed {
+		icon = "❌"
+	}
 	log.Printf("[GATE] %s %s | cause=%s | lane=%s | %s", icon, d.Reason, d.CauseClass, d.Lane, d.DecisionTime)
 	for _, p := range d.Preflights {
 		status := "✅"

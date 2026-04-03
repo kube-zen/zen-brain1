@@ -25,9 +25,9 @@ import (
 	"sync/atomic"
 	"time"
 
+	"context"
 	"github.com/kube-zen/zen-brain1/internal/concurrency"
 	"github.com/kube-zen/zen-brain1/internal/readiness"
-	"context"
 	"github.com/kube-zen/zen-brain1/internal/secrets"
 )
 
@@ -77,20 +77,46 @@ type jiraConfig struct {
 }
 
 func loadJiraConfig() jiraConfig {
-	url := os.Getenv("JIRA_URL")
-	email := os.Getenv("JIRA_EMAIL")
-	token := os.Getenv("JIRA_API_TOKEN")
-	if token == "" {
-		token = os.Getenv("JIRA_TOKEN")
+	// Detect cluster mode
+	clusterMode := os.Getenv("KUBERNETES_SERVICE_HOST") != ""
+
+	var dirPath string
+	if clusterMode {
+		dirPath = "/zen-lock/secrets"
 	}
-	project := envOr("JIRA_PROJECT_KEY", "ZB")
-	return jiraConfig{url, email, token, project, url != "" && email != "" && token != ""}
+
+	// Use canonical resolver
+	material, err := secrets.ResolveJira(context.Background(), secrets.JiraResolveOptions{
+		DirPath:          dirPath,
+		FilePath:         "",           // No host file in cluster
+		AllowEnvFallback: !clusterMode, // Allow env fallback only in local mode
+		ClusterMode:      clusterMode,
+	})
+
+	if err != nil {
+		log.Printf("[JIRA] ❌ FAILED to resolve credentials: %v", err)
+		return jiraConfig{enabled: false}
+	}
+
+	if material.Source == "none" {
+		log.Printf("[JIRA] ❌ No credentials found (cluster=%v)", clusterMode)
+		return jiraConfig{enabled: false}
+	}
+
+	log.Printf("[JIRA] ✅ Credentials loaded from %s", material.Source)
+	return jiraConfig{
+		url:     material.BaseURL,
+		email:   material.Email,
+		token:   material.APIToken,
+		project: material.ProjectKey,
+		enabled: true,
+	}
 }
 
 func classifyTicket(issue jiraIssue) ClassifiedTicket {
 	// Extract plain text from ADF description
 	description := extractTextFromADF(issue.Fields.Description)
-	
+
 	ct := ClassifiedTicket{
 		Key:         issue.Key,
 		Summary:     issue.Fields.Summary,
@@ -364,9 +390,9 @@ func resultDir() string {
 
 func dispatchTicket(cfg factoryConfig, ticket ClassifiedTicket) bool {
 	jcfg := cfg.Jcfg
-	log.Printf("[DISPATCH][%s] === ENTER dispatchTicket (summary len=%d, desc len=%d, readiness=%s) ===", 
+	log.Printf("[DISPATCH][%s] === ENTER dispatchTicket (summary len=%d, desc len=%d, readiness=%s) ===",
 		ticket.Key, len(ticket.Summary), len(ticket.Description), ticket.Readiness)
-	
+
 	// PHASE 3 NORMALIZATION: Auto-enrich ticket with bounded execution packet
 	// before dispatching to worker
 	log.Printf("[DISPATCH][%s] PHASE: before normalizeTicket", ticket.Key)
@@ -384,7 +410,7 @@ func dispatchTicket(cfg factoryConfig, ticket ClassifiedTicket) bool {
 		log.Printf("[NORMALIZE][%s] ✅ SUCCESS: enriched with execution packet", ticket.Key)
 	}
 	log.Printf("[DISPATCH][%s] PHASE: after normalizeTicket", ticket.Key)
-	
+
 	log.Printf("[DISPATCH] %s: moving to In Progress (%s, readiness=%s)", ticket.Key, ticket.Summary[:min(len(ticket.Summary), 50)], ticket.Readiness)
 
 	// Move to In Progress so Jira reflects reality
@@ -416,17 +442,17 @@ func dispatchTicket(cfg factoryConfig, ticket ClassifiedTicket) bool {
 	workerArgs := []string{"worker", "remediate", "--ticket-key", ticket.Key}
 
 	cmd := exec.Command(workerBin, workerArgs...)
-	
+
 	// PHASE 4 FALLBACK: Inject normalized packet if available
 	normalizedPacket := os.Getenv("ZEN_NORMALIZED_PACKET_" + ticket.Key)
-	
+
 	log.Printf("[DISPATCH][%s] PHASE: before worker launch (normalized packet len=%d)", ticket.Key, len(normalizedPacket))
 	if normalizedPacket != "" {
 		log.Printf("[DISPATCH][%s] normalized packet present, first 200 chars: %s", ticket.Key, truncate(normalizedPacket, 200))
 	} else {
 		log.Printf("[DISPATCH][%s] ⚠️  NO normalized packet - worker will need to infer target file", ticket.Key)
 	}
-	
+
 	cmd.Env = append(os.Environ(),
 		"MODE=pilot",
 		"PILOT_KEYS="+ticket.Key,
@@ -448,7 +474,7 @@ func dispatchTicket(cfg factoryConfig, ticket ClassifiedTicket) bool {
 
 	output, err := cmd.CombinedOutput()
 	outputStr := string(output)
-	
+
 	log.Printf("[DISPATCH][%s] PHASE: after worker launch (exit code=%v, output len=%d)", ticket.Key, err, len(outputStr))
 
 	if err != nil {
@@ -830,38 +856,38 @@ func reconcileDispatchedStates(cfg factoryConfig, dispatched []ClassifiedTicket)
 // normalizeTicket enriches a ticket with a canonical bounded execution packet
 // PHASE 3: Automatic normalization before worker dispatch
 func normalizeTicket(jcfg jiraConfig, ticket ClassifiedTicket) error {
-	log.Printf("[NORMALIZE] %s: starting normalization (summary=%d bytes, description=%d bytes)", 
+	log.Printf("[NORMALIZE] %s: starting normalization (summary=%d bytes, description=%d bytes)",
 		ticket.Key, len(ticket.Summary), len(ticket.Description))
-	
+
 	// PHASE 1 FIX: Use in-memory ticket data - NO redundant Jira fetch
 	if ticket.Description == "" {
 		log.Printf("[NORMALIZE] %s: ❌ FAILED - no description in ticket data", ticket.Key)
 		return fmt.Errorf("no description in in-memory ticket data")
 	}
-	
+
 	// Infer target files from in-memory ticket context
 	targetFiles := inferTargetFiles(ticket.Summary, ticket.Description)
-	
+
 	if len(targetFiles) == 0 {
 		log.Printf("[NORMALIZE] %s: ❌ FAILED - no valid target files exist in repository", ticket.Key)
 		// Mark ticket as needing human context - do not dispatch
 		log.Printf("[NORMALIZE] %s: marking as needs_human_context - inferred component but no matching files found", ticket.Key)
 		return fmt.Errorf("no valid target files in repository for inferred component")
 	}
-	
+
 	log.Printf("[NORMALIZE] %s: inferred %d validated target file(s): %v", ticket.Key, len(targetFiles), targetFiles)
-	
+
 	// Generate canonical execution packet
 	packet := generateExecutionPacket(ticket, targetFiles)
-	
+
 	// PHASE 4 FALLBACK: Try Jira writeback, but don't fail if it doesn't work
 	// For now, we'll inject the packet in-process for the worker
 	// Store packet in environment variable for worker to consume
 	os.Setenv("ZEN_NORMALIZED_PACKET_"+ticket.Key, packet)
-	
+
 	log.Printf("[NORMALIZE] %s: ✅ SUCCESS - execution packet created and injected in-process", ticket.Key)
 	log.Printf("[NORMALIZE] %s: packet preview:\n%s", ticket.Key, truncate(packet, 300))
-	
+
 	return nil
 }
 
@@ -869,9 +895,9 @@ func normalizeTicket(jcfg jiraConfig, ticket ClassifiedTicket) error {
 func inferTargetFiles(summary, description string) []string {
 	var candidates []string
 	text := strings.ToLower(summary + " " + description)
-	
+
 	log.Printf("[NORMALIZE-INFERENCE] searching for file paths in %d bytes of text", len(text))
-	
+
 	// Repository-true component mappings - verified against actual repo structure
 	// These paths exist in the current checkout
 	componentFiles := map[string][]string{
@@ -881,7 +907,7 @@ func inferTargetFiles(summary, description string) []string {
 		"readiness":    {"internal/readiness/validator.go"},
 		"docs":         {"docs/README.md"},
 		"config":       {"config/policy/README.md"},
-		"validator":     {"internal/readiness/validator.go"},
+		"validator":    {"internal/readiness/validator.go"},
 		"auth":         {"internal/apiserver/auth.go", "internal/office/jira/auth_check.go"},
 		"api":          {"internal/apiserver/auth.go", "internal/apiserver/server.go"},
 		"worker":       {"cmd/zen-brain/worker.go"},
@@ -890,7 +916,7 @@ func inferTargetFiles(summary, description string) []string {
 		"agent":        {"internal/agent/binding.go"},
 		"jira":         {"internal/office/jira/auth_check.go"},
 	}
-	
+
 	// Check for component mentions in ticket text
 	for component, paths := range componentFiles {
 		if strings.Contains(text, component) {
@@ -898,10 +924,10 @@ func inferTargetFiles(summary, description string) []string {
 			log.Printf("[NORMALIZE-INFERENCE] found component keyword '%s' -> %v", component, paths)
 		}
 	}
-	
+
 	// Check for explicit file path mentions in description
 	pathPatterns := []string{"docs/", "internal/", "cmd/", "config/"}
-	
+
 	for _, pattern := range pathPatterns {
 		idx := strings.Index(text, pattern)
 		for idx >= 0 && len(candidates) < 10 { // Limit candidates
@@ -914,7 +940,7 @@ func inferTargetFiles(summary, description string) []string {
 					break
 				}
 			}
-			
+
 			candidate := rest[:end]
 			// Check if it looks like a valid file path
 			if strings.Contains(candidate, ".") && !strings.Contains(candidate, " ") && len(candidate) > len(pattern)+3 {
@@ -926,7 +952,7 @@ func inferTargetFiles(summary, description string) []string {
 				candidates = append(candidates, candidate)
 				log.Printf("[NORMALIZE-INFERENCE] found explicit path pattern '%s' -> %s", pattern, candidate)
 			}
-			
+
 			// Find next occurrence
 			nextIdx := strings.Index(text[idx+len(pattern):], pattern)
 			if nextIdx < 0 {
@@ -935,11 +961,11 @@ func inferTargetFiles(summary, description string) []string {
 			idx = idx + len(pattern) + nextIdx
 		}
 	}
-	
+
 	// VALIDATION: Check each candidate against actual repository
 	var validFiles []string
 	var discarded []string
-	
+
 	for _, f := range candidates {
 		// Skip directories (paths ending with /)
 		if strings.HasSuffix(f, "/") {
@@ -947,7 +973,7 @@ func inferTargetFiles(summary, description string) []string {
 			discarded = append(discarded, fmt.Sprintf("directory: %s", f))
 			continue
 		}
-		
+
 		// Check if file exists in repository
 		if fileExists(f) {
 			validFiles = append(validFiles, f)
@@ -957,7 +983,7 @@ func inferTargetFiles(summary, description string) []string {
 			discarded = append(discarded, fmt.Sprintf("not found: %s", f))
 		}
 	}
-	
+
 	// Deduplicate valid files
 	seen := make(map[string]bool)
 	var result []string
@@ -967,7 +993,7 @@ func inferTargetFiles(summary, description string) []string {
 			result = append(result, f)
 		}
 	}
-	
+
 	log.Printf("[NORMALIZE-INFERENCE] discarded %d candidates: %v", len(discarded), discarded)
 	log.Printf("[NORMALIZE-INFERENCE] final validated result: %d unique file(s): %v", len(result), result)
 	return result
@@ -982,28 +1008,28 @@ func fileExists(path string) bool {
 // generateExecutionPacket creates the canonical bounded execution packet
 func generateExecutionPacket(ticket ClassifiedTicket, targetFiles []string) string {
 	var sb strings.Builder
-	
+
 	sb.WriteString("BOUNDED_EXECUTION:\n")
 	sb.WriteString(fmt.Sprintf("  version: \"1.0\"\n"))
 	sb.WriteString("  target_files:\n")
-	
+
 	for _, f := range targetFiles {
 		sb.WriteString(fmt.Sprintf("    - path: %s\n", f))
 		sb.WriteString(fmt.Sprintf("      confidence: 0.85\n"))
 		sb.WriteString("      reason: \"Inferred from ticket context (summary + description)\"\n")
 	}
-	
+
 	sb.WriteString(fmt.Sprintf("  scope:\n"))
 	sb.WriteString(fmt.Sprintf("    blast_radius: low\n"))
 	sb.WriteString(fmt.Sprintf("    execution_class: bounded_fix\n"))
 	sb.WriteString(fmt.Sprintf("    bounded: true\n"))
-	
+
 	sb.WriteString(fmt.Sprintf("  inference_metadata:\n"))
 	sb.WriteString(fmt.Sprintf("    generated_by: factory-fill-normalizer-v1\n"))
 	sb.WriteString(fmt.Sprintf("    generated_at: %s\n", time.Now().Format(time.RFC3339)))
 	sb.WriteString(fmt.Sprintf("    overall_confidence: 0.80\n"))
 	sb.WriteString(fmt.Sprintf("    source: in-memory-ticket-data\n"))
-	
+
 	return sb.String()
 }
 
@@ -1020,22 +1046,22 @@ func jiraGetIssue(jcfg jiraConfig, key string) (*jiraIssue, error) {
 	req, _ := http.NewRequest("GET", jcfg.url+"/rest/api/2/issue/"+key+"?fields=summary,description", nil)
 	req.SetBasicAuth(jcfg.email, jcfg.token)
 	req.Header.Set("Accept", "application/json")
-	
+
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != 200 {
 		return nil, fmt.Errorf("HTTP %d", resp.StatusCode)
 	}
-	
+
 	var issue jiraIssue
 	if err := json.NewDecoder(resp.Body).Decode(&issue); err != nil {
 		return nil, err
 	}
-	
+
 	return &issue, nil
 }
 
@@ -1046,23 +1072,23 @@ func jiraUpdateDescription(jcfg jiraConfig, key, description string) error {
 			"description": description,
 		},
 	}
-	
+
 	data, _ := json.Marshal(payload)
 	req, _ := http.NewRequest("PUT", jcfg.url+"/rest/api/2/issue/"+key, bytes.NewReader(data))
 	req.SetBasicAuth(jcfg.email, jcfg.token)
 	req.Header.Set("Content-Type", "application/json")
-	
+
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
-	
+
 	if resp.StatusCode != 204 && resp.StatusCode != 200 {
 		body, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body[:min(len(body), 200)]))
 	}
-	
+
 	return nil
 }
 
@@ -1071,7 +1097,7 @@ func extractTextFromADF(adf json.RawMessage) string {
 	var parse func(interface{}) string
 	parse = func(v interface{}) string {
 		var sb strings.Builder
-		
+
 		switch val := v.(type) {
 		case string:
 			return val
@@ -1089,15 +1115,15 @@ func extractTextFromADF(adf json.RawMessage) string {
 				sb.WriteString("\n")
 			}
 		}
-		
+
 		return sb.String()
 	}
-	
+
 	var parsed interface{}
 	if err := json.Unmarshal(adf, &parsed); err != nil {
 		return string(adf)
 	}
-	
+
 	return parse(parsed)
 }
 

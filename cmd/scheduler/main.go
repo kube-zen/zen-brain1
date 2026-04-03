@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/kube-zen/zen-brain1/internal/secrets"
 	"gopkg.in/yaml.v3"
 )
 
@@ -516,18 +517,40 @@ func countBacklogTickets(jiraCfg jiraLedgerConfig) (int, int) {
 }
 
 func loadJiraLedgerConfig() jiraLedgerConfig {
-	baseURL := os.Getenv("JIRA_URL")
-	email := os.Getenv("JIRA_EMAIL")
-	apiToken := os.Getenv("JIRA_API_TOKEN")
-	if apiToken == "" {
-		apiToken = os.Getenv("JIRA_TOKEN")
+	// Detect cluster mode
+	clusterMode := os.Getenv("KUBERNETES_SERVICE_HOST") != ""
+
+	var dirPath string
+	if clusterMode {
+		dirPath = "/zen-lock/secrets"
 	}
-	projectKey := os.Getenv("JIRA_PROJECT_KEY")
-	if projectKey == "" {
-		projectKey = "ZB"
+
+	// Use canonical resolver
+	material, err := secrets.ResolveJira(context.Background(), secrets.JiraResolveOptions{
+		DirPath:          dirPath,
+		FilePath:         "",           // No host file in cluster
+		AllowEnvFallback: !clusterMode, // Allow env fallback only in local mode
+		ClusterMode:      clusterMode,
+	})
+
+	if err != nil {
+		log.Printf("[JIRA] ❌ FAILED to resolve credentials: %v", err)
+		return jiraLedgerConfig{enabled: false}
 	}
-	enabled := baseURL != "" && email != "" && apiToken != ""
-	return jiraLedgerConfig{baseURL: baseURL, email: email, apiToken: apiToken, projectKey: projectKey, enabled: enabled}
+
+	if material.Source == "none" {
+		log.Printf("[JIRA] ❌ No credentials found (cluster=%v)", clusterMode)
+		return jiraLedgerConfig{enabled: false}
+	}
+
+	log.Printf("[JIRA] ✅ Credentials loaded from %s", material.Source)
+	return jiraLedgerConfig{
+		baseURL:    material.BaseURL,
+		email:      material.Email,
+		apiToken:   material.APIToken,
+		projectKey: material.ProjectKey,
+		enabled:    true,
+	}
 }
 
 // jiraCreateIssue creates a single Jira issue and returns the issue key.

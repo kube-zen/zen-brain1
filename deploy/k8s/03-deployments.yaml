@@ -22,6 +22,9 @@ spec:
         app.kubernetes.io/component: scheduler
     spec:
       serviceAccountName: zen-brain
+      # ZenLock credential injection (mount-only, no env expansion)
+      annotations:
+        zen-lock/inject: jira-credentials
       containers:
       - name: scheduler
         image: zen-registry:5000/zen-brain-scheduler:latest
@@ -53,10 +56,6 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
-        # Jira credentials from ZenLock-decrypted secret
-        envFrom:
-        - secretRef:
-            name: jira-credentials-runtime
         volumeMounts:
         - name: schedules
           mountPath: /config/schedules
@@ -70,6 +69,9 @@ spec:
           mountPath: /artifacts
         - name: metrics
           mountPath: /metrics
+        - name: zen-lock-secrets
+          mountPath: /zen-lock/secrets
+          readOnly: true
         resources:
           requests:
             cpu: "100m"
@@ -90,6 +92,10 @@ spec:
         emptyDir: {}
       - name: metrics
         emptyDir: {}
+      - name: zen-lock-secrets
+        csi:
+          driver: zen-lock.csi.k8s.io
+          readOnly: true
 ---
 # ── Factory-Fill Deployment (Pooled Workers) ─────────────────────────
 # Backlog-aware dispatch loop with pooled concurrent workers.
@@ -123,6 +129,8 @@ spec:
       labels:
         app.kubernetes.io/name: zen-brain
         app.kubernetes.io/component: factory-fill
+      annotations:
+        zen-lock/inject: jira-credentials
     spec:
       serviceAccountName: zen-brain
       # ── Init Container: Clone service-owned repo ──────────────────
@@ -221,10 +229,6 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
-        # Jira credentials from ZenLock-decrypted secret
-        envFrom:
-        - secretRef:
-            name: jira-credentials-runtime
         volumeMounts:
         - name: repo-storage
           mountPath: /workspace/repo
@@ -243,6 +247,9 @@ spec:
           mountPath: /workspace/worktrees
         - name: templates
           mountPath: /config/templates
+          readOnly: true
+        - name: zen-lock-secrets
+          mountPath: /zen-lock/secrets
           readOnly: true
         # Readiness probe: verify repo + git push auth are available
         readinessProbe:
@@ -286,6 +293,10 @@ spec:
       - name: templates
         configMap:
           name: task-templates
+      - name: zen-lock-secrets
+        csi:
+          driver: zen-lock.csi.k8s.io
+          readOnly: true
 
 ---
 # Roadmap Items ConfigMap mount for scheduler

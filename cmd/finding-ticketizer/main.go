@@ -16,6 +16,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/kube-zen/zen-brain1/internal/secrets"
 )
 
 // ─── Data Types ────────────────────────────────────────────────────────
@@ -737,12 +739,38 @@ func main() {
 		}
 	}
 
+	// Detect cluster mode
+	clusterMode := os.Getenv("KUBERNETES_SERVICE_HOST") != ""
+
+	var dirPath string
+	if clusterMode {
+		dirPath = "/zen-lock/secrets"
+	}
+
+	// Use canonical resolver
+	material, err := secrets.ResolveJira(context.Background(), secrets.JiraResolveOptions{
+		DirPath:          dirPath,
+		FilePath:         "",
+		AllowEnvFallback: !clusterMode,
+		ClusterMode:      clusterMode,
+	})
+
 	jcfg := jiraConfig{
-		url:     os.Getenv("JIRA_URL"),
-		email:   os.Getenv("JIRA_EMAIL"),
-		token:   os.Getenv("JIRA_API_TOKEN"),
+		url:     "",
+		email:   "",
+		token:   "",
 		project: envOr("JIRA_PROJECT_KEY", "ZB"),
-		enabled: os.Getenv("JIRA_URL") != "" && os.Getenv("JIRA_EMAIL") != "" && os.Getenv("JIRA_API_TOKEN") != "",
+		enabled: false,
+	}
+
+	if err == nil && material.Source != "none" {
+		jcfg.url = material.BaseURL
+		jcfg.email = material.Email
+		jcfg.token = material.APIToken
+		jcfg.enabled = true
+		log.Printf("[JIRA] ✅ Credentials loaded from %s", material.Source)
+	} else {
+		log.Printf("[JIRA] ❌ No credentials found (cluster=%v): %v", clusterMode, err)
 	}
 
 	cfg := Config{
