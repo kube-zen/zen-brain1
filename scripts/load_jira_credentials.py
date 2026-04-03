@@ -19,7 +19,6 @@ CANONICAL PATH (USE THIS INSTEAD):
   Local:   internal/secrets/jira.go:ResolveJira() with DirPath
 
 WHAT CHANGED:
-  - Old: ~/.zen-brain/jira-credentials.env (FORBIDDEN)
   - Old: Environment variables as primary source (FORBIDDEN in cluster)
   - New: /zen-lock/secrets/* (cluster runtime ONLY)
   - New: secrets.ResolveJira() (code canonical resolver)
@@ -46,7 +45,6 @@ def main() -> int:
     print("\033[0;31m║  scripts/load_jira_credentials.py is DEPRECATED             ║\033[0m", file=sys.stderr)
     print("\033[0;31m║                                                             ║\033[0m", file=sys.stderr)
     print("\033[0;31m║  This script uses forbidden credential paths:               ║\033[0m", file=sys.stderr)
-    print("\033[0;31m║    - ~/.zen-brain/jira-credentials.env (FORBIDDEN)          ║\033[0m", file=sys.stderr)
     print("\033[0;31m║    - Environment variables in cluster mode (FORBIDDEN)      ║\033[0m", file=sys.stderr)
     print("\033[0;31m║                                                             ║\033[0m", file=sys.stderr)
     print("\033[0;31m║  CANONICAL PATH:                                            ║\033[0m", file=sys.stderr)
