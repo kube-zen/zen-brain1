@@ -41,7 +41,7 @@ Office intake → analyze → session → status update
 - **Mode:** Mock or Real Jira
 - **Implementation:**
   - `office.NewManager()` creates Office Manager
-  - `jira.NewFromEnv()` initializes Jira connector (optional)
+  - `jira.New()` initializes Jira connector (via canonical resolver)
   - `officeManager.Register()` registers connector
   - `officeManager.Fetch()` retrieves work item
 
@@ -94,7 +94,7 @@ Office intake → analyze → session → status update
 |-----------|-------------------|--------|
 | LLM Gateway | `llmgateway.NewGateway()` | ✅ |
 | Office Manager | `office.NewManager()` | ✅ |
-| Jira Connector | `jira.NewFromEnv()` | ✅ (optional) |
+| Jira Connector | `jira.New()` (canonical resolver) | ✅ (optional) |
 | Session Manager | `session.New()` | ✅ |
 | ZenContext | `newMockZenContext()` | ✅ (mock) |
 | Analyzer | `simpleAnalyzer` | ✅ (wrapper) |

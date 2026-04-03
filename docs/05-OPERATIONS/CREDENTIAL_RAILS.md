@@ -171,9 +171,6 @@ if err != nil {
 // ❌ FORBIDDEN: Direct env access
 token := os.Getenv("JIRA_API_TOKEN")
 
-// ❌ FORBIDDEN: Deprecated constructor
-client := jira.NewFromEnv()
-
 // ✅ CANONICAL: Use resolver
 creds := secrets.ResolveJira(opts)
 ```
@@ -416,8 +413,6 @@ Services emit at startup (no secret values):
 
 ### ✗ DON'T
 - Use `os.Getenv("JIRA_*")` outside canonical resolver
-- Use `jira.NewFromEnv()` (hard-fail disabled)
-- Use `~/.zen-brain/secrets/*` or `~/.zen-lock/*` paths
 - Use `envFrom: secretRef` in K8s manifests
 - Use `zen-lock/inject-env: "true"` for Jira/Git
 - Keep plaintext token files after rotation

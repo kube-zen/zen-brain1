@@ -317,8 +317,7 @@ CI MUST fail if:
 6. **Wrong Jira email in metadata**
    - `deploy/zen-lock/jira-metadata.yaml` must have `email: zen@zen-mesh.io`
 7. **Direct env access outside resolver**
-   - `os.Getenv("JIRA_*")` in non-allowlisted files
-   - `jira.NewFromEnv()` usage (hard-fail disabled)
+   - Raw env reads for credentials in non-allowlisted files
 8. **K8s manifest violations**
    - `envFrom: secretRef` for Jira credentials
    - `zen-lock/inject-env: "true"` for Jira/Git

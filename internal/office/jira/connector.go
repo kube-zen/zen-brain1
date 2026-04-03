@@ -149,18 +149,9 @@ func New(name, clusterID string, config *Config) (*JiraOffice, error) {
 	}, nil
 }
 
-// NewFromEnv creates a JiraOffice from environment variables.
-//
-// DEPRECATED: This method is DISABLED. Direct environment variable access
-// violates the canonical credential model. Use one of:
-//   - secrets.ResolveJira() with ClusterMode=true for cluster runtime
-//   - secrets.ResolveJira() with ClusterMode=false for local development
-//   - config.LoadJiraConfig() which uses the canonical resolver
-//
-// This function now hard-fails to prevent credential rail drift.
-func NewFromEnv(name, clusterID string) (*JiraOffice, error) {
-	return nil, fmt.Errorf("NewFromEnv is DISABLED: use secrets.ResolveJira() or config.LoadJiraConfig() instead. Direct env var access violates canonical credential model. See docs/05-OPERATIONS/CREDENTIAL_RAILS.md")
-}
+// NewFromEnv has been REMOVED.
+// Use secrets.ResolveJira() or config.LoadJiraConfig() instead.
+// Direct environment variable access violates the canonical credential model.
 
 // Config returns the connector configuration (for doctor/health display only; do not modify).
 func (j *JiraOffice) Config() *Config {

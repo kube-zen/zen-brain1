@@ -16,21 +16,12 @@ Implements the `ZenOffice` interface for Atlassian Jira, providing bidirectional
 
 ## Configuration
 
-### Environment Variables (unified with config)
-All of the following are supported; config loader and `jira.NewFromEnv` use the same semantics:
-- `JIRA_URL` – base URL
-- `JIRA_EMAIL` (preferred) or `JIRA_USERNAME` – auth identity
-- `JIRA_API_TOKEN` (preferred) or `JIRA_TOKEN` – API token
-- `JIRA_PROJECT_KEY` (or YAML `project` / `project_key`)
+Jira credentials are resolved exclusively through the canonical resolver:
+- **Cluster mode**: `/zen-lock/secrets/*` (ZenLock CSI mount)
+- **Local mode**: canonical encrypted store via `secrets.ResolveJira()`
 
-```bash
-export JIRA_URL="https://your-domain.atlassian.net"
-export JIRA_TOKEN="your-api-token"   # or JIRA_API_TOKEN
-export JIRA_EMAIL="your-email@example.com"   # or JIRA_USERNAME
-export JIRA_PROJECT_KEY="PROJ"  # Optional
-```
+Credentials are NEVER read from environment variables or `.env` files at runtime.
 
-### YAML Configuration
 ```yaml
 jira:
   enabled: true
@@ -47,26 +38,27 @@ jira:
 ## Usage
 
 ### Create a Jira Connector
-```go
-import "github.com/kube-zen/zen-brain1/internal/office/jira"
 
-// From environment variables
-connector, err := jira.NewFromEnv("jira-prod", "cluster-1")
+```go
+import (
+    "github.com/kube-zen/zen-brain1/internal/config"
+    "github.com/kube-zen/zen-brain1/internal/office/jira"
+)
+
+// Load config (resolves credentials from canonical sources)
+cfg, err := config.LoadJiraConfig()
 if err != nil {
     log.Fatal(err)
 }
 
-// Or with explicit config
-config := &jira.Config{
-    BaseURL:    "https://company.atlassian.net",
-    Email:      "zen-brain@company.com",
-    APIToken:   "api-token",
-    ProjectKey: "PROJ",
+connector, err := jira.New("jira-prod", "cluster-1", cfg)
+if err != nil {
+    log.Fatal(err)
 }
-connector, err := jira.New("jira-prod", "cluster-1", config)
 ```
 
 ### Fetch a Jira Issue
+
 ```go
 workItem, err := connector.FetchBySourceKey(ctx, "cluster-1", "PROJ-123")
 if err != nil {
@@ -76,6 +68,7 @@ fmt.Printf("Fetched: %s - %s\n", workItem.ID, workItem.Title)
 ```
 
 ### Add a Comment with AI Attribution
+
 ```go
 comment := &contracts.Comment{
     ID:         uuid.New().String(),
@@ -96,6 +89,7 @@ err := connector.AddComment(ctx, "cluster-1", "PROJ-123", comment)
 ```
 
 ### Watch for Real-time Updates
+
 ```go
 events, err := connector.Watch(ctx, "cluster-1")
 if err != nil {
@@ -108,6 +102,7 @@ for event := range events {
 ```
 
 ### Proof-of-Work Integration
+
 ```go
 // Step 1: Fetch the issue (canonical work)
 workItem, err := connector.FetchBySourceKey(ctx, "cluster-1", "PROJ-123")
@@ -148,41 +143,6 @@ if err != nil {
 3. **Generate** proof → ProofOfWorkManager creates JSON/Markdown artifacts
 4. **Comment** → Jira receives execution summary with AI attribution
 5. **Update** status → Issue transitions based on execution outcome
-
-**Proof-of-Work Comment Format:**
-```markdown
-[zen-brain | agent:factory | model:factory-v1 | session:session-123 | task:task-456 | 2026-03-07 14:30:00 UTC]
-
-# Proof-of-Work: PROJ-123
-
-## Objective
-Implement feature as described in ticket
-
-## Execution Summary
-- **Status**: Success
-- **Duration**: 15m 23s
-- **Started**: 2026-03-07 14:15:00 UTC
-- **Completed**: 2026-03-07 14:30:23 UTC
-
-## Work Done
-- **Files Changed**: 5
-- **Tests Run**: 10
-- **Tests Passed**: 10
-- **Git Branch**: ai/PROJ-123
-- **Git Commit**: abc123def456...
-
-## Evidence Items
-- Implemented core feature logic
-- Added unit tests
-- Updated documentation
-
-## Unresolved Risks
-- RISK: Integration testing pending
-- RISK: Performance optimization needed
-
-## Recommended Action
-merge
-```
 
 ## AI Attribution Format
 
@@ -241,14 +201,17 @@ Vertical-slice now posts proof-of-work comments and attachments back to Jira by 
 ## Development
 
 ### Running Tests
+
 ```bash
 go test ./internal/office/jira/...
 ```
 
 ### Adding Custom Fields
+
 Edit `types.go` to add custom field mappings for your Jira instance.
 
 ### Webhook Development
+
 The webhook handler requires:
 1. Jira webhook configuration pointing to your endpoint
 2. Secret verification for security
@@ -258,4 +221,4 @@ The webhook handler requires:
 
 - Go 1.25+
 - Jira REST API v3
-- Environment variables for authentication
+- Canonical credential resolver (`secrets.ResolveJira()`)

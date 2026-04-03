@@ -27,10 +27,10 @@
 
 #### Office Manager Integration ✅
 - Created Office Manager instance
-- Initialized Jira connector with `NewFromEnv()`
+- Initialized Jira connector via canonical resolver
 - Registered connector for default cluster
 - Fetch work items via Office Manager (abstracted interface)
-- Fallback to mock mode if Jira env vars not set
+- Fallback to mock mode if credentials not available
 
 #### LLM Analysis Integration ✅
 - Real LLM Gateway integration for work item analysis
@@ -157,7 +157,7 @@ The `vertical-slice` command now demonstrates a **working end-to-end pipeline**:
 |-----------|-------------------|---------|
 | LLM Gateway | ✅ FULLY WIRED | Used for analysis, all 16 tests pass |
 | Office Manager | ✅ FULLY WIRED | Jira connector initialized, registered |
-| Jira Connector | ✅ FULLY WIRED | NewFromEnv() integration, conditional usage |
+| Jira Connector | ✅ FULLY WIRED | Canonical resolver integration, conditional usage |
 | Analyzer | ✅ MOCK WIRED | Real LLM calls, no full Analyzer package used |
 | Factory | ✅ FACTORY INTEGRATED | Real Factory execution with workspace isolation, bounded execution, proof-of-work generation |
 | Proof-of-Work | ✅ FULLY WIRED | JSON + Markdown generation with AI attribution |
