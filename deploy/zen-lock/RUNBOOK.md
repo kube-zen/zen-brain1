@@ -42,7 +42,6 @@ There is only one valid credential path. Any other filename or location is inval
 ### ✗ DON'T
 - **DON'T** use `~/.zen-lock/private-key.age` (legacy path, not supported)
 - **DON'T** use `~/.zen-brain/secrets/jira.yaml` (legacy path, not supported)
-- **DON'T** use `.env.jira.local` files for secrets (only for non-secret config)
 - **DON'T** use quarantined scripts: `install_jira_credentials.py`, `load_jira_credentials.py`, `zen-lock-source.sh`
 - **DON'T** use `--from-literal` for AGE key secret creation (stores path string, not contents)
 - **DON'T** keep plaintext token file after successful bootstrap
