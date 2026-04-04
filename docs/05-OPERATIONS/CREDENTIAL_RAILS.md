@@ -248,10 +248,7 @@ The following scripts are **HARD-FAIL DEPRECATED** and will block execution:
 # Check ZenLock status
 kubectl get zenlock jira-credentials -n zen-brain
 
-# Verify credentials mounted
-kubectl exec -n zen-brain deployment/foreman -- ls -la /zen-lock/secrets/
-
-# Validate Jira auth
+# Validate Jira connectivity
 kubectl exec -n zen-brain deployment/foreman -- zen-brain office doctor
 
 # Expected output:
@@ -341,9 +338,9 @@ Services emit at startup (no secret values):
    ```
    Must have: `zen-lock/inject: jira-credentials`
 
-3. **Check mount:**
+3. **Check mount status:**
    ```bash
-   kubectl exec -n zen-brain deployment/foreman -- ls /zen-lock/secrets/
+   kubectl exec -n zen-brain deployment/foreman -- zen-brain office doctor
    ```
 
 ### "CI gate failing on credential access"

@@ -20,8 +20,7 @@
 #   Local:   internal/secrets/jira.go:ResolveJira() with DirPath
 #
 # For local development:
-#   1. Use: internal/secrets/jira.go with AllowEnvFallback: true
-#   2. Or: Read from ~/zen/keys/zen-brain/secrets.d/jira.enc directly
+#   Use: deploy/zen-lock/bootstrap-jira-zenlock-from-local.sh
 #
 # CI ENFORCEMENT:
 #   - scripts/ci/canonical_credential_access_gate.py blocks direct env access

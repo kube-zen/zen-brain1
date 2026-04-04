@@ -207,16 +207,11 @@ Legacy project keys (e.g., `SCRUM`) are DEPRECATED. Do NOT use.
    - Credentials are in ZenLock or bootstrap files
    - Only ask during explicit rotation/bootstrap
 
-2. **Use legacy secret paths**
-   - `~/.zen-brain/secrets/jira.yaml` - FORBIDDEN
-   - `~/.zen-lock/private-key.age` - FORBIDDEN
-   - `~/zen/ZENBRAINPRIVATEKEYNEVERDELETETHISSHIT.age` - Legacy, use `~/zen/keys/zen-brain/credentials.key`
+2. **Use wrong Jira email**
+   - zen@kube-zen.io - WRONG (causes 401)
+   - Always verify email: zen@zen-mesh.io
 
-3. **Use wrong Jira email**
-   - zen@zen-mesh.io - FORBIDDEN (causes 401)
-   - Always verify email from live Foreman context
-
-4. **Speculate about credentials without evidence**
+3. **Speculate about credentials without evidence**
    - Test from live Foreman pod first
    - Use exact decision tree defined above
 
@@ -304,12 +299,8 @@ python3 scripts/ci/run.py --suite credentials
 CI MUST fail if:
 
 1. **AGENTS.md missing**
-2. **Legacy secret paths in active docs/code**
-   - `~/.zen-brain/secrets/jira.yaml`
-   - `~/.zen-lock/private-key.age`
-   - `~/zen/ZENBRAINPRIVATEKEYNEVERDELETETHISSHIT.age` (use canonical key)
-3. **Active docs/code claim Jira is optional in normal mode**
-4. **Project key drift**
+2. **Active docs/code claim Jira is optional in normal mode**
+3. **Project key drift**
    - Multiple project keys in active paths
    - Legacy SCRUM references not marked as examples
 5. **Local LLM timeout too short**

@@ -41,7 +41,6 @@ There is only one valid credential path. Any other filename or location is inval
 
 ### ✗ DON'T
 - **DON'T** use `~/.zen-lock/private-key.age` (legacy path, not supported)
-- **DON'T** use `~/.zen-brain/secrets/jira.yaml` (legacy path, not supported)
 - **DON'T** use quarantined scripts: `install_jira_credentials.py`, `load_jira_credentials.py`, `zen-lock-source.sh`
 - **DON'T** use `--from-literal` for AGE key secret creation (stores path string, not contents)
 - **DON'T** keep plaintext token file after successful bootstrap
@@ -230,15 +229,12 @@ kubectl describe zenlock jira-credentials -n zen-brain
 ### How to Verify Foreman Mount Exists
 
 ```bash
-# Check foreman pod has mount
-FOREMAN_POD=$(kubectl get pod -n zen-brain -l app.kubernetes.io/name=foreman -o jsonpath='{.items[0].metadata.name}')
-kubectl exec -n zen-brain $FOREMAN_POD -- ls -la /zen-lock/secrets/
+# Check foreman Jira connectivity
+kubectl exec -n zen-brain deployment/foreman -- zen-brain office doctor
 
 # Should show:
-# JIRA_API_TOKEN -> ..data/JIRA_API_TOKEN
-# JIRA_EMAIL -> ..data/JIRA_EMAIL
-# JIRA_PROJECT_KEY -> ..data/JIRA_PROJECT_KEY
-# JIRA_URL -> ..data/JIRA_URL
+# Credentials source: zenlock-dir:/zen-lock/secrets
+# Jira auth: OK
 ```
 
 ### How to Detect Decrypt/Admission Failures Quickly
@@ -403,7 +399,6 @@ DO NOT:
 - Keep plaintext token lying around after verification
 - Commit tokens to repository
 - Ask for creds again if bootstrap artifacts already exist locally
-- Use `~/.zen-brain/secrets/jira.yaml` as active path
 - Use host-file or env-var Jira sources in cluster mode
 
 ## Security Enforcement

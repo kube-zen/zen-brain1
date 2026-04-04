@@ -263,10 +263,10 @@ func runVerticalSlice() {
 	}
 	fmt.Println("  ✓ LLM Gateway initialized")
 
-	// Step 2: Initialize Office Manager (config-first, then env fallback)
+	// Step 2: Initialize Office Manager (canonical resolver)
 	fmt.Println("[2/7] Initializing Office Manager...")
 	var officeManager *office.Manager
-	var jiraMode string // "config", "env", or "mock"
+	var jiraMode string // "config" or "mock"
 	cfg, cfgErr := config.LoadConfig("")
 	if cfgErr == nil && cfg != nil && cfg.Jira.Enabled {
 		mgr, err := integration.InitOfficeManagerFromConfig(cfg)

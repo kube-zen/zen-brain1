@@ -684,7 +684,7 @@ func runOfficeLedger() {
 
 	// Validate inputs
 	if !dryRun && (jiraURL == "" || jiraEmail == "" || jiraToken == "") {
-		log.Fatalf("[LEDGER] Jira credentials required. Ensure canonical source is configured (ZenLock mount at /zen-lock/secrets or env fallback for local dev). Set DRY_RUN=1 to skip Jira calls.")
+		log.Fatalf("[LEDGER] Jira credentials required. Ensure ZenLock mount at /zen-lock/secrets is configured. Set DRY_RUN=1 to skip Jira calls.")
 	}
 
 	// Load batch telemetry

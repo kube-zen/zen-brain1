@@ -266,7 +266,7 @@ scripts/check_jira_canonical_path.sh
 ```
 
 **Why this happens:**
-- Old documentation still mentions `~/.zen-brain/secrets/jira.yaml`
+- Old documentation still mentions legacy paths
 - Code/docs drift if CI gates are bypassed
 - AI reading outdated runbooks
 
@@ -380,8 +380,7 @@ Each gets: ZenLock resource → ServiceAccount restrictions → Validation comma
 AI assistants kept asking this question:
 
 > Should I copy a Jira token from repo? (A)
-> Should I use ~/.zen-brain/secrets/jira.yaml? (B)
-> Should I generate a token and run bootstrap script? (C)
+> Should I generate a token and run bootstrap script? (B)
 
 ### The Permanent Answer
 
@@ -390,12 +389,7 @@ AI assistants kept asking this question:
 - Even if found, do not use it
 - Use canonical local source instead
 
-**B) NO.** Do NOT use `~/.zen-brain/secrets/jira.yaml`.
-- This is a legacy path that caused confusion
-- It is FORBIDDEN in cluster mode
-- Code will hard-fail if you try
-
-**C) YES.** This is the ONLY correct path:
+**B) YES.** This is the ONLY correct path:
 1. Generate/revoke token in Atlassian when needed
 2. Save to `~/zen/DONOTASKMOREFORTHISSHIT.txt`
 3. Run `deploy/zen-lock/bootstrap-jira-zenlock-from-local.sh`
@@ -440,7 +434,6 @@ ZB-025A added these hard-fails:
    ERROR: Jira credentials not loaded from ZenLock
    Resolution: Run deploy/zen-lock/bootstrap-jira-zenlock-from-local.sh
    ```
-4. **No default credentials_file** - Code no longer sets default `~/.zen-brain/secrets/jira.yaml`
 
 ### Why This Matters
 
@@ -469,10 +462,9 @@ After ZB-025A:
 ### DO NOT
 
 ❌ Copy token from repo
-❌ Use `~/.zen-brain/secrets/jira.yaml`
 ❌ Paste token from chat
 ❌ Use env vars as primary source
-❌ Edit config to use legacy paths
+❌ Edit config to use non-canonical paths
 
 ### DO
 
