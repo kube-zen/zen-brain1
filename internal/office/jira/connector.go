@@ -149,10 +149,6 @@ func New(name, clusterID string, config *Config) (*JiraOffice, error) {
 	}, nil
 }
 
-// NewFromEnv has been REMOVED.
-// Use secrets.ResolveJira() or config.LoadJiraConfig() instead.
-// Direct environment variable access violates the canonical credential model.
-
 // Config returns the connector configuration (for doctor/health display only; do not modify).
 func (j *JiraOffice) Config() *Config {
 	return j.config

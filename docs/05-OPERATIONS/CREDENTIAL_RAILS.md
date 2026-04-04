@@ -167,12 +167,15 @@ if err != nil {
 
 ### Forbidden Patterns (Blocked by CI)
 
-```go
-// ❌ FORBIDDEN: Direct env access
-token := os.Getenv("JIRA_API_TOKEN")
+Direct environment variable access and deprecated credential methods are blocked:
+- ❌ `os.Getenv("JIRA_*")` outside canonical resolver
+- ❌ `jira.NewFromEnv()` or `NewFromEnv()` usage
 
-// ✅ CANONICAL: Use resolver
-creds := secrets.ResolveJira(opts)
+Use canonical resolver instead:
+- ✅ `secrets.ResolveJira(opts)` with ClusterMode=true for cluster
+- ✅ `secrets.ResolveJira(opts)` with ClusterMode=false for local
+- ✅ `config.LoadJiraConfig()` which uses canonical resolver
+
 ```
 
 ---
@@ -412,7 +415,7 @@ Services emit at startup (no secret values):
 - Report capability (paths, booleans), never secret values
 
 ### ✗ DON'T
-- Use `os.Getenv("JIRA_*")` outside canonical resolver
+- Use environment variable access for Jira credentials
 - Use `envFrom: secretRef` in K8s manifests
 - Use `zen-lock/inject-env: "true"` for Jira/Git
 - Keep plaintext token files after rotation

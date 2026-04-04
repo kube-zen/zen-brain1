@@ -316,10 +316,7 @@ CI MUST fail if:
    - 0.8b path uses timeout < 2700s
 6. **Wrong Jira email in metadata**
    - `deploy/zen-lock/jira-metadata.yaml` must have `email: zen@zen-mesh.io`
-7. **Direct env access outside resolver**
-   - Raw env reads for credentials in non-allowlisted files
-8. **K8s manifest violations**
-   - `envFrom: secretRef` for Jira credentials
+7. **K8s manifest violations**
    - `zen-lock/inject-env: "true"` for Jira/Git
 
 ---
