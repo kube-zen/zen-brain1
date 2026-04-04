@@ -77,16 +77,8 @@ tmp/
 .env.local
 .env.*.local
 
-# Jira credentials (ZenLock bridge file for host runtime)
-.zen-brain/jira-credentials.env
-
-# Additional credential file patterns (ZB-013)
-**/secrets/jira.yaml
-**/.env.jira*
-**/jira-input.yaml
-**/jira-credentials.env
-**/.zen-lock/*.key
-
+# Temporary test binaries and scripts
+test_zencontext*
 # Log files
 *.log
 logs/
