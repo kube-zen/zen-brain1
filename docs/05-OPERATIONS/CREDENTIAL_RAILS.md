@@ -207,23 +207,6 @@ spec:
           readOnly: true
 ```
 
-### ✗ DON'T: envFrom secretRef
-
-```yaml
-# FORBIDDEN - violates credential rails
-envFrom:
-- secretRef:
-    name: jira-credentials-runtime
-```
-
-### ✗ DON'T: zen-lock/inject-env
-
-```yaml
-# FORBIDDEN - injects as env vars, not mount
-annotations:
-  zen-lock/inject-env: "true"  # WRONG
-```
-
 ---
 
 ## CI Guardrails
@@ -416,7 +399,6 @@ Services emit at startup (no secret values):
 
 ### ✗ DON'T
 - Use environment variable access for Jira credentials
-- Use `envFrom: secretRef` in K8s manifests
 - Use `zen-lock/inject-env: "true"` for Jira/Git
 - Keep plaintext token files after rotation
 - Ask for credentials when canonical sources exist
