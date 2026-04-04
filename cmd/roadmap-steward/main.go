@@ -56,7 +56,7 @@ func loadConfig() stewardConfig {
 		DirPath:     "",
 	})
 	if err != nil {
-		log.Printf("[WARN] Jira credential resolution failed: %v, using env fallback", err)
+		log.Printf("[WARN] Jira credential resolution failed: %v", err)
 	}
 
 	cfg := stewardConfig{

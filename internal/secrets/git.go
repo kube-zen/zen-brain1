@@ -42,7 +42,7 @@ func ResolveGit(ctx context.Context, opts GitResolveOptions) (*GitMaterial, erro
 	}
 
 	// No fallback allowed - hard fail with clear error
-	return nil, fmt.Errorf("git credentials not found: ZenLock mount required at %s (no PAT/env fallback)", opts.DirPath)
+	return nil, fmt.Errorf("git credentials not found: ZenLock mount required at %s", opts.DirPath)
 }
 
 // tryZenLockGitDir attempts to load Git credentials from ZenLock-mounted directory.
@@ -123,11 +123,11 @@ func detectSSHRemote(repoRoot string) string {
 
 // GitCapabilities represents what Git operations are possible.
 type GitCapabilities struct {
-	SSHKeyReadable  bool
+	SSHKeyReadable     bool
 	KnownHostsReadable bool
-	RemoteIsSSH     bool
-	AuthWorks       bool // git ls-remote succeeds
-	PushAllowed     bool // tested push permission
+	RemoteIsSSH        bool
+	AuthWorks          bool // git ls-remote succeeds
+	PushAllowed        bool // tested push permission
 }
 
 // CheckGitCapabilities tests Git capability matrix.

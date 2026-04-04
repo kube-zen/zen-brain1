@@ -22,8 +22,8 @@ import (
 // Results are recorded in a durable failure ledger for empirical routing.
 //
 // Jira credentials resolved via canonical resolver (internal/secrets/jira.go):
-//   - Cluster mode: /zen-lock/secrets/* only
-//   - Local mode: env fallback allowed (JIRA_URL, JIRA_EMAIL, JIRA_API_TOKEN, JIRA_PROJECT_KEY)
+//   - Cluster mode: /zen-lock/secrets/* (ZenLock mount, read-only)
+//   - Local mode: secrets.ResolveJira() with DirPath
 //
 // Other env vars:
 //   L1_ENDPOINT   — L1 health endpoint (default: http://localhost:56227/health)

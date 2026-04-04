@@ -222,13 +222,11 @@ func findConfigPath() string {
 // loadFromEnv loads non-Jira environment variables (Confluence, AWS, Redis, etc.).
 // Jira credentials are loaded via loadJiraCredentials() using the canonical resolver.
 func (c *Config) loadFromEnv() {
-	// Confluence: Use canonical resolver (similar pattern - TODO: implement secrets.ConfluenceResolve)
-	// For now, keep env fallback for Confluence until canonical resolver implemented
+	// Confluence: TODO - implement secrets.ResolveConfluence() when needed
 	c.Confluence.Username = os.Getenv("CONFLUENCE_USERNAME")
 	c.Confluence.APIToken = os.Getenv("CONFLUENCE_API_TOKEN")
 
-	// AWS: Use canonical resolver (similar pattern - TODO: implement secrets.AWSResolve)
-	// For now, keep env fallback for AWS until canonical resolver implemented
+	// AWS: TODO - implement secrets.ResolveAWS() when needed
 	if c.ZenContext.Tier3S3.AccessKeyID == "" {
 		c.ZenContext.Tier3S3.AccessKeyID = os.Getenv("AWS_ACCESS_KEY_ID")
 	}

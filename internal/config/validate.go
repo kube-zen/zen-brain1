@@ -248,7 +248,7 @@ func (v *ConfigValidator) validateJira(cfg *Config, result *ValidationResult) {
 	if cfg.Jira.CredentialsSource == "none" || cfg.Jira.CredentialsSource == "" {
 		result.Warnings = append(result.Warnings, ValidationWarning{
 			Field:   "jira.credentials",
-			Message: "no credentials found in credentials_dir, credentials_file, or env (env fallback disabled)",
+			Message: "no credentials found in credentials_dir or credentials_file",
 		})
 	}
 
