@@ -1,25 +1,14 @@
 # Zen-Brain Jira Integration - Canonical Setup
 
-**ZB-025A ENFORCED:** This is the single authoritative runbook for Jira credential management. No other docs needed.
+**ZB-025A ENFORCED:** This is the single authoritative runbook for Jira credential management.
 
 ## Executive Summary
 
-Jira credentials are managed through **ZenLock** as the ONLY source of truth in cluster mode.
+Jira credentials are managed through **ZenLock** as the ONLY source of truth.
 
-**FORBIDDEN PATHS (DO NOT USE):**
-- `~/.zen-brain/secrets/jira.yaml` - Legacy path, will fail in cluster mode
-- Environment variables as primary source - Disabled by default
-- Chat-pasted tokens - Never store or use
-
-**CANONICAL PATHS (USE THESE):**
-
-**Local bootstrap (operator setup):**
-- `~/zen/DONOTASKMOREFORTHISSHIT.txt` - Contains JIRA_API_TOKEN (ephemeral)
-- `~/zen/keys/zen-brain/credentials.key` - AGE private key (canonical)
-- `~/zen/keys/zen-brain/credentials.pub` - AGE public key (canonical)
-
-**Runtime (cluster):**
-- `/zen-lock/secrets` - Mounted by ZenLock, ONLY allowed source
+**CANONICAL PATH (USE THIS ONLY):**
+- **Cluster runtime:** `/zen-lock/secrets` (ZenLock CSI mount)
+- **Code:** `secrets.ResolveJira()` with `ClusterMode=true`
 
 **Setup command:**
 ```bash
@@ -33,7 +22,7 @@ scripts/check_jira_canonical_path.sh
 
 ## Overview
 
-Jira credentials are managed through **ZenLock** as the source of truth. Access is restricted to specific service accounts via **AllowedSubjects**.
+Jira credentials flow from operator-controlled bootstrap files into ZenLock-encrypted manifests, then mount at runtime via CSI. Access is restricted to specific service accounts via **AllowedSubjects**.
 
 ## Prerequisites
 
@@ -129,24 +118,16 @@ python3 scripts/generate_jira_secret.py
 kubectl apply -f deploy/zen-lock/jira-zenlock.yaml
 ```
 
-### Method B: Host Runtime (Local Dev Only)
+### Method B: Host Runtime (For Testing)
 
-For local development outside Kubernetes, use the canonical resolver:
-- `internal/secrets/jira.go:ResolveJira()` with `AllowEnvFallback: true`
-
-**WARNING:** The scripts `scripts/load_jira_credentials.py` and `scripts/install_jira_credentials.py` are **QUARANTINED** and will hard-fail. Use the canonical bootstrap script instead.
+For local testing outside Kubernetes, use the canonical bootstrap script:
 
 ```bash
-# Use canonical bootstrap (RECOMMENDED)
+# Use canonical bootstrap (ONLY METHOD)
 ./deploy/zen-lock/bootstrap-jira-zenlock-from-local.sh
-
-# Local dev only: env fallback (NOT for cluster, NOT recommended)
-# The canonical resolver will read these if AllowEnvFallback: true
-export JIRA_URL="https://zen-mesh.atlassian.net"
-export JIRA_EMAIL="zen@zen-mesh.io"
-export JIRA_API_TOKEN="<your-token>"  # Never commit this
-export JIRA_PROJECT_KEY="ZB"
 ```
+
+**WARNING:** Legacy scripts (`scripts/load_jira_credentials.py`, `scripts/install_jira_credentials.py`) are **QUARANTINED** and will hard-fail. Use the canonical bootstrap script only.
 
 ## Service Account Access
 

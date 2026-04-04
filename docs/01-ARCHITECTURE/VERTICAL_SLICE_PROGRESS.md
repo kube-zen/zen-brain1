@@ -147,7 +147,7 @@ The `vertical-slice` command now demonstrates a **working end-to-end pipeline**:
    - Uploads proof artifacts (JSON, MD, log) via AddAttachment
    - End-of-run Office summary: comment posted, attachments count, status updated
    - Graceful error handling; skipped in mock mode
-   - Config/bootstrap: Jira from config first (InitOfficeManagerFromConfig), then env fallback
+   - Config/bootstrap: Jira from config (InitOfficeManagerFromConfig)
    - Office CLI: zen-brain office doctor | search <query> | fetch <key> | watch
 ```
 

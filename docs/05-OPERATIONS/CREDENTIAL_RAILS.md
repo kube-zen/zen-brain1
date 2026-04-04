@@ -149,23 +149,9 @@ if err != nil {
 client := jira.NewClient(jiraCreds)
 ```
 
-### Local Mode (Development)
+---
 
-```go
-// Local mode - allows env fallback as last resort
-jiraCreds, err := secrets.ResolveJira(secrets.JiraResolveOptions{
-    ClusterMode:       false,
-    DirPath:           "/zen-lock/secrets",
-    FilePath:          "~/.zen-brain/secrets/jira.yaml",
-    AllowEnvFallback:  true,
-})
-if err != nil {
-    // Log but may continue if creds truly unavailable
-    log.Printf("local mode: %v", err)
-}
-```
-
-### Forbidden Patterns (Blocked by CI)
+## CI Guardrails
 
 Direct credential access is blocked:
 - ❌ Environment variable reads for credentials
@@ -251,19 +237,6 @@ The following scripts are **HARD-FAIL DEPRECATED** and will block execution:
 - Use forbidden credential paths (`~/.zen-brain/secrets/*`, `~/.zen-lock/*`)
 - Export credentials as environment variables (forbidden in cluster mode)
 - Violate canonical credential model enforced by CI gates
-
----
-
-## Legacy Paths (Reference Only)
-
-| Old Path | Status | Replacement |
-|----------|--------|-------------|
-| `~/zen/DONOTASKMOREFORTHISSHIT.txt` | Bootstrap-only (ephemeral) | Deleted after rotation |
-| `~/zen/ZENBRAINPRIVATEKEYNEVERDELETETHISSHIT.age` | Legacy keypair | `~/zen/keys/zen-brain/credentials.key` |
-| `~/zen/ZENBRAINPUBLICKEYNEVERDELETETHISSHIT.age` | Legacy keypair | `~/zen/keys/zen-brain/credentials.pub` |
-| `~/.zen-brain/secrets/jira.yaml` | ❌ FORBIDDEN | `~/zen/keys/zen-brain/secrets.d/jira.enc` |
-| `~/.zen-lock/private-key.age` | ❌ FORBIDDEN | `~/zen/keys/zen-brain/credentials.key` |
-| `zen@kube-zen.io` | ❌ WRONG EMAIL | `zen@zen-mesh.io` |
 
 ---
 

@@ -13,9 +13,9 @@ All commands use `zen-brain office` CLI and require proper Jira connectivity.
 ## Prerequisites
 
 ```bash
-# 1. Valid Jira API token in secrets file
-cat ~/.zen-brain/secrets/jira.yaml
-# Should contain JIRA_API_TOKEN with ATATT3... format
+# 1. Verify ZenLock credentials mounted
+kubectl exec -n zen-brain deployment/foreman -- ls -la /zen-lock/secrets/
+# Should show JIRA_URL, JIRA_EMAIL, JIRA_API_TOKEN, JIRA_PROJECT_KEY
 
 # 2. Verify connectivity
 ./zen-brain office doctor

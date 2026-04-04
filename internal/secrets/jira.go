@@ -34,13 +34,12 @@ type JiraResolveOptions struct {
 // Cluster mode (ClusterMode=true):
 //   - ONLY DirPath (/zen-lock/secrets)
 //   - No FilePath fallback
-//   - No env fallback
 //   - Hard fail if DirPath not present
 //
 // Local mode (ClusterMode=false):
-//   - DirPath → FilePath (no env fallback allowed)
+//   - DirPath → FilePath → "none"
 //
-// Returns clear Source string: "zenlock-dir:<path>", "host-file:<path>", "env", "none".
+// Returns clear Source string: "zenlock-dir:<path>", "host-file:<path>", "none".
 // In cluster mode, returns error if credentials not found (no silent "none" return).
 func ResolveJira(ctx context.Context, opts JiraResolveOptions) (*JiraMaterial, error) {
 	// CLUSTER MODE: Strict enforcement - ONLY DirPath allowed
@@ -58,7 +57,7 @@ func ResolveJira(ctx context.Context, opts JiraResolveOptions) (*JiraMaterial, e
 		return material, nil
 	}
 
-	// LOCAL MODE: Try DirPath → FilePath → Env fallback (if allowed)
+	// LOCAL MODE: Try DirPath → FilePath → return "none"
 
 	// Try ZenLock directory first
 	if opts.DirPath != "" {
