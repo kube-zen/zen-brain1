@@ -167,9 +167,9 @@ if err != nil {
 
 ### Forbidden Patterns (Blocked by CI)
 
-Direct environment variable access and deprecated credential methods are blocked:
-- ❌ `os.Getenv("JIRA_*")` outside canonical resolver
-- ❌ `jira.NewFromEnv()` or `NewFromEnv()` usage
+Direct credential access is blocked:
+- ❌ Environment variable reads for credentials
+- ❌ Deprecated constructor methods
 
 Use canonical resolver instead:
 - ✅ `secrets.ResolveJira(opts)` with ClusterMode=true for cluster
