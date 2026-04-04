@@ -66,12 +66,6 @@ make jira-install FILE=/absolute/path/to/jira-input.yaml
 - Restricted to specific ServiceAccounts via AllowedSubjects
 - **Consumer:** foreman (optional, opt-in via values/manifests)
 
-**Host Runtime (Local)**
-- Credential file at `~/.zen-brain/secrets/jira.yaml`
-- Loaded via canonical credential resolver in `internal/config`
-- File is gitignored (not in repo)
-- Mirrors ZenLock structure for consistency
-
 ### Access Control
 
 Allowed ServiceAccounts:
@@ -79,17 +73,7 @@ Allowed ServiceAccounts:
 
 Only these SAs can access Jira credentials. See `jira-credentials.zenlock.yaml` for current allowedSubjects.
 
-## Credential Paths
-
-### Local Host Path
-```
-~/.zen-brain/secrets/jira.yaml
-```
-- Format: stringData with JIRA_URL, JIRA_EMAIL, JIRA_API_TOKEN, JIRA_PROJECT_KEY
-- Mode: 0600
-- Source: host-file
-
-### In-Cluster Path
+## In-Cluster Path
 ```
 Mount path: /zen-lock/secrets
 Consumer: foreman pod (opt-in via foreman.jiraZenLock.enabled=true)
