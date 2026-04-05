@@ -53,8 +53,8 @@ The Jira connector must:
 | `issue.fields.status.name` | `Status` | Configurable per project; default mapping in `config.yaml` | Jira statuses vary by workflow |
 | `issue.fields.labels` | `Tags.HumanOrg` | All labels initially placed in `HumanOrg`; connector may infer other categories based on patterns | Example: `team‑platform`, `q1‑2026` |
 | `issue.fields.components` | `WorkDomain` | Map component names to canonical `WorkDomain` enum; unknown→`core` | |
-| `issue.fields.customfield_XXXXX` (KB Scope) | `KBScopes` | Custom field that lists documentation scopes | Optional; used by planner |
-| `issue.fields.customfield_YYYYY` (SR&ED) | `Tags.SRED` | Map custom field values to `SREDTag` enum | Only if SR&ED enabled |
+| `issue.fields.customfield_10010` (KB Scope) | `KBScopes` | Custom field that lists documentation scopes | Optional; used by planner |
+| `issue.fields.customfield_10011` (SR&ED) | `Tags.SRED` | Map custom field values to `SREDTag` enum | Only if SR&ED enabled |
 | `issue.fields.parent.key` | `Source.ParentKey` | Pass through | For subtasks |
 | `issue.fields.epic.link` | `Source.EpicKey` | Pass through | For epics |
 | `issue.fields.reporter.displayName` | `Source.Reporter` | Pass through | |
