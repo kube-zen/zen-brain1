@@ -241,6 +241,9 @@ func TestStartReplayWorker(t *testing.T) {
 }
 
 func TestGetManager_NotInitialized(t *testing.T) {
+	// Quiesce the background replay worker first: it reads the manager
+	// global, which this test mutates (data race otherwise).
+	StopReplayWorker()
 	// Reset to uninitialized state
 	manager = nil
 
