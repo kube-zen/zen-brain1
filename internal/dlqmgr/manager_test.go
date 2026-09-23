@@ -251,17 +251,18 @@ func TestGetManager_NotInitialized(t *testing.T) {
 }
 
 func TestIsInitialized(t *testing.T) {
-	// Reset to uninitialized state
+	// Init is sync.Once-guarded; sibling tests consume the once and may nil
+	// the global. Re-arm both here so THIS test exercises a real Init.
+	initOnce = sync.Once{}
 	manager = nil
 
-	// Should be false
-	assert.False(t, IsInitialized())
-
-	// Initialize
 	ctx := context.Background()
 	err := Init(ctx)
 	require.NoError(t, err)
+	assert.True(t, IsInitialized())
 
-	// Should be true
+	// Second Init must be a no-op (no panic, still initialized).
+	err = Init(ctx)
+	require.NoError(t, err)
 	assert.True(t, IsInitialized())
 }

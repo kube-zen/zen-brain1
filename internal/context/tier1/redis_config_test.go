@@ -11,8 +11,10 @@ func TestDefaultRedisConfig(t *testing.T) {
 	if config.URL != "" {
 		t.Errorf("URL should be empty, got: %s", config.URL)
 	}
-	if config.Addr != "localhost:6379" {
-		t.Errorf("Addr should be localhost:6379, got: %s", config.Addr)
+	if config.Addr != "" {
+		// FAIL CLOSED law: no implicit localhost default — an unset Addr must
+		// never silently point at a local daemon.
+		t.Errorf("Addr must be empty (fail closed, no implicit localhost), got: %s", config.Addr)
 	}
 	if config.DB != 0 {
 		t.Errorf("DB should be 0, got: %d", config.DB)

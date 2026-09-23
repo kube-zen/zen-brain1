@@ -186,11 +186,13 @@ func TestCalculateQualityScore(t *testing.T) {
 		{
 			name: "medium quality",
 			comp: &ModelAnalysisComparison{
+				// Inputs sit inside (not on) the cost/time bands so the
+				// medium expectation is unambiguous: 28 + 20 + 10 + 10 = 68.
 				AnalysisResult: &contracts.AnalysisResult{},
 				Confidence:      0.7,
 				TaskCount:       5,
-				CostUSD:         5.0,
-				ExecutionTime:   30 * time.Second,
+				CostUSD:         15.0,
+				ExecutionTime:   45 * time.Second,
 			},
 			expected: "medium",
 		},

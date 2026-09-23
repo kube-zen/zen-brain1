@@ -203,6 +203,12 @@ func LoadConfig(path string) (*Config, error) {
 		return nil, fmt.Errorf("failed to parse config file %s: %w", path, err)
 	}
 
+	// Config-file compatibility: legacy `project` -> `project_key`. This is a
+	// pure YAML decode concern and must not depend on credential material.
+	if config.Jira.ProjectKey == "" && config.Jira.Project != "" {
+		config.Jira.ProjectKey = config.Jira.Project
+	}
+
 	// Load Jira credentials from canonical sources
 	config.loadJiraCredentials()
 

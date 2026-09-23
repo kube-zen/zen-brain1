@@ -1,6 +1,8 @@
 package context
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/kube-zen/zen-brain1/internal/context/tier1"
@@ -27,9 +29,10 @@ func TestDefaultZenContextConfig(t *testing.T) {
 	if config.Tier2QMD == nil {
 		t.Error("Tier2QMD should not be nil")
 	} else {
-		if config.Tier2QMD.RepoPath != "./zen-docs" {
-			t.Errorf("Tier2QMD.RepoPath should be './zen-docs', got: %s",
-				config.Tier2QMD.RepoPath)
+		wantRepo := filepath.Join(os.Getenv("HOME"), ".zen", "zen-brain1", "zen-docs")
+		if config.Tier2QMD.RepoPath != wantRepo {
+			t.Errorf("Tier2QMD.RepoPath should be '%s' (fail-closed HomeDir anchoring), got: %s",
+				wantRepo, config.Tier2QMD.RepoPath)
 		}
 		if config.Tier2QMD.Verbose != false {
 			t.Errorf("Tier2QMD.Verbose should be false, got: %v", config.Tier2QMD.Verbose)
@@ -43,9 +46,10 @@ func TestDefaultZenContextConfig(t *testing.T) {
 	if config.Journal == nil {
 		t.Error("Journal should not be nil")
 	} else {
-		if config.Journal.JournalPath != "./journal" {
-			t.Errorf("Journal.JournalPath should be './journal', got: %s",
-				config.Journal.JournalPath)
+		wantJournal := filepath.Join(os.Getenv("HOME"), ".zen", "zen-brain1", "journal")
+		if config.Journal.JournalPath != wantJournal {
+			t.Errorf("Journal.JournalPath should be '%s' (fail-closed HomeDir anchoring), got: %s",
+				wantJournal, config.Journal.JournalPath)
 		}
 		if config.Journal.EnableQueryIndex != true {
 			t.Errorf("Journal.EnableQueryIndex should be true, got: %v",

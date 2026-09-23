@@ -368,7 +368,7 @@ func calculateConsensusRate(fieldValues map[string][]ModelFieldValue) float64 {
 		return 0.0
 	}
 
-	totalAgreements := 0
+	totalAgreement := 0.0
 	totalFields := len(fieldValues)
 
 	for _, values := range fieldValues {
@@ -389,11 +389,12 @@ func calculateConsensusRate(fieldValues map[string][]ModelFieldValue) float64 {
 			}
 		}
 
-		totalAgreements += maxCount
+		// Per-field agreement ratio (models agreeing / models asked).
+		totalAgreement += float64(maxCount) / float64(len(values))
 	}
 
 	// Average agreement across all fields
-	return float64(totalAgreements) / float64(totalFields)
+	return totalAgreement / float64(totalFields)
 }
 
 // findFieldDisagreement identifies fields where models disagree.
@@ -735,11 +736,14 @@ func NewAnalysisCache(ttl time.Duration) *AnalysisCache {
 
 // GenerateCacheKey generates a cache key for a work item.
 func GenerateCacheKey(workItem *contracts.WorkItem) string {
-	// Use work item fields for cache key
-	return fmt.Sprintf("%s:%s:%s:%s",
+	// Use work item fields for cache key. ID is included: work items with
+	// identical template bodies are distinct entities and must not collide
+	// (TestAnalysisCache_GetStats pins one entry per work item).
+	return fmt.Sprintf("%s:%s:%s:%s:%s",
 		workItem.WorkType,
 		workItem.WorkDomain,
 		workItem.Priority,
+		workItem.ID,
 		computeContentHash(workItem.Body),
 	)
 }
@@ -758,25 +762,27 @@ func (c *AnalysisCache) Get(ctx context.Context, workItem *contracts.WorkItem) (
 	key := GenerateCacheKey(workItem)
 
 	c.mu.RLock()
-	defer c.mu.RUnlock()
-
 	cached, exists := c.cache[key]
 	if !exists {
+		c.mu.RUnlock()
 		return nil, false
 	}
 
 	// Check if expired
 	if time.Since(cached.CachedAt) > c.ttl {
+		c.mu.RUnlock()
 		return nil, false
 	}
-
-	// Update access stats
 	c.mu.RUnlock()
+
+	// Update access stats. The read lock MUST be dropped before taking the
+	// write lock, and the write lock MUST be released: the previous form
+	// took Lock() and never Unlock()ed (with a mismatched deferred RUnlock),
+	// deadlocking every subsequent caller after the first cache hit.
 	c.mu.Lock()
 	cached.AccessCount++
 	cached.LastAccessed = time.Now()
-	c.cache[key] = cached
-	c.mu.RLock()
+	c.mu.Unlock()
 
 	return cached.AnalysisResult, true
 }
